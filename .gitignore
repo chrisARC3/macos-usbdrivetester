@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# Xcode build output / user state
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+*.xcscmblueprint
+*.moved-aside
+
+# Swift Package Manager
+.swiftpm/
+.build/
+
+# Local helper artifacts (installed by scripts/dev-install-helper.sh into /Library)

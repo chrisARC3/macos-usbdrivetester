@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Must equal the Mach service name and the SMAppService plist name. -->
+    <key>Label</key>
+    <string>com.arc3solutions.USBDriveTester.Helper</string>
+
+    <!-- Path to the embedded helper executable, RELATIVE to the app bundle.
+         SMAppService (Step 3) resolves this against the registering app. -->
+    <key>BundleProgram</key>
+    <string>Contents/MacOS/com.arc3solutions.USBDriveTester.Helper</string>
+
+    <!-- The Mach service launchd advertises on the helper's behalf. The helper's
+         NSXPCListener attaches to this exact name. -->
+    <key>MachServices</key>
+    <dict>
+        <key>com.arc3solutions.USBDriveTester.Helper</key>
+        <true/>
+    </dict>
+
+    <!-- Associates this daemon with the app so it appears under the app's name in
+         System Settings > Login Items & Extensions when approval is required. -->
+    <key>AssociatedBundleIdentifiers</key>
+    <array>
+        <string>com.arc3solutions.USBDriveTester</string>
+    </array>
+</dict>
+</plist>

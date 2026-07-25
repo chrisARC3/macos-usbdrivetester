@@ -1,0 +1,752 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FE6097762FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper in Embed Helper */ = {isa = PBXBuildFile; fileRef = FE6097752FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		FE6097792FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist in Embed Daemon plist */ = {isa = PBXBuildFile; fileRef = FE6097782FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		FE6097282FEECA750091C1E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE6097122FEECA740091C1E0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE6097192FEECA740091C1E0;
+			remoteInfo = USBDriveTester;
+		};
+		FE6097322FEECA750091C1E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE6097122FEECA740091C1E0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE6097192FEECA740091C1E0;
+			remoteInfo = USBDriveTester;
+		};
+		FE6097722FEF1E660091C1E0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FE6097122FEECA740091C1E0 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FE6097472FEECD1D0091C1E0;
+			remoteInfo = com.arc3solutions.USBDriveTester.Helper;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FE6097462FEECD1D0091C1E0 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FE6097742FEF1EA10091C1E0 /* Embed Helper */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/MacOS;
+			dstSubfolderSpec = 1;
+			files = (
+				FE6097762FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper in Embed Helper */,
+			);
+			name = "Embed Helper";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE6097772FEF21240091C1E0 /* Embed Daemon plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = Contents/Library/LaunchDaemons;
+			dstSubfolderSpec = 1;
+			files = (
+				FE6097792FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist in Embed Daemon plist */,
+			);
+			name = "Embed Daemon plist";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		FE60971A2FEECA740091C1E0 /* USBDriveTester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = USBDriveTester.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE6097272FEECA750091C1E0 /* USBDriveTesterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = USBDriveTesterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE6097312FEECA750091C1E0 /* USBDriveTesterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = USBDriveTesterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE6097482FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.arc3solutions.USBDriveTester.Helper; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE6097752FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = com.arc3solutions.USBDriveTester.Helper; path = "../../../../../../Users/christopherkarr/Library/Developer/Xcode/DerivedData/USBDriveTester-fndvzobcvvrsxwfjhtiawbpirxmt/Build/Products/Debug/com.arc3solutions.USBDriveTester.Helper"; sourceTree = "<group>"; };
+		FE6097782FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.arc3solutions.USBDriveTester.Helper.plist; path = Daemon/com.arc3solutions.USBDriveTester.Helper.plist; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		FE6097712FEF1E340091C1E0 /* Exceptions for "USBDriveTester" folder in "com.arc3solutions.USBDriveTester.Helper" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/TesterControl.swift,
+			);
+			target = FE6097472FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */;
+		};
+		FE84301C2FFED8ED003FFDF4 /* Exceptions for "com.arc3solutions.USBDriveTester.Helper" folder in "USBDriveTesterTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Core/InMemoryBlockDevice.swift,
+				Core/RawBlockDevice.swift,
+				Core/RetentionTestEngine.swift,
+			);
+			target = FE6097262FEECA750091C1E0 /* USBDriveTesterTests */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		FE60971C2FEECA740091C1E0 /* USBDriveTester */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FE6097712FEF1E340091C1E0 /* Exceptions for "USBDriveTester" folder in "com.arc3solutions.USBDriveTester.Helper" target */,
+			);
+			path = USBDriveTester;
+			sourceTree = "<group>";
+		};
+		FE60972A2FEECA750091C1E0 /* USBDriveTesterTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = USBDriveTesterTests;
+			sourceTree = "<group>";
+		};
+		FE6097342FEECA750091C1E0 /* USBDriveTesterUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = USBDriveTesterUITests;
+			sourceTree = "<group>";
+		};
+		FE6097492FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				FE84301C2FFED8ED003FFDF4 /* Exceptions for "com.arc3solutions.USBDriveTester.Helper" folder in "USBDriveTesterTests" target */,
+			);
+			path = com.arc3solutions.USBDriveTester.Helper;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		FE6097172FEECA740091C1E0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE6097242FEECA750091C1E0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE60972E2FEECA750091C1E0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE6097452FEECD1D0091C1E0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		FE6097112FEECA740091C1E0 = {
+			isa = PBXGroup;
+			children = (
+				FE6097782FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist */,
+				FE6097752FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */,
+				FE60971C2FEECA740091C1E0 /* USBDriveTester */,
+				FE60972A2FEECA750091C1E0 /* USBDriveTesterTests */,
+				FE6097342FEECA750091C1E0 /* USBDriveTesterUITests */,
+				FE6097492FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */,
+				FE60971B2FEECA740091C1E0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		FE60971B2FEECA740091C1E0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FE60971A2FEECA740091C1E0 /* USBDriveTester.app */,
+				FE6097272FEECA750091C1E0 /* USBDriveTesterTests.xctest */,
+				FE6097312FEECA750091C1E0 /* USBDriveTesterUITests.xctest */,
+				FE6097482FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		FE6097192FEECA740091C1E0 /* USBDriveTester */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE60973B2FEECA750091C1E0 /* Build configuration list for PBXNativeTarget "USBDriveTester" */;
+			buildPhases = (
+				FE6097162FEECA740091C1E0 /* Sources */,
+				FE6097172FEECA740091C1E0 /* Frameworks */,
+				FE6097182FEECA740091C1E0 /* Resources */,
+				FE6097742FEF1EA10091C1E0 /* Embed Helper */,
+				FE6097772FEF21240091C1E0 /* Embed Daemon plist */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FE6097732FEF1E660091C1E0 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FE60971C2FEECA740091C1E0 /* USBDriveTester */,
+			);
+			name = USBDriveTester;
+			packageProductDependencies = (
+			);
+			productName = USBDriveTester;
+			productReference = FE60971A2FEECA740091C1E0 /* USBDriveTester.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FE6097262FEECA750091C1E0 /* USBDriveTesterTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE60973E2FEECA750091C1E0 /* Build configuration list for PBXNativeTarget "USBDriveTesterTests" */;
+			buildPhases = (
+				FE6097232FEECA750091C1E0 /* Sources */,
+				FE6097242FEECA750091C1E0 /* Frameworks */,
+				FE6097252FEECA750091C1E0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FE6097292FEECA750091C1E0 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FE60972A2FEECA750091C1E0 /* USBDriveTesterTests */,
+			);
+			name = USBDriveTesterTests;
+			packageProductDependencies = (
+			);
+			productName = USBDriveTesterTests;
+			productReference = FE6097272FEECA750091C1E0 /* USBDriveTesterTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		FE6097302FEECA750091C1E0 /* USBDriveTesterUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE6097412FEECA750091C1E0 /* Build configuration list for PBXNativeTarget "USBDriveTesterUITests" */;
+			buildPhases = (
+				FE60972D2FEECA750091C1E0 /* Sources */,
+				FE60972E2FEECA750091C1E0 /* Frameworks */,
+				FE60972F2FEECA750091C1E0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				FE6097332FEECA750091C1E0 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				FE6097342FEECA750091C1E0 /* USBDriveTesterUITests */,
+			);
+			name = USBDriveTesterUITests;
+			packageProductDependencies = (
+			);
+			productName = USBDriveTesterUITests;
+			productReference = FE6097312FEECA750091C1E0 /* USBDriveTesterUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		FE6097472FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = FE60974C2FEECD1D0091C1E0 /* Build configuration list for PBXNativeTarget "com.arc3solutions.USBDriveTester.Helper" */;
+			buildPhases = (
+				FE6097442FEECD1D0091C1E0 /* Sources */,
+				FE6097452FEECD1D0091C1E0 /* Frameworks */,
+				FE6097462FEECD1D0091C1E0 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				FE6097492FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */,
+			);
+			name = com.arc3solutions.USBDriveTester.Helper;
+			packageProductDependencies = (
+			);
+			productName = com.arc3solutions.USBDriveTester.Helper;
+			productReference = FE6097482FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		FE6097122FEECA740091C1E0 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					FE6097192FEECA740091C1E0 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+					FE6097262FEECA750091C1E0 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = FE6097192FEECA740091C1E0;
+					};
+					FE6097302FEECA750091C1E0 = {
+						CreatedOnToolsVersion = 26.6;
+						TestTargetID = FE6097192FEECA740091C1E0;
+					};
+					FE6097472FEECD1D0091C1E0 = {
+						CreatedOnToolsVersion = 26.6;
+					};
+				};
+			};
+			buildConfigurationList = FE6097152FEECA740091C1E0 /* Build configuration list for PBXProject "USBDriveTester" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = FE6097112FEECA740091C1E0;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = FE60971B2FEECA740091C1E0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				FE6097192FEECA740091C1E0 /* USBDriveTester */,
+				FE6097262FEECA750091C1E0 /* USBDriveTesterTests */,
+				FE6097302FEECA750091C1E0 /* USBDriveTesterUITests */,
+				FE6097472FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		FE6097182FEECA740091C1E0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE6097252FEECA750091C1E0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE60972F2FEECA750091C1E0 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		FE6097162FEECA740091C1E0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE6097232FEECA750091C1E0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE60972D2FEECA750091C1E0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		FE6097442FEECD1D0091C1E0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		FE6097292FEECA750091C1E0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE6097192FEECA740091C1E0 /* USBDriveTester */;
+			targetProxy = FE6097282FEECA750091C1E0 /* PBXContainerItemProxy */;
+		};
+		FE6097332FEECA750091C1E0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE6097192FEECA740091C1E0 /* USBDriveTester */;
+			targetProxy = FE6097322FEECA750091C1E0 /* PBXContainerItemProxy */;
+		};
+		FE6097732FEF1E660091C1E0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FE6097472FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */;
+			targetProxy = FE6097722FEF1E660091C1E0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		FE6097392FEECA750091C1E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		FE60973A2FEECA750091C1E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		FE60973C2FEECA750091C1E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arc3solutions.USBDriveTester;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FE60973D2FEECA750091C1E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SELECTED_FILES = readonly;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arc3solutions.USBDriveTester;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				REGISTER_APP_GROUPS = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		FE60973F2FEECA750091C1E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arc3solutions.USBDriveTesterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/USBDriveTester.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/USBDriveTester";
+			};
+			name = Debug;
+		};
+		FE6097402FEECA750091C1E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arc3solutions.USBDriveTesterTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/USBDriveTester.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/USBDriveTester";
+			};
+			name = Release;
+		};
+		FE6097422FEECA750091C1E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arc3solutions.USBDriveTesterUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = USBDriveTester;
+			};
+			name = Debug;
+		};
+		FE6097432FEECA750091C1E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.arc3solutions.USBDriveTesterUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_TARGET_NAME = USBDriveTester;
+			};
+			name = Release;
+		};
+		FE60974D2FEECD1D0091C1E0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		FE60974E2FEECD1D0091C1E0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 5JC55GTLZA;
+				ENABLE_HARDENED_RUNTIME = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		FE6097152FEECA740091C1E0 /* Build configuration list for PBXProject "USBDriveTester" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE6097392FEECA750091C1E0 /* Debug */,
+				FE60973A2FEECA750091C1E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE60973B2FEECA750091C1E0 /* Build configuration list for PBXNativeTarget "USBDriveTester" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE60973C2FEECA750091C1E0 /* Debug */,
+				FE60973D2FEECA750091C1E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE60973E2FEECA750091C1E0 /* Build configuration list for PBXNativeTarget "USBDriveTesterTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE60973F2FEECA750091C1E0 /* Debug */,
+				FE6097402FEECA750091C1E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE6097412FEECA750091C1E0 /* Build configuration list for PBXNativeTarget "USBDriveTesterUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE6097422FEECA750091C1E0 /* Debug */,
+				FE6097432FEECA750091C1E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		FE60974C2FEECD1D0091C1E0 /* Build configuration list for PBXNativeTarget "com.arc3solutions.USBDriveTester.Helper" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FE60974D2FEECD1D0091C1E0 /* Debug */,
+				FE60974E2FEECD1D0091C1E0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = FE6097122FEECA740091C1E0 /* Project object */;
+}
