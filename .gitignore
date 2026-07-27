@@ -13,4 +13,5 @@ xcuserdata/
 .swiftpm/
 .build/
 
-# Local helper artifacts (installed by scripts/dev-install-helper.sh into /Library)
+# Note: scripts/negative-test.sh builds its client into /tmp, not the repo — see the
+# comment in that script for why.

@@ -20,11 +20,15 @@ CONFIG="${1:-Debug}"
 echo "Using Xcode at: $DEVELOPER_DIR"
 echo "Building scheme '$SCHEME' ($CONFIG)…"
 
+# -allowProvisioningUpdates: from Step 3 the app is signed as Apple Development
+# rather than adhoc, and automatic signing needs permission to create/refresh the
+# signing assets when invoked from the command line rather than from Xcode.
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
     -configuration "$CONFIG" \
     -destination 'platform=macOS,arch=arm64' \
+    -allowProvisioningUpdates \
     build
 
 BPD="$(xcodebuild -showBuildSettings -project "$PROJECT" -scheme "$SCHEME" -configuration "$CONFIG" 2>/dev/null \

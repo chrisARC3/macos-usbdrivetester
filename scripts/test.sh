@@ -29,5 +29,6 @@ xcodebuild \
     -scheme "$SCHEME" \
     -configuration "$CONFIG" \
     -destination 'platform=macOS,arch=arm64' \
+    -allowProvisioningUpdates \
     -only-testing:USBDriveTesterTests \
     test

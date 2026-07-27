@@ -2,16 +2,31 @@
 //  TesterControl.swift
 //  Shared between the unprivileged app and the privileged helper.
 //
-//  This is the *versioned XPC contract* (NFR-MAINT-1). For Step 1 it carries a
-//  single placeholder method, `ping`, purely to prove the app <-> helper plumbing
-//  end-to-end. The real device-control surface (geometry query, start/pause/
-//  resume/stop, progress callbacks) is added in Step 3 and later, and stays as
-//  minimal as possible (NFR-SEC-3).
+//  This is the *versioned XPC contract* (NFR-MAINT-1) and the single source of
+//  truth for the helper's identity. It is deliberately kept as small as the current
+//  build step allows (NFR-SEC-3): every method here is reachable by anything that
+//  passes the helper's code-signature check, so the surface is widened only when a
+//  step actually needs it.
+//
+//  Step 3 surface:
+//    * ping                   — liveness / plumbing (carried from Step 1)
+//    * protocolVersion        — the version handshake (NFR-MAINT-1)
+//    * validateRunParameters  — boundary parameter validation (NFR-REL-7)
+//
+//  Deferred on purpose: startRun / pause / resume / stop and the helper -> GUI
+//  progress-callback protocol. Those need Step 6's exclusive device claim, Step 7's
+//  real geometry, Step 9's metrics and Step 11's state machine to be meaningful;
+//  stubbing them now would be dead code AND attack surface. Widening the protocol
+//  later is cheap, walking a wide one back is not (BUILD-PLAN Step 3, risks).
 //
 //  IMPORTANT (trust boundary): this file must be a member of BOTH the app target
 //  and the helper target. With Xcode's file-system-synchronized groups it joins
-//  the app target automatically because it lives under the app's folder; you add
-//  the helper target via the File Inspector's "Target Membership" checkbox.
+//  the app target automatically because it lives under the app's folder; the helper
+//  target membership was added in Step 1 via the File Inspector.
+//
+//  It is ALSO compiled standalone (by swiftc, with tools/negative-client/main.swift)
+//  to build the adhoc-signed client that proves the helper rejects foreign callers.
+//  Keep this file free of any app-only or helper-only dependency: Foundation only.
 //
 
 import Foundation
@@ -19,21 +34,127 @@ import Foundation
 /// The XPC interface vended by the privileged helper.
 ///
 /// Must be `@objc` so it can be wrapped by `NSXPCInterface`. Every method is
-/// asynchronous with a reply block, as required by the NSXPC reply-based model.
+/// asynchronous with a reply block, as required by the NSXPC reply-based model, and
+/// every parameter is an ObjC-representable primitive so nothing needs a custom
+/// `NSSecureCoding` whitelist on the interface.
 @objc public protocol TesterControl {
 
     /// Liveness / plumbing check. Replies with `"pong"`.
     ///
-    /// Step 1 acceptance uses this to confirm the connection, the interface
-    /// wiring, and the reply path all work across the process boundary.
+    /// Step 1 used this to confirm the connection, the interface wiring and the
+    /// reply path across the process boundary. Step 3 re-uses it as the first
+    /// acceptance item, this time through the *SMAppService-registered* daemon
+    /// rather than a manually bootstrapped one.
     func ping(reply: @escaping (String) -> Void)
+
+    /// Replies with the protocol version the *helper* implements.
+    ///
+    /// The GUI compares this against ``TesterProtocol/version`` on connect and
+    /// refuses to issue further commands on a mismatch (NFR-MAINT-1). This matters
+    /// because the app and the helper are separately installed artefacts: an app
+    /// update can land while an older registered daemon is still resident.
+    func protocolVersion(reply: @escaping (Int) -> Void)
+
+    /// Ask the helper to validate a prospective run's addressing parameters.
+    ///
+    /// The helper re-checks alignment and range *itself* rather than trusting the
+    /// caller (NFR-REL-7, NFR-SEC-3). It runs as root, so every byte arriving over
+    /// this connection is untrusted input even though the connection is
+    /// code-signature-authenticated — authentication says *who* is calling, not that
+    /// what they sent is sane.
+    ///
+    /// - Note: `logicalBlockSize` and `deviceBlockCount` are supplied by the caller
+    ///   **for Step 3 only**, because the helper has no device-access code until
+    ///   Steps 6/7. From Step 7 the helper derives geometry itself via
+    ///   `DKIOCGETBLOCKSIZE`/`DKIOCGETBLOCKCOUNT` on the opened raw device and the
+    ///   caller-supplied values are dropped entirely. The validation *logic*
+    ///   (`RunParameterValidator`) is unchanged by that switch — only where the
+    ///   geometry comes from changes.
+    ///
+    /// - Parameters:
+    ///   - byteOffset: Start of the prospective transfer, in bytes from block 0.
+    ///   - byteLength: Length of the prospective transfer, in bytes.
+    ///   - logicalBlockSize: Device logical block size (512 or 4096, NFR-COMPAT-5).
+    ///   - deviceBlockCount: Total addressable blocks (64-bit, NFR-COMPAT-6).
+    ///   - reply: `(accepted, message)`. `message` is always human-readable and
+    ///     names the actual cause on rejection, never a generic failure (NFR-USE-5).
+    func validateRunParameters(byteOffset: UInt64,
+                               byteLength: UInt64,
+                               logicalBlockSize: UInt32,
+                               deviceBlockCount: UInt64,
+                               reply: @escaping (Bool, String) -> Void)
 }
 
-/// Single source of truth for the helper's identity. This one string is used as:
+/// Version of the ``TesterControl`` contract (NFR-MAINT-1).
+///
+/// Bump ``version`` whenever a change would break an older peer: removing or
+/// renaming a method, changing a signature, or changing the meaning of an argument.
+/// Purely additive changes that an older peer simply never calls do not require a
+/// bump, but bumping is cheap and a mismatch is far easier to diagnose than a
+/// silently missing method.
+public enum TesterProtocol {
+
+    /// Version 1 — Step 3: `ping`, `protocolVersion`, `validateRunParameters`.
+    public static let version = 1
+}
+
+/// Single source of truth for the helper's identity and the trust it is pinned to.
+///
+/// The identity string is used, unchanged, as:
 ///   * the LaunchDaemon `Label`,
-///   * the advertised Mach service name, and
-///   * the `SMAppService` daemon plist name (Step 3).
-/// Keeping it here prevents the three from drifting apart.
+///   * the advertised Mach service name,
+///   * the base name of the `SMAppService` daemon plist, and
+///   * the helper's `CFBundleIdentifier` (embedded via
+///     `CREATE_INFOPLIST_SECTION_IN_BINARY` on the helper target).
+///
+/// Keeping it here prevents those from drifting apart — a mismatch between them is
+/// the single most common cause of `SMAppService` returning `.notFound`.
 public enum HelperIdentity {
+
+    /// Reverse-DNS identity of the privileged helper.
     public static let machServiceName = "com.arc3solutions.USBDriveTester.Helper"
+
+    /// Bundle identifier of the unprivileged GUI app that owns this helper. Must
+    /// match the daemon plist's `AssociatedBundleIdentifiers`, which is what makes
+    /// the daemon appear under the app's name in System Settings (NFR-INST-1).
+    public static let appBundleIdentifier = "com.arc3solutions.USBDriveTester"
+
+    /// Unified-logging subsystem shared by **both** executables.
+    ///
+    /// The app and the helper deliberately log under one subsystem so a single
+    /// predicate shows the whole trace across the trust boundary — which is exactly
+    /// what Step 15's gate asks for:
+    /// `log show --predicate 'subsystem == "com.arc3solutions.USBDriveTester"'`.
+    /// Categories (`xpc`, `lifecycle`, `discovery`, `safety`, `io`, `metrics`) are
+    /// what separate them (NFR-OBS-1).
+    public static let loggingSubsystem = "com.arc3solutions.USBDriveTester"
+
+    /// File name passed to `SMAppService.daemon(plistName:)`. Resolved by the system
+    /// against `Contents/Library/LaunchDaemons/` inside the registering app bundle.
+    public static var daemonPlistName: String { "\(machServiceName).plist" }
+
+    /// The Apple Developer **Team ID** every accepted client must be signed under.
+    ///
+    /// This is the `OU` field of the signing certificate's subject — verified
+    /// against the local `Apple Development` identity on 2026-07-25:
+    /// `UID=N9Y2LXCNFE, CN=Apple Development: … (424WY3TDB4), OU=5JC55GTLZA`.
+    /// Note that the identifier in the certificate's common name (`424WY3TDB4`) is
+    /// the *individual* ID and is NOT the Team ID — pinning that would reject our
+    /// own client.
+    public static let expectedTeamID = "5JC55GTLZA"
+
+    /// Code-signing requirement the helper imposes on every incoming XPC peer
+    /// (FR-ARCH-5, NFR-SEC-2).
+    ///
+    /// `anchor apple generic` establishes that the leaf chains to an Apple-issued
+    /// developer certificate — without it, anyone could mint a self-signed
+    /// certificate carrying our Team ID in its `OU` and walk straight through.
+    /// The `OU` clause then pins that certificate to our team.
+    ///
+    /// Per NFR-SEC-2 (resolved 2026-06-25) Team-ID match is the accepted bar: the
+    /// bundle identifier is deliberately **not** additionally pinned, so the app can
+    /// be renamed or split without breaking the helper contract.
+    public static var codeSigningRequirement: String {
+        "anchor apple generic and certificate leaf[subject.OU] = \"\(expectedTeamID)\""
+    }
 }
