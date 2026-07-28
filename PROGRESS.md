@@ -611,3 +611,40 @@ false "it works" results from cached approvals.
 - **Next: Step 5** (device discovery & selection) — the first step whose gate needs real
   USB hardware, and the first substantial GUI build, where `scripts/render-ui.sh` should
   earn its keep.
+
+---
+
+## Step 5 — Device discovery & selection — NOT STARTED
+
+**AI-3 / satisfies FR-DEV-1…7; NFR-USE-3, NFR-COMPAT-4/6.**
+
+Not yet scoped. Recorded here only so a cold start does not rediscover the setup.
+
+### State this step begins from
+
+- Helper **uninstalled** and fully absent (`./scripts/lifecycle-check.sh absent` →
+  PASS). `/Applications/USBDriveTester.app` is installed and signed.
+- Protocol is at **v2**; app and helper agree.
+- `ContentView.swift` is still the interim gate harness from Steps 3–4 and is expected
+  to be substantially rewritten or replaced here — it is explicitly disposable.
+
+### Facts that shape the work
+
+- **This step needs real hardware**: the gate requires **two or more USB drives
+  connected at once**, plus confirmation that internal/non-USB disks are excluded.
+  It is the first gate that cannot be met with simulation alone.
+- **Discovery does not need the helper.** IOKit enumeration and DiskArbitration
+  queries are unprivileged, so this is GUI-side work (BUILD-PLAN Step 5). The helper
+  is involved only if geometry for the *selected* device is confirmed across XPC —
+  and Step 7 is the final authority on geometry anyway.
+- **Where pure logic goes.** `Core/` is compiled into the helper + test targets and
+  deliberately **not** the app, so app-side logic cannot live there. App-side pure
+  logic (e.g. the numeric-aware BSD-name sort of FR-DEV-2, capacity formatting for
+  NFR-USE-3) belongs in the app target and *is* unit-testable — `USBDriveTesterTests`
+  reaches app types via `@testable import USBDriveTester`, established in Step 4 by
+  `UninstallPreconditionTests`. Prefer separating those pure pieces out so the
+  hardware-dependent parts of the gate shrink to what genuinely needs a drive.
+- **GUI layout can be checked headlessly** with `./scripts/render-ui.sh` before asking
+  for a visual confirmation — see the Step 4 tooling note for why it exists.
+- Adding a file to `Core/` requires an Xcode target-membership tick; files added under
+  the app folder auto-join the app target and need no GUI work.
