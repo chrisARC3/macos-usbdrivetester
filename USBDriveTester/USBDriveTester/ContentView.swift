@@ -2,17 +2,21 @@
 //  ContentView.swift
 //  USBDriveTester
 //
-//  INTERIM Step 3 panel — a harness for this step's Verification Gate, not product
-//  UI. It exists so the four gate items can be exercised by hand:
+//  INTERIM panel — a harness for the Step 3 and Step 4 Verification Gates, not
+//  product UI. Sections are named by function rather than by gate-item number, since
+//  they now serve two steps and the numbering had started to mislead.
 //
-//    1. Register the daemon, approve it, and see `.status` reach `.enabled`.
-//    2. Complete a live XPC round-trip through the *registered* daemon (this also
-//       discharges the ping deferred out of Step 1).
-//    3. (Gate item 3, the foreign-client rejection, is driven from the CLI by
-//       scripts/negative-test.sh — it needs an adhoc-signed binary, which cannot be
-//       produced from inside this signed app.)
-//    4. Have the helper reject misaligned / out-of-range parameters with a clear
-//       message.
+//  What it covers:
+//    * Registration  — register, approve, and watch `.status` reach `.enabled`
+//                      (Step 3), and remove the helper again (Step 4).
+//    * Round-trip    — live XPC through the *registered* daemon; also discharges the
+//                      ping deferred out of Step 1.
+//    * Parameters    — the helper rejecting misaligned / out-of-range requests.
+//    * Teardown      — the mid-run guard that refuses an uninstall.
+//
+//  Not covered here: the foreign-client rejection (Step 3) is driven from the CLI by
+//  scripts/negative-test.sh, because it needs an adhoc-signed binary that cannot be
+//  produced from inside this signed app.
 //
 //  The real UI — device list, run controls, metrics, and the mandatory pre-run
 //  warnings — arrives in Steps 5, 11, 9 and 14. Nothing here is meant to survive.
@@ -39,21 +43,29 @@ struct ContentView: View {
     @State private var versionMismatch = false
     @State private var isCalling = false
 
+    /// Stand-in for the run-control state machine built in Step 11, so Step 4's
+    /// "uninstall is refused mid-run" gate item can be exercised today.
+    @State private var simulatedRunActive = false
+
     var body: some View {
         Form {
             registrationSection
             connectionSection
             parameterSection
+            teardownSection
         }
         .formStyle(.grouped)
-        .frame(minWidth: 560, minHeight: 620)
+        // Taller default so the round-trip and teardown sections are not below the
+        // fold on first launch — the form scrolls, but a control you have to go
+        // looking for is one you can reasonably report as missing.
+        .frame(minWidth: 600, minHeight: 760)
         .onAppear { registration.refresh() }
     }
 
-    // MARK: - Registration (gate item 1)
+    // MARK: - Registration & removal
 
     private var registrationSection: some View {
-        Section("1 — Helper registration") {
+        Section("Helper registration") {
             LabeledContent("Status") {
                 HStack(spacing: 6) {
                     Image(systemName: registration.statusSymbolName)
@@ -86,12 +98,12 @@ struct ContentView: View {
                         .buttonStyle(.borderedProminent)
                 }
                 Spacer()
-                // Development affordance — Step 4 productises teardown with a
-                // mid-run guard and device release (NFR-INST-3).
-                Button("Unregister (dev)", role: .destructive) {
-                    helper.invalidate()
-                    registration.unregister()
+                Button("Uninstall helper", role: .destructive) {
+                    registration.uninstall(using: helper, runIsActive: simulatedRunActive)
                 }
+                // Deliberately NOT disabled on a protocol-version mismatch. An older
+                // registered daemon is exactly a case where removal must stay
+                // available (NFR-INST-3) — see UninstallPrecondition.
             }
             .disabled(registration.isBusy)
 
@@ -102,10 +114,35 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Live XPC round-trip (gate item 2)
+    // MARK: - Teardown guard
+
+    private var teardownSection: some View {
+        Section("Teardown guard") {
+            Text("""
+                 Uninstalling must be refused while a run is in progress, so the device is \
+                 released cleanly (NFR-REL-5). There is no run engine yet — Step 11 builds the \
+                 state machine — so this toggle stands in for one. The helper is asked \
+                 independently and has the final say; if it cannot be reached, removal proceeds \
+                 anyway so an unreachable privileged daemon never becomes unremovable.
+                 """)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Toggle("Simulate an active run", isOn: $simulatedRunActive)
+
+            if simulatedRunActive {
+                Label("Uninstall will be refused while this is on.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+            }
+        }
+    }
+
+    // MARK: - Live XPC round-trip
 
     private var connectionSection: some View {
-        Section("2 — Live XPC round-trip") {
+        Section("Live XPC round-trip") {
             Text("""
                  Exercises the connection through the registered daemon. The helper accepts \
                  this app only because it is signed under Team ID \
@@ -116,15 +153,33 @@ struct ContentView: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            HStack {
-                Button("Ping helper") { ping() }
-                Button("Check protocol version") { checkVersion() }
-                Spacer()
+            // One action per row, laid out like the parameter section below. Two
+            // buttons side by side in a single Form row rendered as a pair of faint,
+            // low-contrast pills once disabled — easy to scan straight past, and
+            // indistinguishable from a control that is not there at all.
+            Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+                GridRow {
+                    Button("Ping helper") { ping() }
+                        .frame(minWidth: 160, alignment: .leading)
+                    Text("liveness round-trip through the registered daemon")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
+                GridRow {
+                    Button("Check protocol version") { checkVersion() }
+                        .frame(minWidth: 160, alignment: .leading)
+                    Text("this app expects v\(TesterProtocol.version) (NFR-MAINT-1)")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
             .disabled(isCalling || !registration.isEnabled)
 
             if !registration.isEnabled {
-                Text("Enable the helper above before calling it.")
+                // Paired with a symbol, not conveyed by dimming alone (NFR-USE-8):
+                // "greyed out" is not a message.
+                Label("These are disabled until the helper is enabled above.",
+                      systemImage: "info.circle")
                     .font(.callout)
                     .foregroundStyle(.secondary)
             }
@@ -134,10 +189,10 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Boundary parameter validation (gate item 4)
+    // MARK: - Boundary parameter validation
 
     private var parameterSection: some View {
-        Section("4 — Parameter validation at the trust boundary") {
+        Section("Parameter validation at the trust boundary") {
             Text("""
                  The helper runs as root and re-checks every request itself (NFR-REL-7). These \
                  send deliberately bad parameters against a simulated \

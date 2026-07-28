@@ -8,10 +8,11 @@
 //  passes the helper's code-signature check, so the surface is widened only when a
 //  step actually needs it.
 //
-//  Step 3 surface:
+//  Current surface:
 //    * ping                   — liveness / plumbing (carried from Step 1)
 //    * protocolVersion        — the version handshake (NFR-MAINT-1)
 //    * validateRunParameters  — boundary parameter validation (NFR-REL-7)
+//    * prepareForShutdown     — teardown handshake (Step 4; NFR-INST-3, NFR-REL-5)
 //
 //  Deferred on purpose: startRun / pause / resume / stop and the helper -> GUI
 //  progress-callback protocol. Those need Step 6's exclusive device claim, Step 7's
@@ -83,6 +84,30 @@ import Foundation
                                logicalBlockSize: UInt32,
                                deviceBlockCount: UInt64,
                                reply: @escaping (Bool, String) -> Void)
+
+    /// Ask the helper whether it is safe to remove, and — if it is — have it release
+    /// everything it holds (NFR-INST-3, NFR-REL-5).
+    ///
+    /// The GUI calls this immediately before `SMAppService.unregister()`. The helper
+    /// is the authority here, not the GUI: the GUI's own notion of "a run is active"
+    /// lives in a process that can be force-quit and relaunched, whereas the helper
+    /// is the process actually holding the device node and the DiskArbitration claim.
+    ///
+    /// - Important: the helper **refuses** while busy rather than releasing on
+    ///   demand. That is deliberate on two counts. It keeps a torn-down run from
+    ///   leaving a half-written device (NFR-REL-5), and it means this method cannot
+    ///   be used by *any* caller — even one correctly signed under our Team ID — to
+    ///   abort a run in progress. Refusing is the safe direction for both.
+    ///
+    /// - Note: callers must treat a failure of this call as "unknown", not as
+    ///   "unsafe". An uninstall must never be blocked by a helper that is wedged,
+    ///   unreachable, or too old to implement this method — a privileged daemon that
+    ///   cannot be removed is a worse outcome than the one being guarded against.
+    ///   See `UninstallPrecondition` on the app side.
+    ///
+    /// - Parameter reply: `(safeToRemove, message)`. `message` explains what was
+    ///   released, or names precisely what is still in progress (NFR-USE-5).
+    func prepareForShutdown(reply: @escaping (Bool, String) -> Void)
 }
 
 /// Version of the ``TesterControl`` contract (NFR-MAINT-1).
@@ -94,8 +119,17 @@ import Foundation
 /// silently missing method.
 public enum TesterProtocol {
 
-    /// Version 1 — Step 3: `ping`, `protocolVersion`, `validateRunParameters`.
-    public static let version = 1
+    /// History:
+    /// - **1** — Step 3: `ping`, `protocolVersion`, `validateRunParameters`.
+    /// - **2** — Step 4: adds `prepareForShutdown`.
+    ///
+    /// The bump matters in practice, not just on paper: the app and the daemon are
+    /// separately installed artefacts, so after an app update a **v1 daemon can still
+    /// be registered** until the user reinstalls it. Such a daemon does not implement
+    /// `prepareForShutdown` and will fail that call. The teardown path is written to
+    /// tolerate exactly that (see `prepareForShutdown`'s note on treating failure as
+    /// "unknown"), which is what makes an old daemon removable rather than stuck.
+    public static let version = 2
 }
 
 /// Single source of truth for the helper's identity and the trust it is pinned to.

@@ -10,10 +10,9 @@
 //  for its whole life (FR-ARCH-2, NFR-SEC-1); it asks launchd to install a daemon,
 //  and the user authorises that in System Settings. Nothing here runs as root.
 //
-//  Scope note: `unregister()` below is a **development affordance** for Step 3's
-//  interactive gate — registration has to be undone repeatedly to re-test it. The
-//  product teardown path (mid-run guard, connection draining, device release,
-//  status reflection) is Step 4's deliverable, NFR-INST-3.
+//  Both ends of the lifecycle live here: `register()` (Step 3, FR-ARCH-3) and
+//  `uninstall(using:runIsActive:)` (Step 4, NFR-INST-3) — installation and removal
+//  are two halves of one problem and drift apart when kept in separate places.
 //
 
 import Foundation
@@ -122,33 +121,123 @@ final class HelperRegistration {
         }
     }
 
-    /// Remove the daemon. **Development affordance only** — see the file header.
-    func unregister() {
-        log.notice("unregister() requested (development affordance; Step 4 productises this)")
+    /// Fully remove the privileged helper (NFR-INST-3, NFR-SEC-5).
+    ///
+    /// The sequence, in this order for a reason:
+    ///
+    ///   1. **App-side guard.** If a run is active, refuse immediately — no XPC round
+    ///      trip is needed to know the answer.
+    ///   2. **Ask the helper.** It is the authority on whether it holds a device, and
+    ///      this is what makes it release one (NFR-REL-5). Failure here means
+    ///      *unknown*, not unsafe — see ``UninstallPrecondition``.
+    ///   3. **Drain the connection** before removing the daemon it points at, so the
+    ///      app is not left holding a connection to a service that no longer exists.
+    ///   4. **Unregister, then poll** — see ``performUnregister(warning:)``.
+    ///
+    /// - Parameters:
+    ///   - connection: The live XPC connection, needed for steps 2 and 3.
+    ///   - runIsActive: The app's view of run state. Simulated in Step 4; driven by
+    ///     the run-control state machine from Step 11.
+    func uninstall(using connection: HelperConnection, runIsActive: Bool) {
+        log.notice("uninstall requested (runIsActive=\(runIsActive, privacy: .public))")
+
+        // 1. Cheap, local refusal first.
+        if runIsActive, case .refuse(let reason) = UninstallPrecondition.evaluate(runIsActive: true) {
+            lastActionMessage = reason
+            log.notice("uninstall refused: a run is active")
+            return
+        }
+
         isBusy = true
+
+        // 2. The helper decides whether it is safe.
+        connection.prepareForShutdown { [weak self] readiness in
+            guard let self else { return }
+
+            switch UninstallPrecondition.evaluate(runIsActive: runIsActive,
+                                                  helperReadiness: readiness) {
+            case .refuse(let reason):
+                self.lastActionMessage = reason
+                self.isBusy = false
+                log.notice("uninstall refused by the helper: \(reason, privacy: .public)")
+
+            case .proceed(let warning):
+                if let warning {
+                    log.notice("uninstall proceeding without confirmation: \(warning, privacy: .public)")
+                } else {
+                    log.notice("helper confirmed it is idle; proceeding with uninstall")
+                }
+                // 3. Drain before removing.
+                connection.invalidate()
+                // 4. Remove.
+                self.performUnregister(warning: warning)
+            }
+        }
+    }
+
+    /// Unregister and then **poll** until the status actually settles.
+    ///
+    /// Two behaviours make polling necessary rather than tidy. `unregister()` is
+    /// asynchronous inside the system, so the status lags the call returning
+    /// (BUILD-PLAN Step 4, risks). And — as `register()` already demonstrated in
+    /// Step 3 — `SMAppService` can report an error for an operation that nonetheless
+    /// takes effect, so the settled status is more trustworthy than the thrown error.
+    /// The error is therefore kept and reported only if removal genuinely did not
+    /// happen.
+    private func performUnregister(warning: String?) {
         Task {
             defer { isBusy = false }
+
+            var thrown: NSError?
             do {
                 try await service.unregister()
-                lastActionMessage = "Unregistration submitted."
-                log.notice("unregister() succeeded")
+                log.notice("unregister() returned without error")
             } catch {
-                let nsError = error as NSError
-                lastActionMessage = """
-                                    Unregistration failed: \(nsError.localizedDescription) \
-                                    [\(nsError.domain) \(nsError.code)]
-                                    """
+                thrown = error as NSError
                 log.error("""
-                          unregister() failed: \(nsError.domain, privacy: .public) \
-                          \(nsError.code, privacy: .public) — \
-                          \(nsError.localizedDescription, privacy: .public)
+                          unregister() reported: \(thrown!.domain, privacy: .public) \
+                          \(thrown!.code, privacy: .public) — \
+                          \(thrown!.localizedDescription, privacy: .public) \
+                          (polling status to see whether it took effect anyway)
                           """)
             }
-            // `unregister()` is asynchronous inside the system too: the status can
-            // lag behind the call returning, so this reading is a first look, not a
-            // settled answer (BUILD-PLAN Step 4, risks). The UI offers Refresh.
-            refresh()
+
+            let removed = await pollUntilNotRegistered(timeout: 10)
+            let prefix = warning.map { "\($0)\n\n" } ?? ""
+
+            if removed {
+                lastActionMessage = prefix + "The helper was removed. Status is now notRegistered."
+                log.notice("uninstall complete; status notRegistered")
+            } else if let thrown {
+                lastActionMessage = prefix + """
+                                    Removal failed: \(thrown.localizedDescription) \
+                                    [\(thrown.domain) \(thrown.code)]. Status is \(statusName).
+                                    """
+                log.error("uninstall failed; status \(self.statusName, privacy: .public)")
+            } else {
+                lastActionMessage = prefix + """
+                                    Removal was submitted but the status is still \(statusName) \
+                                    after 10s. Choose Refresh in a moment.
+                                    """
+                log.error("""
+                          uninstall did not settle within 10s; status \
+                          \(self.statusName, privacy: .public)
+                          """)
+            }
         }
+    }
+
+    /// Poll `.status` until the daemon is gone or the timeout expires.
+    /// - Returns: whether the status reached `.notRegistered`.
+    private func pollUntilNotRegistered(timeout: TimeInterval) async -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            refresh()
+            if status == .notRegistered { return true }
+            try? await Task.sleep(for: .milliseconds(250))
+        }
+        refresh()
+        return status == .notRegistered
     }
 
     /// Open System Settings at Login Items & Extensions so the user can approve the

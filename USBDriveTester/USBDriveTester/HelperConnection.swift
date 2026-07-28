@@ -143,6 +143,53 @@ final class HelperConnection {
         }
     }
 
+    /// Ask the helper whether it is safe to remove, and have it release what it holds
+    /// (NFR-INST-3, NFR-REL-5).
+    ///
+    /// Note the return type: this hands back a ``HelperShutdownReadiness``, never a
+    /// `Result`. That is deliberate. Every failure — transport error, an older helper
+    /// without this method, no answer at all — maps to
+    /// ``HelperShutdownReadiness/unknown(detail:)``, so a caller *cannot* accidentally
+    /// treat "we could not ask" as "unsafe" and strand an unremovable privileged
+    /// daemon. The fail-open policy is encoded in the type rather than left to each
+    /// call site to remember.
+    ///
+    /// - Parameter timeout: Guards the case the connection is accepted but the reply
+    ///   never arrives. Without it a wedged helper would hang the uninstall forever —
+    ///   precisely the situation failing open exists to survive.
+    func prepareForShutdown(timeout: TimeInterval = 5,
+                            completion: @escaping (HelperShutdownReadiness) -> Void) {
+        var settled = false
+        let settle: (HelperShutdownReadiness) -> Void = { readiness in
+            // Both paths below deliver on the main queue, so this needs no lock.
+            guard !settled else { return }
+            settled = true
+            completion(readiness)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + timeout) {
+            settle(.unknown(detail: "the helper did not answer within \(Int(timeout))s"))
+        }
+
+        withProxy({ (result: Result<HelperShutdownReadiness, Error>) in
+            switch result {
+            case .success(let readiness):
+                settle(readiness)
+            case .failure(let error):
+                log.error("""
+                          prepareForShutdown failed, treating as unknown: \
+                          \(error.localizedDescription, privacy: .public)
+                          """)
+                settle(.unknown(detail: error.localizedDescription))
+            }
+        }) { tester, finish in
+            tester.prepareForShutdown { safeToRemove, message in
+                finish(.success(safeToRemove ? .safeToRemove(message)
+                                             : .busy(reason: message)))
+            }
+        }
+    }
+
     // MARK: - Plumbing
 
     /// Obtain the remote proxy and hand it to `body`, routing every failure path —

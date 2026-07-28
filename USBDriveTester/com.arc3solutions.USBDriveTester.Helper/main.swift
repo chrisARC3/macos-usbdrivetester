@@ -72,6 +72,53 @@ private enum PeerDescription {
     }
 }
 
+// MARK: - What the helper is holding
+
+/// Tracks the resources this daemon currently owns, so it can answer authoritatively
+/// when the GUI asks whether it is safe to remove (NFR-INST-3, NFR-REL-5).
+///
+/// The GUI cannot answer this question for itself: its own run state lives in a
+/// process the user can force-quit and relaunch, whereas *this* process is the one
+/// holding the device node and the DiskArbitration claim.
+///
+/// ## Step 4 status: structurally complete, deliberately always idle
+///
+/// Nothing can currently mark the helper busy, because nothing yet acquires a device
+/// — that arrives in Step 6 (unmount + exclusive claim) and Step 7 (raw `rdiskN`
+/// open). Those steps populate ``current`` and give ``releaseAll()` a body; Step 11
+/// wires it to the run-control state machine. The shape is built now so the teardown
+/// path is complete and observable rather than retrofitted around a live run later.
+///
+/// `@unchecked Sendable` with an explicit lock: XPC delivers calls on arbitrary
+/// queues, so every access is serialised here rather than assuming a single caller.
+final class HelperActivity: @unchecked Sendable {
+
+    static let shared = HelperActivity()
+
+    private let lock = NSLock()
+
+    /// Human-readable description of what is in progress, or `nil` when idle.
+    private var inProgress: String?
+
+    private init() {}
+
+    /// What the helper is busy with, or `nil` if it is idle and safe to remove.
+    var current: String? {
+        lock.withLock { inProgress }
+    }
+
+    /// Release everything held, and describe what was released.
+    ///
+    /// Only ever called once the helper has established it is idle, so this never
+    /// interrupts work in flight. From Step 6/7 this is where the DiskArbitration
+    /// claim is released and the raw device descriptor closed (NFR-REL-5).
+    func releaseAll() -> String {
+        lock.withLock {
+            "No device is held, so there was nothing to release."
+        }
+    }
+}
+
 // MARK: - Exported object
 
 /// Concrete implementation of the XPC interface (``TesterControl``).
@@ -147,6 +194,28 @@ final class TesterControlImpl: NSObject, TesterControl {
                       """)
             reply(false, "Parameters rejected: \(error.localizedDescription)")
         }
+    }
+
+    func prepareForShutdown(reply: @escaping (Bool, String) -> Void) {
+        // Refuse rather than release while busy. This is the safe direction twice
+        // over: it keeps a teardown from leaving a half-written device (NFR-REL-5),
+        // and it means no caller — including a correctly Team-ID-signed one — can use
+        // this method to abort a run in progress.
+        if let activity = HelperActivity.shared.current {
+            lifecycleLog.notice("""
+                                prepareForShutdown REFUSED for \(self.peer, privacy: .public): \
+                                \(activity, privacy: .public)
+                                """)
+            reply(false, activity)
+            return
+        }
+
+        let released = HelperActivity.shared.releaseAll()
+        lifecycleLog.notice("""
+                            prepareForShutdown ACCEPTED for \(self.peer, privacy: .public); \
+                            safe to remove — \(released, privacy: .public)
+                            """)
+        reply(true, released)
     }
 }
 
