@@ -11,7 +11,11 @@
 # real app (scripts/install-app.sh).
 #
 # Usage:
-#   scripts/render-ui.sh [output.png] [width] [height]
+#   scripts/render-ui.sh [output.png] [width] [height] [view]
+#
+# `view` is one of: content (default, the whole window), devices, diagnostics.
+# Rendering a sub-view matters once one is behind a disclosure — the composition root
+# cannot show it, and compiling is not evidence that it lays out.
 #
 # Defaults to /tmp so renders never land in the repo.
 #
@@ -26,6 +30,7 @@ BUILD_DIR="/tmp/usbdrivetester-ui-probe"
 OUT="${1:-$BUILD_DIR/ui.png}"
 WIDTH="${2:-600}"
 HEIGHT="${3:-1000}"
+VIEW="${4:-content}"
 
 mkdir -p "$BUILD_DIR" "$(dirname "$OUT")"
 
@@ -54,4 +59,4 @@ xcrun swiftc \
     "${SOURCES[@]}" \
     "$REPO_ROOT/tools/ui-probe/main.swift"
 
-"$BUILD_DIR/ui-probe" "$OUT" "$WIDTH" "$HEIGHT"
+"$BUILD_DIR/ui-probe" "$OUT" "$WIDTH" "$HEIGHT" "$VIEW"

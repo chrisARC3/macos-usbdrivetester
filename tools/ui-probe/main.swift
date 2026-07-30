@@ -21,7 +21,13 @@
 //  signed, installed app bundle and cannot talk to a real daemon.
 //
 //  Usage (via scripts/render-ui.sh):
-//      ui-probe <output.png> [width] [height]
+//      ui-probe <output.png> [width] [height] [view]
+//
+//  `view` selects what to render — `content` (the whole window, the default) or a named
+//  sub-view. Added in Step 5: once a view is behind a disclosure or a tab, rendering
+//  only the composition root cannot show it, and "it compiled" is not evidence that a
+//  Form nested inside a DisclosureGroup inside a VStack lays out at a sane height.
+//  Steps 9, 11 and 14 add more such views.
 //
 //  ImageRenderer is deliberately NOT used: macOS's grouped Form style is AppKit-backed
 //  and renders blank through it. A real hosting window is required.
@@ -33,13 +39,38 @@ import AppKit
 let outputPath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "ui-probe.png"
 let width = CommandLine.arguments.count > 2 ? (Double(CommandLine.arguments[2]) ?? 600) : 600
 let height = CommandLine.arguments.count > 3 ? (Double(CommandLine.arguments[3]) ?? 1000) : 1000
+let viewName = CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "content"
+
+/// Wraps a view needing a `Binding` so it can be rendered standalone.
+private struct DiagnosticsHost: View {
+    @State private var simulatedRunActive = false
+    var body: some View { HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive) }
+}
+
+// Not `@MainActor`: top-level code in main.swift is nonisolated even under
+// -default-isolation MainActor, so annotating this makes it uncallable from here.
+func makeRootView(_ name: String) -> NSView {
+    switch name {
+    case "diagnostics":
+        return NSHostingView(rootView: DiagnosticsHost())
+    case "devices":
+        return NSHostingView(rootView: DeviceListView(discovery: DeviceDiscovery()))
+    case "content":
+        return NSHostingView(rootView: ContentView())
+    default:
+        FileHandle.standardError.write(Data("""
+            ui-probe: unknown view '\(name)'; expected content, devices or diagnostics\n
+            """.utf8))
+        exit(2)
+    }
+}
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 
 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
                       styleMask: [.titled], backing: .buffered, defer: false)
-window.contentView = NSHostingView(rootView: ContentView())
+window.contentView = makeRootView(viewName)
 
 // Ordered front so SwiftUI lays out and draws, but positioned far offscreen so it
 // never appears in front of whatever the user is doing.

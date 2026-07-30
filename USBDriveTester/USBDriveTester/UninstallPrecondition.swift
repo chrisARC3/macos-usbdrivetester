@@ -33,7 +33,7 @@ import Foundation
 /// Note the deliberate absence of a "definitely unsafe because we could not ask"
 /// case: not knowing is ``unknown``, and unknown does not block (see the file
 /// header).
-enum HelperShutdownReadiness: Equatable {
+nonisolated enum HelperShutdownReadiness: Equatable {
 
     /// The helper answered and has released everything it held.
     case safeToRemove(String)
@@ -50,7 +50,7 @@ enum HelperShutdownReadiness: Equatable {
 }
 
 /// The verdict.
-enum UninstallDecision: Equatable {
+nonisolated enum UninstallDecision: Equatable {
 
     /// Removal may go ahead. `warning` is non-nil when we are proceeding *despite*
     /// not having confirmation from the helper, and must be surfaced to the user
@@ -64,7 +64,7 @@ enum UninstallDecision: Equatable {
     var isRefusal: Bool { if case .refuse = self { return true } else { return false } }
 }
 
-enum UninstallPrecondition {
+nonisolated enum UninstallPrecondition {
 
     /// Evaluate whether the helper may be removed.
     ///
