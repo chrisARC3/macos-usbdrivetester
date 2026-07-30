@@ -24,6 +24,29 @@ if [[ -z "$DISK" ]]; then
     exit 2
 fi
 
+# --- Preflight: this needs an interactive terminal -----------------------------------
+#
+# The probe runs as root because /dev/rdiskN is root:operator. If sudo has no cached
+# credentials and there is no TTY to prompt on — which is the case when this is launched
+# from a "run" button rather than a terminal — sudo cannot ask for a password and the
+# script would otherwise stall or die with nothing useful on screen. Say so instead.
+if ! sudo -n true 2>/dev/null && [[ ! -t 0 ]]; then
+    cat >&2 <<'MSG'
+error: this script needs an interactive terminal.
+
+  It runs one command as root (the probe itself), because /dev/rdiskN is
+  root:operator. sudo has no cached credentials and there is no terminal to
+  prompt for a password on.
+
+  Open Terminal and run it there:
+
+      cd /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester
+      ./scripts/exclusivity-probe.sh disk4
+
+MSG
+    exit 2
+fi
+
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Development/Xcode.app/Contents/Developer}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
