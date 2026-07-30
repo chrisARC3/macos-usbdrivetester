@@ -45,7 +45,7 @@ if [[ ! -d "$SRC" ]]; then
     exit 1
 fi
 
-echo "Installing to $DEST…"
+echo "Installing to ${DEST}..."
 # ditto preserves the code signature and extended attributes; a plain cp -R does not
 # reliably preserve resource forks on all volumes.
 rm -rf "$DEST"

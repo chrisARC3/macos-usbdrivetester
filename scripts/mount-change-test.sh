@@ -117,7 +117,7 @@ check() {
 # --- Act & assert: unmount ---------------------------------------------------
 
 echo
-echo "Unmounting $MOUNT_POINT…"
+echo "Unmounting ${MOUNT_POINT}..."
 BASELINE="$(events)"
 diskutil unmount "$MOUNT_POINT" >/dev/null
 
@@ -135,7 +135,7 @@ fi
 # --- Act & assert: remount ---------------------------------------------------
 
 echo
-echo "Remounting $DEVICE_NODE…"
+echo "Remounting ${DEVICE_NODE}..."
 BASELINE="$(events)"
 diskutil mount "$DEVICE_NODE" >/dev/null
 
