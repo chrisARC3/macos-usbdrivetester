@@ -240,7 +240,7 @@ Enumerate connected USB mass-storage devices, present them in a stable, identifi
 ## Step 6 — Mount-guard: unmount verification + exclusive whole-disk claim
 
 **Original action item:** AI-4
-**Satisfies:** FR-SAFE-1/2/3/4/5; NFR-REL-3, NFR-USE-5
+**Satisfies:** FR-SAFE-1/2/3/4/5/6/7; NFR-REL-3, NFR-USE-5
 **Trust boundary:** the **claim/exclusive-open is helper-side** (privileged); the GUI orchestrates and shows errors.
 
 ### Objective
@@ -248,9 +248,36 @@ Guarantee that no test ever starts unless **(a) every volume on the device is un
 
 ### Detailed steps
 1. **Check for mounted volumes (FR-SAFE-1/2).** Via DiskArbitration, enumerate the selected whole disk's child media; for each, get its `DADiskCopyDescription` and check `kDADiskDescriptionVolumePathKey` (non-nil ⇒ mounted). If any are mounted, **do not proceed**.
-2. **Acquire exclusive whole-disk access (FR-SAFE-3).** Two coordinated actions, helper-side:
-   - **Unmount the whole disk** (all volumes) — `DADiskUnmount(wholeDisk, kDADiskUnmountOptionWhole, …)` (equivalent to `diskutil unmountDisk`). Optionally offer to do this from within the app (FR-SAFE-5, priority C).
+2. **Acquire exclusive whole-disk access (FR-SAFE-3).** Helper-side, and **without
+   unmounting anything** — see the amendment note below.
    - **Claim the disk** — `DADiskClaim(wholeDisk, …)` so the OS won't auto-remount mid-run, **and** open `/dev/rdiskN` exclusively (Step 7's `open` must succeed). Hold the claim for the run's duration.
+   - If any volume is still mounted, **refuse** (FR-SAFE-4(a), FR-SAFE-6). Acquiring must
+     never change the mount state as a side effect.
+
+   > **Amended 2026-07-30.** This step originally read "unmount the whole disk (all
+   > volumes)" as part of acquiring, with an in-app unmount as an optional extra. That
+   > conflicted with FR-SAFE-4(a), which requires a mounted volume to produce a refusal
+   > naming the volume and instructing the user. Unmounting is now **only** ever the
+   > result of the user pressing the control in 2a, never a side effect of starting a
+   > test (FR-SAFE-6).
+
+2a. **Mount/unmount control (FR-SAFE-5/6/7).** One button in the app, acting on **all**
+   volumes of the selected device, whose label and action always agree:
+
+   | Selected device | Label | State |
+   |---|---|---|
+   | none | `Unmount All` (default) | disabled |
+   | one or more volumes mounted | `Unmount All` | enabled → unmount all |
+   | no volumes mounted | `Mount All` | enabled → mount all |
+
+   A partially-mounted device reads `Unmount All` — any mounted volume selects the
+   unmount direction. Also disabled during a run or while the helper holds the claim
+   (FR-SAFE-7). Unmount is a common failure case (open files), so a failure must name the
+   volume and the reason (NFR-USE-5), not merely report that it failed. The control lives
+   app-side and uses unprivileged DiskArbitration, keeping the privileged XPC surface to
+   check/acquire/release (NFR-SEC-3). Its state derives from the Step 5 device model,
+   which live-updates through the volume watcher, so the label re-evaluates itself when
+   the action completes.
 3. **Distinguish the two failure causes precisely (FR-SAFE-4, NFR-USE-5):**
    - (a) Volume(s) still mounted → name the specific volume(s) and instruct the user to unmount them.
    - (b) Volumes unmounted but exclusive access fails because the device node is **claimed by another process** → say exactly that (and, if discoverable, which process / that the node is busy).
@@ -263,6 +290,8 @@ Guarantee that no test ever starts unless **(a) every volume on the device is un
 - [ ] With volumes unmounted but the node held busy by another process, starting is refused with the **"device node is claimed"** message — distinct from the mounted-volume message.
 - [ ] On success, the helper holds an exclusive claim and an exclusive `rdiskN` open; releasing it (stop/teardown) makes the disk normally usable again.
 - [ ] The write path has an enforced guard that exclusive access is held (verified by a unit/integration check that the guard trips when access is absent).
+- [ ] **Mount/unmount control (FR-SAFE-5/6/7):** disabled with no device selected; reads `Unmount All` and unmounts every volume when any is mounted; reads `Mount All` and mounts them when none is; a partially-mounted device reads `Unmount All`; the label re-evaluates after each action; a failed unmount names the volume and the reason.
+- [ ] **Nothing mounts or unmounts implicitly (FR-SAFE-6):** attempting to start with a volume mounted refuses and leaves the mount state unchanged.
 
 ### Risks / gotchas
 - Unmounting volumes is **not** sufficient — without `DADiskClaim`, `diskarbitrationd` or Spotlight can re-probe/remount and corrupt an in-flight run. The claim is mandatory.

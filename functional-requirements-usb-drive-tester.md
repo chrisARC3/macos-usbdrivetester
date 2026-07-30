@@ -1,8 +1,9 @@
 # Functional Requirements: USB Drive Retention & Hard-Fault Tester
 
-**Status:** Baselined
+**Status:** Baselined (amended — see [Amendments](#amendments-to-the-baseline))
 **Date:** 2026-06-25
 **Baselined:** 2026-06-25
+**Last amended:** 2026-07-30 (FR-SAFE-5 revised; FR-SAFE-6, FR-SAFE-7 added)
 **Source documents:** [USBDriveTester.md](USBDriveTester.md), [ADR-001-usb-drive-tester.md](ADR-001-usb-drive-tester.md)
 **Companion document:** [Non-Functional Requirements](nonfunctional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
@@ -65,7 +66,9 @@ This document specifies the **functional requirements** — the observable behav
 | FR-SAFE-2 | The system shall verify that all volumes belonging to the selected device are unmounted before starting a test. | M | PB Managing Mounted Volumes |
 | FR-SAFE-3 | The system shall acquire exclusive whole-disk access to the device node (e.g., via DiskArbitration claim / `diskutil unmountDisk`) and shall not start a test unless exclusive access is held. | M | ADR Consequences; Action Item 4 |
 | FR-SAFE-4 | When a test cannot start, the system shall display a clear error message identifying the actual cause: (a) one or more of the device's volumes are still mounted (instruct the user to unmount them), or (b) the volumes are unmounted but exclusive whole-disk access cannot be acquired because the device node is claimed by another process. | M | PB Managing Mounted Volumes; ADR Consequences; Action Item 4 |
-| FR-SAFE-5 | The system should offer the user the option to unmount the device's volumes from within the application. | C | Derived from PB/ADR (convenience) |
+| FR-SAFE-5 | The system shall provide a **single control** that mounts or unmounts **all** volumes of the selected device. Its label and its action shall always agree and shall reflect the selected device's current mount state: **"Unmount All"** when one or more of its volumes are mounted, **"Mount All"** when none are. The control shall be **disabled when no device is selected**, where it shall show the default label "Unmount All". | M | Derived from PB/ADR (convenience); **revised and elevated C→M by user decision 2026-07-30** — see Amendments |
+| FR-SAFE-6 | The system shall not mount or unmount any volume implicitly as a side effect of starting a test. Mounting and unmounting shall occur only in response to explicit user action through the control of FR-SAFE-5. | M | user decision 2026-07-30 |
+| FR-SAFE-7 | The control of FR-SAFE-5 shall additionally be disabled while a run is active or while the helper holds exclusive whole-disk access, since mounting the device under test would violate NFR-REL-3. | M | derived 2026-07-30 |
 
 ## FR-TEST — Test Execution Core
 
@@ -151,6 +154,45 @@ This document specifies the **functional requirements** — the observable behav
 
 - **Readability / presentation of throughput and latency.** The product brief's "easily readable from the user interface" intent is a usability quality and will be specified in the companion non-functional requirements document. The functional spec only requires that throughput (FR-METR-2) and latency (FR-METR-4) are displayed.
 
+## Amendments to the Baseline
+
+Changes made after the 2026-06-25 baseline. Recorded here so the delta from the
+baselined set is auditable rather than silently absorbed into the tables above.
+
+### 2026-07-30 — FR-SAFE-5 revised; FR-SAFE-6 and FR-SAFE-7 added
+
+**Trigger.** User decision during Step 6 scoping.
+
+**FR-SAFE-5 — revised, and elevated from priority C to M.** Previously: *"The system
+should offer the user the option to unmount the device's volumes from within the
+application."* Now specifies a **single bidirectional control** whose label and action
+track the selected device's mount state ("Unmount All" / "Mount All"), disabled when no
+device is selected.
+
+Three substantive changes:
+1. **Mounting is now in scope.** The baselined requirement covered unmounting only.
+   Mounting was not a requirement at all, and is a genuine addition rather than a
+   clarification — a drive left unmounted after a test previously had to be remounted
+   through Disk Utility or the Finder.
+2. **Priority C → M.** It is now a specified part of the safety UI, not a convenience.
+3. **The control's state is specified**, not just its existence, because the label is
+   what tells the user which way the action will go. A control whose text and behaviour
+   could disagree would be worse than no control on a screen whose job is preventing the
+   wrong drive being touched.
+
+**FR-SAFE-6 — added.** Makes explicit what FR-SAFE-4(a) implies: a mounted volume causes
+a *refusal with instructions*, never an implicit unmount. Starting a test must never
+change the mount state as a side effect. This closes an ambiguity between FR-SAFE-4(a)
+and BUILD-PLAN Step 6.2, which described unmounting the whole disk as part of acquiring
+access.
+
+**FR-SAFE-7 — added, derived rather than requested.** The control must also be disabled
+during a run or while the helper holds exclusive access. Not part of the user's stated
+rule, which addressed only the no-selection case, but mounting a device mid-run would
+violate NFR-REL-3 directly. Flagged as derived so it is easy to identify and reverse.
+
 ## Open Questions
 
-None outstanding — all questions from iterations 1–2 have been resolved (see *user decision 2026-06-25* annotations throughout).
+None outstanding — all questions from iterations 1–2 have been resolved (see *user
+decision 2026-06-25* annotations throughout), and the 2026-07-30 amendment above is
+recorded rather than open.

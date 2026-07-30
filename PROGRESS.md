@@ -938,3 +938,78 @@ Run on the installed `/Applications` build, all four confirmed by the user:
 **Next: Step 6** (mount-guard: unmount verification + exclusive whole-disk claim) — the
 first step where the helper does something privileged, and where DiskArbitration moves
 from the app's read-only observation here to the helper's authoritative claim.
+
+---
+
+## Step 6 — Mount-guard: unmount verification + exclusive claim — SCOPING
+
+**AI-4 / satisfies FR-SAFE-1…7; NFR-REL-3, NFR-USE-5.**
+
+Scoped 2026-07-30. Not yet authored — one measurement is outstanding before the design
+can be fixed (see "Blocked on" below).
+
+### Requirements amended this step (2026-07-30)
+
+The mount/unmount control was specified by the user during scoping and changed the
+baselined functional spec. Recorded in
+[functional-requirements](functional-requirements-usb-drive-tester.md#amendments-to-the-baseline):
+
+- **FR-SAFE-5 revised, C → M.** One control acting on *all* volumes of the selected
+  device, label and action always in agreement: `Unmount All` when any volume is
+  mounted, `Mount All` when none is, disabled with no selection. **Mounting was not
+  previously a requirement at all** — the baseline covered unmounting only.
+- **FR-SAFE-6 added.** Nothing mounts or unmounts implicitly; starting a test never
+  changes mount state. This closes a real conflict between FR-SAFE-4(a) (refuse and
+  instruct) and BUILD-PLAN Step 6.2 as written (unmount as part of acquiring). BUILD-PLAN
+  Step 6.2 was amended to match.
+- **FR-SAFE-7 added, derived not requested.** The control is also disabled during a run
+  or while the helper holds the claim, because mounting the device under test would
+  violate NFR-REL-3. Marked as derived so it is easy to identify and reverse.
+
+A useful consequence: the control's state comes from `DiscoveredDevice.mountedVolumeNames`,
+which live-updates through the `VolumeChangeWatcher` added to fix the Step 5 defect. The
+label re-evaluates itself when the action completes, with no extra plumbing — yesterday's
+bug fix is now load-bearing for this feature.
+
+### Decisions taken (2026-07-30)
+
+1. **Never unmount implicitly** — now FR-SAFE-6 rather than a design preference.
+2. **The mount/unmount control is app-side**, using unprivileged DiskArbitration, keeping
+   the privileged XPC surface to check/acquire/release (NFR-SEC-3). Evidence:
+   `diskutil unmountDisk` succeeds without `sudo` on an external drive, so an
+   unprivileged process can do it.
+3. **Protocol → v3, three methods:** `checkDeviceReadiness` (read-only, safe to poll for
+   display), `acquireDevice`, `releaseDevice`. The check must be side-effect-free because
+   the GUI has to show "2 volumes mounted" *before* Start, and a check with side effects
+   cannot drive a display.
+4. **The write-path guard is a type, not a flag (NFR-REL-3).** The helper holds an
+   `AcquiredDevice` value constructible only by a successful acquire; Steps 7/8's write
+   path takes it as a parameter. No value, no write path — the guard cannot be forgotten
+   at a call site. Classification logic goes in `Core/` as a pure
+   `DeviceAccessPrecondition`, unit-tested exhaustively like `UninstallPrecondition`.
+5. **`HelperActivity` finally gets a body.** Acquiring marks the helper busy, so
+   `prepareForShutdown` genuinely refuses and `releaseAll()` releases the claim — closing
+   the loop deliberately left open in Step 4.
+6. **A partially-mounted device reads `Unmount All`.** Any mounted volume selects the
+   unmount direction; confirmed with the user.
+7. **A device with nothing mountable keeps the control enabled** and reports honestly
+   afterwards, rather than being disabled via DiskArbitration's `VolumeMountable` flag.
+   Faithful to the stated rule (only "no selection" disables), and avoids relying on a
+   flag that can be conservative for third-party filesystems.
+
+### Blocked on: exclusivity semantics
+
+`tools/exclusivity-probe` + `scripts/exclusivity-probe.sh` *(authored, not yet run)*.
+Three unknowns decide the acquire path and whether FR-SAFE-4(b) is detectable at all:
+
+- Does `open(rdiskN, O_RDWR)` fail while a volume is mounted, and succeed once unmounted?
+- Do **two** processes both obtain an `O_RDWR` handle? If so, `open` alone cannot detect
+  "claimed by another process" and exclusivity must come from `O_EXLOCK` or `DADiskClaim`.
+- Does `DADiskClaim` refuse a second claimant?
+
+Requires root — `/dev/rdiskN` is `root:operator`. **The probe never writes**: it opens,
+locks, claims, then releases. It runs twice (mounted, then unmounted) and restores the
+mounts.
+
+This is deliberate after Step 5, whose only defect came from assuming how a system
+service behaves instead of measuring it.
