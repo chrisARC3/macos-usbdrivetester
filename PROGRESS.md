@@ -941,12 +941,13 @@ from the app's read-only observation here to the helper's authoritative claim.
 
 ---
 
-## Step 6 — Mount-guard: unmount verification + exclusive claim — SCOPING
+## Step 6 — Mount-guard: unmount verification + exclusive claim — SCOPED, NOT AUTHORED
 
 **AI-4 / satisfies FR-SAFE-1…7; NFR-REL-3, NFR-USE-5.**
 
-Scoped 2026-07-30. Not yet authored — one measurement is outstanding before the design
-can be fixed (see "Blocked on" below).
+Scoped 2026-07-30: requirements amended, decisions taken, exclusivity semantics measured
+on real hardware, and the file plan approved by the user. **No Step 6 source has been
+written yet** — the next action is to author the file plan below, pure logic first.
 
 ### Requirements amended this step (2026-07-30)
 
@@ -1053,19 +1054,70 @@ holder's `DADiskClaim` or its `O_EXLOCK` cannot be told apart from this data. It
 change the design, because the helper holds both regardless — the claim for anti-remount
 (mandatory per finding 4) and `O_EXLOCK` for write exclusion.
 
-### Original blocker (now cleared): exclusivity semantics
 
-`tools/exclusivity-probe` + `scripts/exclusivity-probe.sh` *(authored, not yet run)*.
-Three unknowns decide the acquire path and whether FR-SAFE-4(b) is detectable at all:
+### Approved file plan (2026-07-30) — NOT YET AUTHORED
 
-- Does `open(rdiskN, O_RDWR)` fail while a volume is mounted, and succeed once unmounted?
-- Do **two** processes both obtain an `O_RDWR` handle? If so, `open` alone cannot detect
-  "claimed by another process" and exclusivity must come from `O_EXLOCK` or `DADiskClaim`.
-- Does `DADiskClaim` refuse a second claimant?
+Confirmed by the user. Author in this order: pure logic + its tests first, then the
+privileged side, then the UI — the Step 5 order, which kept the hardware-dependent
+surface small.
 
-Requires root — `/dev/rdiskN` is `root:operator`. **The probe never writes**: it opens,
-locks, claims, then releases. It runs twice (mounted, then unmounted) and restores the
-mounts.
+**Core** — `com.arc3solutions.USBDriveTester.Helper/Core/`
+- `DeviceAccessPrecondition.swift` — pure classification of (mount state, claim outcome,
+  open `errno`) → decision + message, distinguishing FR-SAFE-4(a) from (b). Mirrors
+  `UninstallPrecondition`. **This is what gate item 4 verifies.**
+  ⚠️ **Needs an Xcode target-membership tick** for `USBDriveTesterTests`, exactly as the
+  Step 2/3 Core files did. It is the only GUI action Step 6 requires.
 
-This is deliberate after Step 5, whose only defect came from assuming how a system
-service behaves instead of measuring it.
+**Helper** — `com.arc3solutions.USBDriveTester.Helper/`
+- `DeviceClaim.swift` *(new)* — DA session, mount check, claim-with-timeout, exclusive
+  open, and the `AcquiredDevice` value.
+- `main.swift` *(edit)* — the v3 methods; `HelperActivity` finally gets a body.
+
+**Shared** — `USBDriveTester/Shared/`
+- `TesterControl.swift` *(edit)* — protocol **v2 → v3**: `checkDeviceReadiness`
+  (read-only, safe to poll), `acquireDevice`, `releaseDevice`.
+
+**App** — `USBDriveTester/`
+- `Discovery/VolumeMounter.swift` *(new)* — unprivileged mount/unmount-all via
+  DiskArbitration.
+- `MountControlState.swift` *(new)* — **pure** mapping of (selection, mounted count, run
+  active) → button label + enabled state. FR-SAFE-5/7 encoded as testable logic rather
+  than inline view conditionals.
+- `HelperConnection.swift` *(edit)* — typed v3 calls.
+- `DeviceListView.swift` *(edit)* — the Mount All / Unmount All button and the readiness
+  banner.
+
+**Tests** — `USBDriveTesterTests/`
+- `DeviceAccessPreconditionTests.swift`, `MountControlStateTests.swift`.
+
+**Tooling** — `scripts/claim-contention-test.sh`, reusing `exclusivity-probe --hold` to
+assert the helper reports cause (b) rather than cause (a).
+
+### The acquire sequence, as designed
+
+1. Check mounted volumes → any ⇒ refuse, **cause (a)**, naming them (FR-SAFE-4(a)).
+2. `DADiskClaim` **with a 5 s timeout** → pending ⇒ refuse, **cause (b)**.
+3. `open(rdiskN, O_RDWR | O_EXLOCK | O_NONBLOCK)` → `EBUSY` ⇒ refuse, **cause (b)**;
+   another `errno` ⇒ a specific error naming it.
+4. Success ⇒ construct `AcquiredDevice` — the only value that unlocks the Steps 7/8 write
+   path (NFR-REL-3).
+
+**Release:** close fd → `DADiskUnclaim` → mark `HelperActivity` idle, without assuming the
+device is instantly reusable (release is asynchronous — see the measurements above).
+
+### Verification split for the gate
+
+| Unit-testable | CLI + root | Needs a person |
+|---|---|---|
+| Classification of both causes; the guard tripping when access is absent; the button label/state matrix | `claim-contention-test.sh`; `exclusivity-probe.sh` | Both refusal messages in the GUI; the button toggling; release restoring normal use |
+
+### State this step begins from
+
+- Helper **uninstalled** (Step 4 left it that way; Step 5 never needed it).
+  `/Applications/USBDriveTester.app` holds the **Step 5** build.
+- Protocol at **v2**; Step 6 takes it to v3.
+- `git` clean on `main`; Step 5 committed at `cbd3a39`, scoping commits after it.
+- Hardware attached: `disk4` (Samsung Portable SSD T5, 1 TB, 512 B, one exFAT volume
+  `Test_Drive` — **the designated scratch device**), `disk6` (holds this source tree —
+  never test it), `disk8` (Seagate 22 TB).
+- 171 tests passing, zero warnings from a clean build, Debug and Release.
