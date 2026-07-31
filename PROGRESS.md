@@ -997,7 +997,63 @@ bug fix is now load-bearing for this feature.
    Faithful to the stated rule (only "no selection" disables), and avoids relying on a
    flag that can be conservative for third-party filesystems.
 
-### Blocked on: exclusivity semantics
+### Exclusivity semantics — MEASURED (2026-07-30)
+
+Took three runs; the first two produced answers that did not follow from their evidence,
+which is recorded below because the failures were more instructive than the successes.
+
+**Findings, all from `scripts/exclusivity-probe.sh disk4` on the real device:**
+
+| Question | Answer |
+|---|---|
+| `open(rdiskN, O_RDWR)` while a volume is mounted | fails `EBUSY` — **the mount guard is kernel-enforced** |
+| `open(rdiskN, O_RDWR)` unmounted | succeeds |
+| Two independent `O_RDWR` opens, unmounted | **both succeed — a plain open is not exclusive** |
+| `O_EXLOCK` | first succeeds, second fails `EBUSY` — **this is the exclusivity mechanism** |
+| Another **process** holding claim + `O_EXLOCK` | second process gets `EBUSY`, nothing mounted — **FR-SAFE-4(b) is detectable** |
+| Contended `DADiskClaim` | **PENDING forever** — never granted, never dissented |
+| Volume left unmounted with no claim | **macOS silently remounted it** |
+
+**Consequences, all now reflected in BUILD-PLAN:**
+
+1. **Step 7 amended: the raw open must be `O_RDWR | O_EXLOCK | O_NONBLOCK`.** It
+   specified a plain `O_RDWR`, which would have let two processes write the same device
+   simultaneously — the failure would have been silent and intermittent.
+2. **The claim needs a timeout**, and a timeout *means* FR-SAFE-4(b). A blocking claim
+   would wedge the helper, and no dissenter ever arrives to tell it otherwise.
+3. **Both FR-SAFE-4 causes present as the same `EBUSY`.** Only the mount check separates
+   them — which the app can do unprivileged, and which is why `checkDeviceReadiness`
+   must return mount state rather than an error code.
+4. **The claim is mandatory, not defensive.** Auto-remount was observed, not theorised.
+5. **Release is asynchronous** — an open straight after `DADiskUnclaim` can still see
+   `EBUSY`, so the release path must not assume instant reusability (NFR-REL-5).
+
+**Probe defects found and fixed along the way** — worth keeping, because each one
+produced a *plausible but wrong* answer rather than an obvious failure:
+
+- Printed "open IS exclusive" when a second open failed, in a phase where both opens
+  failed because a volume was mounted. A verdict is now printed only when the first open
+  succeeded.
+- Passed the DiskArbitration claim context `passUnretained`, so a callback arriving after
+  the timeout dereferenced a deallocated object — a segfault mid-measurement. Retained
+  now, released in the callback.
+- Had the holder process open with a plain `O_RDWR`, so it held nothing and the
+  contention phase measured an uncontended disk.
+- Ran its FR-SAFE-4 classification at the *end* of the battery, where it reported "held
+  by another process" in a phase in which nothing else held the disk. It was measuring
+  the probe's own leftover pending claim. **Now measured first, before the probe touches
+  anything.**
+- `$DISK` followed by a UTF-8 ellipsis made bash absorb those bytes into the variable
+  name under `set -u`, aborting before the most important phase. Locale-dependent, so it
+  ran here and failed on the user's terminal. The same latent bug was fixed in
+  `install-app.sh` and `mount-change-test.sh`.
+
+**Still unresolved, and not blocking.** Whether phase 3's exclusion came from the
+holder's `DADiskClaim` or its `O_EXLOCK` cannot be told apart from this data. It does not
+change the design, because the helper holds both regardless — the claim for anti-remount
+(mandatory per finding 4) and `O_EXLOCK` for write exclusion.
+
+### Original blocker (now cleared): exclusivity semantics
 
 `tools/exclusivity-probe` + `scripts/exclusivity-probe.sh` *(authored, not yet run)*.
 Three unknowns decide the acquire path and whether FR-SAFE-4(b) is detectable at all:

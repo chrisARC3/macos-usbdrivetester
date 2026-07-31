@@ -250,9 +250,26 @@ Guarantee that no test ever starts unless **(a) every volume on the device is un
 1. **Check for mounted volumes (FR-SAFE-1/2).** Via DiskArbitration, enumerate the selected whole disk's child media; for each, get its `DADiskCopyDescription` and check `kDADiskDescriptionVolumePathKey` (non-nil ⇒ mounted). If any are mounted, **do not proceed**.
 2. **Acquire exclusive whole-disk access (FR-SAFE-3).** Helper-side, and **without
    unmounting anything** — see the amendment note below.
-   - **Claim the disk** — `DADiskClaim(wholeDisk, …)` so the OS won't auto-remount mid-run, **and** open `/dev/rdiskN` exclusively (Step 7's `open` must succeed). Hold the claim for the run's duration.
+   - **Claim the disk** — `DADiskClaim(wholeDisk, …)` so the OS won't auto-remount mid-run, **and** open `/dev/rdiskN` with `O_EXLOCK` (Step 7's `open` must succeed). Hold both for the run's duration.
+   - **Claim with a timeout.** Measured 2026-07-30: a contended `DADiskClaim` is neither
+     granted nor dissented — it stays **pending indefinitely**. A blocking claim would
+     wedge the helper, so the claim must time out, and a timeout means *another process
+     holds the disk* (FR-SAFE-4(b)), not that the call failed.
    - If any volume is still mounted, **refuse** (FR-SAFE-4(a), FR-SAFE-6). Acquiring must
      never change the mount state as a side effect.
+
+   > **Measured, 2026-07-30** (`scripts/exclusivity-probe.sh`), and load-bearing for this
+   > step:
+   > - **The mount guard is kernel-enforced.** `open(rdiskN, O_RDWR)` fails `EBUSY` while
+   >   any volume is mounted. FR-SAFE-1/2 is backed by the OS, not only by our policy.
+   > - **Auto-remount is real.** The moment a probe released its claim, macOS silently
+   >   remounted the volume. Unmounting alone is *not* sufficient — the claim is what
+   >   keeps it unmounted, exactly as this step's "risks" note warns.
+   > - **The two FR-SAFE-4 causes are the same errno.** Both (a) and (b) surface as
+   >   `EBUSY`. The mount check is the only thing that separates them, which is why the
+   >   read-only readiness check must report mount state rather than just an error code.
+   > - **Release is asynchronous.** An open immediately after `DADiskUnclaim` can still
+   >   see `EBUSY`. The release path must not assume the device is instantly reusable.
 
    > **Amended 2026-07-30.** This step originally read "unmount the whole disk (all
    > volumes)" as part of acquiring, with an in-app unmount as an optional extra. That
@@ -311,7 +328,14 @@ Guarantee that no test ever starts unless **(a) every volume on the device is un
 Implement the real `RawBlockDevice` for hardware: open the raw device uncached, read true block geometry, and produce the block-aligned chunk plan (including the correctly-sized final chunk). The same engine from Step 2 will now run against either the in-memory device or this real one.
 
 ### Detailed steps
-1. **Open the raw device** in the helper: `open("/dev/rdiskN", O_RDWR)` (raw, not buffered `diskN`). Fail with a precise error if it can't be opened exclusively (ties to Step 6).
+1. **Open the raw device** in the helper: `open("/dev/rdiskN", O_RDWR | O_EXLOCK | O_NONBLOCK)` (raw, not buffered `diskN`). Fail with a precise error if it can't be opened exclusively (ties to Step 6).
+
+   > **Amended 2026-07-30, measured.** This originally specified a plain `O_RDWR` open.
+   > `scripts/exclusivity-probe.sh` established that **a plain `O_RDWR` open on an
+   > unmounted raw disk is not exclusive at all** — two independent opens both succeed,
+   > so two processes could write the same device simultaneously. `O_EXLOCK` does
+   > exclude: the second attempt fails `EBUSY`. `O_NONBLOCK` matters too, or a contended
+   > open blocks instead of returning the error the guard needs.
 2. **Disable caching (FR-TEST-6):** `fcntl(fd, F_NOCACHE, 1)` and `fcntl(fd, F_GLOBAL_NOCACHE, 1)` so reads/writes hit the device, not the unified buffer cache.
 3. **Query geometry:**
    - `ioctl(fd, DKIOCGETBLOCKSIZE, &blockSize)` → `UInt32` logical block size (expect 512 or 4096; NFR-COMPAT-5).

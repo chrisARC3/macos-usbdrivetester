@@ -197,6 +197,34 @@ if mounts.isEmpty {
 }
 let anyMounted = !mounts.isEmpty
 
+// --- Classification, measured FIRST --------------------------------------------------
+//
+// This ran at the *end* on the previous version and reported "held by another process"
+// in a phase where nothing else held the disk. It was measuring the battery's own
+// leftovers: a pending claim from this process's second session, and a DADiskUnclaim
+// that does not appear to settle synchronously. Running it before anything else is
+// touched is the only way it describes the system rather than the probe.
+
+print("\nFR-SAFE-4 classification (measured before this probe touches anything):")
+print("  volumes mounted:        \(anyMounted ? "YES" : "no")")
+let classifyFD = open(rawPath, O_RDWR | O_EXLOCK | O_NONBLOCK)
+let classifyErrno = errno
+if classifyFD >= 0 {
+    print("  O_EXLOCK acquirable:    YES")
+    close(classifyFD)
+} else {
+    print("  O_EXLOCK acquirable:    no (errno \(classifyErrno))")
+}
+
+switch (anyMounted, classifyFD >= 0) {
+case (true, _):
+    print("  => cause (a): volumes are mounted. Refuse and name them.")
+case (false, false):
+    print("  => cause (b): unmounted, but the node is held by another process.")
+case (false, true):
+    print("  => neither: the device is available and can be acquired.")
+}
+
 // --- 1 & 2: plain O_RDWR opens -------------------------------------------------------
 
 print("\n1. open(\(rawPath), O_RDWR)")
@@ -266,30 +294,6 @@ line("released", "unclaimed")
 
 // --- Summary -------------------------------------------------------------------------
 
-// --- The classification this all exists to support -----------------------------------
-//
-// FR-SAFE-4 needs two causes told apart, and both surface as the same errno. The mount
-// check is what disambiguates them, which is exactly what the app can determine for
-// itself without touching the device.
-
-print("\nFR-SAFE-4 classification from these inputs:")
-print("  volumes mounted:        \(anyMounted ? "YES" : "no")")
-let exclusiveFD = open(rawPath, O_RDWR | O_EXLOCK | O_NONBLOCK)
-let exclusiveErrno = errno
-if exclusiveFD >= 0 {
-    print("  O_EXLOCK acquirable:    YES")
-    close(exclusiveFD)
-} else {
-    print("  O_EXLOCK acquirable:    no (errno \(exclusiveErrno))")
-}
-
-switch (anyMounted, exclusiveFD >= 0) {
-case (true, _):
-    print("  => cause (a): volumes are mounted. Refuse and name them.")
-case (false, false):
-    print("  => cause (b): unmounted, but the node is held by another process.")
-case (false, true):
-    print("  => neither: the device is available and can be acquired.")
-}
-
 print("\nDone. Nothing was written to the device.")
+print("(The classification above was measured before these tests ran; anything this")
+print(" probe leaves claimed or locked cannot have influenced it.)")
