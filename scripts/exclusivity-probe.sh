@@ -93,25 +93,35 @@ echo "This is the FR-SAFE-4(b) case: the volumes are unmounted but a different"
 echo "process holds the device. A second session inside one process is not the"
 echo "same thing and can behave differently."
 echo
+# Re-unmount first. On the previous run macOS silently remounted the volume between
+# phases — the moment phase 2's probe exited and released its claim — so the holder's
+# open failed on a mounted disk and this phase measured nothing. That remount is itself
+# the reason FR-SAFE-3 requires a claim, and it is why the holder below claims *before*
+# opening and keeps the claim for its whole life.
+echo "Re-unmounting ${DISK} (it may have been auto-remounted)..."
+diskutil unmountDisk "$DISK" || true
+
 HOLD_LOG="$(mktemp -t usbdt-hold)"
 sudo "$BUILD_DIR/exclusivity-probe" "$DISK" --hold 20 > "$HOLD_LOG" 2>&1 &
 HOLD_PID=$!
 
 # Wait for the holder to report that it has actually acquired the device, rather
-# than racing it with a fixed sleep.
+# than racing it with a fixed sleep. NOT-HOLDING means it failed to acquire, and
+# proceeding then would measure contention that does not exist.
 for _ in $(seq 1 60); do
-    grep -q "HOLDING" "$HOLD_LOG" && break
+    grep -qE "HOLDING|NOT-HOLDING" "$HOLD_LOG" && break
     sleep 0.5
 done
 
-if grep -q "HOLDING" "$HOLD_LOG"; then
+if grep -q "^HOLDING" "$HOLD_LOG"; then
     echo "--- what the holding process got ---"
     sed 's/^/  /' "$HOLD_LOG"
     echo
     echo "--- what a second process sees while that is held ---"
     sudo "$BUILD_DIR/exclusivity-probe" "$DISK" || true
 else
-    echo "the holder never reported HOLDING; its output was:"
+    echo "the holder did not acquire the device, so there is no contention to measure."
+    echo "its output was:"
     sed 's/^/  /' "$HOLD_LOG"
 fi
 

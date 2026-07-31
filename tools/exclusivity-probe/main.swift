@@ -101,7 +101,8 @@ final class ClaimOutcome: @unchecked Sendable {
 }
 
 let claimCallback: DADiskClaimCallback = { _, dissenter, context in
-    let outcome = Unmanaged<ClaimOutcome>.fromOpaque(context!).takeUnretainedValue()
+    // Balances the passRetained in `claim(_:timeout:)`.
+    let outcome = Unmanaged<ClaimOutcome>.fromOpaque(context!).takeRetainedValue()
     if let dissenter {
         let status = DADissenterGetStatus(dissenter)
         outcome.message = "REFUSED (dissenter status 0x\(String(UInt32(bitPattern: status), radix: 16)))"
@@ -112,12 +113,21 @@ let claimCallback: DADiskClaimCallback = { _, dissenter, context in
 }
 
 /// Claim the disk, returning a human-readable outcome.
+///
+/// The context is **retained**, and the callback releases it. The first version passed
+/// it unretained, so when the timeout below expired and the local deallocated, a late
+/// callback dereferenced freed memory — that was the segfault. On a genuine timeout this
+/// leaks one small object, which is the right trade in a probe: a leak is measurable, a
+/// use-after-free corrupts the very measurement it crashes in the middle of.
 func claim(_ disk: DADisk, timeout: TimeInterval = 6) -> String {
     let outcome = ClaimOutcome()
     DADiskClaim(disk, DADiskClaimOptions(kDADiskClaimOptionDefault),
-                nil, nil, claimCallback, Unmanaged.passUnretained(outcome).toOpaque())
+                nil, nil, claimCallback, Unmanaged.passRetained(outcome).toOpaque())
     guard outcome.semaphore.wait(timeout: .now() + timeout) == .success else {
-        return "no callback within \(Int(timeout))s"
+        // Not necessarily an error. A claim that is neither granted nor dissented is
+        // *pending* — which is what a claim contended by another holder looks like.
+        return "PENDING — no callback within \(Int(timeout))s (nobody dissented, "
+             + "but it was not granted either)"
     }
     return outcome.message
 }
@@ -136,19 +146,37 @@ func makeSession() -> (DASession, DADisk)? {
 if let seconds = holdSeconds {
     print("exclusivity-probe HOLD on \(rawPath) for \(Int(seconds))s  (pid \(getpid()), uid \(getuid()))")
 
+    let mountsBefore = mountedVolumes()
+    line("mounted volumes", mountsBefore.isEmpty
+         ? "none"
+         : mountsBefore.map(\.from).joined(separator: ", ") + "  <- will block the open")
+
     guard let (session, disk) = makeSession() else {
         print("  DASessionCreate/DADiskCreateFromBSDName failed")
         exit(1)
     }
+
+    // Claim first, and keep it: releasing the claim is what let macOS silently remount
+    // the volume between phases on the previous run, which invalidated this whole phase.
     line("claim", claim(disk))
 
-    let fd = open(rawPath, O_RDWR)
-    line("open O_RDWR", fd < 0 ? errnoText(errno) : "SUCCEEDED (fd \(fd))")
+    // O_EXLOCK, not a plain O_RDWR open. Phase 2 established that a plain open excludes
+    // nobody, so a holder using one would not be holding anything and the contention
+    // this phase exists to measure would not exist.
+    let fd = open(rawPath, O_RDWR | O_EXLOCK | O_NONBLOCK)
+    if fd < 0 {
+        line("open O_RDWR|O_EXLOCK", errnoText(errno))
+        print("NOT-HOLDING")     // the parent script must not proceed as if we were
+        DADiskUnclaim(disk)
+        _ = session
+        exit(1)
+    }
+    line("open O_RDWR|O_EXLOCK", "SUCCEEDED (fd \(fd)) — exclusive lock held")
 
-    print("HOLDING")            // the parent script waits for this line
+    print("HOLDING")             // the parent script waits for this line
     Thread.sleep(forTimeInterval: seconds)
 
-    if fd >= 0 { close(fd) }
+    close(fd)
     DADiskUnclaim(disk)
     _ = session
     print("released")
@@ -238,7 +266,30 @@ line("released", "unclaimed")
 
 // --- Summary -------------------------------------------------------------------------
 
-print("\nSummary for this phase:")
-print("  volumes mounted: \(anyMounted ? "YES — exclusivity results below are not meaningful" : "no")")
-print("  O_RDWR open:     \(firstFD < 0 ? "refused (errno \(firstErrno))" : "granted")")
+// --- The classification this all exists to support -----------------------------------
+//
+// FR-SAFE-4 needs two causes told apart, and both surface as the same errno. The mount
+// check is what disambiguates them, which is exactly what the app can determine for
+// itself without touching the device.
+
+print("\nFR-SAFE-4 classification from these inputs:")
+print("  volumes mounted:        \(anyMounted ? "YES" : "no")")
+let exclusiveFD = open(rawPath, O_RDWR | O_EXLOCK | O_NONBLOCK)
+let exclusiveErrno = errno
+if exclusiveFD >= 0 {
+    print("  O_EXLOCK acquirable:    YES")
+    close(exclusiveFD)
+} else {
+    print("  O_EXLOCK acquirable:    no (errno \(exclusiveErrno))")
+}
+
+switch (anyMounted, exclusiveFD >= 0) {
+case (true, _):
+    print("  => cause (a): volumes are mounted. Refuse and name them.")
+case (false, false):
+    print("  => cause (b): unmounted, but the node is held by another process.")
+case (false, true):
+    print("  => neither: the device is available and can be acquired.")
+}
+
 print("\nDone. Nothing was written to the device.")
