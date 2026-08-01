@@ -2,6 +2,9 @@
 
 **Status:** Draft for execution
 **Date:** 2026-06-25
+**Last amended:** 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Disk
+Access), and the test target fixed to `disk4` with disk images removed as an option
+(see "Test hardware")
 **Source documents:**
 - [Product Brief](USBDriveTester.md)
 - [ADR-001](ADR-001-usb-drive-tester.md) — the 16 Action Items this plan sequences
@@ -35,6 +38,23 @@ Before a step's gate is considered passed:
 - The privileged/unprivileged trust boundary is respected: no raw I/O outside the helper (FR-ARCH-6, NFR-SEC-1).
 - New significant events are emitted via `os_log` (NFR-OBS-1) — see Step 15.
 - A one-paragraph note is recorded (commit message or a `PROGRESS.md`) describing what was verified and how.
+
+### Test hardware (amended 2026-08-01, user decision)
+
+Every step with a real-hardware gate uses **`disk4`** — Samsung Portable SSD T5, 1 TB,
+512-byte blocks, one exFAT volume `Test_Drive`. It holds only expendable test files.
+
+- **`disk6` must never be tested** — it holds this source tree.
+- **`disk8`** (Seagate 22 TB) is for read-only checks such as 64-bit block-count handling.
+- **Disk images are not a test target.** Discovery excludes them (they report
+  `Physical Interconnect == "Virtual Interface"`), and they lack the USB bridge, real
+  block device and NAND this tool exists to exercise. Earlier wording in Steps 7, 8 and
+  Appendix B offering a disk image as a safer stand-in has been removed — see Step 7,
+  "The test target".
+- **The helper requires Full Disk Access** (NFR-INST-4) before any raw I/O works at all.
+
+The drive's data being expendable relaxes the *consequence* of a bug, never the discipline:
+simulation-first still applies wherever the plan calls for it.
 
 ---
 
@@ -350,15 +370,45 @@ Implement the real `RawBlockDevice` for hardware: open the raw device uncached, 
 7. **`os_log`** device open and geometry (NFR-OBS-1) — never log contents (NFR-SEC-6).
 
 ### Verification Gate (must pass before Step 8)
-- [ ] Against a **real** USB device (or a disk image attached as a raw device for safety), geometry (block size, block count, capacity) reads correctly and matches `diskutil info`.
+- [ ] Against the **designated scratch device** (`disk4`), geometry (block size, block count, capacity) reads correctly and matches `diskutil info`. *(Amended 2026-08-01: disk images are not an option — see "The test target" below.)*
 - [ ] The chunk plan computed for several sizes (e.g. a device whose block count is **not** a multiple of `blocksPerChunk`) yields a correct final chunk equal to the exact remaining blocks — verified by **unit tests using `InMemoryBlockDevice`** with deliberately awkward sizes, for both 512B and 4096B blocks.
 - [ ] Peak buffer memory == ~2×`ioSize` regardless of device size (instrument and confirm; NFR-PERF-1).
 - [ ] `F_NOCACHE`/`F_GLOBAL_NOCACHE` are set (verified by code path / no cache-hit behavior on re-read timing).
 
+### The test target (amended 2026-08-01, user decision)
+
+**All real-hardware I/O testing uses `disk4`** — the Samsung Portable SSD T5, 1 TB, 512-byte
+blocks, one exFAT volume `Test_Drive`. It holds only expendable test files. **Disk images
+are not used and are not supported as a test target.**
+
+Two reasons, one practical and one deliberate:
+
+1. **They do not work.** Discovery lists USB mass-storage whole disks only, and an attached
+   disk image reports `Physical Interconnect == "Virtual Interface"` (measured, Step 5). It
+   never appears in the device list, so it cannot be selected, and the helper's own
+   independent identity re-check (Step 6) would refuse it as ineligible even if it were.
+   The original wording here — "or a disk image attached as a raw device for safety" —
+   could not have been followed.
+2. **They would be the wrong kind of safe.** This project's recurring defect is a
+   substitute standing in for the real thing: a disk image that exercised a notification
+   path but had no filesystem, an APFS drive that masked a bug the exFAT drive exposed, an
+   incremental build that hid warnings, three `open(2)` flag combinations that reported a
+   permission as granted when it was not. A disk image has no USB bridge, no real block
+   device, and no NAND — exactly the layers this tool exists to exercise.
+
+**What does *not* change:** the drive being expendable relaxes the *consequence* of a bug,
+not the discipline. NFR-REL-1 still requires non-destructiveness to be **proven in
+simulation first** (Step 8's gate), and the engine must still write back the bytes it read
+rather than any pattern (FR-TEST-7). "We can afford to lose this data" is not a licence to
+skip the in-memory proof; it is what makes the hardware run survivable when the proof
+misses something.
+
 ### Risks / gotchas
-- **Do all destructive testing on a scratch device or a disk image you can lose.** Even though the algorithm is non-destructive, bugs in this step write to raw blocks.
+- **All destructive testing goes on `disk4`, the designated scratch device.** Even though the algorithm is non-destructive, bugs in this step write to raw blocks. Never `disk6` (holds the source tree) or `disk8`.
 - Raw devices reject misaligned offsets/lengths with `EINVAL` — alignment is not optional.
 - Some USB bridges report odd geometry; trust the ioctl and reject impossible values.
+- **The helper needs Full Disk Access** (NFR-INST-4, added 2026-08-01) or the raw open fails `EPERM`. Running as root is not sufficient.
+- **Releasing an `O_EXLOCK` open or a `DADiskClaim` makes macOS remount the volume within milliseconds** (measured). Any code that opens and closes the raw device outside a held acquire will undo the user's unmount.
 
 ---
 
@@ -389,7 +439,7 @@ Implement the heart of the tool: for each chunk, read original → write the *sa
 - [ ] **Verify-mismatch detection (NFR-REL-8):** with write-corruption fault injection on a specific block range, the engine flags exactly that range as a verify failure and no other.
 - [ ] **Hard-error classification (FR-FAIL-6):** with read-error and write-error fault injection, the engine produces correctly-typed `BlockRangeFailure`s for the injected ranges.
 - [ ] **One-chunk-in-flight (NFR-REL-4):** instrumentation confirms only one chunk's worth of original data is ever held.
-- [ ] The cycle also runs end-to-end against a small **real** scratch device/disk image and leaves its contents unchanged (checksum before == after).
+- [ ] The cycle also runs end-to-end against the **designated scratch device** (`disk4`) and leaves its contents unchanged (checksum before == after). *(Amended 2026-08-01: disk images are not a test target — see Step 7, "The test target". The drive's data is expendable, which is what makes this survivable if the simulation proof missed something — it is not a reason to run it before that proof passes.)*
 
 ### Risks / gotchas
 - A torn write to GPT/superblocks can brick an otherwise-good drive (per the brief) — this is exactly why the simulation-first verification above is mandatory before trusting hardware.
@@ -515,13 +565,13 @@ If the device under test disappears mid-run, immediately terminate the test clea
 6. **`os_log`** device loss and clean termination (NFR-OBS-1/2 — logs must be enough to diagnose the interrupted run after the fact).
 
 ### Verification Gate (must pass before Step 13)
-- [ ] Physically unplugging the device mid-run (use a scratch device) **immediately** terminates the run, releases the node, and shows the specific device-loss error — the GUI stays alive and usable.
+- [ ] Physically unplugging the device mid-run (`disk4`, the designated scratch device) **immediately** terminates the run, releases the node, and shows the specific device-loss error — the GUI stays alive and usable.
 - [ ] Discovery re-runs automatically; reconnecting the device repopulates the list.
 - [ ] No resume is offered; only restart-from-beginning.
 - [ ] Logs after the event are sufficient to reconstruct what happened (which device, at what offset) without recording contents.
 
 ### Risks / gotchas
-- Simulate this safely first by injecting `ENXIO` via the `InMemoryBlockDevice` fault hook, then confirm on real hardware with a throwaway drive.
+- Simulate this safely first by injecting `ENXIO` via the `InMemoryBlockDevice` fault hook, then confirm on real hardware with `disk4`.
 - Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state).
 
 ---
@@ -631,7 +681,7 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 - [ ] `codesign --verify --deep --strict` and `spctl -a -vv` pass on the app; the embedded helper is validly signed under the expected Team ID.
 - [ ] Hardened runtime is on; entitlement set is minimal and justified.
 - [ ] Notarization succeeds and the ticket is stapled (`stapler validate` passes).
-- [ ] On a clean macOS 26 Mac: the app launches with **no Gatekeeper warning**, registers and (after approval) enables the helper, runs a full test on a scratch device, and uninstalls the helper cleanly.
+- [ ] On a clean macOS 26 Mac: the app launches with **no Gatekeeper warning**, registers and (after approval) enables the helper, runs a full test on `disk4`, and uninstalls the helper cleanly.
 - [ ] The helper's Team-ID code-signing requirement (Step 3) now matches the real signing identity end-to-end.
 
 ### Risks / gotchas
@@ -665,6 +715,6 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 
 1. **One step at a time.** Do not begin a step until the previous step's Verification Gate is fully checked off.
 2. **Simulate before you touch hardware.** Steps 2, 7, 8, 9, 10, 12 all have an in-memory verification *before* the real-device verification. Never debug the algorithm on a drive you can't afford to lose.
-3. **Always test on a scratch device/disk image** for any real-hardware step. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise.
+3. **Always test on the designated scratch device** (`disk4`) for any real-hardware step. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise. Disk images are **not** an alternative — discovery excludes them by design, and they lack the USB bridge, block device and NAND this tool exists to exercise (amended 2026-08-01).
 4. **The trust boundary is sacred.** Raw I/O only ever happens in the helper; the GUI never elevates. Re-confirm this at every step that adds helper code.
 5. **Record what you verified.** A one-paragraph note per step (in `PROGRESS.md` or the commit) keeps the deliberate pace auditable.

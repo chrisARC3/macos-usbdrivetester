@@ -15,6 +15,7 @@
 //  are two halves of one problem and drift apart when kept in separate places.
 //
 
+import AppKit
 import Foundation
 import Observation
 import ServiceManagement
@@ -246,6 +247,28 @@ final class HelperRegistration {
     func openLoginItemsSettings() {
         log.notice("opening System Settings > Login Items & Extensions for approval")
         SMAppService.openSystemSettingsLoginItems()
+    }
+
+    /// Open System Settings at Privacy & Security › Full Disk Access (NFR-INST-4).
+    ///
+    /// A different pane from the one above, and a different permission: Login Items
+    /// approves the *daemon*, Full Disk Access is what lets it open a raw device at all.
+    /// Both are required, neither implies the other, and being sent to the wrong one is a
+    /// dead end — so they are separate actions rather than one "Open Settings" button.
+    ///
+    /// There is no `SMAppService`-style API for this pane, so it is a URL. It is a
+    /// documented, long-standing one, but it is still a string that could stop working on
+    /// a future macOS — hence the failure is logged rather than ignored, and the message
+    /// the user sees always names the path in words as well.
+    static func openFullDiskAccessSettings() {
+        let pane = "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
+        guard let url = URL(string: pane) else { return }
+        if !NSWorkspace.shared.open(url) {
+            log.error("""
+                      could not open the Full Disk Access pane; the user must navigate to \
+                      System Settings > Privacy & Security > Full Disk Access manually
+                      """)
+        }
     }
 
     // MARK: - Presentation

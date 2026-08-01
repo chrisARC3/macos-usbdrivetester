@@ -54,6 +54,60 @@ enum ProtocolVersionCheck: Equatable {
     }
 }
 
+/// What the helper can say about a device without touching it (FR-SAFE-1/2, Step 6).
+nonisolated struct DeviceReadiness: Equatable {
+
+    /// Nothing known would refuse an acquire. **Not** a promise that one will succeed —
+    /// see `HelperConnection.checkDeviceReadiness(bsdName:completion:)`.
+    let isReady: Bool
+
+    /// How many of the device's volumes the *helper* sees mounted. The app's own count
+    /// from discovery drives the list; this one is authoritative for the guard.
+    let mountedVolumeCount: Int
+
+    /// `Test_Drive` / `Data, Macintosh HD`, or empty when nothing is mounted.
+    let mountedVolumeSummary: String
+
+    /// Whether the helper already holds exclusive access to *this* device (FR-SAFE-7).
+    let helperHoldsThisDevice: Bool
+
+    /// What is standing in the way, or `.unrecognised` (raw value 0) when nothing is.
+    /// Drives which corrective control the UI offers — Unmount All for a mounted volume,
+    /// Open Settings for a missing Full Disk Access grant.
+    let blockingCause: DeviceAccessRefusalCause
+
+    /// Human-readable summary, shown as the readiness banner.
+    let message: String
+
+    /// Whether the helper lacks Full Disk Access (NFR-INST-4). Surfaced before a run is
+    /// attempted, not after one fails.
+    var needsFullDiskAccess: Bool { blockingCause == .accessNotPermitted }
+}
+
+/// The outcome of asking the helper for exclusive access (FR-SAFE-3/4).
+nonisolated enum DeviceAcquisition: Equatable {
+
+    /// Access is held. The helper keeps it until released, the connection drops, or the
+    /// daemon exits.
+    case acquired(String)
+
+    /// Refused, with the cause preserved so the UI can offer the matching fix.
+    case refused(cause: DeviceAccessRefusalCause, message: String)
+
+    var message: String {
+        switch self {
+        case .acquired(let text): return text
+        case .refused(_, let text): return text
+        }
+    }
+
+    /// Whether the refusal is FR-SAFE-4(a) — the one case the Unmount All control fixes.
+    var isFixableByUnmounting: Bool {
+        if case .refused(let cause, _) = self { return cause == .volumesMounted }
+        return false
+    }
+}
+
 /// Owns the `NSXPCConnection` to the privileged helper and exposes typed calls.
 final class HelperConnection {
 
@@ -187,6 +241,66 @@ final class HelperConnection {
                 finish(.success(safeToRemove ? .safeToRemove(message)
                                              : .busy(reason: message)))
             }
+        }
+    }
+
+    // MARK: - Step 6: the mount guard (FR-SAFE-1/2/3/4)
+
+    /// Ask the helper what it can tell about a device without touching it.
+    ///
+    /// Safe to call on every selection change: the helper's implementation is
+    /// side-effect-free, which is why it is a separate method from ``acquireDevice``.
+    ///
+    /// - Important: a `ready` of `true` does **not** promise an acquire will succeed.
+    ///   Establishing FR-SAFE-4(b) requires actually claiming and opening the device, and
+    ///   this call deliberately does neither. Treating it as a promise would put the "can
+    ///   this run start?" decision app-side, which is exactly where it must not live.
+    func checkDeviceReadiness(bsdName: String,
+                              completion: @escaping (Result<DeviceReadiness, Error>) -> Void) {
+        withProxy(completion) { tester, finish in
+            tester.checkDeviceReadiness(bsdName: bsdName) { ready, count, summary, held, cause, message in
+                finish(.success(DeviceReadiness(
+                    isReady: ready,
+                    mountedVolumeCount: count,
+                    mountedVolumeSummary: summary,
+                    helperHoldsThisDevice: held,
+                    blockingCause: DeviceAccessRefusalCause(wireValue: cause),
+                    message: message)))
+            }
+        }
+    }
+
+    /// Ask the helper to take exclusive whole-disk access (FR-SAFE-3).
+    ///
+    /// Note the return type: an ``DeviceAcquisition``, not a `Result` collapsed into a
+    /// boolean. The refusal cause has to survive to the UI so the right corrective
+    /// control can be offered — an Unmount All button is the fix for cause (a) and
+    /// useless for cause (b).
+    ///
+    /// A *transport* failure — no helper, wrong version, connection dropped — is a
+    /// `.failure` and must be treated as "access was not granted". Unlike the teardown
+    /// path, which fails open by design, this one has no safe permissive reading: a run
+    /// on a device nobody claimed is the exact situation the mount guard exists to
+    /// prevent.
+    func acquireDevice(bsdName: String,
+                       completion: @escaping (Result<DeviceAcquisition, Error>) -> Void) {
+        withProxy(completion) { tester, finish in
+            tester.acquireDevice(bsdName: bsdName) { acquired, causeCode, message in
+                finish(.success(acquired
+                    ? .acquired(message)
+                    : .refused(cause: DeviceAccessRefusalCause(wireValue: causeCode),
+                               message: message)))
+            }
+        }
+    }
+
+    /// Ask the helper to release whatever device it holds (NFR-REL-5).
+    ///
+    /// - Important: success does not mean the device is immediately reusable. Release is
+    ///   asynchronous, and macOS will remount the volumes shortly afterwards.
+    func releaseDevice(completion: @escaping (Result<String, Error>) -> Void) {
+        withProxy(completion) { tester, finish in
+            tester.releaseDevice { _, message in finish(.success(message)) }
         }
     }
 

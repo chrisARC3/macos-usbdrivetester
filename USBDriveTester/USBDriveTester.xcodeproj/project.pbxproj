@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FE6097762FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper in Embed Helper */ = {isa = PBXBuildFile; fileRef = FE6097752FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
+		FE1E0D7E301E446600CBE835 /* com.arc3solutions.USBDriveTester.Helper in Embed Helper */ = {isa = PBXBuildFile; fileRef = FE6097482FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */; settings = {ATTRIBUTES = (CodeSignOnCopy, ); }; };
 		FE6097792FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist in Embed Daemon plist */ = {isa = PBXBuildFile; fileRef = FE6097782FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist */; };
 /* End PBXBuildFile section */
 
@@ -51,7 +51,7 @@
 			dstPath = Contents/MacOS;
 			dstSubfolderSpec = 1;
 			files = (
-				FE6097762FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper in Embed Helper */,
+				FE1E0D7E301E446600CBE835 /* com.arc3solutions.USBDriveTester.Helper in Embed Helper */,
 			);
 			name = "Embed Helper";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -74,7 +74,6 @@
 		FE6097272FEECA750091C1E0 /* USBDriveTesterTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = USBDriveTesterTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE6097312FEECA750091C1E0 /* USBDriveTesterUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = USBDriveTesterUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		FE6097482FEECD1D0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = com.arc3solutions.USBDriveTester.Helper; sourceTree = BUILT_PRODUCTS_DIR; };
-		FE6097752FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; name = com.arc3solutions.USBDriveTester.Helper; path = "../../../../../../Users/christopherkarr/Library/Developer/Xcode/DerivedData/USBDriveTester-fndvzobcvvrsxwfjhtiawbpirxmt/Build/Products/Debug/com.arc3solutions.USBDriveTester.Helper"; sourceTree = "<group>"; };
 		FE6097782FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = com.arc3solutions.USBDriveTester.Helper.plist; path = Daemon/com.arc3solutions.USBDriveTester.Helper.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -89,6 +88,7 @@
 		FE84301C2FFED8ED003FFDF4 /* Exceptions for "com.arc3solutions.USBDriveTester.Helper" folder in "USBDriveTesterTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/DeviceAccessPrecondition.swift,
 				Core/InMemoryBlockDevice.swift,
 				Core/RawBlockDevice.swift,
 				Core/RetentionTestEngine.swift,
@@ -163,7 +163,6 @@
 			isa = PBXGroup;
 			children = (
 				FE6097782FEF21930091C1E0 /* com.arc3solutions.USBDriveTester.Helper.plist */,
-				FE6097752FEF20FC0091C1E0 /* com.arc3solutions.USBDriveTester.Helper */,
 				FE60971C2FEECA740091C1E0 /* USBDriveTester */,
 				FE60972A2FEECA750091C1E0 /* USBDriveTesterTests */,
 				FE6097342FEECA750091C1E0 /* USBDriveTesterUITests */,

@@ -45,8 +45,12 @@ struct HelperDiagnosticsView: View {
     /// `ContentView` because discovery reads it too.
     @Binding var simulatedRunActive: Bool
 
+    /// Shared with `DeviceListView` and owned by `ContentView` (Step 6). One connection
+    /// per app: the helper ties a device claim to the connection that took it, so a
+    /// second connection here would be a second owner.
+    let helper: HelperConnection
+
     @State private var registration = HelperRegistration()
-    @State private var helper = HelperConnection()
 
     @State private var pingResult: ActionResult?
     @State private var versionResult: ActionResult?

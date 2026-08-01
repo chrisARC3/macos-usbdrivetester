@@ -108,6 +108,124 @@ import Foundation
     /// - Parameter reply: `(safeToRemove, message)`. `message` explains what was
     ///   released, or names precisely what is still in progress (NFR-USE-5).
     func prepareForShutdown(reply: @escaping (Bool, String) -> Void)
+
+    /// Ask the helper what it can tell about a device **without touching it**
+    /// (FR-SAFE-1/2, Step 6).
+    ///
+    /// Read-only and side-effect-free, which is the whole reason it is a separate method
+    /// from ``acquireDevice(bsdName:reply:)``. The GUI has to show "2 volumes mounted"
+    /// *before* Start is pressed, and a check with side effects cannot drive a display —
+    /// it is safe to poll, and safe to call on every selection change.
+    ///
+    /// - Important: this **cannot** detect FR-SAFE-4 cause (b). Establishing that another
+    ///   process holds the node requires actually attempting the claim and the exclusive
+    ///   open, which are side effects — the claim in particular would keep the disk from
+    ///   remounting. So a `ready` of `true` means "nothing here would refuse an acquire",
+    ///   not "an acquire will succeed". Only ``acquireDevice(bsdName:reply:)`` can say
+    ///   the latter, and it is the only thing that may permit a run.
+    ///
+    /// - Parameters:
+    ///   - bsdName: Whole-disk BSD name, e.g. `disk4`. Validated by the helper; the app's
+    ///     assertion about it is not trusted (NFR-REL-7).
+    ///   - reply: `(ready, mountedVolumeCount, mountedVolumeSummary, helperHoldsThisDevice,
+    ///     blockingCause, message)`. `mountedVolumeSummary` is a comma-separated list,
+    ///     empty when nothing is mounted — a `String` rather than an array so the
+    ///     interface needs no `NSSecureCoding` class whitelist, keeping every parameter on
+    ///     this protocol an ObjC-representable primitive.
+    ///
+    ///     `blockingCause` is a ``DeviceAccessRefusalCause`` raw value, or `0` when
+    ///     nothing is blocking. It exists so the GUI can offer the *matching* corrective
+    ///     control — Unmount All for a mounted volume, Open Settings for a missing Full
+    ///     Disk Access grant — which a message string alone cannot drive.
+    ///
+    ///     The Full Disk Access check (NFR-INST-4) is folded in here rather than given its
+    ///     own method: it answers the same question this method already asks — "could a
+    ///     run start on this device right now?" — and widening the privileged surface with
+    ///     a second query would be the wrong trade (NFR-SEC-3).
+    func checkDeviceReadiness(bsdName: String,
+                              reply: @escaping (Bool, Int, String, Bool, Int, String) -> Void)
+
+    /// Take exclusive whole-disk access, or refuse with a precise cause (FR-SAFE-3/4).
+    ///
+    /// The helper verifies the device's identity, verifies nothing is mounted, claims the
+    /// disk through DiskArbitration with a timeout, and opens `/dev/rdiskN` with
+    /// `O_EXLOCK`. All four must succeed. **Nothing is ever unmounted** as part of this
+    /// (FR-SAFE-6): a mounted volume produces a refusal naming it, not an unmount.
+    ///
+    /// On success the helper holds the claim and the descriptor until
+    /// ``releaseDevice(reply:)``, the connection drops, or the daemon exits. It must:
+    /// macOS silently remounts a volume the moment a claim is released (measured
+    /// 2026-07-30), so the claim is what keeps the device unmounted for the run's whole
+    /// duration.
+    ///
+    /// - Parameter reply: `(acquired, causeCode, message)`. On success `causeCode` is 0.
+    ///   On refusal it is a ``DeviceAccessRefusalCause`` raw value, so the app can offer
+    ///   the matching corrective control; `message` always names the actual cause and the
+    ///   corrective step (NFR-USE-5).
+    func acquireDevice(bsdName: String,
+                       reply: @escaping (Bool, Int, String) -> Void)
+
+    /// Release whatever device the helper holds (NFR-REL-5).
+    ///
+    /// Takes no device name because the helper holds at most one device at a time
+    /// (FR-CTRL-9). Idempotent: releasing when nothing is held succeeds and says so.
+    ///
+    /// - Important: a successful reply does **not** mean the device is immediately
+    ///   reusable. Release is asynchronous — an open straight after `DADiskUnclaim` can
+    ///   still see `EBUSY` — so no caller may treat this as "the device is free now".
+    ///
+    /// - Parameter reply: `(released, message)`. `message` describes what was released.
+    func releaseDevice(reply: @escaping (Bool, String) -> Void)
+}
+
+/// Why the helper refused exclusive whole-disk access, as it travels over the wire.
+///
+/// FR-SAFE-4 requires the two causes to be told apart, and the message strings already
+/// do that for the user. This exists so the *app* can tell them apart too: cause (a) has
+/// a one-click fix and should surface the Unmount All control, cause (b) does not and
+/// offering it there would be misleading. It also lets `scripts/claim-contention-test.sh`
+/// assert the classification mechanically rather than by grepping prose.
+///
+/// - Important: these raw values are duplicated by `DeviceAccessRefusal.causeCode` in
+///   `Core/DeviceAccessPrecondition.swift`, which is where the classification actually
+///   happens. The two cannot be one type: Core compiles into the helper and the test
+///   target but deliberately **not** into the app module, and this file compiles into the
+///   app and the helper. `DeviceAccessPreconditionTests.causeCodesMatchTheWireEnum` is
+///   the only place both are visible at once, and it pins them together.
+public enum DeviceAccessRefusalCause: Int {
+
+    /// The named device is not a USB mass-storage whole disk.
+    case deviceNotEligible = 1
+
+    /// **FR-SAFE-4(a)** — one or more of the device's volumes are still mounted.
+    case volumesMounted = 2
+
+    /// **FR-SAFE-4(b)** — unmounted, but the device node is held by another process.
+    case claimedByAnotherProcess = 3
+
+    /// The open failed for some other reason; the message names the `errno`.
+    case deviceError = 4
+
+    /// A step of the acquire sequence did not complete, so access was never established.
+    /// Refuses: a check that did not complete is not permission.
+    case checkIncomplete = 5
+
+    /// The helper already holds a device, and holds at most one at a time (FR-CTRL-9).
+    /// The corrective step is inside this app, not in some other process.
+    case alreadyHeld = 6
+
+    /// TCC refused the raw-device open: the helper needs **Full Disk Access**. Running as
+    /// root is not sufficient. Measured 2026-08-01 — see `DeviceAccessRefusal`.
+    case accessNotPermitted = 7
+
+    /// Anything the app does not recognise — a helper newer than this app. Treated as a
+    /// refusal with no specific corrective control, never as success.
+    case unrecognised = 0
+
+    /// Map a wire value, never trapping on one this build does not know.
+    public init(wireValue: Int) {
+        self = DeviceAccessRefusalCause(rawValue: wireValue) ?? .unrecognised
+    }
 }
 
 /// Version of the ``TesterControl`` contract (NFR-MAINT-1).
@@ -122,14 +240,27 @@ public enum TesterProtocol {
     /// History:
     /// - **1** — Step 3: `ping`, `protocolVersion`, `validateRunParameters`.
     /// - **2** — Step 4: adds `prepareForShutdown`.
+    /// - **3** — Step 6: adds `checkDeviceReadiness`, `acquireDevice`, `releaseDevice` —
+    ///   the mount guard and the exclusive whole-disk claim (FR-SAFE-1/2/3/4).
+    /// - **4** — Step 6, after measuring that the helper needs **Full Disk Access**
+    ///   (NFR-INST-4, added 2026-08-01): `checkDeviceReadiness` gains a `blockingCause`
+    ///   so the GUI can offer the matching corrective control, and now reports a missing
+    ///   Full Disk Access grant *before* a run is attempted rather than as a run failure.
+    ///   A signature change, so a bump is mandatory rather than merely cheap — a v3
+    ///   daemon would decode the reply block differently.
     ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
-    /// separately installed artefacts, so after an app update a **v1 daemon can still
+    /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
-    /// `prepareForShutdown` and will fail that call. The teardown path is written to
+    /// the device methods and will fail those calls. The teardown path is written to
     /// tolerate exactly that (see `prepareForShutdown`'s note on treating failure as
     /// "unknown"), which is what makes an old daemon removable rather than stuck.
-    public static let version = 2
+    ///
+    /// Note the asymmetry that comes with Step 6: teardown tolerates an out-of-date
+    /// daemon on purpose, but the device methods must **not**. A helper that cannot
+    /// answer `acquireDevice` has not granted access, and treating a failed call as
+    /// anything but a refusal would put a run on a device nobody claimed.
+    public static let version = 4
 }
 
 /// Single source of truth for the helper's identity and the trust it is pinned to.

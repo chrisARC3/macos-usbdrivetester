@@ -85,7 +85,15 @@ echo "--- Client signature (must NOT carry team 5JC55GTLZA) ---"
 codesign -dvvv "$CLIENT" 2>&1 | grep -E "Identifier|TeamIdentifier|Signature" || true
 echo
 
-if codesign -dvvv "$CLIENT" 2>&1 | grep -q "TeamIdentifier=5JC55GTLZA"; then
+# Captured first, then matched against a here-string — NOT `codesign … | grep -q`.
+#
+# Under `set -o pipefail` that pipeline is non-zero exactly when grep MATCHES: grep -q
+# exits on the first hit, codesign dies of SIGPIPE writing the rest of its output, and
+# pipefail promotes that. So this guard — "refuse to run a security test that cannot
+# fail" — could never fire, which is the one condition it exists to catch. Found
+# 2026-08-01 when the identical pattern aborted claim-contention-test.sh.
+CLIENT_SIGNATURE="$(codesign -dvvv "$CLIENT" 2>&1 || true)"
+if grep -q "TeamIdentifier=5JC55GTLZA" <<<"$CLIENT_SIGNATURE"; then
     echo "error: the client is signed with our own Team ID — this test would be vacuous." >&2
     exit 2
 fi

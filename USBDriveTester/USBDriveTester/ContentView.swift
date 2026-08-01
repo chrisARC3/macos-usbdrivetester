@@ -34,14 +34,24 @@ struct ContentView: View {
     /// reach the list.
     @State private var showDiagnostics = false
 
+    /// One connection to the daemon for the whole app, shared by both children.
+    ///
+    /// Hoisted here in Step 6, when the device list gained its own reason to talk to the
+    /// helper. It is not merely tidier than one connection per view: the helper releases a
+    /// device when the connection that acquired it goes away (NFR-REL-5), so two
+    /// connections would mean two owners, and a view being torn down could release a claim
+    /// another part of the app believed it still held.
+    @State private var helper = HelperConnection()
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            DeviceListView(discovery: discovery)
+            DeviceListView(discovery: discovery, helper: helper)
 
             Divider()
 
             DisclosureGroup(isExpanded: $showDiagnostics) {
-                HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive)
+                HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive,
+                                      helper: helper)
             } label: {
                 Label("Privileged helper & diagnostics", systemImage: "wrench.and.screwdriver")
                     .font(.callout)
@@ -49,7 +59,12 @@ struct ContentView: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
-        .frame(minWidth: 640, minHeight: 620)
+        // Raised from 620 in Step 6. The selected-device panel gained the mount control,
+        // the readiness banner and the refusal message, and at 620 the refusal — the one
+        // thing FR-SAFE-4 exists to communicate — started below the fold. Step 4 hit the
+        // same class of defect: a control the user has to go looking for is one they
+        // report as missing.
+        .frame(minWidth: 640, minHeight: 720)
         .onAppear { discovery.start() }
         .onDisappear { discovery.stop() }
         // Keeps the two consumers of the run-state stand-in in step. Step 11 removes

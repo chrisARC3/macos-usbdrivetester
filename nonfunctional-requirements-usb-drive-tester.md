@@ -3,6 +3,7 @@
 **Status:** Baselined
 **Date:** 2026-06-25
 **Baselined:** 2026-06-25
+**Last amended:** 2026-08-01 (NFR-INST-4 added — Full Disk Access)
 **Source documents:** [USBDriveTester.md](USBDriveTester.md), [ADR-001-usb-drive-tester.md](ADR-001-usb-drive-tester.md)
 **Companion document:** [Functional Requirements](functional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
@@ -119,6 +120,56 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-INST-1 | The helper shall register via `SMAppService`, and the GUI shall report registration status clearly, including guiding the user when approval is required (e.g., Login Items in System Settings). | M | ADR Decision; Action Item 2 |
 | NFR-INST-2 | The application shall be distributable as a notarized, hardened-runtime build that launches without Gatekeeper warnings on a clean supported system. | M | ADR Pros (distribution) |
 | NFR-INST-3 | The tool shall provide a clean way to unregister/remove the privileged helper. | S | Derived (lifecycle of SMAppService daemon) |
+| NFR-INST-4 | The application shall require **Full Disk Access** for its privileged helper in order to open a USB device's raw node, and shall **detect** whether that permission has been granted, report its absence before a run is attempted rather than as a run failure, and guide the user to System Settings › Privacy & Security › Full Disk Access. | M | **Measured 2026-08-01** — see Amendments |
+
+---
+
+## Amendments to the Baseline
+
+Changes made after the 2026-06-25 baseline. Recorded here so the delta is auditable
+rather than silently absorbed into the tables above.
+
+### 2026-08-01 — NFR-INST-4 added (Full Disk Access)
+
+**Trigger.** Measured on real hardware during Step 6, not anticipated by the ADR, the
+build plan or either requirements set.
+
+**What was found.** The privileged helper's
+`open("/dev/rdiskN", O_RDWR | O_EXLOCK | O_NONBLOCK)` on an **unmounted, uncontended**
+external drive failed with `EPERM`. `tccd` logged, at that instant:
+
+```
+Handling access request to kTCCServiceSystemPolicyAllFiles,
+  from Sub:{com.arc3solutions.USBDriveTester}
+  Resp:{…USBDriveTester.Helper, euid=0}
+  ReqResult(Auth Right: Denied (Service Policy))
+kTCCServiceSystemPolicyRemovableVolumes denied by TCC
+```
+
+**Running as root is not sufficient.** Raw access to a removable device is gated by TCC,
+and a LaunchDaemon has no grant of its own. TCC attributes the request to the **app**
+bundle, so the grant belongs to the containing application and travels with it.
+
+**Why nothing caught it sooner.** Step 6 is the first step in which the helper opens a
+device at all — Steps 1–5 never did. The exclusivity semantics measured on 2026-07-30 were
+obtained with `sudo` from Terminal, which inherits **Terminal's** TCC grant; those
+measurements remain valid for what they measured (exclusivity), but they never established
+that a *daemon* could open the device, because a daemon was never the thing being tested.
+
+**Why it is M, not S.** Without it the tool cannot perform its primary function at all: no
+raw open means no read, no write-back and no verify. It is a hard prerequisite, not a
+degradation.
+
+**Why detection is part of the requirement, not just documentation.** The failure surfaces
+as `EPERM` from a privileged process, whose natural reading is that the drive or the cable
+is at fault — the user is sent to diagnose hardware when the fix is a checkbox. NFR-USE-5
+already requires errors to name the actual cause; NFR-INST-4 additionally requires the
+condition to be surfaced *before* a run is attempted, in the same spirit as NFR-INST-1's
+guidance for helper approval.
+
+**Consequences elsewhere.** Step 16's clean-machine test must include it — a fresh Mac
+denies this by default, so a machine that has already been granted access would give a
+false pass, exactly the hazard NFR-INST-2's clean-system clause exists to avoid.
 
 ---
 

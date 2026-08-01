@@ -44,7 +44,35 @@ let viewName = CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "con
 /// Wraps a view needing a `Binding` so it can be rendered standalone.
 private struct DiagnosticsHost: View {
     @State private var simulatedRunActive = false
-    var body: some View { HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive) }
+    var body: some View {
+        HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive,
+                              helper: HelperConnection())
+    }
+}
+
+/// A device source that reports nothing, so the "no drives connected" state can be
+/// rendered on a machine that has drives connected.
+///
+/// Added for Step 6. FR-SAFE-5 specifies the mount control's **no-selection** state —
+/// disabled, labelled "Unmount All" — and that state is only reachable when no USB drive
+/// is present at all, because the list's selection binding deliberately discards `nil`
+/// (a blank-space click is a no-op, per Step 5). Verifying it on this machine would mean
+/// unplugging every USB device, one of which holds the source tree. This renders it
+/// instead.
+private final class EmptyDeviceSource: DeviceSource {
+    func enumerateDevices() -> [DiscoveredDevice] { [] }
+    func startObserving(onChange: @escaping () -> Void) {}
+    func stopObserving() {}
+}
+
+/// `DeviceListView` with an empty device list, started so the store settles into its
+/// no-devices state.
+private struct EmptyDeviceListHost: View {
+    @State private var discovery = DeviceDiscovery(source: EmptyDeviceSource())
+    var body: some View {
+        DeviceListView(discovery: discovery, helper: HelperConnection())
+            .onAppear { discovery.start() }
+    }
 }
 
 // Not `@MainActor`: top-level code in main.swift is nonisolated even under
@@ -53,13 +81,20 @@ func makeRootView(_ name: String) -> NSView {
     switch name {
     case "diagnostics":
         return NSHostingView(rootView: DiagnosticsHost())
+    case "empty":
+        return NSHostingView(rootView: EmptyDeviceListHost())
     case "devices":
-        return NSHostingView(rootView: DeviceListView(discovery: DeviceDiscovery()))
+        // From Step 6 the device view talks to the helper for the readiness banner.
+        // There is no daemon to reach from here, so the banner renders its "could not
+        // ask the helper" state — which is itself worth seeing laid out, since it is
+        // what a user with no helper installed gets.
+        return NSHostingView(rootView: DeviceListView(discovery: DeviceDiscovery(),
+                                                      helper: HelperConnection()))
     case "content":
         return NSHostingView(rootView: ContentView())
     default:
         FileHandle.standardError.write(Data("""
-            ui-probe: unknown view '\(name)'; expected content, devices or diagnostics\n
+            ui-probe: unknown view '\(name)'; expected content, devices, diagnostics or empty\n
             """.utf8))
         exit(2)
     }

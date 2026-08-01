@@ -13,7 +13,9 @@
 # Usage:
 #   scripts/render-ui.sh [output.png] [width] [height] [view]
 #
-# `view` is one of: content (default, the whole window), devices, diagnostics.
+# `view` is one of: content (default, the whole window), devices, diagnostics, empty.
+# `empty` renders the device list with NO drives connected — the FR-SAFE-5 no-selection
+# state, which cannot otherwise be reached on a machine that has drives attached.
 # Rendering a sub-view matters once one is behind a disclosure — the composition root
 # cannot show it, and compiling is not evidence that it lays out.
 #

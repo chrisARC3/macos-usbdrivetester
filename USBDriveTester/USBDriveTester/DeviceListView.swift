@@ -32,6 +32,13 @@ struct DeviceListView: View {
 
     let discovery: DeviceDiscovery
 
+    /// Shared with `HelperDiagnosticsView` rather than opened again here: one
+    /// `NSXPCConnection` to the daemon per app, so a connection dropping means one thing
+    /// and the helper sees one client. It also matters for Step 6 specifically — the
+    /// helper releases a claim when the connection that took it goes away, so two
+    /// connections would mean two different owners of the same device.
+    let helper: HelperConnection
+
     /// Approximate height of one two-line device row, scaled with the user's text size.
     ///
     /// `@ScaledMetric` rather than a constant because the list's height is derived from
@@ -39,6 +46,34 @@ struct DeviceListView: View {
     /// Type settings, which is a worse outcome than the dead space it is there to
     /// remove (NFR-USE-8).
     @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 46
+
+    // MARK: - Step 6 state (FR-SAFE-3/4/5/7)
+
+    @State private var mounter = VolumeMounter()
+
+    /// What the helper last said about the selected device. `nil` before the first check,
+    /// or when the helper could not be reached.
+    @State private var readiness: DeviceReadiness?
+
+    /// Why the helper could not be asked, if it could not. Shown rather than swallowed:
+    /// "no banner" and "the helper says everything is fine" must not look the same.
+    @State private var readinessError: String?
+
+    /// Whether the helper holds exclusive access to the selected device. Kept alongside
+    /// `readiness` because acquire and release change it immediately, without waiting for
+    /// the next check to come back.
+    @State private var helperHoldsDevice = false
+
+    @State private var mountOperationInFlight = false
+    @State private var accessOperationInFlight = false
+
+    /// The last mount/unmount or acquire/release result, shown verbatim.
+    @State private var lastOutcome: OutcomeMessage?
+
+    private struct OutcomeMessage: Equatable {
+        let ok: Bool
+        let text: String
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -48,6 +83,23 @@ struct DeviceListView: View {
             Divider()
             detail
         }
+        // The selected device changing invalidates everything below: a readiness answer
+        // is about one device, and showing one device's mount state under another's name
+        // is precisely the confusion NFR-USE-3 exists to prevent.
+        .onChange(of: discovery.selectedDeviceID) { _, _ in
+            readiness = nil
+            readinessError = nil
+            lastOutcome = nil
+            helperHoldsDevice = false
+            refreshReadiness()
+        }
+        // The mounted-volume set changing is the other input the banner depends on, and
+        // it changes without the selection changing — the user unmounts in Disk Utility,
+        // or macOS remounts after a claim is released.
+        .onChange(of: discovery.selectedDevice?.mountedVolumeNames ?? []) { _, _ in
+            refreshReadiness()
+        }
+        .onAppear { refreshReadiness() }
     }
 
     // MARK: - Header
@@ -198,24 +250,39 @@ struct DeviceListView: View {
 
     // MARK: - Selected-device detail
 
-    @ViewBuilder
+    /// The selected-device panel, and below it the safety controls.
+    ///
+    /// The safety section renders whether or not anything is selected. FR-SAFE-5
+    /// specifies the no-selection state of the control — *disabled*, showing the default
+    /// label "Unmount All" — and a control that is absent is not a control that is
+    /// disabled. Showing it greyed out with a reason also answers the question a missing
+    /// button raises ("can this app even do that?") without the user having to select a
+    /// drive to find out.
     private var detail: some View {
-        if let device = discovery.selectedDevice {
-            selectedDetail(for: device)
-        } else {
-            Text(discovery.devices.isEmpty
-                 ? "Connect a drive to see its details here."
-                 : "No device is selected.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                if let device = discovery.selectedDevice {
+                    selectedDeviceIdentity(for: device)
+                } else {
+                    Text(discovery.devices.isEmpty
+                         ? "Connect a drive to see its details here."
+                         : "No device is selected.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                Divider()
+                safetySection(for: discovery.selectedDevice)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
-    private func selectedDetail(for device: DiscoveredDevice) -> some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
+    @ViewBuilder
+    private func selectedDeviceIdentity(for device: DiscoveredDevice) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
                 // The selected device has to be unmistakable — this is the line that
                 // stands between the user and testing the wrong drive (NFR-USE-3).
                 HStack(spacing: 6) {
@@ -249,10 +316,8 @@ struct DeviceListView: View {
                 }
 
                 if device.mountedVolumesDescription != nil {
-                    // Not the mount guard — Step 6 owns that, helper-side, and is what
-                    // actually refuses a run (FR-SAFE-1/2). This is the early warning,
-                    // shown at the moment of selection rather than at the moment of
-                    // starting.
+                    // The app's own early warning, shown at the moment of selection. The
+                    // guard that actually refuses a run is helper-side and speaks below.
                     Label("""
                           This drive has mounted volumes. A run cannot start until they \
                           are unmounted, and testing a drive you are using is not \
@@ -270,8 +335,216 @@ struct DeviceListView: View {
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
+        }
+
+    // MARK: - Safety: mount control and exclusive access (FR-SAFE-3/4/5/7)
+
+    @ViewBuilder
+    private func safetySection(for device: DiscoveredDevice?) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.shield")
+                Text("Mounting & exclusive access")
+                    .font(.headline)
+            }
+
+            readinessBanner
+
+            let control = mountControlState(for: device)
+
+            HStack(spacing: 10) {
+                // FR-SAFE-5: one control, whose label and action always agree. Both come
+                // from the same value, so the view cannot put them out of step.
+                Button(control.label) {
+                    if let device { performMountAction(control.direction, on: device) }
+                }
+                .disabled(!control.isEnabled)
+                .accessibilityLabel(control.accessibilityLabel)
+
+                Spacer()
+
+                // Stand-in for Step 11's Start/Stop. The acquire is what actually decides
+                // whether a run could begin, and it is the only thing that can detect
+                // FR-SAFE-4(b) — so the gate for this step is driven from here until the
+                // run-control state machine exists.
+                Button("Acquire exclusive access") {
+                    if let device { acquire(device) }
+                }
+                .disabled(device == nil || accessOperationInFlight || helperHoldsDevice)
+
+                Button("Release") { release() }
+                    .disabled(accessOperationInFlight || !helperHoldsDevice)
+            }
+
+            // Dimming is not a message (NFR-USE-8) — a lesson from Step 4, where two
+            // disabled buttons were reported as missing entirely.
+            if let reason = control.disabledReason {
+                Label(reason, systemImage: "info.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let lastOutcome {
+                Label(lastOutcome.text,
+                      systemImage: lastOutcome.ok ? "checkmark.circle.fill"
+                                                  : "xmark.octagon.fill")
+                    .font(.callout)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// What the helper says about the selected device, or why it could not be asked.
+    @ViewBuilder
+    private var readinessBanner: some View {
+        if discovery.selectedDevice == nil {
+            Label("Select a drive above to check whether it is ready for a test.",
+                  systemImage: "info.circle")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if let readinessError {
+            Label("""
+                  The helper could not be asked whether this drive is ready: \
+                  \(readinessError) Install and enable it under “Privileged helper & \
+                  diagnostics” below — only the helper can permit a run.
+                  """, systemImage: "questionmark.circle")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+        } else if let readiness {
+            VStack(alignment: .leading, spacing: 8) {
+                Label(readiness.message,
+                      systemImage: readiness.needsFullDiskAccess ? "hand.raised.fill"
+                                 : helperHoldsDevice ? "lock.fill"
+                                 : readiness.isReady ? "checkmark.shield"
+                                                     : "exclamationmark.shield")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                // NFR-INST-4: the corrective control sits next to the message that asks
+                // for it. A missing Full Disk Access grant is not something the user can
+                // be expected to guess at from an errno, and it is a different pane from
+                // the Login Items approval — so it gets its own button rather than a
+                // generic "Open Settings".
+                if readiness.needsFullDiskAccess {
+                    Button("Open Full Disk Access settings…") {
+                        HelperRegistration.openFullDiskAccessSettings()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+        } else {
+            Label("Checking with the helper…", systemImage: "ellipsis.circle")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// FR-SAFE-5/7, decided by pure logic in `MountControlPolicy` so the label, the
+    /// action and the enabled state are one decision rather than three conditionals.
+    private func mountControlState(for device: DiscoveredDevice?) -> MountControlState {
+        MountControlPolicy.state(
+            hasSelection: device != nil,
+            mountedVolumeCount: device?.mountedVolumeNames.count ?? 0,
+            isRunActive: discovery.isRunActive,
+            helperHoldsDevice: helperHoldsDevice,
+            isOperationInFlight: mountOperationInFlight)
+    }
+
+    // MARK: - Actions
+
+    private func refreshReadiness() {
+        guard let device = discovery.selectedDevice else {
+            readiness = nil
+            readinessError = nil
+            return
+        }
+        helper.checkDeviceReadiness(bsdName: device.bsdName.rawValue) { result in
+            // A late reply for a device that is no longer selected must not overwrite the
+            // current one. The list rebuilds on every hot-plug, so this is not theoretical.
+            guard discovery.selectedDevice?.bsdName == device.bsdName else { return }
+            switch result {
+            case .success(let value):
+                readiness = value
+                readinessError = nil
+                helperHoldsDevice = value.helperHoldsThisDevice
+            case .failure(let error):
+                readiness = nil
+                readinessError = error.localizedDescription
+            }
+        }
+    }
+
+    private func performMountAction(_ direction: MountControlDirection,
+                                    on device: DiscoveredDevice) {
+        mountOperationInFlight = true
+        lastOutcome = nil
+
+        let finish: (VolumeMountOutcome) -> Void = { outcome in
+            mountOperationInFlight = false
+            lastOutcome = OutcomeMessage(ok: outcome.isSuccess, text: outcome.message)
+            // The device list live-updates through the VolumeChangeWatcher, so the label
+            // re-evaluates itself; the readiness banner has to be asked again.
+            refreshReadiness()
+        }
+
+        switch direction {
+        case .unmountAll: mounter.unmountAll(device, completion: finish)
+        case .mountAll:   mounter.mountAll(device, completion: finish)
+        }
+    }
+
+    private func acquire(_ device: DiscoveredDevice) {
+        accessOperationInFlight = true
+        lastOutcome = nil
+
+        helper.acquireDevice(bsdName: device.bsdName.rawValue) { result in
+            accessOperationInFlight = false
+            switch result {
+            case .success(let acquisition):
+                if case .acquired = acquisition {
+                    helperHoldsDevice = true
+                    lastOutcome = OutcomeMessage(ok: true, text: acquisition.message)
+                } else {
+                    // A refusal is the *expected* outcome whenever a volume is mounted,
+                    // so it is reported as a refusal rather than as a malfunction — but
+                    // never as a success.
+                    lastOutcome = OutcomeMessage(ok: false, text: acquisition.message)
+                }
+            case .failure(let error):
+                // No permissive reading: if the helper could not be reached, access was
+                // not granted. Unlike uninstall, there is nothing safe about proceeding.
+                lastOutcome = OutcomeMessage(
+                    ok: false,
+                    text: """
+                          Exclusive access was NOT granted — the helper could not be \
+                          reached: \(error.localizedDescription)
+                          """)
+            }
+            refreshReadiness()
+        }
+    }
+
+    private func release() {
+        accessOperationInFlight = true
+        lastOutcome = nil
+
+        helper.releaseDevice { result in
+            accessOperationInFlight = false
+            helperHoldsDevice = false
+            switch result {
+            case .success(let message):
+                lastOutcome = OutcomeMessage(ok: true, text: message
+                    + " macOS will normally remount the volumes shortly.")
+            case .failure(let error):
+                lastOutcome = OutcomeMessage(
+                    ok: false,
+                    text: "Release failed: \(error.localizedDescription)")
+            }
+            refreshReadiness()
         }
     }
 
