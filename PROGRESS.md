@@ -1886,3 +1886,69 @@ before anything else, for two reasons: DerivedData is wiped routinely during cle
 verification, which would delete the running daemon's binary out from under it; and a TCC
 grant attaches to a bundle, so granting Full Disk Access to `/Applications/USBDriveTester.app`
 while the daemon runs from DerivedData is at best confusing.
+
+---
+
+## Step 7 — Raw I/O core — NOT STARTED
+
+**AI-5 / satisfies FR-TEST-2/5/6; FR-DEV-5; NFR-PERF-1/2, NFR-COMPAT-5/6.**
+**Helper-side only** (FR-ARCH-6).
+
+Recorded here so a cold start has the state without re-deriving it.
+
+### State this step begins from
+
+- **Steps 1–6 complete.** Step 6 committed at `81e7485`; `git` clean on `main`.
+- **Protocol v4.** `ping`, `protocolVersion`, `validateRunParameters`,
+  `prepareForShutdown`, `checkDeviceReadiness`, `acquireDevice`, `releaseDevice`.
+- **247 test cases** (238 `@Test` declarations), 0 failures, zero warnings from clean
+  Debug **and** Release builds.
+- **Helper installed from `/Applications` and registered**, with **Full Disk Access
+  granted** to `USBDriveTester`. Re-registering no longer prompts for approval on this
+  machine (stable `BTM uuid`) — a clean Mac still will.
+- `./scripts/claim-contention-test.sh disk4` passes 12/12.
+
+### What Step 6 hands over
+
+- **`AcquiredDevice`** (`…Helper/DeviceClaim.swift`) — constructible only by a successful
+  `DeviceClaim.acquire(_:)`. Carries:
+  - `fileDescriptor` — the raw node **already open** `O_RDWR | O_EXLOCK | O_NONBLOCK`.
+    Step 7 adds `F_NOCACHE`, `F_GLOBAL_NOCACHE` and the geometry ioctls to *this* fd; it
+    must not open its own.
+  - `geometry: EligibleDevice` — IOKit's `sizeBytes` and `logicalBlockSize`, explicitly
+    **provisional**. BUILD-PLAN Step 7.3 says to reconcile and prefer the ioctl values.
+    Already logged at acquire time (`1000204886016 bytes in 512-byte blocks` for `disk4`),
+    so the two can be compared directly in the log.
+  - `grant: DeviceAccessGrant` — recomputed, not stored, so it reads incomplete after
+    `release()`.
+- **`WritePrecondition.check(_:writingTo:)`** (Core) — the NFR-REL-3 runtime guard. Step 8's
+  write path calls it; Step 7 need only keep the descriptor honest.
+- **`RunParameterValidator`** (Core, Step 3) — alignment and range, overflow-checked. From
+  Step 7 it is fed ioctl-derived geometry instead of caller-supplied.
+- **`RetentionTestEngine.chunkPlan()`** (Core, Step 2) — the exact-remainder final chunk,
+  already tested for 512 B and 4096 B.
+
+### Hazards that will bite Step 7 specifically
+
+1. **The helper needs Full Disk Access** (NFR-INST-4) or the raw open fails `EPERM`. Root
+   is not sufficient. Granted on this machine; a clean Mac is not.
+2. **Opening and closing the raw device outside a held acquire remounts the volume within
+   milliseconds.** Measured: releasing an `O_EXLOCK` open makes DiskArbitration re-probe and
+   auto-mount ~4 ms later. Any Step 7 probe, geometry check or experiment that opens the
+   node on its own will undo the user's unmount. Use the descriptor `AcquiredDevice`
+   already holds.
+3. **Disk images are not a test target** — discovery excludes them by design. All
+   real-hardware I/O is `disk4`, whose contents are expendable. `disk6` holds the source
+   tree and must never be tested.
+4. **Raw devices reject misaligned offsets/lengths with `EINVAL`.** Alignment is the
+   device's contract, not a style preference.
+5. **`F_NOCACHE` is what makes Step 8's verify read meaningful.** Reading through a cached
+   path would let the buffer cache satisfy the verify and make the whole test vacuous.
+
+### The gate (from BUILD-PLAN, amended 2026-08-01)
+
+- [ ] Against `disk4`, geometry reads correctly and matches `diskutil info`.
+- [ ] Chunk plan correct for awkward sizes, both 512 B and 4096 B, via `InMemoryBlockDevice`
+      unit tests — including a block count that is **not** a multiple of `blocksPerChunk`.
+- [ ] Peak buffer memory ≈ 2×`ioSize` regardless of device size (NFR-PERF-1).
+- [ ] `F_NOCACHE` / `F_GLOBAL_NOCACHE` set, verified by code path or re-read timing.
