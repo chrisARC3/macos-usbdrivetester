@@ -2766,9 +2766,91 @@ performs I/O reads fine now and confuses badly by Step 11.
 there is an important test case that cannot be satisfied with `disk4`."* `disk8` is not part
 of this gate.
 
-One case that genuinely cannot be satisfied by `disk4` is identified and **carried rather
-than closed**: NFR-COMPAT-6. `disk4` is below 2³² blocks, so a bridge truncating its block
-count to 32 bits would be invisible there, and the failure mode is silent — the tool would
-test the first 2 TiB of a larger drive and report a clean pass. Unit tests cover the 64-bit
-arithmetic at full scale using `disk8`'s real geometry as a fixture; what has no evidence is
-a real bridge reporting a >2³² count. Revisit at Step 16 at the latest.
+One case that genuinely cannot be satisfied by `disk4` was identified and carried: NFR-COMPAT-6.
+`disk4` is below 2³² blocks, so a bridge truncating its block count to 32 bits would be
+invisible there, and the failure mode is silent — the tool would test the first portion of a
+larger drive and report a clean pass. Unit tests cover the 64-bit arithmetic at full scale
+using `disk8`'s real geometry as a fixture; what had no evidence was a real bridge reporting a
+>2³² count.
+
+> **CLOSED later the same day (2026-08-02), on user instruction: "verify on disk8 that we can
+> address above the 32-bit boundary… before we begin Step 8."** `scripts/large-address-check.sh
+> disk8` passed 10/10 — read-only, nothing unmounted. See the Step 7 COMPLETE summary. `disk8`
+> remains outside every other gate; a specific case still has to be named and agreed before it
+> is used again.
+
+---
+
+## Step 8 — read → write-back → read-verify cycle — NOT STARTED
+
+**AI-6 / satisfies FR-TEST-1/3/4/7/8; FR-FAIL-6/7; NFR-REL-1/2/4/8; and FR-TEST-9's caller.**
+**Helper-side core** — runs identically against the simulated device.
+
+Recorded here so a cold start has the state without re-deriving it from the log above.
+
+### State this step begins from
+
+- **Steps 1–7 complete.** Step 7 committed at `e0fdea2`, docs convention at `d1259d9`;
+  `git` clean on `main`.
+- **Protocol v5.** `ping`, `protocolVersion`, `validateRunParameters`, `prepareForShutdown`,
+  `checkDeviceReadiness`, `acquireDevice`, `releaseDevice`, `deviceProfile`.
+- **323 tests, 0 failures.** Zero warnings from clean Debug **and** clean Release builds.
+- **The installed helper is v5**, registered from `/Applications`, with Full Disk Access
+  granted. Re-registering does not prompt on this machine; a clean Mac will.
+- Hardware gates passing: `geometry-check.sh disk4` 9/9, `large-address-check.sh disk8` 10/10,
+  `claim-contention-test.sh disk4` 12/12. Guard scripts: `ioctl-constants-check.sh` 9/9,
+  `usb-speed-check.sh` 3/3.
+
+### What Step 7 hands over
+
+- **`AcquiredDevice.blockDevice()`** — vends a `FileDescriptorBlockDevice` over the held
+  descriptor using the **authoritative** (ioctl-derived, reconciled) geometry. Returns `nil`
+  once released. Built on demand rather than stored, so it cannot outlive the descriptor.
+- **`AcquiredDevice.deviceGeometry`** — the authority. `AcquiredDevice.geometry` is IOKit's
+  and is **provisional**; it is kept only for comparison and the log.
+- **`AcquiredDevice.cacheBypass`** — the FR-TEST-9 verdict established at acquire. Step 8
+  seeds a `CacheBypassAssessment` from it *plus* `AcquiredDevice.usbLinkSpeed`, then feeds each
+  chunk's throughput in via `observe(bytes:nanoseconds:)`. That can only ever downgrade.
+- **`RetentionTestEngine.chunks()`** — the **lazy** plan, and what a run must iterate.
+  `chunkPlan()` still exists but materialises: 9.1 MiB for `disk4`, 200.1 MiB for `disk8`. It
+  is for tests and diagnostics only.
+- **`ChunkBuffers`** — the two page-aligned buffers, allocated once and reused. `original` is
+  buffer A and is the **only copy of the user's data** during the write, which is exactly what
+  bounds NFR-REL-4's in-flight window to one chunk. `original(byteCount:)` / `verify(byteCount:)`
+  give the short prefix the final chunk needs.
+- **`WritePrecondition.check(_:writingTo:)`** — the NFR-REL-3 runtime guard. The compile-time
+  half is that the write path takes an `AcquiredDevice`, which only a successful acquire can
+  produce.
+- **`InMemoryBlockDevice`** — fault injection (`injectReadFault`, `injectWriteFault`,
+  `injectSilentCorruption`) and `snapshot()`, all from Step 2 and all still unused. Step 8's
+  gate is what finally exercises them.
+
+### Hazards that will bite Step 8 specifically
+
+1. **This step writes the first byte to real media.** Everything before it was read-only.
+   NFR-REL-1 requires non-destructiveness proven **in simulation first**, and the gate is
+   ordered that way deliberately — the `disk4` run is the *last* item, not the first.
+2. **A torn write to the GPT or a superblock can brick an otherwise-good drive.** `disk4`'s
+   contents are expendable; the *time* spent re-creating a test volume is not, and the point
+   generalises to a user's drive.
+3. **The verify must not be vacuous.** If buffer A and buffer B ever alias, or the write does
+   not truly precede the verify read, the comparison passes for every chunk of every drive.
+   `ChunkBuffersTests.theTwoBuffersAreDistinctMemory` guards the first; ordering guards the
+   second; FR-TEST-9 guards the third (host caching).
+4. **FR-TEST-7 is absolute: write back the bytes that were read, never a pattern.** A
+   known-value write would be a faster, easier test and would destroy user data.
+5. **One chunk in flight (NFR-REL-4).** Never hold more than the current chunk's original.
+   Anything that accumulates — a list of chunks processed, per-chunk timings kept for later —
+   reintroduces the capacity-scaling NFR-PERF-2 forbids and Step 7 removed.
+
+### The gate (from BUILD-PLAN)
+
+- [ ] Non-destructiveness proven in simulation (NFR-REL-1): known random data, full cycle,
+      backing store bit-for-bit identical afterwards.
+- [ ] Verify-mismatch detection (NFR-REL-8): corruption injected on a range flags exactly
+      that range and no other.
+- [ ] Hard-error classification (FR-FAIL-6): read-error and write-error injection produce
+      correctly-typed `BlockRangeFailure`s.
+- [ ] One-chunk-in-flight (NFR-REL-4) confirmed by instrumentation.
+- [ ] The cycle runs end-to-end against `disk4` and leaves its contents unchanged
+      (checksum before == after). **Only after the simulation proof passes.**
