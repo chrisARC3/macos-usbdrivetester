@@ -39,6 +39,25 @@ Before a step's gate is considered passed:
 - New significant events are emitted via `os_log` (NFR-OBS-1) — see Step 15.
 - A one-paragraph note is recorded (commit message or a `PROGRESS.md`) describing what was verified and how.
 
+### Version control convention (recorded 2026-08-02, user decision)
+
+**Commit directly to `main`.** Every step so far has been committed that way, and it is the
+intended workflow, not an accident of habit.
+
+> *"I generally prefer commits to main. If I want to commit to a branch I will let you know in
+> advance."* — user, 2026-08-02
+
+So: **do not create a branch for a step's work unless told to in advance.** A step's commit
+lands on `main` once its Verification Gate passes. Recorded here because the opposite default —
+branch first, then merge — is a common convention and would otherwise be a reasonable
+assumption for anyone (or any tool) joining the project cold, leaving a step's work stranded
+unmerged on a side branch.
+
+Commits are made **only when asked**, and only after the gate passes. The message convention
+follows Steps 1–7: a `Step N: <title>` subject, a body explaining what changed and *why* —
+including any requirement added or amended, and any defect found — and the verification
+results with their numbers.
+
 ### Test hardware (amended 2026-08-01, user decision)
 
 Every step with a real-hardware gate uses **`disk4`** — Samsung Portable SSD T5, 1 TB,
