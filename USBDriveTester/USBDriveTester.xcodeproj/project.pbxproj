@@ -88,11 +88,16 @@
 		FE84301C2FFED8ED003FFDF4 /* Exceptions for "com.arc3solutions.USBDriveTester.Helper" folder in "USBDriveTesterTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Core/CacheBypassCheck.swift,
+				Core/ChunkBuffers.swift,
 				Core/DeviceAccessPrecondition.swift,
+				Core/DiskIOControl.swift,
+				Core/FileDescriptorBlockDevice.swift,
 				Core/InMemoryBlockDevice.swift,
 				Core/RawBlockDevice.swift,
 				Core/RetentionTestEngine.swift,
 				Core/RunParameterValidator.swift,
+				Core/USBLinkSpeed.swift,
 			);
 			target = FE6097262FEECA750091C1E0 /* USBDriveTesterTests */;
 		};

@@ -149,6 +149,41 @@ public enum RunParameterRejection: Error, Equatable, CustomStringConvertible {
 /// (Steps 7/8).
 public enum RunParameterValidator {
 
+    /// Check that a device's reported geometry could describe a real device.
+    ///
+    /// Split out from ``validate(byteOffset:byteLength:geometry:)`` in Step 7 so the same
+    /// three rules apply to geometry whatever its provenance. Until Step 7 the only source
+    /// was the caller, over XPC; from Step 7 the helper also derives geometry itself from
+    /// `DKIOCGETBLOCKSIZE` / `DKIOCGETBLOCKCOUNT` and reconciles it in ``DiskIOControl``.
+    /// Both paths must reject the same impossible values — BUILD-PLAN Step 7's risks are
+    /// explicit that some USB bridges report odd geometry and that the answer is to reject
+    /// it, not to accommodate it. Two copies of that rule would eventually disagree, and the
+    /// copy that mattered would be the looser one.
+    ///
+    /// - Returns: the device's total size in bytes (`blockCount * logicalBlockSize`),
+    ///   computed once here so no caller repeats the overflow-checked multiply.
+    /// - Throws: ``RunParameterRejection`` — one of ``RunParameterRejection/unsupportedBlockSize(_:)``,
+    ///   ``RunParameterRejection/emptyDevice`` or
+    ///   ``RunParameterRejection/implausibleGeometry(logicalBlockSize:blockCount:)``.
+    @discardableResult
+    public static func validateGeometry(_ geometry: DeviceGeometry) throws -> UInt64 {
+        let blockSize = geometry.logicalBlockSize
+
+        guard DeviceGeometry.supportedBlockSizes.contains(blockSize) else {
+            throw RunParameterRejection.unsupportedBlockSize(blockSize)
+        }
+        guard geometry.blockCount > 0 else {
+            throw RunParameterRejection.emptyDevice
+        }
+        let (deviceByteCount, overflowed) =
+            geometry.blockCount.multipliedReportingOverflow(by: UInt64(blockSize))
+        guard !overflowed else {
+            throw RunParameterRejection.implausibleGeometry(logicalBlockSize: blockSize,
+                                                            blockCount: geometry.blockCount)
+        }
+        return deviceByteCount
+    }
+
     /// Check a prospective transfer.
     ///
     /// Checks run cheapest-and-most-fundamental first, so the reported rejection is
@@ -170,18 +205,7 @@ public enum RunParameterValidator {
         let blockSize = geometry.logicalBlockSize
 
         // --- Geometry sanity -------------------------------------------------
-        guard DeviceGeometry.supportedBlockSizes.contains(blockSize) else {
-            throw RunParameterRejection.unsupportedBlockSize(blockSize)
-        }
-        guard geometry.blockCount > 0 else {
-            throw RunParameterRejection.emptyDevice
-        }
-        let (deviceByteCount, geometryOverflowed) =
-            geometry.blockCount.multipliedReportingOverflow(by: UInt64(blockSize))
-        guard !geometryOverflowed else {
-            throw RunParameterRejection.implausibleGeometry(logicalBlockSize: blockSize,
-                                                            blockCount: geometry.blockCount)
-        }
+        let deviceByteCount = try validateGeometry(geometry)
 
         // --- Request sanity --------------------------------------------------
         guard byteLength > 0 else {

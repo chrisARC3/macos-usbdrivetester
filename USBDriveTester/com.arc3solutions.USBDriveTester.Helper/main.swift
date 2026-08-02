@@ -29,6 +29,11 @@ private let lifecycleLog = Logger(subsystem: HelperIdentity.loggingSubsystem, ca
 /// `log show --predicate 'subsystem == "com.arc3solutions.USBDriveTester" and category == "safety"'`.
 private let safetyLog = Logger(subsystem: HelperIdentity.loggingSubsystem, category: "safety")
 
+/// Step 7's category (NFR-OBS-1): geometry, uncached-I/O configuration, and the cache-bypass
+/// verdict. Shared with `RawDeviceGeometry.swift`, so one predicate shows the whole I/O story:
+/// `log show --predicate 'subsystem == "com.arc3solutions.USBDriveTester" and category == "io"'`.
+private let ioLog = Logger(subsystem: HelperIdentity.loggingSubsystem, category: "io")
+
 // MARK: - Advisory peer identification (logging only)
 
 /// Best-effort description of an XPC peer, **for log messages only**.
@@ -143,6 +148,14 @@ final class HelperActivity: @unchecked Sendable {
     /// question — is this device held? — without side effects.
     var heldDeviceName: String? {
         lock.withLock { held?.device.device.rawValue }
+    }
+
+    /// The held device itself, for read-only interrogation (Step 7's `deviceProfile`).
+    ///
+    /// Returns the object rather than copying facts out of it one at a time, so a caller
+    /// cannot assemble a profile from values read at different moments.
+    var heldDevice: AcquiredDevice? {
+        lock.withLock { held?.device }
     }
 
     /// Take exclusive access on behalf of `owner`, if nothing is held already.
@@ -486,6 +499,80 @@ final class TesterControlImpl: NSObject, TesterControl {
                          \(message, privacy: .public)
                          """)
         reply(true, message)
+    }
+
+    // MARK: - Step 7: what the helper established about the held device
+
+    func deviceProfile(reply: @escaping (Bool, UInt32, UInt64, UInt32, UInt64,
+                                          Int, Int, UInt64, String) -> Void) {
+
+        guard let held = HelperActivity.shared.heldDevice else {
+            ioLog.info("""
+                       deviceProfile from \(self.peer, privacy: .public): no device is held
+                       """)
+            reply(false, 0, 0, 0, 0,
+                  CacheBypassOutcome.unrecognised.rawValue, -1, 0,
+                  "No device is held. Geometry comes from ioctls on the open descriptor, so a "
+                + "device must be acquired first — the helper will not open a device "
+                + "speculatively to answer a query, because releasing that open would make "
+                + "macOS remount the volume.")
+            return
+        }
+
+        let authoritative = held.deviceGeometry
+        let ioKit = held.reconciliation.ioKit
+
+        // Offsets, block counts and geometry are safe to log and to return; device *contents*
+        // never are, and nothing here touches them (NFR-SEC-6).
+        var message = "\(held.device.rawValue): \(authoritative.blockCount) blocks of "
+                    + "\(authoritative.logicalBlockSize) bytes "
+                    + "(\(authoritative.blockCount * UInt64(authoritative.logicalBlockSize)) bytes), "
+                    + "from DKIOCGETBLOCKSIZE/DKIOCGETBLOCKCOUNT on the held descriptor. "
+
+        if let disagreement = held.reconciliation.disagreement {
+            message += "IOKit disagrees — \(disagreement) — and the ioctl values are used, "
+                     + "because they are what the kernel enforces on every transfer. "
+        } else if ioKit != nil {
+            message += "The helper's own IOKit reading agrees. "
+        } else {
+            message += "IOKit reported no usable geometry to compare against. "
+        }
+
+        message += held.cacheBypass.reportLine
+
+        ioLog.notice("""
+                     deviceProfile for \(held.device.rawValue, privacy: .public) requested by \
+                     \(self.peer, privacy: .public): \
+                     \(held.reconciliation.logDescription, privacy: .public); \
+                     cache-bypass \(String(describing: held.cacheBypass), privacy: .public)
+                     """)
+
+        reply(true,
+              authoritative.logicalBlockSize,
+              authoritative.blockCount,
+              ioKit?.logicalBlockSize ?? 0,
+              ioKit?.blockCount ?? 0,
+              held.cacheBypass.wireCode,
+              Self.linkSpeedCode(held.usbLinkSpeed),
+              held.rawGeometry.maximumByteCountRead ?? 0,
+              message)
+    }
+
+    /// The raw IORegistry `Device Speed` code, or `-1` when none was reported.
+    ///
+    /// Sent as the raw code rather than an interpreted speed so the app is not forced to trust
+    /// this build's reading of an enum that no SDK header declares (see `Core/USBLinkSpeed.swift`).
+    private static func linkSpeedCode(_ speed: USBLinkSpeed?) -> Int {
+        switch speed {
+        case .none:                       return -1
+        case .low:                        return 0
+        case .full:                       return 1
+        case .high:                       return 2
+        case .superSpeed:                 return 3
+        case .superSpeedPlus:             return 4
+        case .superSpeedPlusBy2:          return 5
+        case .unrecognised(let code):     return code
+        }
     }
 }
 

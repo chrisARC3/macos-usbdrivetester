@@ -36,7 +36,11 @@
 //  Usage:
 //      mount-guard-client <bsdName> <command> [<command> ...]
 //
-//  Commands: check | acquire | release | hold:<seconds>
+//  Commands: check | acquire | profile | release | hold:<seconds>
+//
+//  `profile` was added in Step 7. It is passive — it reports what `acquire` established and
+//  performs no I/O — but it requires a device to be held, so it only makes sense after
+//  `acquire` **in the same invocation**, for the reason above.
 //
 //  Output is `KEY=value` on stdout, one fact per line, prefixed with the command — meant
 //  for grep, not for reading aloud.
@@ -50,7 +54,7 @@ let arguments = CommandLine.arguments
 guard arguments.count >= 3 else {
     FileHandle.standardError.write(Data("""
         usage: mount-guard-client <bsdName> <command> [<command> ...]
-               commands: check | acquire | release | hold:<seconds>
+               commands: check | acquire | profile | release | hold:<seconds>
 
         """.utf8))
     exit(2)
@@ -130,6 +134,29 @@ for command in commands {
                 print("[acquire] ACQUIRED=\(acquired ? 1 : 0)")
                 print("[acquire] CAUSE=\(causeCode)")
                 print("[acquire] MESSAGE=\(message)")
+                done()
+            }
+        }
+
+    case "profile":
+        // Step 7. Passive: reports what `acquire` established, performs no I/O, opens nothing.
+        // Requires a device to be held, so this only makes sense after `acquire` in the same
+        // invocation — the helper releases on connection loss, so a separate process would
+        // find nothing held.
+        call("profile") { tester, done in
+            tester.deviceProfile { available, ioctlBlockSize, ioctlBlockCount,
+                                   ioKitBlockSize, ioKitBlockCount,
+                                   cacheBypass, linkSpeedCode, maxByteCountRead, message in
+                print("[profile] AVAILABLE=\(available ? 1 : 0)")
+                print("[profile] IOCTL_BLOCK_SIZE=\(ioctlBlockSize)")
+                print("[profile] IOCTL_BLOCK_COUNT=\(ioctlBlockCount)")
+                print("[profile] IOCTL_BYTE_COUNT=\(UInt64(ioctlBlockSize) * ioctlBlockCount)")
+                print("[profile] IOKIT_BLOCK_SIZE=\(ioKitBlockSize)")
+                print("[profile] IOKIT_BLOCK_COUNT=\(ioKitBlockCount)")
+                print("[profile] CACHE_BYPASS=\(cacheBypass)")
+                print("[profile] LINK_SPEED_CODE=\(linkSpeedCode)")
+                print("[profile] MAX_BYTE_COUNT_READ=\(maxByteCountRead)")
+                print("[profile] MESSAGE=\(message)")
                 done()
             }
         }

@@ -74,6 +74,13 @@ private enum RegistryKey {
     static let protocolCharacteristics = "Protocol Characteristics"
     static let physicalInterconnect    = "Physical Interconnect"
     static let physicalInterconnectUSB = "USB"
+
+    /// Negotiated USB connection speed, several levels above the media in the IOService plane.
+    ///
+    /// The enum behind this value is **not declared in any SDK header** — see
+    /// `Core/USBLinkSpeed.swift` for the full account and the evidence that established it.
+    /// `scripts/usb-speed-check.sh` re-checks the mapping against every attached device.
+    static let deviceSpeed = "Device Speed"
 }
 
 // MARK: - The helper's own view of the device
@@ -93,6 +100,14 @@ struct EligibleDevice {
 
     /// Logical block size as IOKit reports it. Also provisional (see above).
     let logicalBlockSize: UInt32
+
+    /// The negotiated USB link speed, or `nil` if the registry did not report one.
+    ///
+    /// Used by FR-TEST-9's throughput falsifier to derive a ceiling above which a read cannot
+    /// have crossed the wire — 1.333 GB/s for `disk4`'s 10 Gb/s link, against the ~0.475 GB/s
+    /// it actually delivers (both measured 2026-08-02). `nil` is not an error: the check falls
+    /// back to a fixed ceiling and says so.
+    let usbLinkSpeed: USBLinkSpeed?
 }
 
 /// The helper's independent re-check of *which* device it has been asked to open.
@@ -153,10 +168,17 @@ enum HelperDeviceRegistry {
             return refuse("it does not report usable geometry.")
         }
 
+        // The USB link speed lives on the IOUSBHostDevice several levels up, like the protocol
+        // characteristics above — a disk's IOMedia entry does not carry it, which is why
+        // `ioreg -n disk4` cannot answer this and `tools/usb-speed-probe` exists.
+        let linkSpeed = ancestorNumber(media, RegistryKey.deviceSpeed)
+            .map { USBLinkSpeed.from(deviceSpeedCode: Int($0)) }
+
         return .success(EligibleDevice(
             subtreeBSDNames: bsdNamesInSubtree(of: media, wholeDiskName: device.rawValue),
             sizeBytes: sizeBytes,
-            logicalBlockSize: logicalBlockSize))
+            logicalBlockSize: logicalBlockSize,
+            usbLinkSpeed: linkSpeed))
     }
 
     // MARK: Registry helpers
@@ -176,6 +198,18 @@ enum HelperDeviceRegistry {
         let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
         return IORegistryEntrySearchCFProperty(entry, kIOServicePlane, key as CFString,
                                                kCFAllocatorDefault, options) as? [String: Any]
+    }
+
+    /// The same upward search, for a numeric property.
+    ///
+    /// Needed for `Device Speed`, which lives on the `IOUSBHostDevice` — past the
+    /// block-storage driver and the SCSI peripheral. ``number(_:_:)`` reads the entry itself
+    /// and would find nothing.
+    private static func ancestorNumber(_ entry: io_object_t, _ key: String) -> UInt64? {
+        let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
+        return (IORegistryEntrySearchCFProperty(entry, kIOServicePlane, key as CFString,
+                                                kCFAllocatorDefault, options) as? NSNumber)?
+            .uint64Value
     }
 
     /// Every BSD name at or below this whole disk. Downward and recursive, because an
@@ -526,12 +560,56 @@ enum DeviceClaim {
                    \(eligible.logicalBlockSize, privacy: .public)-byte blocks
                    """)
 
+        // 5. Step 7: configure the descriptor and establish the real geometry.
+        //
+        //    Done here, at acquire, rather than on first use, so `AcquiredDevice` carries
+        //    authoritative geometry from birth and there is no window in which some caller
+        //    could address the device using IOKit's provisional numbers.
+        let uncachedIO = RawDeviceGeometry.configureUncachedIO(fileDescriptor: fd,
+                                                                devicePath: device.rawDevicePath)
+        let cacheBypass = CacheBypassCheck.evaluate(uncachedIO)
+
+        let reconciliation: GeometryReconciliation
+        let rawGeometry: RawDeviceGeometry.RawGeometry
+        switch RawDeviceGeometry.establishGeometry(fileDescriptor: fd,
+                                                    ioKit: eligible,
+                                                    devicePath: device.rawDevicePath) {
+        case .success(let established):
+            reconciliation = established.reconciliation
+            rawGeometry = established.raw
+
+        case .failure(let refusal):
+            // Fails closed, and everything acquired so far is released. A run that does not
+            // know the size of the device cannot address it safely, so this is a refusal
+            // rather than a fallback to IOKit's provisional numbers — the whole point of
+            // preferring the ioctls is that they are what the kernel enforces.
+            close(fd)
+            DADiskUnclaim(disk)
+            DASessionSetDispatchQueue(session, nil)
+            let decision = DeviceAccessDecision.refuse(
+                .checkIncomplete(bsdName: device.rawValue, detail: refusal.description))
+            return refuseAndLog(decision, device: device)
+        }
+
+        log.notice("""
+                   \(device.rawValue, privacy: .public) configured for uncached I/O: \
+                   F_NOCACHE rc=\(uncachedIO.noCacheResult, privacy: .public), \
+                   F_GLOBAL_NOCACHE rc=\(uncachedIO.globalNoCacheResult, privacy: .public), \
+                   node is a \(String(describing: uncachedIO.nodeKind), privacy: .public); \
+                   cache-bypass check says \(String(describing: cacheBypass), privacy: .public); \
+                   link \(eligible.usbLinkSpeed?.description ?? "speed not reported", privacy: .public)
+                   """)
+
         return .success(AcquiredDevice(device: device,
                                        session: session,
                                        disk: disk,
                                        sessionQueue: queue,
                                        fileDescriptor: fd,
-                                       geometry: eligible))
+                                       geometry: eligible,
+                                       reconciliation: reconciliation,
+                                       rawGeometry: rawGeometry,
+                                       uncachedIO: uncachedIO,
+                                       cacheBypass: cacheBypass))
     }
 
     /// Claim `disk`, waiting at most `timeout` seconds.
@@ -601,9 +679,31 @@ final class AcquiredDevice: @unchecked Sendable {
     /// The device access is held on.
     let device: WholeDiskName
 
-    /// Geometry as IOKit reported it. Provisional: Step 7's ioctls on ``fileDescriptor``
-    /// are the final authority and BUILD-PLAN says to prefer them.
+    /// Geometry as IOKit reported it. **Provisional** — kept for comparison and for the log.
+    /// ``deviceGeometry`` is the authority.
     let geometry: EligibleDevice
+
+    /// The ioctl geometry and how it compared with IOKit's (BUILD-PLAN 7.3).
+    let reconciliation: GeometryReconciliation
+
+    /// Everything the geometry ioctls returned, including the diagnostic values.
+    let rawGeometry: RawDeviceGeometry.RawGeometry
+
+    /// How the descriptor was configured for uncached I/O, and what kind of node it is.
+    let uncachedIO: UncachedIOConfiguration
+
+    /// The run-start cache-bypass verdict (FR-TEST-9), established at acquire.
+    ///
+    /// Step 8 seeds a `CacheBypassAssessment` from this and the link speed, then feeds the
+    /// run's throughput in — which can only ever downgrade it.
+    let cacheBypass: CacheBypassState
+
+    /// **The authoritative geometry**: ioctl-derived, reconciled, and validated. Everything
+    /// that addresses the device uses this, never ``geometry``.
+    var deviceGeometry: DeviceGeometry { reconciliation.authoritative }
+
+    /// The negotiated USB link speed, or `nil` if the registry did not report one.
+    var usbLinkSpeed: USBLinkSpeed? { geometry.usbLinkSpeed }
 
     private let session: DASession
     private let disk: DADisk
@@ -617,13 +717,32 @@ final class AcquiredDevice: @unchecked Sendable {
                      disk: DADisk,
                      sessionQueue: DispatchQueue,
                      fileDescriptor: Int32,
-                     geometry: EligibleDevice) {
+                     geometry: EligibleDevice,
+                     reconciliation: GeometryReconciliation,
+                     rawGeometry: RawDeviceGeometry.RawGeometry,
+                     uncachedIO: UncachedIOConfiguration,
+                     cacheBypass: CacheBypassState) {
         self.device = device
         self.session = session
         self.disk = disk
         self.sessionQueue = sessionQueue
         self.fd = fileDescriptor
         self.geometry = geometry
+        self.reconciliation = reconciliation
+        self.rawGeometry = rawGeometry
+        self.uncachedIO = uncachedIO
+        self.cacheBypass = cacheBypass
+    }
+
+    /// A `RawBlockDevice` over the held descriptor, using the authoritative geometry.
+    ///
+    /// Built on demand rather than stored, so it cannot outlive the descriptor it borrows.
+    /// Returns `nil` once ``release()`` has run.
+    func blockDevice() throws -> FileDescriptorBlockDevice? {
+        let descriptor = fileDescriptor
+        guard descriptor >= 0 else { return nil }
+        return try FileDescriptorBlockDevice(fileDescriptor: descriptor,
+                                             geometry: deviceGeometry)
     }
 
     /// The open raw descriptor, or `-1` once released. Step 7 does its `pread`/`pwrite`

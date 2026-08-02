@@ -46,6 +46,24 @@ Every step with a real-hardware gate uses **`disk4`** — Samsung Portable SSD T
 
 - **`disk6` must never be tested** — it holds this source tree.
 - **`disk8`** (Seagate 22 TB) is for read-only checks such as 64-bit block-count handling.
+
+  > **Amended 2026-08-02, user decision (Step 7 scoping): `disk4` only, "unless there is
+  > an important test case that cannot be satisfied with `disk4`".** `disk8` is therefore
+  > **not** part of any gate by default; using it requires a specific case to be named and
+  > agreed first, per step. Reading its geometry is not free — it means unmounting a 22 TB
+  > volume, and only `disk4`'s contents are expendable.
+  >
+  > **One such case was known, and has since been agreed and closed: NFR-COMPAT-6.**
+  > `disk4` is **1,953,525,168** blocks, *below* 2³² (4,294,967,296), so no test on `disk4`
+  > can distinguish a correct 64-bit block count from one a USB bridge has truncated to 32
+  > bits. `disk8` is 42,970,644,479 blocks — ten times over the boundary — and is the only
+  > hardware here that can.
+  >
+  > **Agreed and run 2026-08-02, before Step 8**, via `scripts/large-address-check.sh`:
+  > 10/10, see Step 7's gate. That run is the model for any future `disk8` use — **read-only**
+  > (`O_RDONLY`, no `O_EXLOCK`), **nothing unmounted**, the live volume named to the user
+  > before it starts and verified still mounted afterwards. `disk8` remains outside every
+  > other gate: a specific case still has to be named and agreed before it is used again.
 - **Disk images are not a test target.** Discovery excludes them (they report
   `Physical Interconnect == "Virtual Interface"`), and they lack the USB bridge, real
   block device and NAND this tool exists to exercise. Earlier wording in Steps 7, 8 and
@@ -341,14 +359,14 @@ Guarantee that no test ever starts unless **(a) every volume on the device is un
 ## Step 7 — Raw I/O core: open `rdiskN`, no-cache, block geometry, chunk plan
 
 **Original action item:** AI-5
-**Satisfies:** FR-TEST-2/5/6; FR-DEV-5; NFR-PERF-1/2, NFR-COMPAT-5/6
+**Satisfies:** FR-TEST-2/5/6; **FR-TEST-9 (mechanism only — added 2026-08-02)**; FR-DEV-5; NFR-PERF-1/2, NFR-COMPAT-5/6
 **Trust boundary:** **helper-side only** (FR-ARCH-6).
 
 ### Objective
 Implement the real `RawBlockDevice` for hardware: open the raw device uncached, read true block geometry, and produce the block-aligned chunk plan (including the correctly-sized final chunk). The same engine from Step 2 will now run against either the in-memory device or this real one.
 
 ### Detailed steps
-1. **Open the raw device** in the helper: `open("/dev/rdiskN", O_RDWR | O_EXLOCK | O_NONBLOCK)` (raw, not buffered `diskN`). Fail with a precise error if it can't be opened exclusively (ties to Step 6).
+1. **Use the raw descriptor Step 6 already holds.** `AcquiredDevice.fileDescriptor` is `/dev/rdiskN` (raw, not buffered `diskN`), already open `O_RDWR | O_EXLOCK | O_NONBLOCK`. Steps 2–4 below are applied to *that* descriptor. **Step 7 opens nothing of its own.**
 
    > **Amended 2026-07-30, measured.** This originally specified a plain `O_RDWR` open.
    > `scripts/exclusivity-probe.sh` established that **a plain `O_RDWR` open on an
@@ -356,24 +374,158 @@ Implement the real `RawBlockDevice` for hardware: open the raw device uncached, 
    > so two processes could write the same device simultaneously. `O_EXLOCK` does
    > exclude: the second attempt fails `EBUSY`. `O_NONBLOCK` matters too, or a contended
    > open blocks instead of returning the error the guard needs.
+
+   > **Amended 2026-08-02, user decision (Step 7 scoping).** This step originally read
+   > "**Open the raw device** in the helper: `open(…)` … Fail with a precise error if it
+   > can't be opened exclusively (ties to Step 6)." **Step 6 now performs that open**, in
+   > `DeviceClaim.acquire(_:)`, because the open is one half of the mount guard: it is the
+   > thing that actually excludes another writer, and it has to be taken in the same
+   > sequence as the DiskArbitration claim so the two cannot disagree.
+   >
+   > Followed literally, Step 7 would therefore open a **second** descriptor — and it is
+   > *closing* that descriptor that does the damage. Measured 2026-08-01: releasing an
+   > exclusive open on the raw node makes DiskArbitration re-probe the media and remount
+   > the volume ~4 ms later, silently undoing the user's unmount. The same measurement
+   > forced the Full Disk Access probe away from the device (see
+   > `DeviceClaim.fullDiskAccessState()`). Any Step 7 geometry read, experiment or probe
+   > that opens the node on its own has the same defect.
+   >
+   > "Fail with a precise error if it can't be opened exclusively" is **already
+   > discharged** by Step 6's `DeviceAccessPrecondition` classification, which separates
+   > FR-SAFE-4's two causes and adds `accessNotPermitted` for the TCC case.
 2. **Disable caching (FR-TEST-6):** `fcntl(fd, F_NOCACHE, 1)` and `fcntl(fd, F_GLOBAL_NOCACHE, 1)` so reads/writes hit the device, not the unified buffer cache.
+
+2a. **Build the cache-bypass self-check (FR-TEST-9, added 2026-08-02).** Setting the flags in step 2 cannot be verified by its own return value — measured 2026-08-02, `fcntl(fd, F_NOCACHE, 1)` returns `0` on `/dev/null`, and there is no `F_GETNOCACHE` to read the flag back. Behaviour is the only observable. Step 7 therefore builds the *mechanism*, and **Step 8 calls it at run start**:
+
+   - a **pure classifier** (`Core/CacheBypassCheck.swift`) mapping two read durations plus the byte count onto `bypassed` / `likelyCached` / `inconclusive` — **three** states, never two, so "could not tell" cannot collapse into an answer;
+   - a **helper-side timing harness** that reads one chunk twice on the already-held descriptor. Read-only; no write reaches the device in this step.
+
+   Polarity, because it is easy to state backwards: **similar durations = healthy** (both reads reached the device); a large **speed-up on the re-read = caching is live**, and is the warning condition.
+
+   Read a chunk from the **middle of the device, not chunk 0** — block 0 holds the GPT and partition table, the region the OS has most recently touched, so its "first" read is the least likely to be genuinely cold.
+
+   > **MEASURED 2026-08-02 — re-read timing does NOT discriminate. Mechanism revised.**
+   > `./scripts/nocache-calibration.sh disk4` (4 MiB, 4 reads/phase, 0 failures) settled the
+   > open risk in the negative. With `F_NOCACHE` unset, four reads of one region took
+   > 12,295 / 8,829 / 8,786 / 8,737 µs; with the flags set, a different region took
+   > 8,903 / 8,872 / 8,846 / 8,887 µs. A 4 MiB copy from RAM on this machine takes **58 µs**,
+   > so a real cache hit would be **~150×** faster — the observed 1.41× is first-read warm-up
+   > (USB spin-up plus first-touch faults on 256 fresh 16 KiB pages), confirmed by the second
+   > phase's first read of an untouched region showing no penalty at all.
+   >
+   > Root cause, confirmed: `/dev/rdisk4` is `crw-`, a **character** device, while
+   > `/dev/disk4` is `brw-`. The buffer cache belongs to the block node, so the raw path was
+   > never cached and `F_NOCACHE` had nothing to suppress.
+   >
+   > **The asymmetry this forces:** timing can *falsify* (a 150×-fast read proves a cache
+   > hit) but cannot *verify* (similar timings are identical whether caching was suppressed
+   > or was never possible). So `bypassed` may never rest on timing:
+   >
+   > - **Primary, structural:** `fstat(fd)` → assert `S_ISCHR`. The descriptor must be the
+   >   character device. This catches the failure that can actually happen — opening
+   >   `/dev/diskN` instead of `/dev/rdiskN`, a one-character bug that would make every
+   >   verify vacuous — and it is a fact about the file, not a heuristic. Plus both `fcntl`
+   >   calls returning 0.
+   > - **Secondary, falsification only:** during the run, flag `likelyCached` if a chunk read
+   >   returns faster than the transport allows. Calibrated here: RAM 71.3 GB/s vs. device
+   >   0.475 GB/s, so a threshold near **2 GB/s** sits ~4× above the fastest plausible USB
+   >   device and ~35× below RAM.
+   >
+   > FR-TEST-9's own text is unchanged — it specifies what to verify, never how.
 3. **Query geometry:**
    - `ioctl(fd, DKIOCGETBLOCKSIZE, &blockSize)` → `UInt32` logical block size (expect 512 or 4096; NFR-COMPAT-5).
    - `ioctl(fd, DKIOCGETBLOCKCOUNT, &blockCount)` → `UInt64` (NFR-COMPAT-6).
-   - Reconcile with the values discovered in Step 5; prefer the ioctl values.
+   - Reconcile against the **helper's own** IOKit reading (`AcquiredDevice.geometry`); prefer the ioctl values. Log both so they can be compared directly.
+
+   > **Amended 2026-08-02, user decision (Step 7 scoping).** The last bullet originally
+   > read "Reconcile with the values discovered in **Step 5**; prefer the ioctl values."
+   > Step 5's discovery runs in the **app**, on the far side of the trust boundary.
+   >
+   > Step 6 established that the helper reads the IOKit registry **independently** —
+   > `HelperDeviceRegistry.eligibility(of:)` produces `EligibleDevice` with its own
+   > `sizeBytes` and `logicalBlockSize` — precisely so a root daemon need not take the
+   > app's word for a device's identity or its geometry (NFR-REL-7, BUILD-PLAN Step 3.5).
+   > The helper's copy of the registry filters is duplicated from the app's *on purpose*:
+   > "a shared filter would mean one bug excusing itself on both sides of the trust
+   > boundary" (`DeviceClaim.swift`).
+   >
+   > Reconciling against a Step 5 value would re-cross the boundary Step 6 deliberately
+   > closed, and would make a GUI bug capable of influencing what the helper believes
+   > about the device it is about to write to. The comparison is therefore
+   > **ioctl vs. helper-IOKit**, and the app is not a party to it.
+
+   > **Note on the ioctl constants (measured 2026-08-02).** `DKIOCGETBLOCKSIZE` and
+   > `DKIOCGETBLOCKCOUNT` are **not importable into Swift** — the SDK reports
+   > `macro 'DKIOCGETBLOCKSIZE' unavailable: structure not supported`, because they are
+   > `_IOR(…)` macros rather than plain integer `#define`s. They must be re-derived in
+   > Swift. The derivation was checked against the SDK by compiling C and comparing:
+   > `DKIOCGETBLOCKSIZE = 0x40046418`, `DKIOCGETBLOCKCOUNT = 0x40086419`. No C shim or
+   > bridging header is required; `ioctl(fd:_:_:)` and `fcntl(fd:_:_:)` are both callable
+   > directly from Swift.
 4. **Implement read/write** using `pread`/`pwrite` at explicit byte offsets (block-aligned). Treat short transfers and `errno` as `DeviceIOError`. **All offsets/lengths are 64-bit and block-aligned** (NFR-COMPAT-6, NFR-REL-7).
 5. **Build the chunk plan (FR-TEST-2/5):**
    - `ioSize` ∈ {1,2,4,8} MiB (default 4) — passed in; fixed for the run (FR-CTRL-8).
    - `blocksPerChunk = ioSize / blockSize`; iterate from block 0 to `blockCount-1`.
    - **Final chunk:** size to **exactly the remaining blocks**, i.e. `remaining = blockCount - offsetBlocks`, length `= remaining * blockSize` — **rounded to the logical block size, never to an arbitrary byte remainder** (FR-TEST-5). (Because the device is an integer number of logical blocks, the final chunk is already a whole number of blocks; the requirement is to never truncate to a sub-block byte count.)
 6. **Bounded memory (NFR-PERF-1/2):** allocate exactly **two** buffers of `ioSize` (original-read + verify-read) and reuse them for every chunk — memory must **not** scale with device capacity. Use page-aligned buffers (`valloc`/`posix_memalign`) for raw I/O.
+
+   > **Amended 2026-08-02, user decision (Step 7 scoping): "peak buffer memory ≈ 2×`ioSize`
+   > is the correct and final design. I do not want memory to scale with capacity."**
+   >
+   > The buffers were never the problem — the **chunk plan** was. Step 2's
+   > `RetentionTestEngine.chunkPlan()` returns a materialised `[Chunk]`, and `Chunk` has a
+   > 40-byte stride (measured). That is memory scaling linearly with capacity, which is
+   > exactly what NFR-PERF-2 forbids, and it slipped through because this gate item says
+   > "peak **buffer** memory" and the buffers really were bounded:
+   >
+   > | Device | Blocks (512 B) | Chunks @ 4 MiB | Materialised plan |
+   > |---|---|---|---|
+   > | `disk4` — 1.0 TB | 1,953,525,168 | 238,468 | **9.1 MiB** |
+   > | `disk8` — 22 TB | 42,970,644,479 | 5,245,440 | **200.1 MiB** |
+   >
+   > So the requirement is restated here as its true scope: **no run-state structure may
+   > scale with device capacity** — not the buffers, not the plan, not anything Steps 8–10
+   > add. The plan is therefore produced **lazily**, as a `Sequence` of `Chunk` computed on
+   > demand, and the eagerly-materialised array becomes a convenience for tests only.
+   >
+   > This is a requirement about the *shape* of the design, so it constrains every later
+   > step: Step 9's metrics and Step 10's bad-block report must accumulate bounded summaries
+   > (counts, min/max/percentile state, coalesced failed ranges), never a per-chunk record.
 7. **`os_log`** device open and geometry (NFR-OBS-1) — never log contents (NFR-SEC-6).
 
-### Verification Gate (must pass before Step 8)
-- [ ] Against the **designated scratch device** (`disk4`), geometry (block size, block count, capacity) reads correctly and matches `diskutil info`. *(Amended 2026-08-01: disk images are not an option — see "The test target" below.)*
-- [ ] The chunk plan computed for several sizes (e.g. a device whose block count is **not** a multiple of `blocksPerChunk`) yields a correct final chunk equal to the exact remaining blocks — verified by **unit tests using `InMemoryBlockDevice`** with deliberately awkward sizes, for both 512B and 4096B blocks.
-- [ ] Peak buffer memory == ~2×`ioSize` regardless of device size (instrument and confirm; NFR-PERF-1).
-- [ ] `F_NOCACHE`/`F_GLOBAL_NOCACHE` are set (verified by code path / no cache-hit behavior on re-read timing).
+### Verification Gate — COMPLETE (2026-08-02)
+- [x] Against the **designated scratch device** (`disk4`), geometry (block size, block count, capacity) reads correctly and matches `diskutil info`. *(Amended 2026-08-01: disk images are not an option — see "The test target" below.)* — **`scripts/geometry-check.sh disk4`, 9 PASS / 0 failures:** 512 / 1,953,525,168 / 1,000,204,886,016, matching `diskutil` on all three and matching the helper's independent IOKit reading.
+- [x] The chunk plan computed for several sizes (e.g. a device whose block count is **not** a multiple of `blocksPerChunk`) yields a correct final chunk equal to the exact remaining blocks — verified by **unit tests using `InMemoryBlockDevice`** with deliberately awkward sizes, for both 512B and 4096B blocks. — `RetentionTestEngineTests` (7 cases, unchanged since Step 2) plus `ChunkPlanTests` (12), which adds the **real** geometries: `disk4` → 238,468 chunks with a 3,504-block remainder, `disk8` → 5,245,440 chunks with an 8,191-block remainder, the latter verified by full traversal.
+- [x] Peak buffer memory == ~2×`ioSize` regardless of device size (instrument and confirm; NFR-PERF-1) — **and no other run-state structure scales with capacity either (NFR-PERF-2)**, the chunk plan included. *(Amended 2026-08-02 — see step 6 above: the original wording said "buffer memory", which a 200 MiB materialised plan for a 22 TB device would have passed.)* — `ChunkBuffers` cannot scale because capacity is not one of its inputs; `peakAllocatedBytes` instrumented and asserted flat across a 1,000-chunk loop; the plan is now a lazily-computed `Sequence`, proved by an 18-exabyte plan (4.4 trillion chunks, ~176 TB if materialised) that is fully usable.
+- [x] `F_NOCACHE`/`F_GLOBAL_NOCACHE` are set — **both `fcntl` calls checked, and the acquire fails if either does not return 0.** — hardware: `CACHE_BYPASS=1`.
+- [x] **The cache-bypass self-check exists and works (FR-TEST-9).** `scripts/nocache-calibration.sh disk4` has established, on real hardware, whether re-read timing can discriminate F_NOCACHE off from on, and the classifier's thresholds are the measured numbers. If the calibration shows the comparison **cannot** discriminate, that is recorded as the finding and the check reports `inconclusive` — it is **not** allowed to report `bypassed` on evidence that would say `bypassed` regardless. *(Added 2026-08-02. The original wording — "verified by code path / no cache-hit behavior on re-read timing" — accepted a code path as sufficient; `fcntl(F_NOCACHE)` returning 0 on `/dev/null` is why that is not.)*
+
+      **Result: the calibration showed re-read timing CANNOT discriminate**, so the mechanism
+      was rebuilt rather than the finding rationalised away. `bypassed` now rests on a
+      structural fact — `fstat` proving the descriptor is the **character** device, which
+      catches opening `/dev/diskN` by mistake — and timing is retained only as a *falsifier*,
+      against a ceiling derived from the negotiated USB link speed (1.333 GB/s for `disk4`,
+      against the 0.475 GB/s it delivers). Timing can falsify; it cannot verify.
+
+- [x] **NFR-COMPAT-6 on hardware that can actually test it.** *(Added to this gate 2026-08-02 by user instruction: verify it on `disk8` before Step 8 begins. It was previously recorded here as a known limit carried forward.)* Nothing run on `disk4` can discharge this — at 1,953,525,168 blocks it is below 2³², where a bridge truncating its count to 32 bits is indistinguishable from a correct one, and the failure is silent: the tool would test the first portion of a larger drive and report a clean pass.
+
+      **`scripts/large-address-check.sh disk8` passes 10/10.** `DKIOCGETBLOCKCOUNT` returns
+      **42,970,644,479** — not the 20,971,519 (10.7 GB instead of 22 TB) a truncation would
+      give. Reads succeed at block 0, at 2³²−1, at **2³²**, at 2³²+10⁶, and at the last block
+      (42,970,644,478). A read one block **past** the end is refused. The last block is
+      **distinct** from its 32-bit-wrapped twin (20,971,518), with neither all-zero.
+
+      Succeeding at the final block *and* being refused one past it brackets the device
+      exactly, which is only possible if 64-bit addressing holds end to end — a truncated size
+      or wrapped addressing would have made the past-the-end read land on a valid low block
+      and succeed.
+
+      **Run read-only, with nothing unmounted.** `disk8` is not the expendable scratch device
+      — it carries a live HFS volume — so `tools/large-address-probe` departs from
+      `DeviceClaim`'s flags deliberately and opens `O_RDONLY` with no `O_EXLOCK`: the
+      descriptor cannot write, no volume has to be disturbed, and with no exclusive lock there
+      is no release to trigger DiskArbitration's remount. The script **refuses `disk4`** for
+      being at or below 2³², so it cannot be pointed at hardware that would pass it vacuously.
 
 ### The test target (amended 2026-08-01, user decision)
 
@@ -433,6 +585,7 @@ Implement the heart of the tool: for each chunk, read original → write the *sa
 5. **No resume (FR-FAIL-7):** if interrupted, the engine reports and the run is over — there is no checkpoint to resume from. (Restart-from-beginning is wired in Step 11.)
 6. **Clean termination contract (NFR-REL-5):** on stop/error, issue no further writes and leave buffers/state consistent for the caller to release the device.
 7. **`os_log`** run start, and each failed block range (NFR-OBS-1) — never the data itself (NFR-SEC-6).
+8. **Run the cache-bypass self-check first (FR-TEST-9, added 2026-08-02).** Before the first chunk, call the Step 7 mechanism and record its verdict on the run. A `likelyCached` or `inconclusive` verdict **qualifies the verify result — it does not stop the run**: a cached *read* does not prevent the write-back reaching the device, so the retention refresh remains valid and only fault detection becomes unreliable. Blocking here would withhold a working feature to protect a broken one. The verdict travels with the run into Step 10's report.
 
 ### Verification Gate (must pass before Step 9)
 - [ ] **Non-destructiveness proven in simulation (NFR-REL-1):** fill an `InMemoryBlockDevice` with known random data, run the full cycle over the whole device, assert the backing store is **bit-for-bit identical** afterward.
@@ -496,6 +649,7 @@ React to classified failures per the user-selected mode, and conclude every run 
    - Average read/write throughput (FR-RPT-2) and read-latency min/max/p99 (FR-RPT-3) — from Step 9.
    - **Run outcome (FR-RPT-4):** completed clean / completed with failures / stopped on error / stopped by user / terminated by device loss.
    - Device identity, I/O size, failure mode, start/end time.
+   - **The run-start cache-bypass verdict (FR-TEST-9, added 2026-08-02).** Mandatory, not conditional on it having failed — an absent line is indistinguishable from a passing one. On `likelyCached` or `inconclusive` the report must state that **the verify result may be unreliable while the read → write-back refresh remains valid**, prominently enough that it cannot be read past. The exported file outlives the session and the UI banner; a report saying "0 bad blocks" that has outlived its qualification reproduces the exact silent failure FR-TEST-9 exists to prevent.
 4. **Markdown export (FR-RPT-5, NFR-USE-7):** an "Export report…" action writing a well-structured `.md` (via `NSSavePanel`): headings, a clear pass/fail outcome line, and **tabulated** bad-block ranges and statistics. No run history is retained (each run standalone) — export is the only persistence.
 5. **Honest outcome wording:** "completed clean" must read as "no currently-unreadable blocks found," not "healthy" (ties to Step 14 / FR-WARN-3).
 6. **`os_log`** the failure-mode selection and final outcome (NFR-OBS-1).

@@ -13,6 +13,10 @@
 //    * protocolVersion        — the version handshake (NFR-MAINT-1)
 //    * validateRunParameters  — boundary parameter validation (NFR-REL-7)
 //    * prepareForShutdown     — teardown handshake (Step 4; NFR-INST-3, NFR-REL-5)
+//    * checkDeviceReadiness   — side-effect-free mount/permission check (Step 6)
+//    * acquireDevice          — the exclusive whole-disk claim (Step 6)
+//    * releaseDevice          — release it (Step 6)
+//    * deviceProfile          — geometry + cache-bypass verdict for the held device (Step 7)
 //
 //  Deferred on purpose: startRun / pause / resume / stop and the helper -> GUI
 //  progress-callback protocol. Those need Step 6's exclusive device claim, Step 7's
@@ -176,6 +180,75 @@ import Foundation
     ///
     /// - Parameter reply: `(released, message)`. `message` describes what was released.
     func releaseDevice(reply: @escaping (Bool, String) -> Void)
+
+    /// What the helper established about the device it is holding (Step 7).
+    ///
+    /// **Passive and side-effect-free.** It performs no I/O and opens nothing: everything it
+    /// reports was determined during ``acquireDevice(bsdName:reply:)``, when the descriptor
+    /// was configured and the geometry ioctls were issued. Safe to call repeatedly.
+    ///
+    /// Requires a device to be held. There is no other way to obtain this information —
+    /// geometry comes from `DKIOCGETBLOCKSIZE`/`DKIOCGETBLOCKCOUNT` on the open descriptor,
+    /// and opening the raw node speculatively to answer a query is precisely what makes
+    /// DiskArbitration remount the volume ~4 ms later (measured 2026-08-01). The requirement
+    /// is therefore structural, not a policy choice.
+    ///
+    /// - Note: one method rather than separate geometry and cache-bypass queries. They were
+    ///   originally split because the cache-bypass check was going to perform two timed reads;
+    ///   `scripts/nocache-calibration.sh` showed re-read timing cannot discriminate on a raw
+    ///   character device, so that check became structural and passive, and a second privileged
+    ///   method would have bought nothing (NFR-SEC-3).
+    ///
+    /// - Parameter reply: `(available, ioctlBlockSize, ioctlBlockCount, ioKitBlockSize,
+    ///   ioKitBlockCount, cacheBypassCode, usbLinkSpeedCode, maximumByteCountRead, message)`.
+    ///
+    ///   **Both geometries are reported**, deliberately. The ioctl values are authoritative
+    ///   (BUILD-PLAN 7.3) and the IOKit values are what the helper independently read from the
+    ///   registry; returning both lets the gate compare each against `diskutil info` and makes
+    ///   any disagreement visible rather than absorbed. A disagreement is not fatal — the ioctl
+    ///   block count is the bound the kernel itself enforces on every transfer — but it is
+    ///   never silent.
+    ///
+    ///   `cacheBypassCode` is a ``CacheBypassOutcome`` raw value. `usbLinkSpeedCode` is the raw
+    ///   IORegistry `Device Speed` code, or `-1` when the registry reported none;
+    ///   `maximumByteCountRead` is `0` when the device did not answer. Both are diagnostic:
+    ///   `disk4` advertises a 1 MiB maximum read yet returns a full 8 MiB `pread` in one call,
+    ///   because the kernel splits transfers internally (measured 2026-08-02).
+    func deviceProfile(reply: @escaping (Bool, UInt32, UInt64, UInt32, UInt64,
+                                          Int, Int, UInt64, String) -> Void)
+}
+
+/// Whether the helper could establish that its reads reach the device (FR-TEST-9), as it
+/// travels over the wire.
+///
+/// - Important: these raw values are duplicated by `CacheBypassState.wireCode` in
+///   `Core/CacheBypassCheck.swift`, which is where the classification happens, for the same
+///   reason `DeviceAccessRefusalCause` is duplicated: Core compiles into the helper and the
+///   test target but deliberately **not** into the app module. A test pins the two together.
+public enum CacheBypassOutcome: Int {
+
+    /// The descriptor is the raw character device with caching disabled. The verify comparison
+    /// means what it says.
+    case bypassed = 1
+
+    /// Something can answer a read without the device. **The verify result is not
+    /// trustworthy** — but the run's read → write-back still refreshed the medium, so a run
+    /// continues and its result is qualified rather than discarded.
+    case likelyCached = 2
+
+    /// The question could not be settled. Never treated as either of the above.
+    case inconclusive = 3
+
+    /// Anything this build does not recognise — a helper newer than this app. Treated as
+    /// inconclusive, never as success.
+    case unrecognised = 0
+
+    public init(wireValue: Int) {
+        self = CacheBypassOutcome(rawValue: wireValue) ?? .unrecognised
+    }
+
+    /// Does this outcome qualify the run's verify result (FR-TEST-9)?
+    public var qualifiesVerifyResult: Bool { self != .bypassed }
 }
 
 /// Why the helper refused exclusive whole-disk access, as it travels over the wire.
@@ -248,6 +321,12 @@ public enum TesterProtocol {
     ///   Full Disk Access grant *before* a run is attempted rather than as a run failure.
     ///   A signature change, so a bump is mandatory rather than merely cheap — a v3
     ///   daemon would decode the reply block differently.
+    /// - **5** — Step 7: adds `deviceProfile`, reporting the ioctl-derived geometry, the
+    ///   helper's own IOKit geometry for comparison, the FR-TEST-9 cache-bypass verdict, the
+    ///   negotiated USB link speed and the advertised maximum read. Purely **additive** — a v4
+    ///   client's existing calls decode identically — but bumped anyway, because an app that
+    ///   needs the profile must be able to tell a helper that cannot provide it from one that
+    ///   can, and a missing method surfaces as a transport failure rather than as "too old".
     ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
@@ -260,7 +339,7 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 4
+    public static let version = 5
 }
 
 /// Single source of truth for the helper's identity and the trust it is pinned to.

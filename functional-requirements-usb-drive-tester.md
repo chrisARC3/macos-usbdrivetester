@@ -3,7 +3,7 @@
 **Status:** Baselined (amended — see [Amendments](#amendments-to-the-baseline))
 **Date:** 2026-06-25
 **Baselined:** 2026-06-25
-**Last amended:** 2026-07-30 (FR-SAFE-5 revised; FR-SAFE-6, FR-SAFE-7 added)
+**Last amended:** 2026-08-02 (FR-TEST-9 added — run-start cache-bypass verification)
 **Source documents:** [USBDriveTester.md](USBDriveTester.md), [ADR-001-usb-drive-tester.md](ADR-001-usb-drive-tester.md)
 **Companion document:** [Non-Functional Requirements](nonfunctional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
@@ -82,6 +82,7 @@ This document specifies the **functional requirements** — the observable behav
 | FR-TEST-6 | All test I/O shall be performed as raw, uncached, block-level access (e.g., `/dev/rdiskN` with `F_NOCACHE`/`F_GLOBAL_NOCACHE`). | M | PB Test Algorithm; ADR Action Item 5 |
 | FR-TEST-7 | The test shall be non-destructive by design: data read from a location shall be the only data written back to that location (no patterns or known-value overwrites). | M | PB Test Algorithm; ADR Trade-off Analysis |
 | FR-TEST-8 | When a verify comparison detects a mismatch, the system shall treat that chunk's block range as a failure and handle it per the selected failure-handling mode (see FR-FAIL). | M | PB Test Algorithm; PB Handling I/O Failures |
+| FR-TEST-9 | At the start of every run the system shall verify that its reads are not being served from the host buffer cache, and shall report that verification's outcome to the user and in the run report. A failed or inconclusive verification shall **qualify the verify result rather than prevent the run** — the read → write-back refresh remains valid, but fault detection may be unreliable. | M | user decision 2026-08-02 |
 
 ## FR-FAIL — I/O Failure Handling
 
@@ -191,8 +192,75 @@ during a run or while the helper holds exclusive access. Not part of the user's 
 rule, which addressed only the no-selection case, but mounting a device mid-run would
 violate NFR-REL-3 directly. Flagged as derived so it is easy to identify and reverse.
 
+### 2026-08-02 — FR-TEST-9 added (run-start cache-bypass verification)
+
+**Trigger.** User decision during Step 7 scoping, proposed by the user in response to the
+finding below.
+
+**What was found.** FR-TEST-6 requires uncached I/O and names the mechanism
+(`/dev/rdiskN` with `F_NOCACHE` / `F_GLOBAL_NOCACHE`). Step 7 scoping established that
+**setting that mechanism cannot be verified by its own return value**: measured 2026-08-02,
+`fcntl(fd, F_NOCACHE, 1)` returns `0` on `/dev/null`, a target that plainly does no
+raw-disk caching. There is also no `F_GETNOCACHE` — the flag cannot be read back. A zero
+return proves the syscall was accepted, not that caching was suppressed.
+
+**Why that gap is serious enough to be its own requirement.** If the buffer cache can
+satisfy the verify read of FR-TEST-3, the engine compares buffer A against a cached copy of
+buffer A and the comparison succeeds unconditionally. The tool would then report **every**
+drive as clean, including a failing one, with no error raised anywhere — FR-TEST-8 and
+NFR-REL-8 would both be silently inert. That is the single worst outcome available to a
+tool whose purpose is detecting failing NAND, and nothing in the baselined set would have
+caught it.
+
+**Why it qualifies the result instead of blocking the run.** The two halves of the product
+fail independently. A cached *read* does not prevent the write-back from reaching the
+device, so the charge-retention refresh — the other reason this tool exists — still happens
+and is still valid. Blocking the run would therefore withhold a working feature to protect
+a broken one. Reporting instead preserves the refresh and tells the user exactly which
+half of the result they may not rely on.
+
+**Why the report, and not just the UI.** The Markdown export of FR-FAIL / ADR Action
+Item 7 outlives the session. A report stating "0 bad blocks" that has outlived the banner
+qualifying it reproduces the original silent failure with extra steps, so the qualification
+travels with the report.
+
+**Priority M, not S.** Without it the product's primary claim — that it detects hard faults
+— can be false with no indication. It is a correctness-of-reporting prerequisite, not a
+degradation.
+
+**Consequences elsewhere.** Step 7 builds the mechanism (a pure classifier plus the
+helper-side timing harness); Step 8 calls it at run start and gates the verify result on it;
+Step 10 carries the qualification into the exported report; Step 11 surfaces it in the UI;
+Step 14's honest-framing warnings are its natural neighbour.
+
+**The open risk was measured the same day, and it was real.** Recorded here because it
+changes how the requirement is met, though not what it requires. `scripts/nocache-calibration.sh`
+on `disk4` established that a re-read timing comparison **cannot discriminate**: with
+`F_NOCACHE` unset, repeated reads of one region took 12.3 ms then ~8.8 ms; with it set,
+~8.9 ms throughout. A 4 MiB copy from RAM on the same machine takes 58 µs, so a genuine cache
+hit would be ~150× faster than either — the small first-read difference is warm-up, not
+caching. The cause is that `/dev/rdiskN` is the **character** device (`crw-`) while
+`/dev/diskN` is the block device (`brw-`), and the buffer cache belongs to the block node;
+the raw path was never cached, so there was nothing for the flags to suppress.
+
+**The requirement's wording is unaffected** — it specifies what must be verified, never how.
+The mechanism becomes structural rather than statistical, because timing turns out to be able
+to *falsify* (a read 150× faster than the transport allows proves a cache hit) but not to
+*verify* (similar timings are identical whether caching was suppressed or was never
+possible). Verification therefore rests on asserting the descriptor is the character device
+(`fstat` → `S_ISCHR`), which also catches the one failure that can realistically occur:
+opening `/dev/diskN` instead of `/dev/rdiskN`. Timing is retained only as a falsifier.
+
+**A limit this exposed, which no mechanism can close.** Neither the structural check nor any
+other host-side test can establish that a verify read came from **NAND**. The drive's own
+DRAM/SLC cache sits below every host mechanism, and a read-back moments after a write may
+legitimately be served from it. The verify proves the data round-tripped through the device's
+I/O path; it does not prove the medium retained it. This is a genuine constraint on what a
+clean pass means and belongs with FR-WARN-3's honest framing rather than being carried
+silently.
+
 ## Open Questions
 
 None outstanding — all questions from iterations 1–2 have been resolved (see *user
-decision 2026-06-25* annotations throughout), and the 2026-07-30 amendment above is
-recorded rather than open.
+decision 2026-06-25* annotations throughout), and the 2026-07-30 and 2026-08-02 amendments
+above are recorded rather than open.
