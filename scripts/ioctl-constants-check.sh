@@ -55,6 +55,7 @@ EXPECTED_BLOCK_SIZE="0x40046418"      # DKIOCGETBLOCKSIZE
 EXPECTED_BLOCK_COUNT="0x40086419"     # DKIOCGETBLOCKCOUNT
 EXPECTED_PHYSICAL="0x4004644d"        # DKIOCGETPHYSICALBLOCKSIZE
 EXPECTED_MAX_READ="0x40086446"        # DKIOCGETMAXBYTECOUNTREAD
+EXPECTED_MAX_WRITE="0x40086447"       # DKIOCGETMAXBYTECOUNTWRITE (added Step 8)
 
 cat > "$WORK_DIR/probe.c" <<'EOF'
 #include <stdio.h>
@@ -64,6 +65,7 @@ int main(void) {
     printf("DKIOCGETBLOCKCOUNT=0x%lx\n",        (unsigned long)DKIOCGETBLOCKCOUNT);
     printf("DKIOCGETPHYSICALBLOCKSIZE=0x%lx\n", (unsigned long)DKIOCGETPHYSICALBLOCKSIZE);
     printf("DKIOCGETMAXBYTECOUNTREAD=0x%lx\n",  (unsigned long)DKIOCGETMAXBYTECOUNTREAD);
+    printf("DKIOCGETMAXBYTECOUNTWRITE=0x%lx\n", (unsigned long)DKIOCGETMAXBYTECOUNTWRITE);
     return 0;
 }
 EOF
@@ -101,6 +103,7 @@ compare DKIOCGETBLOCKSIZE          "$EXPECTED_BLOCK_SIZE"
 compare DKIOCGETBLOCKCOUNT         "$EXPECTED_BLOCK_COUNT"
 compare DKIOCGETPHYSICALBLOCKSIZE  "$EXPECTED_PHYSICAL"
 compare DKIOCGETMAXBYTECOUNTREAD   "$EXPECTED_MAX_READ"
+compare DKIOCGETMAXBYTECOUNTWRITE  "$EXPECTED_MAX_WRITE"
 
 # The literals must actually still be present in the Swift sources this claims to guard.
 # Without this, deleting an assertion would make the guard silently vacuous — the failure
@@ -124,7 +127,8 @@ fi
 for pair in "$EXPECTED_BLOCK_SIZE:0x4004_6418" \
             "$EXPECTED_BLOCK_COUNT:0x4008_6419" \
             "$EXPECTED_PHYSICAL:0x4004_644d" \
-            "$EXPECTED_MAX_READ:0x4008_6446"; do
+            "$EXPECTED_MAX_READ:0x4008_6446" \
+            "$EXPECTED_MAX_WRITE:0x4008_6447"; do
     swift_literal="${pair##*:}"
     hits="$(grep -c -- "$swift_literal" "$TEST_FILE" || true)"
     if [[ "${hits:-0}" -ge 1 ]]; then

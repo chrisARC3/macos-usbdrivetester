@@ -93,6 +93,26 @@ Every step with a real-hardware gate uses **`disk4`** — Samsung Portable SSD T
 The drive's data being expendable relaxes the *consequence* of a bug, never the discipline:
 simulation-first still applies wherever the plan calls for it.
 
+> **`disk4` must hold real data, not empty space (added 2026-08-03, learned on hardware).**
+> Step 8's gate places its run at a **random** LBA. `Test_Drive` was 1% used, so the first
+> placement landed on unwritten space — and a cycle over an all-zero region is non-destructive
+> however wrongly it addresses the device: reading zeros, writing zeros back and verifying zeros
+> against zeros proves nothing, while reporting a clean pass. The volume was filled with ~1 TB
+> from `/dev/urandom` and **the fill file is kept**, because deleting it may let the drive
+> discard the blocks and put the next run straight back to zeros.
+>
+> Any gate that places work at a random offset must also **prove the region it tested was not
+> uniform**, rather than assuming the drive has data on it. Step 8's gate samples three chunks
+> from inside its range before writing and requires their fingerprints to differ.
+
+> **Measured 2026-08-02, and it constrains every future gate: `O_EXLOCK` excludes a plain
+> reader.** While the helper holds the device, a second process — root, carrying Terminal's Full
+> Disk Access grant, requesting **no lock at all** — is refused `EBUSY` on
+> `open("/dev/rdiskN", O_RDONLY)`. The 2026-07-30 exclusivity matrix did not cover this: it
+> tested `O_EXLOCK` against `O_EXLOCK`, and plain `O_RDWR` against plain `O_RDWR`. So **nothing
+> outside the helper can read the device during a run**, and any evidence a gate needs from the
+> media while a claim is held has to come from the helper itself.
+
 ---
 
 ## Sequence overview
@@ -106,7 +126,7 @@ simulation-first still applies wherever the plan calls for it.
 | 5 | AI-3 | Device discovery & selection | GUI | USB devices enumerate, sort stably, default-select, live-refresh |
 | 6 | AI-4 | Mount-guard: unmount + exclusive whole-disk claim | Helper | Test refuses to start unless unmounted **and** claimed; precise errors |
 | 7 | AI-5 | Raw I/O core: open `rdiskN`, no-cache, block geometry, chunking | Helper | Geometry read correctly; chunk plan correct incl. final chunk |
-| 8 | AI-6 | read → write-back → read-verify cycle | Helper/core | Full-device cycle is bit-for-bit non-destructive in simulation |
+| 8 | AI-6 | read → write-back → read-verify cycle | Helper/core | Cycle is bit-for-bit non-destructive in simulation **and** on `disk4`, whole-device fingerprint unchanged |
 | 9 | AI-8 | Metrics: throughput + read-latency min/max/p99 | Both | Live metrics refresh ≥1/s; ETA converges; constant-memory p99 |
 | 10 | AI-7 | Failure modes + bad-block report + Markdown export | Both | Stop-on-error and log-and-continue both correct; report exports |
 | 11 | AI-10 | Run-control state machine: start/pause/resume/stop/restart | Both | Illegal transitions blocked; pause settles at chunk boundary |
@@ -604,18 +624,57 @@ Implement the heart of the tool: for each chunk, read original → write the *sa
 5. **No resume (FR-FAIL-7):** if interrupted, the engine reports and the run is over — there is no checkpoint to resume from. (Restart-from-beginning is wired in Step 11.)
 6. **Clean termination contract (NFR-REL-5):** on stop/error, issue no further writes and leave buffers/state consistent for the caller to release the device.
 7. **`os_log`** run start, and each failed block range (NFR-OBS-1) — never the data itself (NFR-SEC-6).
-8. **Run the cache-bypass self-check first (FR-TEST-9, added 2026-08-02).** Before the first chunk, call the Step 7 mechanism and record its verdict on the run. A `likelyCached` or `inconclusive` verdict **qualifies the verify result — it does not stop the run**: a cached *read* does not prevent the write-back reaching the device, so the retention refresh remains valid and only fault detection becomes unreliable. Blocking here would withhold a working feature to protect a broken one. The verdict travels with the run into Step 10's report.
+8. **Carry the cache-bypass verdict into the run (FR-TEST-9, added 2026-08-02; amended 2026-08-02).** A `likelyCached` or `inconclusive` verdict **qualifies the verify result — it does not stop the run**: a cached *read* does not prevent the write-back reaching the device, so the retention refresh remains valid and only fault detection becomes unreliable. Blocking here would withhold a working feature to protect a broken one. The verdict travels with the run into Step 10's report.
 
-### Verification Gate (must pass before Step 9)
-- [ ] **Non-destructiveness proven in simulation (NFR-REL-1):** fill an `InMemoryBlockDevice` with known random data, run the full cycle over the whole device, assert the backing store is **bit-for-bit identical** afterward.
-- [ ] **Verify-mismatch detection (NFR-REL-8):** with write-corruption fault injection on a specific block range, the engine flags exactly that range as a verify failure and no other.
-- [ ] **Hard-error classification (FR-FAIL-6):** with read-error and write-error fault injection, the engine produces correctly-typed `BlockRangeFailure`s for the injected ranges.
-- [ ] **One-chunk-in-flight (NFR-REL-4):** instrumentation confirms only one chunk's worth of original data is ever held.
-- [ ] The cycle also runs end-to-end against the **designated scratch device** (`disk4`) and leaves its contents unchanged (checksum before == after). *(Amended 2026-08-01: disk images are not a test target — see Step 7, "The test target". The drive's data is expendable, which is what makes this survivable if the simulation proof missed something — it is not a reason to run it before that proof passes.)*
+   > **Amended 2026-08-02 (Step 8 scoping).** This step originally said to *"call the Step 7 mechanism"* before the first chunk. **There is nothing to call.** FR-TEST-9's check is performed at **acquire**, inside `DeviceClaim`, and its verdict is already on `AcquiredDevice.cacheBypass` before Step 8 gets control. Step 8 **seeds** a `CacheBypassAssessment` from that verdict plus `AcquiredDevice.usbLinkSpeed`, then feeds each read's throughput in via `observe(bytes:nanoseconds:)`, which can only ever downgrade it.
+   >
+   > This is not a shortcut. The check is `fstat` plus the two `fcntl` results **on the descriptor**, and Step 7 measured that opening the raw node speculatively to answer a query makes DiskArbitration remount the volume ~4 ms later — so a second, run-start check would be actively harmful. It is sound because the acquire holds that same descriptor continuously between the check and the run: **performed at acquire, consumed at run start.**
+   >
+   > **Both reads are fed to the falsifier, and the verify read is the load-bearing one** — it is the read a host cache would answer, so feeding only the original read would systematically miss the very signal FR-TEST-9 exists to catch.
+
+9. **The bounded-range run and its cap (added 2026-08-02, user decision).** `ChunkPlan` carries a `startBlock`, so a run over part of a device is expressed as **the plan the engine is given** rather than as an early stop — the engine keeps its single behaviour, *complete the plan you were given*, and a bounded run therefore finishes as a completed run. A whole-device run (`startBlock = 0`, the whole block count) remains the default and is what FR-TEST-1/4 requires.
+
+   The XPC method is **capped at 1 GiB per call**. There is no cancellation until Step 11 and no progress channel until Step 9, so an uncancellable privileged operation that any caller can start must be bounded by construction — otherwise a root daemon can be wedged for hours with `prepareForShutdown` correctly refusing throughout.
+
+10. **A failed read must never be followed by a write (added 2026-08-02).** The buffers are reused, so if a chunk's original read fails and control falls through, buffer A still holds the **previous** chunk's data and the engine would write it to this chunk's offset — silent, permanent corruption of a region the tool was asked to preserve, on a drive whose every other block verifies clean. The read step returns a `LoadedChunk` token, produced only on a successful read, and the write step takes that token, so no path from a failed read to a write is expressible. Likewise a **failed write ends the chunk**: reading back after a failed write compares buffer A against the *old* data and reports a spurious verify mismatch on a chunk whose actual fault was the write.
+
+11. **Failures are coalesced and bounded (NFR-PERF-2, added 2026-08-02).** An unbounded `[BlockRangeFailure]` would reintroduce the capacity-scaling growth Step 7 removed from the chunk plan. Failures are coalesced on append (same kind, contiguous blocks) and the retained list is capped, with the total count and a `truncated` flag carried separately — **reported, never silent.**
+
+### Verification Gate — COMPLETE (2026-08-03)
+- [x] **Non-destructiveness proven in simulation (NFR-REL-1):** fill an `InMemoryBlockDevice` with known random data, run the full cycle over the whole device, assert the backing store is **bit-for-bit identical** afterward.
+- [x] **Verify-mismatch detection (NFR-REL-8):** with write-corruption fault injection on a specific block range, the engine flags exactly that range as a verify failure and no other.
+- [x] **Hard-error classification (FR-FAIL-6):** with read-error and write-error fault injection, the engine produces correctly-typed `BlockRangeFailure`s for the injected ranges.
+- [x] **One-chunk-in-flight (NFR-REL-4):** instrumentation confirms only one chunk's worth of original data is ever held. *(Amended 2026-08-02: `ChunkBuffers.peakAllocatedBytes` from Step 7 already covers the **buffer** half and is not sufficient on its own — it cannot see a second chunk's original being held, or per-chunk state accumulating beside bounded buffers, which is what NFR-REL-4 actually names. The gate additionally requires an **ordering** proof over the recorded device operations, and — per this project's standing rule — the checker must first be shown capable of **failing** against hand-built bad sequences.)*
+- [x] **A failed read leaves the device untouched (added 2026-08-02):** with a read fault injected on one chunk, the backing store at that chunk's offset is unchanged — not merely that a failure was recorded. This is the stale-buffer hazard of step 10 above.
+- [x] The cycle also runs against the **designated scratch device** (`disk4`) and leaves its contents unchanged. **Only after the simulation proof passes.** *(Amended 2026-08-01: disk images are not a test target — see Step 7, "The test target". The drive's data is expendable, which is what makes this survivable if the simulation proof missed something — it is not a reason to run it before that proof passes.)*
+
+  > **Amended 2026-08-02, user decision.** "End-to-end" is bounded, and "checksum before == after" is made specific:
+  >
+  > - **One run of 1 GiB − 512 KiB (2,096,128 blocks)**, starting at a **random** LBA that is a multiple of **8,192** — one 4 MiB chunk at 512-byte geometry, so the gate writes at the offsets a real whole-device run would use — and at least 1 GiB before the logical end of the drive. Random placement spreads NAND wear across repeated gate runs; the end-of-drive margin keeps the run clear of the device boundary. 3 GiB of I/O (R+W+R), under ~15 s at the 200 MiB/s floor and ≈6.8 s at `disk4`'s measured 475 MB/s. The start LBA is chosen by the **script**, not the helper, and is printed and recorded so a failure can be re-run in the same place. On `disk4` that is one of **238,212** positions, 0 through 1,951,424,512; block 0 is a legal draw, so a run may land on the GPT — deliberate, and the only live case for the "torn write bricks the drive" risk below.
+  > - **The range is deliberately not a whole multiple of the I/O size.** 1 GiB divides by 4 MiB exactly, so a full 1 GiB run would contain no short final chunk; shortening it by 512 KiB yields 255 full chunks plus a final chunk of 7,168 blocks, which exercises FR-TEST-5's `original(byteCount:)` / `verify(byteCount:)` path — and whether the bridge accepts a **write** shorter than the I/O size — on real media, at no cost.
+  > - **Not discharged by this gate, and not to be mistaken for covered:** the final chunk at the **physical end** of the device, and the whole-device traversal. Neither is reachable under the clear-of-the-end rule; both belong to a later, separately agreed run, following the `disk8` precedent.
+  > - **The evidence is a per-1-GiB SHA-256 vector plus a whole-device digest, taken twice, both inside the claim window.** The vector costs the same I/O as a scalar digest and localises any difference to a 1 GiB window rather than merely asserting one exists. Both digests must be taken while the helper still holds the claim: releasing makes DiskArbitration remount ~4 ms later, and a mounted exFAT volume writes to itself, so an "after" digest taken post-release would differ for reasons unrelated to this tool.
+  > - **The digest tool is built and run before the gate design commits to it**, because it must first settle a fact this project has not measured: whether a second process can `open("/dev/rdiskN", O_RDONLY)` while the helper holds `O_EXLOCK`. The 2026-07-30 matrix records that two plain `O_RDWR` opens both succeed and that a second `O_EXLOCK` is refused — but not that combination, and the digest ordering above rests on it.
+  >
+  > **DISCHARGED 2026-08-03.** `./scripts/retention-cycle-check.sh disk4`, placement block
+  > **277,372,928**, 15 checks / 0 failures. The whole device was fingerprinted before and after
+  > — **932 windows, 1,000,204,886,016 bytes, exactly the device's reported size** — and the two
+  > vectors are byte-identical. Verified independently of the script afterwards: **0 of 932
+  > windows are all-zero**, and **932 of 932 fingerprints are distinct**, so a stray write
+  > anywhere on the drive would have changed a window. The run's own numbers:
+  > `COMPLETED=1`, `CHUNKS=256`, `FAILED_RANGES=0`, `CACHE_BYPASS=1`,
+  > `FASTEST_BYTES_PER_SECOND=492,870,060`, `BUFFER_BYTES=8,388,608`.
+  >
+  > **CORRECTED 2026-08-02, on hardware.** That fact was measured, and the answer is **no**: with the helper holding `O_EXLOCK`, a root process carrying Terminal's Full Disk Access grant and requesting **no lock at all** is refused `EBUSY`. So "taken by a separate process while the helper still holds the claim" is impossible, and the two bullets above are wrong as written. **Both fingerprints must be taken by the helper, through its own descriptor.** The pre-flight existed precisely to catch this before the design was committed to; assuming it would have produced a gate that failed at the "after" fingerprint, ~40 minutes in, immediately after the first write this project ever made to real media — with no way to distinguish a digest that could not be taken from a device that had been changed.
+- [x] **The run's cache-bypass verdict survives real I/O (FR-TEST-9):** on `disk4` the assessment is still `bypassed` at the end of the run, and the fastest observed read is transport-plausible (~475 MB/s), not RAM-plausible (71.3 GB/s measured on this machine).
 
 ### Risks / gotchas
 - A torn write to GPT/superblocks can brick an otherwise-good drive (per the brief) — this is exactly why the simulation-first verification above is mandatory before trusting hardware.
-- Ensure the write of buffer A truly precedes the verify read and that no caching makes the verify read a no-op (Step 7's `F_NOCACHE` is what makes the verify meaningful).
+- Ensure the write of buffer A truly precedes the verify read, and that nothing can answer the verify read without the device.
+
+  > **Amended 2026-08-02.** This bullet used to end *"(Step 7's `F_NOCACHE` is what makes the verify meaningful)"*. **Step 7 measured that this is false.** `/dev/rdiskN` is the **character** device, the unified buffer cache belongs to the **block** node (`/dev/diskN`), and `F_NOCACHE` therefore had nothing to suppress — with it unset, repeated reads took ~8.8 ms, identical to with it set, while a 4 MiB copy from RAM takes 58 µs. What makes the verify meaningful is that the descriptor **is** the character device, which is why FR-TEST-9's check became structural (`fstat` → `S_ISCHR`) with timing retained only as a falsifier. Left as written, this line points the next reader at the wrong mechanism and would justify re-proposing the timing check the calibration probe already killed.
+- **`chunkPlan()` must not appear in the run path or in any many-chunk test** — it is the materialised plan (9.1 MiB for `disk4`, 200.1 MiB for `disk8`) that NFR-PERF-2 forbids. A run iterates `chunks()`. Stated because `chunkPlan()` is still the more convenient API and the Step 2 tests use it.
+- **The simulated device must be filled from a seeded PRNG keyed by block index**, so a mis-addressed write is detectable by content. Uniform random is not enough, and an all-zero or repeating fill would let a wrong-offset write pass — the same family of vacuity as a verify that compares a buffer with itself.
 
 ---
 
@@ -634,6 +693,12 @@ Measure average read and write throughput and per-chunk read latency (min/max/p9
 3. **Progress + ETA (FR-METR-5/6):** percent complete and current block offset; ETA = remaining bytes ÷ measured average throughput, **updated continuously** and converging over time (NFR-PERF-6). Never assume a fixed link speed (NFR-COMPAT-7).
 4. **Live push to GUI (FR-METR-2/4, NFR-PERF-5):** helper sends a metrics snapshot to the GUI over the XPC progress callback **at least once per second**. Keep the per-chunk measurement overhead negligible relative to device I/O (NFR-PERF-3).
 5. **UI responsiveness (NFR-PERF-4):** all heavy work is in the helper / off the main thread; the GUI only renders snapshots. Format values human-readably with clear units — MB/s, ms (NFR-USE-1) — and show percent/position/ETA clearly (NFR-USE-2).
+
+5a. **Measure the helper's CPU cost per unit of throughput (NFR-PERF-3, added 2026-08-02, user observation).** NFR-PERF-3 requires the run to be *device-bound, not host-bound*, and nothing has ever put a number on it. Record helper CPU as a percentage of one core against the measured MB/s, so the ratio can be extrapolated to faster transports.
+
+   > **Why this arrived now.** During Step 8's hardware gate the user observed the helper at **36–39% of one core on an M4 Mac Mini at ~500 MB/s**. That figure is the *gate's* SHA-256 fingerprint (`Core/DeviceDigest`), which exists only to prove the cycle moved nothing and is **not in the product's run path** — but the observation generalises: linear extrapolation puts SHA-256 at one full core near **1.3 GB/s**, which a USB4 enclosure can reach.
+   >
+   > The **cycle's** own per-chunk cost is a `memcmp` of the chunk (the block-by-block walk is paid only on mismatch), expected to be far cheaper — order 40–80 µs against ~25 ms of I/O at 500 MB/s. **Expected, not measured.** That is exactly the kind of assumption this project has been burned by, and NFR-PERF-3 is the requirement that says it must not be assumed.
 6. **Carry metrics into the report:** expose the final throughput and latency stats so Step 10's report can include them.
 
 ### Verification Gate (must pass before Step 10)
@@ -642,6 +707,7 @@ Measure average read and write throughput and per-chunk read latency (min/max/p9
 - [ ] ETA converges toward actual remaining time as the run progresses (observed on a long-enough run).
 - [ ] GUI stays responsive (scroll/interact) throughout (NFR-PERF-4).
 - [ ] Latency p99 from a controlled fault-injection (artificially slow reads on some chunks) reflects the injected slow tail.
+- [ ] **Helper CPU is recorded against measured throughput (NFR-PERF-3, added 2026-08-02)**, as a percentage of one core at a stated MB/s, on the designated scratch device. The run must be shown device-bound rather than host-bound — and if the ratio implies the host becomes the limit at a transport speed the product plausibly meets, that is a **release-note item**, carried to Step 16.
 
 ### Risks / gotchas
 - Don't let metrics formatting/IPC dominate per-chunk time — batch/throttle the once-per-second push rather than sending per chunk.
@@ -689,6 +755,15 @@ React to classified failures per the user-selected mode, and conclude every run 
 # Phase 4 — Control, Resilience, and Power
 
 ## Step 11 — Run-control state machine: start / pause / resume / stop / restart
+
+> **Inherited from Step 8 (2026-08-03).** Protocol v7 has `runRetentionCycle(startBlock:blockCount:ioSizeBytes:)`,
+> **capped at `TesterProtocol.maximumBytesPerCall` (1 GiB)**, and `digestRange` under the same
+> cap. The cap is not a tuning parameter: it is what makes an uncancellable privileged operation
+> safe to expose at all, given there is no cancellation until this step and no progress channel
+> until Step 9. Step 11 is what replaces it with real run control — and until the state machine
+> can actually stop a run, **whatever replaces it must stay bounded**. `Core/RetentionRun`
+> already carries `FailureDisposition { continueRun, stopRun }`, which the engine honours by
+> issuing no further I/O; Step 8 ships one caller that always continues.
 
 **Original action item:** AI-10
 **Satisfies:** FR-CTRL-1/2/3/4/5/6/7/8/9; NFR-REL-10
@@ -849,6 +924,11 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 4. **Verify Gatekeeper-clean launch (NFR-INST-2):** on a **clean** macOS 26 machine (or a fresh user), download/copy the app, confirm it launches without Gatekeeper warnings, registers the helper via `SMAppService` (Step 3), and the helper accepts the now-properly-signed client (Step 3's Team-ID requirement is satisfied by the real signature).
 5. **Confirm the install/uninstall lifecycle** end-to-end on the clean machine (Steps 3 & 4) with the signed build.
 6. **`os_log`** nothing new required; ensure release logging level is sane.
+7. **Release notes (added 2026-08-03, user observation during Step 8).** If Step 9's CPU
+   measurement (detailed step 5a) shows the **host** becoming the throughput limit at a transport
+   speed this product plausibly meets, say so in the release notes. Conditional on that number,
+   not on the one that prompted it: the 36–39% of one core observed at ~500 MB/s during Step 8's
+   gate was the gate's own SHA-256 fingerprint, which is **not** in the product's run path.
 
 ### Verification Gate (release gate)
 - [ ] `codesign --verify --deep --strict` and `spctl -a -vv` pass on the app; the embedded helper is validly signed under the expected Team ID.

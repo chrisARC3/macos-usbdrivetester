@@ -133,16 +133,34 @@ final class HelperActivity: @unchecked Sendable {
     /// arriving meanwhile would otherwise stall for five seconds.
     private var acquireInProgress = false
 
+    /// What the helper is doing with the held device right now, or `nil` when it is merely
+    /// holding it (Step 8). Same reasoning as ``acquireInProgress`` and more so: a cycle
+    /// **writes**, so nothing may release the device or tear the helper down underneath it
+    /// (NFR-REL-5). The lock is never held across the operation itself, which is bounded to
+    /// `TesterProtocol.maximumBytesPerCall`.
+    ///
+    /// A description rather than a `Bool` because a digest and a cycle are both exclusive uses
+    /// of the one descriptor but are very different things to tell a user about — "a retention
+    /// cycle is writing to disk4" would be a lie during a read-only fingerprint.
+    private var deviceOperation: String?
+
     private init() {}
 
     /// What the helper is busy with, or `nil` if it is idle and safe to remove.
     var current: String? {
         lock.withLock {
+            if let operation = deviceOperation, let held {
+                return "\(operation) on \(held.device.device.rawValue)"
+            }
             if let held { return held.device.activityDescription }
             if acquireInProgress { return "a device is being acquired" }
             return nil
         }
     }
+
+    /// Whether the device is in use, so `releaseDevice` can refuse rather than close the
+    /// descriptor out from under an operation in progress.
+    var isBusy: Bool { lock.withLock { deviceOperation != nil } }
 
     /// The device currently held, or `nil`. Lets the readiness check answer FR-SAFE-7's
     /// question — is this device held? — without side effects.
@@ -190,10 +208,49 @@ final class HelperActivity: @unchecked Sendable {
         return result
     }
 
+    /// The outcome of asking for exclusive use of the held device (Step 8).
+    enum DeviceOperationClaim {
+        case started(AcquiredDevice)
+        case refused(RetentionCycleRefusal)
+    }
+
+    /// Take the device-operation slot, if a device is held and nothing else is using it.
+    ///
+    /// Returns the held device rather than requiring the caller to fetch it separately, so an
+    /// operation cannot begin against a device that was released between the check and the work.
+    ///
+    /// - Parameter description: what is being done, in words a user can be shown while it is
+    ///   happening — it becomes `prepareForShutdown`'s refusal reason.
+    func beginDeviceOperation(_ description: String) -> DeviceOperationClaim {
+        lock.lock()
+        defer { lock.unlock() }
+
+        guard let held else { return .refused(.noDeviceHeld) }
+        guard deviceOperation == nil else {
+            return .refused(.deviceBusy(deviceName: held.device.device.rawValue,
+                                        operation: deviceOperation ?? "an operation"))
+        }
+        deviceOperation = description
+        return .started(held.device)
+    }
+
+    /// Give the slot back. Always paired with a successful ``beginDeviceOperation(_:)`` via
+    /// `defer`.
+    func endDeviceOperation() {
+        lock.withLock { deviceOperation = nil }
+    }
+
     /// Release everything held, and describe what was released.
     ///
     /// Idempotent, and safe to call when nothing is held — which is what
     /// `prepareForShutdown` does on its idle path.
+    ///
+    /// - Important: this does **not** check ``isRunning``. Callers that can refuse must check
+    ///   it first — `releaseDevice` does. The one caller that must not refuse is the
+    ///   connection-loss path: a claim that outlives its owner leaves the drive unmountable
+    ///   until the daemon restarts, which is worse than interrupting a write. The cycle's own
+    ///   per-chunk write guard is what makes that interruption safe — the grant is recomputed,
+    ///   so the very next write is refused (NFR-REL-3, NFR-REL-5).
     func releaseAll() -> String {
         lock.lock()
         let device = held?.device
@@ -493,6 +550,23 @@ final class TesterControlImpl: NSObject, TesterControl {
     }
 
     func releaseDevice(reply: @escaping (Bool, String) -> Void) {
+        // Step 8: never close the descriptor out from under a write in progress (NFR-REL-5).
+        // Bounded by `TesterProtocol.maximumBytesPerCall`, so this refusal cannot last
+        // long — which is the same property that makes the uncancellable cycle safe at all.
+        guard !HelperActivity.shared.isBusy else {
+            let message = "Cannot release: the device is in use — "
+                        + (HelperActivity.shared.current ?? "an operation is in progress")
+                        + ". Every such operation is bounded to "
+                        + "\(TesterProtocol.maximumBytesPerCall) bytes per call, so try again "
+                        + "shortly."
+            safetyLog.notice("""
+                             release REFUSED for \(self.peer, privacy: .public): \
+                             \(HelperActivity.shared.current ?? "busy", privacy: .public)
+                             """)
+            reply(false, message)
+            return
+        }
+
         let message = HelperActivity.shared.releaseAll()
         safetyLog.notice("""
                          release requested by \(self.peer, privacy: .public): \
@@ -556,6 +630,97 @@ final class TesterControlImpl: NSObject, TesterControl {
               Self.linkSpeedCode(held.usbLinkSpeed),
               held.rawGeometry.maximumByteCountRead ?? 0,
               message)
+    }
+
+    // MARK: - Step 8: the read -> write-back -> verify cycle
+    //
+    // The only method on this interface that writes to a drive. Everything it needs to decide
+    // has already been decided: `acquireDevice` established that nothing is mounted and that
+    // exclusive access is held, `RunCoordinator` validates the request, and the pure engine
+    // re-checks the write guard before every single chunk.
+
+    func runRetentionCycle(startBlock: UInt64,
+                           blockCount: UInt64,
+                           ioSizeBytes: Int,
+                           reply: @escaping (Bool, UInt64, Int, String,
+                                             Int, Double, Int, String) -> Void) {
+
+        ioLog.notice("""
+                     runRetentionCycle from \(self.peer, privacy: .public): \
+                     startBlock=\(startBlock, privacy: .public) \
+                     blockCount=\(blockCount, privacy: .public) \
+                     ioSize=\(ioSizeBytes, privacy: .public)
+                     """)
+
+        switch RunCoordinator.runCycle(startBlock: startBlock,
+                                       blockCount: blockCount,
+                                       ioSizeBytes: ioSizeBytes) {
+
+        case .success(let summary):
+            // `completed` says every planned chunk was processed. It deliberately does NOT
+            // mean they all passed — a run that finds bad blocks and keeps going still
+            // completes (FR-FAIL-3), and collapsing the two would be the report saying
+            // "clean" when it means "finished".
+            var message = "Cycle \(summary.outcome.description): "
+                        + "\(summary.chunksProcessed) of \(summary.chunksPlanned) chunks; "
+                        + "\(summary.failures.summaryLine). "
+
+            // FR-TEST-9: mandatory, not conditional on having failed. An absent line is
+            // indistinguishable from a passing one.
+            message += summary.cacheBypass.state.reportLine
+
+            reply(summary.isComplete,
+                  summary.chunksProcessed,
+                  summary.failures.totalRangeCount,
+                  summary.failures.summaryLine,
+                  summary.cacheBypass.state.wireCode,
+                  summary.cacheBypass.fastestObservedBytesPerSecond,
+                  summary.bufferBytesHeld,
+                  message)
+
+        case .failure(let refusal):
+            ioLog.error("""
+                        runRetentionCycle REFUSED for \(self.peer, privacy: .public): \
+                        \(refusal.description, privacy: .public)
+                        """)
+            reply(false, 0, 0, "",
+                  CacheBypassOutcome.unrecognised.rawValue, 0, 0,
+                  refusal.description)
+        }
+    }
+
+    /// SHA-256 of a bounded range of the held device (Step 8, gate item 5).
+    ///
+    /// Read-only. It is on this interface at all because a separate process **cannot** read the
+    /// device while the helper holds `O_EXLOCK` — measured `EBUSY` on 2026-08-02, with a root
+    /// process carrying Terminal's Full Disk Access grant and requesting no lock of its own.
+    func digestRange(startBlock: UInt64,
+                     blockCount: UInt64,
+                     reply: @escaping (Bool, UInt64, String, String) -> Void) {
+
+        switch RunCoordinator.digestRange(startBlock: startBlock, blockCount: blockCount) {
+
+        case .success(let result):
+            // The digest is logged: it is a fingerprint, not device contents (NFR-SEC-6), and
+            // having it in the log is what lets a disagreement be investigated after the fact
+            // (NFR-OBS-2).
+            ioLog.notice("""
+                         digest for \(self.peer, privacy: .public): blocks \
+                         \(startBlock, privacy: .public)–\
+                         \(startBlock + blockCount - 1, privacy: .public) \
+                         (\(result.bytes, privacy: .public) B) = \
+                         \(result.hex, privacy: .public)
+                         """)
+            reply(true, result.bytes, result.hex,
+                  "Fingerprinted \(result.bytes) bytes from block \(startBlock).")
+
+        case .failure(let refusal):
+            ioLog.error("""
+                        digestRange REFUSED for \(self.peer, privacy: .public): \
+                        \(refusal.description, privacy: .public)
+                        """)
+            reply(false, 0, "", refusal.description)
+        }
     }
 
     /// The raw IORegistry `Device Speed` code, or `-1` when none was reported.

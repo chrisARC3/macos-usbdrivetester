@@ -17,12 +17,18 @@
 //    * acquireDevice          — the exclusive whole-disk claim (Step 6)
 //    * releaseDevice          — release it (Step 6)
 //    * deviceProfile          — geometry + cache-bypass verdict for the held device (Step 7)
+//    * runRetentionCycle      — the read -> write-back -> verify cycle, bounded (Step 8)
+//    * digestRange            — SHA-256 of a bounded range of the held device (Step 8)
 //
-//  Deferred on purpose: startRun / pause / resume / stop and the helper -> GUI
-//  progress-callback protocol. Those need Step 6's exclusive device claim, Step 7's
-//  real geometry, Step 9's metrics and Step 11's state machine to be meaningful;
+//  Deferred on purpose: pause / resume / stop and the helper -> GUI progress-callback
+//  protocol. Those need Step 9's metrics and Step 11's state machine to be meaningful;
 //  stubbing them now would be dead code AND attack surface. Widening the protocol
 //  later is cheap, walking a wide one back is not (BUILD-PLAN Step 3, risks).
+//
+//  NOTE (Step 8): `runRetentionCycle` is the FIRST method here that writes to a drive. The
+//  surface stayed narrow rather than growing a `startRun` family, and the call is bounded to
+//  `TesterProtocol.maximumBytesPerCall` precisely so it cannot quietly become the
+//  run-control API Step 11 is meant to design properly.
 //
 //  IMPORTANT (trust boundary): this file must be a member of BOTH the app target
 //  and the helper target. With Xcode's file-system-synchronized groups it joins
@@ -216,6 +222,96 @@ import Foundation
     ///   because the kernel splits transfers internally (measured 2026-08-02).
     func deviceProfile(reply: @escaping (Bool, UInt32, UInt64, UInt32, UInt64,
                                           Int, Int, UInt64, String) -> Void)
+
+    /// Run the read → write-back → read-verify cycle over a **bounded** range of the held
+    /// device (Step 8, FR-TEST-1/3/4/7/8, FR-FAIL-6, NFR-REL-1/2/4/8).
+    ///
+    /// **This is the only method on this interface that writes to a drive.**
+    ///
+    /// Requires a device to be held — `acquireDevice` is what proves nothing is mounted and
+    /// that exclusive access was taken (NFR-REL-3), and the write guard is re-checked inside
+    /// the cycle before **every** chunk, not once at the start.
+    ///
+    /// ## Why it is bounded, and why that is not a placeholder
+    ///
+    /// A whole-device run on a 1 TB drive moves 3 TB and takes hours. There is no way to
+    /// cancel one until Step 11's state machine, and no progress channel until Step 9's
+    /// metrics callbacks. An uncancellable privileged operation that any accepted caller can
+    /// start must therefore be **bounded by construction** — otherwise a single call wedges a
+    /// root daemon for hours, with `prepareForShutdown` correctly refusing the whole time and
+    /// nothing able to stop it.
+    ///
+    /// So a request may cover at most ``TesterProtocol/maximumBytesPerCall``. At
+    /// `disk4`'s measured 475 MB/s that is about 6.8 s of work, and about 15 s at the 200 MB/s
+    /// floor a slower device might manage. Step 11 replaces this with real run control; until
+    /// then, this is what Step 8's hardware gate drives and it is deliberately not enough to
+    /// serve as a substitute for the run-control machinery.
+    ///
+    /// - Parameters:
+    ///   - startBlock: first block of the range, in the device's **logical** blocks.
+    ///   - blockCount: how many blocks to cover. The range is tiled into chunks of
+    ///     `ioSizeBytes` from `startBlock`, and the final chunk is the exact remainder
+    ///     (FR-TEST-5), so a `blockCount` that is not a whole multiple of the I/O size is
+    ///     legal and is how the short-chunk path gets exercised.
+    ///   - ioSizeBytes: one of ``TesterProtocol/permittedIOSizes`` (FR-CTRL-8). The helper
+    ///     validates this rather than trusting it (NFR-REL-7): the *engine* accepts any
+    ///     positive multiple of the block size so tests can use awkward sizes, but nothing
+    ///     across this boundary may.
+    ///   - reply: `(completed, chunksProcessed, failedRangeCount, failureSummary,
+    ///     cacheBypassCode, fastestObservedBytesPerSecond, bufferBytesHeld, message)`.
+    ///
+    ///     `completed` is `true` only when every chunk in the range was processed — it says
+    ///     nothing about whether they all *passed*, because a run that finds bad blocks and
+    ///     keeps going still completes (FR-FAIL-3). `failedRangeCount` and `failureSummary`
+    ///     are how the result is judged; the summary carries block addressing only, never
+    ///     device contents (NFR-SEC-6).
+    ///
+    ///     `cacheBypassCode` is a ``CacheBypassOutcome`` raw value — the FR-TEST-9 verdict as
+    ///     it stood at the **end** of the run, which is the acquire-time verdict possibly
+    ///     downgraded by what the run's own throughput revealed. It never improves.
+    ///     `fastestObservedBytesPerSecond` is what the falsifier actually measured, so a gate
+    ///     can assert the reads were transport-plausible rather than only that a threshold was
+    ///     not crossed. `bufferBytesHeld` is NFR-PERF-1's figure: 2 × the I/O size,
+    ///     whatever the range's size.
+    func runRetentionCycle(startBlock: UInt64,
+                           blockCount: UInt64,
+                           ioSizeBytes: Int,
+                           reply: @escaping (Bool, UInt64, Int, String,
+                                             Int, Double, Int, String) -> Void)
+
+    /// SHA-256 of a bounded range of the **held** device (Step 8, gate item 5).
+    ///
+    /// Read-only. It exists so a gate can establish that a retention cycle left the rest of the
+    /// device untouched — which the cycle's own verify cannot show, because that comparison only
+    /// covers the offset the cycle meant to write. A write landing somewhere else is invisible
+    /// to it, so a run can report "0 bad blocks" and still have moved data.
+    ///
+    /// ## Why this is on the privileged interface at all
+    ///
+    /// It was a separate process — `tools/media-digest` — until it was measured on hardware
+    /// (2026-08-02) that **it cannot be**. While the helper holds `O_EXLOCK`, a second process
+    /// that is root, carries Terminal's Full Disk Access grant, and requests *no lock at all* is
+    /// refused `EBUSY`. And the fingerprints have to be taken while the claim is held: releasing
+    /// makes DiskArbitration remount the volume ~4 ms later, and a mounted exFAT volume writes
+    /// to itself, so an "after" fingerprint taken post-release would differ for reasons that
+    /// have nothing to do with the cycle.
+    ///
+    /// The classification itself lives in `Core/DeviceDigest.swift` and is unit-tested against
+    /// known SHA-256 vectors — because a fingerprint taken by the same process on both sides of
+    /// a cycle is only evidence if the fingerprint function is known to work. A digest that
+    /// returned a constant would make "before == after" pass unconditionally.
+    ///
+    /// - Parameters:
+    ///   - startBlock: first block, in the device's logical blocks.
+    ///   - blockCount: how many blocks. Bounded by ``TesterProtocol/maximumBytesPerCall`` for
+    ///     the same reason `runRetentionCycle` is: there is no cancellation until Step 11, so an
+    ///     uncancellable privileged call must be bounded by construction. A caller covering a
+    ///     whole device issues one call per gibibyte.
+    ///   - reply: `(ok, bytesCovered, sha256Hex, message)`. `sha256Hex` is lower-case hex, empty
+    ///     on failure. A hash is a fingerprint, not the data (NFR-SEC-6).
+    func digestRange(startBlock: UInt64,
+                     blockCount: UInt64,
+                     reply: @escaping (Bool, UInt64, String, String) -> Void)
 }
 
 /// Whether the helper could establish that its reads reach the device (FR-TEST-9), as it
@@ -327,6 +423,15 @@ public enum TesterProtocol {
     ///   client's existing calls decode identically — but bumped anyway, because an app that
     ///   needs the profile must be able to tell a helper that cannot provide it from one that
     ///   can, and a missing method surfaces as a transport failure rather than as "too old".
+    /// - **6** — Step 8: adds `runRetentionCycle`, the read → write-back → read-verify cycle
+    ///   over a bounded range of the held device. Additive, and bumped for the same reason as
+    ///   v5 — but this one matters more than either: it is **the first method that writes to a
+    ///   drive**. A client that believes it is talking to a v6 daemon and is not must find out
+    ///   from the version handshake, not from a call that silently does nothing.
+    /// - **7** — Step 8, after measuring that a held `O_EXLOCK` refuses a second `O_RDONLY`
+    ///   open (`EBUSY`, 2026-08-02): adds `digestRange`. The gate's before/after fingerprints
+    ///   were to be taken by a separate process, and that turns out to be impossible while the
+    ///   claim is held — so the helper has to take them through its own descriptor.
     ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
@@ -339,7 +444,34 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 5
+    public static let version = 7
+
+    /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
+    /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**
+    ///
+    /// Not a tuning parameter — it is what makes an uncancellable privileged write operation
+    /// safe to expose at all. There is no cancellation until Step 11 and no progress channel
+    /// until Step 9, so the only thing bounding how long a caller can occupy the daemon is the
+    /// size of what it asked for. 1 GiB is 3 GiB of I/O (read + write + verify): about 6.8 s
+    /// at `disk4`'s measured 475 MB/s, and about 15 s at a 200 MB/s floor.
+    ///
+    /// It is deliberately *not* enough to stand in for the run-control machinery Step 11 owns.
+    ///
+    /// One bound for both because they carry the same hazard: a caller occupying a root daemon
+    /// for an unbounded time with no way to stop it. A digest pass is one read where a cycle is
+    /// three, so a 1 GiB digest is about 2.2 s at `disk4`'s measured rate.
+    public static let maximumBytesPerCall: UInt64 = 1 << 30
+
+    /// The I/O sizes a run may use (FR-CTRL-8), smallest first. Default 4 MiB.
+    ///
+    /// The **engine** accepts any positive multiple of the logical block size, so tests can
+    /// use deliberately awkward sizes to exercise the final chunk. Nothing arriving over XPC
+    /// may: this is a privileged, untrusted boundary, and a narrow allowed set is one fewer
+    /// thing to reason about (NFR-REL-7, NFR-SEC-3).
+    public static let permittedIOSizes: [Int] = [1 << 20, 2 << 20, 4 << 20, 8 << 20]
+
+    /// FR-CTRL-8's default.
+    public static let defaultIOSizeBytes = 4 << 20
 }
 
 /// Single source of truth for the helper's identity and the trust it is pinned to.

@@ -115,6 +115,20 @@ public enum DiskIOControl {
     /// and must not be used to size anything; it is recorded because if a short transfer
     /// ever does occur, this is the first number anyone will want.
     public static let getMaxByteCountRead = request(readingOut: "d", 70, as: UInt64.self)
+
+    /// `DKIOCGETMAXBYTECOUNTWRITE` — the largest write the device advertises, `UInt64`.
+    ///
+    /// Diagnostic, added in Step 8 (D7, 2026-08-02) as the sibling of the read constant above,
+    /// and for the same reason turned around. Step 7 established that `disk4` advertises a
+    /// 1 MiB maximum **read** and still answers a 4 MiB *and* an 8 MiB `pread` in a single
+    /// call, because the kernel splits transfers internally — so the advertised maximum does
+    /// not predict a short transfer and must not be used to size anything.
+    ///
+    /// The **write** side has never been measured, on any device, and
+    /// `DeviceIOError.shortTransfer` has never fired on a write in any test. Step 8 is the
+    /// first code that writes at all. If a real write ever does come back short, this is the
+    /// first number anyone will want, and it costs one ioctl at acquire to have it.
+    public static let getMaxByteCountWrite = request(readingOut: "d", 71, as: UInt64.self)
 }
 
 // MARK: - Two geometries, one authority

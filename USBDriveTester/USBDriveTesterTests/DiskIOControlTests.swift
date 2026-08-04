@@ -35,6 +35,7 @@ struct DiskIOControlTests {
         #expect(DiskIOControl.getBlockCount        == 0x4008_6419)   // DKIOCGETBLOCKCOUNT
         #expect(DiskIOControl.getPhysicalBlockSize == 0x4004_644d)   // DKIOCGETPHYSICALBLOCKSIZE
         #expect(DiskIOControl.getMaxByteCountRead  == 0x4008_6446)   // DKIOCGETMAXBYTECOUNTREAD
+        #expect(DiskIOControl.getMaxByteCountWrite == 0x4008_6447)   // DKIOCGETMAXBYTECOUNTWRITE
     }
 
     /// The `_IOR` encoding, field by field, so a failure says *which* part drifted rather

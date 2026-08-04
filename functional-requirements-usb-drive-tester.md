@@ -229,9 +229,25 @@ travels with the report.
 degradation.
 
 **Consequences elsewhere.** Step 7 builds the mechanism (a pure classifier plus the
-helper-side timing harness); Step 8 calls it at run start and gates the verify result on it;
+helper-side timing harness); Step 8 consumes it at run start and gates the verify result on it;
 Step 10 carries the qualification into the exported report; Step 11 surfaces it in the UI;
 Step 14's honest-framing warnings are its natural neighbour.
+
+> **Clarified 2026-08-02 (Step 8), because "at the start of every run" was being read as "run
+> the check at run start".** The verification is performed **when the device is acquired** — it
+> is `fstat` plus the two `fcntl` results on the descriptor — and its verdict is **consumed** by
+> the run. There is nothing to re-run: opening the raw node speculatively to ask again is what
+> makes DiskArbitration remount the volume ~4 ms later (measured 2026-08-01). It satisfies the
+> requirement because the acquire holds that same descriptor continuously from the check to the
+> run, and the helper holds at most one device at a time (FR-CTRL-9).
+>
+> **What Step 8 added is the falsifier's live half.** Each read's throughput is fed into the
+> assessment as the run proceeds, and can only ever **downgrade** the verdict — a plausible rate
+> is what an uncached read and a slow cache hit look like alike, so it never promotes. Measured
+> on `disk4` 2026-08-03: a full run's fastest read was 492,870,060 B/s and the verdict stayed
+> `bypassed`. The falsifier was independently shown to fire — a run against an in-memory device,
+> under the real clock, is correctly flagged `likelyCached`, because it genuinely *is* answered
+> from RAM.
 
 **The open risk was measured the same day, and it was real.** Recorded here because it
 changes how the requirement is met, though not what it requires. `scripts/nocache-calibration.sh`

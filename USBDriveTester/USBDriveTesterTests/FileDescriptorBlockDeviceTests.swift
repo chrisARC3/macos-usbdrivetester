@@ -68,7 +68,7 @@ struct FileDescriptorBlockDeviceTests {
         try withTemporaryDevice(blockSize: blockSize, blockCount: 16) { device, _ in
             let length = Int(blockSize) * 4
             let offset = UInt64(blockSize) * 8
-            var source = pattern(length, seed: 0x5A)
+            let source = pattern(length, seed: 0x5A)
 
             let written = try source.withUnsafeBytes {
                 try device.write($0, atByteOffset: offset)
@@ -292,7 +292,7 @@ struct FileDescriptorBlockDeviceTests {
         try withTemporaryDevice(blockSize: blockSize, blockCount: blocks) { device, fd in
             #expect(fiveGiB > UInt64(UInt32.max), "the offset must actually exceed 2^32")
 
-            var source = pattern(512, seed: 0xC3)
+            let source = pattern(512, seed: 0xC3)
             _ = try source.withUnsafeBytes { try device.write($0, atByteOffset: fiveGiB) }
 
             var destination = [UInt8](repeating: 0, count: 512)
@@ -355,7 +355,7 @@ struct FileDescriptorBlockDeviceTests {
 
             for block in [0, 7, 63] {
                 let offset = UInt64(block) * 512
-                var source = pattern(512, seed: UInt8(block))
+                let source = pattern(512, seed: UInt8(block))
 
                 _ = try source.withUnsafeBytes { try real.write($0, atByteOffset: offset) }
                 _ = try source.withUnsafeBytes { try simulated.write($0, atByteOffset: offset) }

@@ -36,11 +36,22 @@
 //  Usage:
 //      mount-guard-client <bsdName> <command> [<command> ...]
 //
-//  Commands: check | acquire | profile | release | hold:<seconds>
+//  Commands: check | acquire | profile | release | version | hold:<seconds>
+//            wait:<sentinelPath>
+//            digest:<startBlock>:<blockCount>
+//            digest-all:<windowBytes>:<outputPath>[:<startBlock>:<blockCount>]
+//            cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]
 //
 //  `profile` was added in Step 7. It is passive — it reports what `acquire` established and
 //  performs no I/O — but it requires a device to be held, so it only makes sense after
 //  `acquire` **in the same invocation**, for the reason above.
+//
+//  ⚠️  `cycle` was added in Step 8 and is the ONLY command here that **writes to the drive**.
+//  It runs the read → write-back → read-verify cycle over the given block range of the held
+//  device, so it also requires `acquire` in the same invocation. The helper caps one call at
+//  `TesterProtocol.maximumBytesPerCall`. Never point it at a device whose contents matter:
+//  the cycle is non-destructive by design and that design is what Step 8 exists to prove, not
+//  something to assume while proving it.
 //
 //  Output is `KEY=value` on stdout, one fact per line, prefixed with the command — meant
 //  for grep, not for reading aloud.
@@ -54,7 +65,11 @@ let arguments = CommandLine.arguments
 guard arguments.count >= 3 else {
     FileHandle.standardError.write(Data("""
         usage: mount-guard-client <bsdName> <command> [<command> ...]
-               commands: check | acquire | profile | release | hold:<seconds>
+               commands: check | acquire | profile | release | version | hold:<seconds>
+                         wait:<sentinelPath>
+                         digest:<startBlock>:<blockCount>
+                         digest-all:<windowBytes>:<outputPath>[:<start>:<count>]
+                         cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]   (WRITES)
 
         """.utf8))
     exit(2)
@@ -63,7 +78,16 @@ guard arguments.count >= 3 else {
 let bsdName = arguments[1]
 let commands = Array(arguments.dropFirst(2))
 
-setvbuf(stdout, nil, _IOLBF, 0)
+// UNBUFFERED, not line-buffered. `setvbuf(_IOLBF, size: 0)` does not reliably flush per line
+// when stdout is a **pipe** rather than a terminal — and this client is always piped through
+// `tee` by the gate script. Measured 2026-08-02: during a ~33-minute fingerprint pass, none of
+// the per-50-window progress lines reached the terminal, because ~18 lines of ~40 bytes never
+// fill a 4 KB buffer. Every earlier run finished in about ten seconds, so all output arrived at
+// once and the problem was invisible.
+//
+// This tool emits a few hundred lines over an hour. Unbuffered costs nothing and means progress
+// is progress rather than a promise to tell you later.
+setvbuf(stdout, nil, _IONBF, 0)
 print("mount-guard-client: pid \(getpid()) on \(bsdName)")
 
 // MARK: - Connection
@@ -83,7 +107,14 @@ var transportFailed = false
 ///
 /// Blocking the main thread is safe: XPC delivers reply blocks on its own queue, not on
 /// this one.
-func call(_ label: String, _ body: (TesterControl, @escaping () -> Void) -> Void) {
+///
+/// - Parameter timeout: how long to wait. 30 s suits the passive queries; `cycle` overrides it,
+///   because that call performs real I/O — at the 1 GiB cap and a 200 MiB/s floor it is ~15 s,
+///   and a struggling drive is exactly the case worth waiting out rather than reporting as a
+///   transport failure.
+func call(_ label: String,
+          timeout: TimeInterval = 30,
+          _ body: (TesterControl, @escaping () -> Void) -> Void) {
     let semaphore = DispatchSemaphore(value: 0)
     var settled = false
 
@@ -105,8 +136,8 @@ func call(_ label: String, _ body: (TesterControl, @escaping () -> Void) -> Void
         if !settled { settled = true; semaphore.signal() }
     }
 
-    if semaphore.wait(timeout: .now() + 30) != .success {
-        print("[\(label)] TRANSPORT_ERROR=no reply within 30s")
+    if semaphore.wait(timeout: .now() + timeout) != .success {
+        print("[\(label)] TRANSPORT_ERROR=no reply within \(Int(timeout))s")
         transportFailed = true
     }
 }
@@ -166,6 +197,216 @@ for command in commands {
             tester.releaseDevice { released, message in
                 print("[release] RELEASED=\(released ? 1 : 0)")
                 print("[release] MESSAGE=\(message)")
+                done()
+            }
+        }
+
+    case "version":
+        // Step 8. The gate drives a *live* daemon, and `runRetentionCycle` arrived in v6: a
+        // v5 daemon would fail that call as a transport error, which reads like a broken
+        // connection rather than "the installed helper is out of date".
+        call("version") { tester, done in
+            tester.protocolVersion { version in
+                print("[version] PROTOCOL=\(version)")
+                print("[version] EXPECTED=\(TesterProtocol.version)")
+                done()
+            }
+        }
+
+    case let waiting where waiting.hasPrefix("wait:"):
+        // Step 8. Blocks until a sentinel file appears, so a *separate* process can do work
+        // while this one keeps the connection — and therefore the claim — alive.
+        //
+        // The gate needs exactly that: both media digests must be taken inside the same claim
+        // window, because releasing makes DiskArbitration remount ~4 ms later and a mounted
+        // exFAT volume writes to itself. Without this, the "after" digest would differ for
+        // reasons that have nothing to do with the cycle.
+        //
+        // A fixed `hold:` cannot do the job: a whole-device digest of a 1 TB drive takes ~35
+        // minutes, and a sleep long enough to cover it would be a guess that fails silently
+        // when it is short.
+        let sentinel = String(waiting.dropFirst("wait:".count))
+        print("[wait] PATH=\(sentinel)")
+        let deadline = Date().addingTimeInterval(7_200)      // two hours: two full digest passes
+        var timedOut = false
+        while !FileManager.default.fileExists(atPath: sentinel) {
+            if Date() > deadline { timedOut = true; break }
+            Thread.sleep(forTimeInterval: 0.25)
+        }
+        if timedOut {
+            print("[wait] TIMEOUT=1")
+            transportFailed = true
+        } else {
+            print("[wait] DONE=1")
+        }
+
+    case let digest where digest.hasPrefix("digest-all:"):
+        // Step 8. Fingerprints the WHOLE held device, one bounded call per window, writing the
+        // vector to a file.
+        //
+        //   digest-all:<windowBytes>:<outputPath>
+        //
+        // The helper caps a single call at TesterProtocol.maximumBytesPerCall, so a whole
+        // device is many calls — ~932 of them for a 1 TB drive at a 1 GiB window. That is the
+        // point rather than a workaround: there is no cancellation until Step 11, so no single
+        // privileged call may occupy the daemon for the ~35 minutes a full pass takes.
+        //
+        // Geometry comes from `deviceProfile`, which is the ioctl-derived authority — not from
+        // `diskutil`, and not from anything this client assumed.
+        let digestFields = digest.dropFirst("digest-all:".count)
+            .split(separator: ":", omittingEmptySubsequences: false)
+        guard digestFields.count >= 2,
+              let windowBytes = UInt64(digestFields[0]), windowBytes > 0 else {
+            FileHandle.standardError.write(Data("""
+                bad digest-all command '\(digest)'
+                usage: digest-all:<windowBytes>:<outputPath>[:<startBlock>:<blockCount>]
+                       startBlock/blockCount default to the whole device; blockCount 0 means
+                       "to the end".
+
+                """.utf8))
+            exit(2)
+        }
+        let outputPath = String(digestFields[1])
+        let requestedStart = digestFields.count >= 3 ? (UInt64(digestFields[2]) ?? 0) : 0
+        let requestedCount = digestFields.count >= 4 ? (UInt64(digestFields[3]) ?? 0) : 0
+
+        var deviceBlockSize: UInt32 = 0
+        var deviceBlockCount: UInt64 = 0
+        call("digest") { tester, done in
+            tester.deviceProfile { available, ioctlBlockSize, ioctlBlockCount, _, _, _, _, _, message in
+                if available {
+                    deviceBlockSize = ioctlBlockSize
+                    deviceBlockCount = ioctlBlockCount
+                } else {
+                    print("[digest] PROFILE_UNAVAILABLE=\(message)")
+                }
+                done()
+            }
+        }
+
+        guard deviceBlockSize > 0, deviceBlockCount > 0 else {
+            print("[digest] FAILED=no geometry; a device must be acquired first")
+            transportFailed = true
+            break
+        }
+
+        let windowBlocks = Swift.max(UInt64(1), windowBytes / UInt64(deviceBlockSize))
+
+        // Clamp the requested coverage to the device. A range past the end would be refused
+        // per-call by the helper, which is correct but would report as a digest failure rather
+        // than as a caller asking for something impossible.
+        let coverStart = Swift.min(requestedStart, deviceBlockCount)
+        let coverCount = requestedCount == 0
+            ? deviceBlockCount - coverStart
+            : Swift.min(requestedCount, deviceBlockCount - coverStart)
+        let coverEnd = coverStart + coverCount
+
+        var lines: [String] = []
+        var windowIndex: UInt64 = 0
+        var nextBlock = coverStart
+        var digestFailed = false
+
+        print("[digest] BLOCK_SIZE=\(deviceBlockSize)")
+        print("[digest] BLOCK_COUNT=\(deviceBlockCount)")
+        print("[digest] WINDOW_BLOCKS=\(windowBlocks)")
+        print("[digest] COVER_START=\(coverStart)")
+        print("[digest] COVER_BLOCKS=\(coverCount)")
+
+        while nextBlock < coverEnd && !digestFailed {
+            let blocks = Swift.min(windowBlocks, coverEnd - nextBlock)
+            let start = nextBlock
+            call("digest", timeout: 600) { tester, done in
+                tester.digestRange(startBlock: start, blockCount: blocks) { ok, bytes, hex, message in
+                    if ok {
+                        lines.append("window \(windowIndex) \(start) \(blocks) \(hex)")
+                    } else {
+                        print("[digest] FAILED=\(message)")
+                        digestFailed = true
+                    }
+                    _ = bytes
+                    done()
+                }
+            }
+            nextBlock += blocks
+            windowIndex += 1
+            if windowIndex % 50 == 0 {
+                print("[digest] PROGRESS=\(nextBlock - coverStart)/\(coverCount) blocks")
+            }
+        }
+
+        if digestFailed {
+            transportFailed = true
+        } else {
+            do {
+                try (lines.joined(separator: "\n") + "\n").write(toFile: outputPath,
+                                                                 atomically: true,
+                                                                 encoding: .utf8)
+                print("[digest] WINDOWS=\(windowIndex)")
+                print("[digest] OUTPUT=\(outputPath)")
+            } catch {
+                print("[digest] FAILED=could not write \(outputPath): \(error)")
+                transportFailed = true
+            }
+        }
+
+    case let digest where digest.hasPrefix("digest:"):
+        // A single window, for diagnostics: digest:<startBlock>:<blockCount>
+        let fields = digest.dropFirst("digest:".count).split(separator: ":")
+        guard fields.count == 2,
+              let start = UInt64(fields[0]), let blocks = UInt64(fields[1]) else {
+            FileHandle.standardError.write(Data("usage: digest:<startBlock>:<blockCount>\n".utf8))
+            exit(2)
+        }
+        call("digest", timeout: 600) { tester, done in
+            tester.digestRange(startBlock: start, blockCount: blocks) { ok, bytes, hex, message in
+                print("[digest] OK=\(ok ? 1 : 0)")
+                print("[digest] BYTES=\(bytes)")
+                print("[digest] SHA256=\(hex)")
+                print("[digest] MESSAGE=\(message)")
+                done()
+            }
+        }
+
+    case let cycle where cycle.hasPrefix("cycle:"):
+        // Step 8. THE ONLY COMMAND HERE THAT WRITES TO THE DRIVE.
+        //
+        //   cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]
+        //
+        // Requires `acquire` earlier in the same invocation — the helper releases on
+        // connection loss, so a separate process would find nothing held.
+        let fields = cycle.dropFirst("cycle:".count).split(separator: ":", omittingEmptySubsequences: false)
+        guard fields.count >= 2,
+              let startBlock = UInt64(fields[0]),
+              let blockCount = UInt64(fields[1]) else {
+            FileHandle.standardError.write(Data("""
+                bad cycle command '\(cycle)'
+                usage: cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]
+
+                """.utf8))
+            exit(2)
+        }
+        let ioSize = fields.count >= 3 ? (Int(fields[2]) ?? TesterProtocol.defaultIOSizeBytes)
+                                       : TesterProtocol.defaultIOSizeBytes
+
+        print("[cycle] START_BLOCK=\(startBlock)")
+        print("[cycle] BLOCK_COUNT=\(blockCount)")
+        print("[cycle] IO_SIZE=\(ioSize)")
+
+        call("cycle", timeout: 300) { tester, done in
+            tester.runRetentionCycle(startBlock: startBlock,
+                                     blockCount: blockCount,
+                                     ioSizeBytes: ioSize) { completed, chunks, failedRanges,
+                                                            failureSummary, cacheBypass,
+                                                            fastestBytesPerSecond,
+                                                            bufferBytesHeld, message in
+                print("[cycle] COMPLETED=\(completed ? 1 : 0)")
+                print("[cycle] CHUNKS=\(chunks)")
+                print("[cycle] FAILED_RANGES=\(failedRanges)")
+                print("[cycle] FAILURE_SUMMARY=\(failureSummary)")
+                print("[cycle] CACHE_BYPASS=\(cacheBypass)")
+                print("[cycle] FASTEST_BYTES_PER_SECOND=\(Int(fastestBytesPerSecond.rounded()))")
+                print("[cycle] BUFFER_BYTES=\(bufferBytesHeld)")
+                print("[cycle] MESSAGE=\(message)")
                 done()
             }
         }

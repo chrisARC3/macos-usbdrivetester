@@ -28,7 +28,11 @@
 #     one.
 #   * The helper needs FULL DISK ACCESS (NFR-INST-4) or the acquire fails EPERM. Running as
 #     root is not sufficient.
-#   * An interactive Terminal: sudo needs a TTY for the client's code-signing step.
+#   * An interactive Terminal, for `codesign`'s keychain access when signing the client.
+#     (Corrected 2026-08-03: this line used to say sudo needs a TTY. It does not — this script
+#     never invokes sudo. The helper is already root and does every device access; the client
+#     runs unprivileged. Inherited wording from the probe scripts, which genuinely do run under
+#     sudo: claim-contention-test.sh, large-address-check.sh, nocache-calibration.sh.)
 #
 # Usage:
 #   scripts/geometry-check.sh disk4
