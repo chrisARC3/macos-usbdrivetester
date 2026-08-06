@@ -30,6 +30,85 @@ The ADR lists action items by topic, not by dependency. Three deliberate re-orde
 2. **AI-14 (helper teardown) pairs with AI-2 (helper registration)** as Step 4, immediately after registration. Registration and unregistration are two ends of the same lifecycle; building them together means you can install/remove cleanly throughout the rest of development.
 3. **AI-15 (logging) is cross-cutting.** It gets a dedicated consolidation step (Step 15) near the end, but each earlier step instructs you to add its `os_log` points as you go, so logging grows with the code rather than being bolted on.
 
+### Working on this project: the things that have cost time (consolidated 2026-08-06)
+
+Each of these was learned the expensive way and, until now, lived only in a `PROGRESS.md` entry
+that a cold start is explicitly told not to read end to end. They are collected here because they
+are **process**, not history.
+
+**Verifying a step**
+
+- **"Zero warnings" is only true from a CLEAN build, and it is THREE commands, not two.**
+  Incremental builds do not re-emit warnings, and `build.sh` does **not** compile the test target —
+  so `build.sh Debug`, `build.sh Release` **and** `test.sh`, each with DerivedData wiped first.
+  Two of the three were the whole check for seven steps.
+- **Get the test count from the xcresult, not the console.**
+  `xcrun xcresulttool get test-results summary --path <xcresult>` and read the **top-level**
+  `totalTestCount` — not `passedTests` inside `devicesAndConfigurations`, which counts something
+  else. `xcresulttool` needs `DEVELOPER_DIR` exported like everything else.
+- **A number that does not move is a finding.** Test files written to the wrong directory still
+  leave a green suite — at the *old* count. The project layout has a **nested folder**
+  (`USBDriveTester/USBDriveTester/…`), so an absolute path is easy to get wrong by exactly one
+  level, and the failure is silent: the files land in a directory nobody compiles. The suite total
+  is the check. (Cost an hour on 2026-08-05; caught only because 516 did not become 551.)
+- **Parallel testing is OFF in `test.sh`**, deliberately: several assertions read process-global
+  counters.
+- **A green suite is not evidence a test works.** Break the thing on purpose and re-run — the
+  project's oldest lesson, and it has caught something every time it has been applied.
+
+**The build environment**
+
+- Full Xcode 26.5 is at **`/Applications/Development/Xcode.app`** and is **not** the selected
+  developer dir. `build.sh` / `test.sh` pin `DEVELOPER_DIR` themselves; anything else you run by
+  hand must export it. **Do not run `sudo xcode-select`.**
+- App target: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which makes even plain value types,
+  protocols, C-callback functions, file-scope `Logger`s and extensions on standard-library types
+  main-actor-isolated. Mark them `nonisolated`, or the test target cannot use them.
+- `MemberImportVisibility` is on: a member from a transitively-imported module needs its module
+  imported **directly** (`Timer.publish(…).autoconnect()` needs `import Combine`; `NSApp` needs
+  `import AppKit`).
+- `SWIFT_VERSION = 5.0` — keep it. `ARCHS = arm64`, deployment target 26.0, team `5JC55GTLZA`,
+  App Sandbox **off** (must stay off), Hardened Runtime on.
+- **New files under the app target and the test target join automatically** (file-system
+  synchronized groups). **New files under `Helper/Core/` do not** — they need a target-membership
+  tick in Xcode, which is the user's job (see "How we work" in the session brief).
+- `SMAppService` records the **registering app's path**, so always install to `/Applications` with
+  `scripts/install-app.sh` and register from there. That script **only copies files**: after
+  installing you must unregister and re-register in the app, then confirm with **Check version**,
+  or the running daemon is still the old one. It refuses to overwrite a running app — quit it first.
+- This repo lives on an **external volume**, and macOS gates daemon access to removable volumes:
+  anything the root helper must read has to live outside the repo (`/tmp`).
+
+**Shell and scripting**
+
+- Scripts are `#!/bin/bash` → **bash 3.2** on macOS. No associative arrays, no `mapfile`, no
+  `${var,,}`; and `"${empty[@]}"` under `set -u` is an unbound-variable error — write
+  `${arr[@]+"${arr[@]}"}`.
+- Under `set -euo pipefail`, `producer | grep -q` returns **non-zero when grep MATCHES**, and
+  `producer | head -1` can SIGPIPE the producer. Use `grep -m1`.
+- Bash arithmetic is **signed** 64-bit: `od -An -N8 -tu8` yields values above 2⁶³ that go negative
+  through a modulo. Use 32 bits.
+- Invoke `log` as **`/usr/bin/log`** — the bare name gets mangled in this environment.
+- Scripts needing `sudo` must be run in a **real Terminal**; a run button has no TTY.
+- **`system_profiler SPUSBDataType` prints nothing on macOS 26** and exits 0 — the data type is now
+  `SPUSBHostDataType`. An empty result is not a finding; it did not mean the drives had no serials.
+
+**Swift and test authoring**
+
+- `String(format:)` with `%s` and a Swift `String` is undefined behaviour and **segfaults** — use
+  `%@`.
+- `#expect`'s comment argument is a `Comment`, expressible by a string **literal**: `"a" + "b"` is
+  a `String` expression and will not convert.
+- A **compound integer literal** in `#expect` stays `Int` instead of promoting to `Double` — write
+  explicit `Double` literals.
+- `min` inside a `Sequence` conformance resolves to `Sequence.min()` — use `Swift.min`.
+- **Do not edit Swift multi-line strings (`"""`) from inside a Python triple-quoted heredoc** — the
+  Swift delimiter closes the Python one. Use the edit tool.
+- **SwiftUI modifiers fail silently.** `.defaultFocus` on a `List`, `.selectionDisabled` on a
+  container instead of its rows, `.id()` to force a selection re-assert: all compiled, rendered,
+  and did nothing, with no warning. Verify with `scripts/render-ui.sh` (its
+  `appActive / windowKey / firstResponder` line settles focus questions) or with the unified log.
+
 ### Global "Definition of Done" applied to every step
 
 Before a step's gate is considered passed:
@@ -161,6 +240,11 @@ simulation-first still applies wherever the plan calls for it.
 ---
 
 ## Sequence overview
+
+> **Status, 2026-08-06: Steps 1–9 are complete and committed. Step 10 is next and has not been
+> started.** Step 9 is `c6ec234`, with `4be5766` recording two decisions that followed it. The
+> authoritative state — including what each gate actually discharged and what it deliberately did
+> not — is `PROGRESS.md`; this table is the map, not the tracker.
 
 | Step | AI | Title | Primarily on | Gate in one line |
 |------|----|-------|--------------|------------------|

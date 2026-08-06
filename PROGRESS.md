@@ -3713,13 +3713,16 @@ scalar, at identical I/O cost.
 
 ---
 
-## Step 9 — GATE DISCHARGED (2026-08-05) — step still open, nothing committed
+## Step 9 — GATE DISCHARGED (2026-08-05) — the metrics work
 
 > **Read this together with "Step 9 — UI work folded in after the gate", below.** Everything in
 > *this* section is the metrics work and its Verification Gate, which is fully discharged. After it
 > passed, the user reviewed the shipped window and a body of **UI work was folded into Step 9 by
-> decision** rather than deferred — so the step is **not closed and nothing is committed**. The
-> figures below (497 tests) are the gate's; the current count is **516**.
+> decision** rather than deferred. The figures below (497 tests) are the gate's as it stood on
+> 2026-08-05; the final count for the step is **551**.
+>
+> **Step 9 is COMPLETE and COMMITTED** — `c6ec234`, 2026-08-06, with `4be5766` recording the two
+> decisions that followed. Anything below saying otherwise is describing a moment that has passed.
 
 Every gate item discharged. **The step's own pre-flight overturned the design the plan assumed,
 and the number this project had carried as an estimate for three steps turned out to be wrong by
@@ -3994,10 +3997,14 @@ Here it had teeth, because the identifier was being handed to something that wri
 
 ---
 
-## Step 9 — UI work folded in after the gate (2026-08-05) — CURRENT STATE
+## Step 9 — COMPLETE (2026-08-06) — the UI work folded in after the gate
 
-Written for a cold start. The gate above is discharged; this is what happened next and what is
-left. **Nothing is committed.**
+Written for a cold start. The gate above is discharged; this is what happened next.
+
+> **Committed as `c6ec234` on 2026-08-06** ("Step 9: metrics, live monitoring, and the window
+> layer"), followed by `4be5766` ("Docs: record when a BSD name may be used, and FR-DEV-3
+> confirmed"). **Step 10 is next and has not been started.** The "What is left" table that used to
+> sit at the end of this section is now "Increment 5 — closed".
 
 ### Why this work is in Step 9 at all
 
