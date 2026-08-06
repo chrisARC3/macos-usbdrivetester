@@ -5,6 +5,28 @@
 //  The BSD device name of a whole disk (`disk4`), and the *total order* the device
 //  list is presented in (FR-DEV-2).
 //
+//  ## What this is, and what it is not (rule recorded 2026-08-06)
+//
+//  A BSD name is a **locator**, not an **identity**. It is assigned at enumeration, so it names a
+//  different drive after a replug or a reboot — which is not a theoretical hazard here: a reboot
+//  on 2026-08-06 swapped this project's scratch device and a 22 TB backup drive, and every gate
+//  script and document that said `disk4` became wrong in the same moment.
+//
+//  **The rule has two halves, and the test is lifetime — not surface.**
+//
+//    * **Live displays should show it.** It answers "which of the things in front of me right
+//      now?", it is what ties this window to `diskutil` and `/dev/rdiskN`, and a user can check it
+//      against the machine while they look at it. So it leads every device row (FR-DEV-6) and sits
+//      in the selected-device detail beside the serial (NFR-USE-3). Two identifiers a user can
+//      cross-check beat one.
+//    * **Nothing that outlives the enumeration may use it as the identity.** Exported reports
+//      (FR-RPT), gate scripts, build plans, release notes: those name a drive by its **USB serial
+//      number**, `DiscoveredDevice.usbSerialNumber`. Where such an artefact records a BSD name at
+//      all, it must be labelled as the locator it was at the time.
+//
+//  Selection identity is a third thing again and is neither of these: it is `registryEntryID`, and
+//  its instability across a replug is deliberate — see `DiscoveredDevice.registryEntryID`.
+//
 //  Pure: Foundation only, no IOKit, no hardware. That is the point — FR-DEV-2's
 //  "stable order" is the part of discovery most likely to be got subtly wrong and the
 //  easiest to pin down without a drive attached, so it lives here rather than inline

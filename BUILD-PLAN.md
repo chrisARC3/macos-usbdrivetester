@@ -72,6 +72,15 @@ results with their numbers.
 > check that the renumbering turned exactly inside out: it would have refused the correct drive
 > and admitted the backup.
 >
+> **This is not "BSD names are bad" — the rule has two halves, and the test is LIFETIME.** A BSD
+> name is a *locator*: it answers "which of the things in front of me right now?", and it ties this
+> window to `diskutil` and `/dev/rdiskN`. **Live surfaces should show it** — the device list, the
+> selected-device detail, a metrics heading — beside the serial, because two identifiers a user can
+> cross-check are better than one. What must never carry it is anything that **outlives the
+> enumeration that produced it**: this document, PROGRESS, gate scripts and their command lines,
+> the exported run report, release notes. Those identify by **serial**. Full statement of the rule,
+> with the user's wording, in the FR document's 2026-08-06 amendment entry.
+>
 > **What that means for anyone reading this document.** Every BSD name below is either historical
 > (what a drive was called on the day something was measured) or an example of the *form* of a BSD
 > name. None of them designates hardware. The scripts no longer accept one as an identity either:
@@ -871,6 +880,16 @@ React to classified failures per the user-selected mode, and conclude every run 
    - Average read/write throughput (FR-RPT-2) and read-latency min/max/p99 (FR-RPT-3) — from Step 9.
    - **Run outcome (FR-RPT-4):** completed clean / completed with failures / stopped on error / stopped by user / terminated by device loss.
    - Device identity, I/O size, failure mode, start/end time.
+
+     > **Device identity in the report means the USB serial, not the BSD name** (rule recorded
+     > 2026-08-06; see the FR document's entry and Step 16's release-note item for what a serial
+     > actually names). The test is lifetime: the exported report outlives the session and the
+     > enumeration that produced it, so a report headed "disk4" answers "which drive was tested?"
+     > with a name that may since have moved to another drive — the exact failure the 2026-08-06
+     > renumbering produced in this project's own scripts. The BSD name may appear **labelled as
+     > the locator it was at run time**; it may not be the identification. A drive that reports no
+     > usable serial is labelled as such, and its report must say its results cannot be told apart
+     > from an identical model's.
    - **The run-start cache-bypass verdict (FR-TEST-9, added 2026-08-02).** Mandatory, not conditional on it having failed — an absent line is indistinguishable from a passing one. On `likelyCached` or `inconclusive` the report must state that **the verify result may be unreliable while the read → write-back refresh remains valid**, prominently enough that it cannot be read past. The exported file outlives the session and the UI banner; a report saying "0 bad blocks" that has outlived its qualification reproduces the exact silent failure FR-TEST-9 exists to prevent.
 4. **Markdown export (FR-RPT-5, NFR-USE-7):** an "Export report…" action writing a well-structured `.md` (via `NSSavePanel`): headings, a clear pass/fail outcome line, and **tabulated** bad-block ranges and statistics. No run history is retained (each run standalone) — export is the only persistence.
 5. **Honest outcome wording:** "completed clean" must read as "no currently-unreadable blocks found," not "healthy" (ties to Step 14 / FR-WARN-3).
@@ -1109,15 +1128,30 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 > what stands in that gap, which is why Step 11's removal of the explicit unmount is gated on this
 > step existing.
 >
-> **The warnings must name the drive they are about** — model *and* USB serial, not the BSD name,
-> for exactly the reason this note exists. An acknowledgement that says "disk4" is an
-> acknowledgement of a name that may have moved.
+> **The warnings must identify the drive they are about by model *and* USB serial**, for exactly
+> the reason this note exists: an acknowledgement whose subject is "disk4" is an acknowledgement of
+> a name that may have moved. The BSD name belongs **beside** that identification, not instead of
+> it — the user is looking at the machine while they read the warning, so the locator is useful
+> there. See the FR document's 2026-08-06 entry for the rule and its lifetime test.
 >
-> **Open question for the user, not settled here:** whether FR-DEV-3's default-select-the-first
-> rule should survive contact with this. Any alternative would need a principled way to prefer one
-> drive, and the app cannot know which drive its user considers expendable — so inventing a
-> heuristic ("prefer removable", "prefer unmounted") would be a judgement dressed as a default.
-> Recorded rather than acted on.
+> **FR-DEV-3 stands as written — settled 2026-08-06, user decision.** The default selection was
+> put to the user and kept unchanged.
+>
+> > *"FR-DEV-3 is perfect as written. I do not want to go down the road of trying to divine user
+> > intentions."* — user, 2026-08-06
+> >
+> > **This is the same policy as D9, not a separate one.** The tool reports throughput and refuses
+> > to grade it, because the manufacturer's figure is not something it knows and inventing one
+> > would be a judgement dressed as a measurement. A default that guessed which drive its owner
+> > considers expendable — "prefer removable", "prefer unmounted", "prefer the smallest" — would be
+> > the same error in the same place: a judgement dressed as a default, and one the user would have
+> > no reason to distrust because it would look like the app knowing something. Selecting the first
+> > device in a stated order says only what is true.
+>
+> **So the whole weight of this sits here.** With FR-DEV-3 fixed, nothing upstream narrows which
+> drive is selected on launch, and Step 11 puts that selection one deliberate click from a write.
+> FR-WARN-1/2/3's acknowledgement is the only thing between them, which is why Step 11's removal of
+> the explicit unmount is gated on this step and not merely sequenced after it.
 
 **Original action item:** AI-11
 **Satisfies:** FR-WARN-1/2/3/4; NFR-USE-4/6/8

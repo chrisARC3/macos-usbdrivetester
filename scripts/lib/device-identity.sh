@@ -17,6 +17,17 @@
 # drive after any replug. The product has identified drives by USB serial number since
 # 2026-08-05 for exactly this reason. This applies the same rule to the apparatus.
 #
+# NOT AN ARGUMENT AGAINST SHOWING BSD NAMES
+#
+# The rule's test is *lifetime*, not surface. A script and its command line outlive the
+# enumeration that produced them — someone re-runs a line from their history a week later — so
+# here the identity must be the serial. A LIVE display is the other case entirely: the app shows
+# the BSD name beside the serial on purpose, because it is one more axis a user can check against
+# the machine in front of them, and it is what ties the window to `diskutil` and /dev/rdiskN.
+# Hence `resolve_target` prints the BSD name it resolved *together with* the serial and model: at
+# the moment it is printed it is live and useful, and the serial is what made it trustworthy.
+# Full rule in the FR document's 2026-08-06 entry.
+#
 # WHAT IT GUARANTEES
 #
 #   * A script written for the scratch device cannot run against another drive, whether it was

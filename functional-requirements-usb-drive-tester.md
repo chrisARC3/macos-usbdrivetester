@@ -4,6 +4,7 @@
 **Date:** 2026-06-25
 **Baselined:** 2026-06-25
 **Last amended:** 2026-08-05 (FR-SAFE-5 withdrawn, FR-SAFE-6 reversed, FR-SAFE-7 moot — the run owns unmount and acquire)
+**Last recorded (no change):** 2026-08-06 (when a BSD name may be used; FR-DEV-3 confirmed under challenge)
 **Source documents:** [USBDriveTester.md](USBDriveTester.md), [ADR-001-usb-drive-tester.md](ADR-001-usb-drive-tester.md)
 **Companion document:** [Non-Functional Requirements](nonfunctional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
@@ -51,7 +52,7 @@ This document specifies the **functional requirements** — the observable behav
 |----|-------------|----------|--------|
 | FR-DEV-1 | On launch, the system shall enumerate all connected USB mass-storage devices and display them in a list view. | M | PB Upon launch; Action Item 3 |
 | FR-DEV-2 | The device list shall be presented in a stable order (sorted by BSD device name). | M | ADR Action Item 3 |
-| FR-DEV-3 | The system shall select the first discovered device as the default selection in the list. | M | PB Upon launch |
+| FR-DEV-3 | The system shall select the first discovered device as the default selection in the list. | M | PB Upon launch; **confirmed under challenge 2026-08-06** — see Amendments before proposing a "smarter" default |
 | FR-DEV-4 | The user shall be able to change the selected device from the list before starting a test. | M | PB Upon launch (implied) |
 | FR-DEV-5 | For the selected device, the system shall determine and use the device's logical block size and total block count. | M | ADR Action Item 5 |
 | FR-DEV-6 | The system should display identifying information for each listed device sufficient for the user to distinguish devices (e.g., BSD name, capacity, model/identifier). | S | PB Upon launch (implied) |
@@ -422,8 +423,74 @@ guarded than either the current design or the intended one.
   the connection that took it goes away — so what this adds is deliberateness and an acknowledged
   release, not a safety property the product previously lacked.
 
+### 2026-08-06 — when a BSD name may be used, and when it may not (no requirement change)
+
+**Not an amendment**, and it changes no requirement text. Recorded because the surrounding work
+that day — moving the test hardware and every gate script onto serial numbers — states the rule in
+one direction only, and read alone it would justify stripping the BSD name out of the UI. That
+would be a regression: FR-DEV-6 names it as identifying information and it earns its place.
+
+> *"I like the idea of showing the BSD name anywhere live drive data is being displayed because it
+> offers one more piece of identity disambiguation information. I just don't ever want to refer to
+> drives by their BSD name for any purpose that might become stale upon unplug/re-plugs or reboots
+> (like build plans, scripts, previous test results, etc.)."* — user, 2026-08-06
+
+**The rule, and the test that generates it.** A BSD name is a **locator**, not an **identity**: it
+is assigned at enumeration and names a different drive after a replug or a reboot. So the question
+is never "is a BSD name allowed here?" but:
+
+> **Does this statement outlive the enumeration that produced it?**
+
+| lifetime | rule | examples |
+|---|---|---|
+| **Live** — read while the enumeration is still current | **Show it.** It is a real extra axis of disambiguation, it is what ties this window to `diskutil` and `/dev/rdiskN`, and it is checkable against the physical machine in the moment. | The device list row, the selected-device detail, the raw-device path, a live metrics heading, an `os_log` line about work in flight. |
+| **Persisted** — read after that enumeration may have gone | **Never as the identity. Use the USB serial.** | BUILD-PLAN and PROGRESS, gate scripts and their command lines, the exported run report (FR-RPT), release notes, anything a person may copy into a shell later. |
+
+Both halves matter. **Showing both is better than showing either**: the serial answers *which
+drive is this?* across time, the BSD name answers *which of the things in front of me right now?*
+— and a live surface that shows both lets a user cross-check one against the other. Where a
+persisted artefact records a BSD name at all, it must be **labelled as the locator it was at the
+time**, never presented as the answer to "which drive was tested?".
+
+**What this constrains.** FR-DEV-6 and NFR-USE-3 are satisfied by showing BSD name, model, serial
+and capacity together — that is the current UI and it should stay. **FR-RPT** is on the other side
+of the line: the exported report outlives the session, so the drive it names must be identified by
+serial (Step 10, and see BUILD-PLAN Step 16's release-note item for what a USB serial actually
+names). Step 14's warnings are likewise persisted in the user's memory of what they agreed to, so
+they identify by model and serial — with the BSD name available beside it as the locator, which is
+useful precisely because the user is looking at the machine while they read it.
+
+### 2026-08-06 — FR-DEV-3 confirmed under challenge (no change)
+
+**Not an amendment.** FR-DEV-3's text is unchanged and its priority is unchanged. Recorded here
+because the requirement was put to the user with a specific hazard in front of it, and a reader
+who meets that hazard in BUILD-PLAN should know the question was asked and answered rather than
+overlooked.
+
+**The trigger.** A reboot renumbered this machine's drives (see BUILD-PLAN, "Test hardware"), and
+the default selection — FR-DEV-3's first usable device, in FR-DEV-2's BSD-name order — landed on a
+22 TB drive with Backup and Time Machine mounted. Both requirements were satisfied exactly as
+written; what changed was which physical drive "first" names.
+
+> *"FR-DEV-3 is perfect as written. I do not want to go down the road of trying to divine user
+> intentions."* — user, 2026-08-06
+
+**Why this is the same rule the tool already follows.** The alternatives all require the app to
+prefer one drive over another — removable over fixed, unmounted over mounted, smaller over larger
+— and every one of them is a guess about which drive its owner considers expendable. That is the
+error FR-WARN-3 and the throughput-reporting decision (2026-08-04) exist to prevent, in a new
+place: a judgement the tool is not entitled to make, presented as something it knows. A default
+that guessed would be *more* dangerous than a graded throughput figure, because it would look
+authoritative at the moment a user is choosing what to write to.
+
+**What follows from it.** With FR-DEV-3 fixed, nothing upstream narrows the selection, so
+**FR-WARN-1/2/3's acknowledgement carries the whole weight** — and the warnings must identify the
+drive by model and **USB serial number**, never by BSD name, since a name can have moved since the
+list was drawn. Recorded against Step 14, and it is why Step 11's removal of the explicit unmount
+control is gated on Step 14 existing rather than merely sequenced after it.
+
 ## Open Questions
 
 None outstanding — all questions from iterations 1–2 have been resolved (see *user
-decision 2026-06-25* annotations throughout), and the 2026-07-30 and 2026-08-02 amendments
-above are recorded rather than open.
+decision 2026-06-25* annotations throughout), and the 2026-07-30, 2026-08-02, 2026-08-04,
+2026-08-05 and 2026-08-06 amendments above are recorded rather than open.
