@@ -53,7 +53,8 @@
 #
 # COST
 #
-# Two full read passes. On disk4 (1 TB at ~475 MB/s) that is roughly 35 minutes each, so about
+# Two full read passes. On the scratch device (1 TB at ~475 MB/s) that is roughly 35 minutes
+# each, so about
 # 70 minutes, plus ~7 seconds of actual cycle. `--quick` fingerprints only a 1 GiB margin either
 # side of the tested range; it is MUCH weaker evidence — it cannot see a write that landed
 # elsewhere, which is the whole point — and the summary says loudly which mode ran.
@@ -65,24 +66,27 @@
 #     sufficient on its own.
 #   * An interactive Terminal (for the confirmation prompt and for codesign's keychain access).
 #     No sudo: the helper is already root and does every device access.
-#   * A drive whose contents are EXPENDABLE **and non-trivial**. disk4 is the designated
-#     scratch device; it must hold real data, not empty space, or the run cannot demonstrate
+#   * A drive whose contents are EXPENDABLE **and non-trivial**. The Samsung T5, serial
+#     12345686DAA9, is the designated scratch device and this script resolves it by that serial
+#     rather than by name; it must hold real data, not empty space, or the run cannot demonstrate
 #     anything (see the CONTENT check). Fill it once with:
 #         dd if=/dev/urandom of=/Volumes/Test_Drive/fill.bin bs=4m status=progress
 #     and KEEP the file: the gate needs the blocks written, and deleting it may let the drive
 #     discard them.
 #
 # Usage:
-#   scripts/retention-cycle-check.sh disk4 [startBlock] [--quick]
+#   scripts/retention-cycle-check.sh [startBlock] [--quick] [--device <serial|diskN>]
 #
 set -euo pipefail
 
-DISK="${1:-}"
-if [[ -z "$DISK" ]]; then
-    echo "usage: $0 <whole-disk-bsd-name> [startBlock] [--quick]   e.g. $0 disk4" >&2
-    exit 2
-fi
-shift
+# The target drive is resolved by USB SERIAL NUMBER, not by the BSD name on the command line
+# (2026-08-06). A reboot renumbers these; `disk4` was this project's scratch device until one did,
+# and then named the 22 TB backup drive. An old-style bare `diskN` argument is still accepted —
+# it is CHECKED against the serial, and refused if it names a different drive.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/device-identity.sh"
+parse_device_flag "$@" || exit 2
+set -- ${DEVICE_FLAG_REMAINING[@]+"${DEVICE_FLAG_REMAINING[@]}"}
+DISK="$(resolve_target scratch "$DEVICE_ARGUMENT")" || exit 1
 
 FIXED_START=""
 QUICK=0
@@ -173,7 +177,15 @@ BLOCK_COUNT=$((TOTAL_SIZE / BLOCK_SIZE))
 
 IO_SIZE=$((4 * 1024 * 1024))                      # FR-CTRL-8's default
 ALIGN_BLOCKS=$((IO_SIZE / BLOCK_SIZE))            # one chunk
-RUN_BYTES=$(( (1024 * 1024 * 1024) - (512 * 1024) ))   # 1 GiB - 512 KiB
+# 1 GiB - 1 MiB. Still 255 full 4 MiB chunks plus a short 3 MiB one, so FR-TEST-5 is exercised
+# on real media exactly as before and EXPECTED_CHUNKS is still 256.
+#
+# Was `1 GiB - 512 KiB` until 2026-08-04. FR-TEST-10 now requires a run to cover a whole number
+# of 1 MiB units unless it ends at the device's last block, and this run is deliberately placed
+# 1 GiB clear of the end — so 1023.5 MiB would be REFUSED by the helper. It would have been
+# refused about 35 minutes in, right after the before-fingerprint pass. Caught by reading the
+# rule against the script rather than by running it.
+RUN_BYTES=$(( (1024 * 1024 * 1024) - (1024 * 1024) ))   # 1 GiB - 1 MiB
 RUN_BLOCKS=$((RUN_BYTES / BLOCK_SIZE))
 MARGIN_BLOCKS=$(( (1024 * 1024 * 1024) / BLOCK_SIZE )) # the user's "1 GiB clear of the end"
 EXPECTED_CHUNKS=$(( (RUN_BYTES + IO_SIZE - 1) / IO_SIZE ))

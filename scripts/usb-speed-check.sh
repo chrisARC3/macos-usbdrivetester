@@ -30,7 +30,7 @@
 #
 # Usage:
 #   scripts/usb-speed-check.sh              # every USB device with a Device Speed
-#   scripts/usb-speed-check.sh disk4 disk8  # also resolve these disks to their link speed
+#   scripts/usb-speed-check.sh disk8 disk4  # also resolve these BSD names to their link speed
 #
 set -euo pipefail
 
@@ -142,7 +142,7 @@ if [[ $# -gt 0 ]]; then
     echo "  Disks resolved through their IOKit ancestry (the search the helper performs):"
     echo
 
-    # `ioreg -n disk4` cannot answer this: a disk's IOMedia entry does not carry the USB
+    # `ioreg -n diskN` cannot answer this: a disk's IOMedia entry does not carry the USB
     # device's properties — they are several levels up the IOService plane, past the
     # block-storage driver and the SCSI peripheral. Reaching them needs an upward recursive
     # search (IORegistryEntrySearchCFProperty with kIORegistryIterateParents), which is code,

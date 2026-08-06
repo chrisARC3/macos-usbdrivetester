@@ -95,9 +95,11 @@
 				Core/DiskIOControl.swift,
 				Core/FileDescriptorBlockDevice.swift,
 				Core/InMemoryBlockDevice.swift,
+				Core/LatencyHistogram.swift,
 				Core/RawBlockDevice.swift,
 				Core/RetentionRun.swift,
 				Core/RetentionTestEngine.swift,
+				Core/RunMetrics.swift,
 				Core/RunParameterValidator.swift,
 				Core/USBLinkSpeed.swift,
 			);

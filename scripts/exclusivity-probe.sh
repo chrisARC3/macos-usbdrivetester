@@ -14,15 +14,18 @@
 # THE PROBE NEVER WRITES TO THE DEVICE. It opens, locks, claims, then releases.
 #
 # Usage:
-#   scripts/exclusivity-probe.sh disk4
+#   scripts/exclusivity-probe.sh [--device <serial|diskN>]
 #
 set -euo pipefail
 
-DISK="${1:-}"
-if [[ -z "$DISK" ]]; then
-    echo "usage: $0 <whole-disk-bsd-name>   e.g. $0 disk4" >&2
-    exit 2
-fi
+# The target drive is resolved by USB SERIAL NUMBER, not by the BSD name on the command line
+# (2026-08-06). A reboot renumbers these; `disk4` was this project's scratch device until one did,
+# and then named the 22 TB backup drive. An old-style bare `diskN` argument is still accepted —
+# it is CHECKED against the serial, and refused if it names a different drive.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/device-identity.sh"
+parse_device_flag "$@" || exit 2
+set -- ${DEVICE_FLAG_REMAINING[@]+"${DEVICE_FLAG_REMAINING[@]}"}
+DISK="$(resolve_target scratch "$DEVICE_ARGUMENT")" || exit 1
 
 # --- Preflight: this needs an interactive terminal -----------------------------------
 #
@@ -41,7 +44,7 @@ error: this script needs an interactive terminal.
   Open Terminal and run it there:
 
       cd /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester
-      ./scripts/exclusivity-probe.sh disk4
+      ./scripts/exclusivity-probe.sh
 
 MSG
     exit 2

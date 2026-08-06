@@ -398,7 +398,9 @@ for command in commands {
                                      ioSizeBytes: ioSize) { completed, chunks, failedRanges,
                                                             failureSummary, cacheBypass,
                                                             fastestBytesPerSecond,
-                                                            bufferBytesHeld, message in
+                                                            bufferBytesHeld,
+                                                            hostOverheadFraction,
+                                                            helperCoreFraction, message in
                 print("[cycle] COMPLETED=\(completed ? 1 : 0)")
                 print("[cycle] CHUNKS=\(chunks)")
                 print("[cycle] FAILED_RANGES=\(failedRanges)")
@@ -406,6 +408,10 @@ for command in commands {
                 print("[cycle] CACHE_BYPASS=\(cacheBypass)")
                 print("[cycle] FASTEST_BYTES_PER_SECOND=\(Int(fastestBytesPerSecond.rounded()))")
                 print("[cycle] BUFFER_BYTES=\(bufferBytesHeld)")
+                // NFR-PERF-3 (Step 9, protocol v8). Emitted as fractions, `-1` when the helper
+                // could not establish them — never 0, which means something quite different.
+                print("[cycle] HOST_OVERHEAD_FRACTION=\(hostOverheadFraction)")
+                print("[cycle] HELPER_CORE_FRACTION=\(helperCoreFraction)")
                 print("[cycle] MESSAGE=\(message)")
                 done()
             }

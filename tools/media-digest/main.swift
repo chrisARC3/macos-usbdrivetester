@@ -5,7 +5,7 @@
 //  ## What this is for
 //
 //  Step 8's hardware gate has to show that a run of the read → write-back → read-verify cycle
-//  left `disk4`'s contents unchanged. The run's own verify **cannot** establish that, and the
+//  left the scratch device's contents unchanged. The run's own verify **cannot** establish that, and the
 //  reason is worth stating precisely because it is easy to assume otherwise:
 //
 //  > The verify compares what was read back **at the offset the cycle intended to write**. A
@@ -21,7 +21,7 @@
 //  ## Read-only, and deliberately not exclusive
 //
 //  Opens `O_RDONLY` with **no** `O_EXLOCK` and unmounts nothing — the same departure from
-//  `DeviceClaim`'s flags that `large-address-probe` made for `disk8`, and for the same reason:
+//  `DeviceClaim`'s flags that `large-address-probe` made for the Seagate, and for the same reason:
 //  the descriptor physically cannot write, and with no exclusive lock there is no release to
 //  trigger DiskArbitration's remount.
 //

@@ -59,13 +59,56 @@ struct DeviceListView: View {
     /// "no banner" and "the helper says everything is fine" must not look the same.
     @State private var readinessError: String?
 
-    /// Whether the helper holds exclusive access to the selected device. Kept alongside
-    /// `readiness` because acquire and release change it immediately, without waiting for
-    /// the next check to come back.
-    @State private var helperHoldsDevice = false
+    /// Shared app state. This view is where a device is acquired and released, and the
+    /// diagnostics *window* needs to know whether one is held before it can offer to run a
+    /// cycle — so that fact cannot live in either view's `@State`.
+    @Environment(AppModel.self) private var model
+
+    /// Whether the helper holds exclusive access to the selected device. Changed immediately by
+    /// acquire and release rather than waiting for the next readiness check to come back.
+    ///
+    /// Read-only here and written through `model` so there is exactly one copy: a mirrored
+    /// `@State` would be a second answer to a question that already has one, and the two would
+    /// eventually disagree about whether a run may be offered.
+    private var helperHoldsDevice: Bool { model.helperHoldsDevice }
 
     @State private var mountOperationInFlight = false
     @State private var accessOperationInFlight = false
+
+    /// Keyboard focus for the device list.
+    ///
+    /// ## Why the list is focused on launch (2026-08-05, user decision)
+    ///
+    /// `List`'s selection chrome renders in the accent colour only while the list holds keyboard
+    /// focus, and in grey otherwise. So the app's **own** default selection — FR-DEV-3's, made by
+    /// the app before the user has touched anything — was the one that looked tentative, and a
+    /// click was needed to make it look chosen. Two visual states for one logical state, at the
+    /// moment the user is deciding which drive they are about to write to.
+    ///
+    /// That ambiguity is not a cosmetic one here. The selected device is the line that stands
+    /// between the user and testing the wrong drive (NFR-USE-3); "is that actually selected?" is
+    /// exactly the question this screen must never raise.
+    ///
+    /// ## The fix is genuine first responder, not a drawn imitation (user decision)
+    ///
+    /// Custom-drawing a selected background was rejected: the row must be *actually* selected,
+    /// exactly as a click leaves it. So this focuses the list and lets AppKit draw what it always
+    /// draws — which also keeps ↑/↓ navigation and VoiceOver's selection semantics, both of which
+    /// a hand-drawn highlight would have silently cost.
+    ///
+    /// ## What was measured, because two mechanisms look identical from the outside
+    ///
+    /// `tools/ui-probe` reports `window.firstResponder` at capture time, so "is the list actually
+    /// focused" is a fact rather than an inference from a colour:
+    ///
+    /// | mechanism | firstResponder | highlight |
+    /// |---|---|---|
+    /// | `.defaultFocus($deviceListHasFocus, true)` | `NSWindow` — nothing took it | grey |
+    /// | `.focused(…)` + assignment deferred one run-loop turn | `SwiftUIOutlineListView` | **blue** |
+    ///
+    /// The deferral is the whole difference: at `onAppear` the view is not yet in a key window and
+    /// the focus request is dropped.
+    @FocusState private var deviceListHasFocus: Bool
 
     /// The last mount/unmount or acquire/release result, shown verbatim.
     @State private var lastOutcome: OutcomeMessage?
@@ -90,7 +133,31 @@ struct DeviceListView: View {
             readiness = nil
             readinessError = nil
             lastOutcome = nil
-            helperHoldsDevice = false
+
+            // ## The claim follows the selection (2026-08-05, user decision)
+            //
+            // Holding exclusive access to a drive the UI does not name as selected is a mismatch
+            // between what the app shows and what it actually controls — so the claim is released
+            // the moment the selection stops naming it, whether that is a deselection or a switch
+            // to another drive.
+            //
+            // This also *removes* rather than works around the stale-claim defect noted earlier:
+            // `helperHoldsDevice` is written from `helperHoldsThisDevice`, a per-device answer,
+            // while every use site reads it as "the helper holds some device". Those two can only
+            // disagree when the held device and the selected device differ — which this rule makes
+            // impossible. It is no longer cleared speculatively here; `release()` clears it when
+            // the helper confirms, and `refreshReadiness()` sets it from the helper otherwise.
+            //
+            // Safe against releasing mid-write because the selection cannot change during a run.
+            // That guard is enforced in `DeviceDiscovery.select`/`deselect`, not here and not
+            // only in the view: it is the one thing standing between a stray ⌘-click and a claim
+            // dropped under an active write, so it belongs where every caller must pass through
+            // it and where a test can hold it.
+            if model.helperHoldsDevice,
+               model.heldDeviceName != discovery.selectedDevice?.bsdName.rawValue {
+                release()
+            }
+
             refreshReadiness()
         }
         // The mounted-volume set changing is the other input the banner depends on, and
@@ -110,16 +177,32 @@ struct DeviceListView: View {
                 Text(discovery.summary)
                     .font(.headline)
                 Spacer()
+                // With no Refresh button, this timestamp is the only visible evidence that the
+                // list is current — so it earns its place rather than merely surviving the
+                // button's removal.
                 if let lastRefresh = discovery.lastRefresh {
                     Text("Updated \(lastRefresh, format: .dateTime.hour().minute().second())")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                Button("Refresh") { discovery.refresh() }
             }
 
-            // The list normally maintains itself (FR-DEV-7). Say so, so the Refresh
-            // button does not imply that it does not.
+            // The list maintains itself (FR-DEV-7): `deviceSetChanged()` refreshes on every IOKit
+            // arrival and departure, `DeviceSelectionPolicy` keeps the user's selection while the
+            // drive it names is still present, and a change deferred during a run is applied when
+            // the run ends.
+            //
+            // ## Why there is no Refresh button (removed 2026-08-05, user decision)
+            //
+            // USB is hot-pluggable and the list is already driven by arrival/departure
+            // notifications, so the button was redundant in normal operation — and worse than
+            // redundant during a run. `refresh()` **bypasses the freeze** by design, on the
+            // reasoning that an explicit call is a deliberate act; but FR-DEV-7 freezes the list
+            // during a run precisely so it cannot rebuild underneath one, and the banner below
+            // says so. A user pressing a button next to that banner is not deliberately
+            // overriding a safety freeze. The `refresh()` *method* stays — Step 12's
+            // post-device-loss re-run of discovery (FR-DEV-8) is exactly the deliberate act the
+            // comment describes.
             if let explanation = discovery.freezeExplanation {
                 Label(explanation, systemImage: "pause.circle.fill")
                     .font(.callout)
@@ -144,8 +227,50 @@ struct DeviceListView: View {
                 List(discovery.devices, selection: selectionBinding) { device in
                     row(for: device)
                         .tag(device.registryEntryID)
+                        // Frozen during a run, for the same reason the list is (FR-DEV-7) and one
+                        // sharper one: the claim follows the selection, so a change mid-run would
+                        // release the device out from under an active write.
+                        //
+                        // On the **row**, not on the `List`. `selectionDisabled` is a per-row
+                        // modifier; applied to the container it compiles, renders, and silently
+                        // does nothing — which is exactly what happened, and the run-state
+                        // stand-in went straight through it.
+                        //
+                        // `selectionDisabled` rather than `disabled`: the latter would also stop
+                        // scrolling, and NFR-PERF-4 requires the window to stay scrollable
+                        // throughout a run.
+                        .selectionDisabled(discovery.isRunActive)
                 }
                 .listStyle(.inset)
+                // So FR-DEV-3's default selection reads as selected from the first frame rather
+                // than as a grey maybe. See `deviceListHasFocus`.
+                .focused($deviceListHasFocus)
+                .onAppear {
+                    // Deferred by one run-loop turn deliberately. At `onAppear` the view is not
+                    // yet in a key window, and a focus request made then is dropped on the floor
+                    // — measured, not assumed: `.defaultFocus($deviceListHasFocus, true)` left
+                    // `window.firstResponder` as the NSWindow itself.
+                    DispatchQueue.main.async { deviceListHasFocus = true }
+                }
+                // ## Preventing the deselection instead of undoing it (2026-08-05)
+                //
+                // Two attempts to *restore* the highlight after the store declined both failed,
+                // and the log convicted each in turn:
+                //
+                // 1. Bump an observable token and read it in the body, expecting the re-render to
+                //    make `List` re-apply its binding. It does not — `List` pushes selection down
+                //    only when the bound *value* changes, and a refusal does not change it.
+                // 2. Drive `.id()` from that token to force a rebuild. Also no: with the trigger
+                //    provably firing, ⌘-click still left the row deselected.
+                //
+                // So the highlight cannot be put back after the fact. It has to not leave.
+                // `allowsEmptySelection` is the AppKit switch that makes ⌘-click and clicks below
+                // the last row unable to clear a selection, and it is genuine table behaviour —
+                // the selection stays real, nothing is drawn by hand.
+                //
+                // Held off only while a run is active, because deselection is wanted the rest of
+                // the time: it releases the device (user decision 2026-08-05).
+                .background(TableSelectionPolicy(allowsEmptySelection: !discovery.isRunActive))
             }
         }
         .frame(height: listHeight)
@@ -168,7 +293,15 @@ struct DeviceListView: View {
     /// the selection and validates it, so the setter delegates rather than assigning.
     private var selectionBinding: Binding<UInt64?> {
         Binding(get: { discovery.selectedDeviceID },
-                set: { if let id = $0 { discovery.select(id) } })
+                // `nil` is a real deselection (⌘-click, or a click below the last row) and is
+                // passed through rather than dropped. Dropping it was the stale-pane defect: the
+                // table deselected, the store did not, and nothing below ever heard about it.
+                // Worth knowing before adding logic here: a ⌘-click on the **already-selected**
+                // row arrives as `select(thatSameID)`, not as the `nil` a deselection would
+                // suggest (measured 2026-08-05, from the unified log). An attempt to detect
+                // declines by comparing the requested id against the stored one was built on the
+                // opposite assumption and never fired once.
+                set: { if let id = $0 { discovery.select(id) } else { discovery.deselect() } })
     }
 
     private var emptyState: some View {
@@ -228,6 +361,10 @@ struct DeviceListView: View {
         if let medium = device.mediumType {
             parts.append(medium)
         }
+        // The serial is in the row, not only in the detail pane, because the row is what the user
+        // scans when choosing — and the BSD name beside it is a locator, not an identity
+        // (assigned at enumeration, different after any replug).
+        parts.append(device.serialSummary)
         if let volumes = device.mountedVolumesDescription {
             parts.append(volumes)
         }
@@ -302,6 +439,7 @@ struct DeviceListView: View {
                     detailRow("Exact size", device.exactCapacityDescription)
                     detailRow("Geometry", device.geometryDescription)
                     detailRow("Raw device", device.bsdName.rawDevicePath)
+                    detailRow("Serial number", device.serialDescription)
                     if let medium = device.mediumType {
                         detailRow("Medium", medium)
                     }
@@ -316,20 +454,34 @@ struct DeviceListView: View {
                 }
 
                 if device.mountedVolumesDescription != nil {
-                    // The app's own early warning, shown at the moment of selection. The
-                    // guard that actually refuses a run is helper-side and speaks below.
-                    Label("""
-                          This drive has mounted volumes. A run cannot start until they \
-                          are unmounted, and testing a drive you are using is not \
-                          advisable.
-                          """, systemImage: "exclamationmark.triangle.fill")
+                    // Advice, not a rule. The *rule* — that a run cannot start while volumes are
+                    // mounted — is the helper's to state, and it does so in `readinessBanner`
+                    // just below. This line used to say both, which meant the same refusal was
+                    // written in two places from two sources: one computed here from IOKit's
+                    // volume list, one answered by the process that actually enforces it
+                    // (NFR-REL-7). Two statements of one fact are two things that can drift.
+                    Label("Testing a drive you are using is not advisable.",
+                          systemImage: "exclamationmark.triangle.fill")
                         .font(.callout)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
+                // Moved here from the "Mounting & exclusive access" section (2026-08-05, user
+                // decision): whether this drive is ready **is** part of the drive's state, and
+                // having it in a second pane split one question across two headings while
+                // duplicating the mounted-volume fact shown above.
+                //
+                // It also fixes the stale-pane defect that prompted the merge. This banner now
+                // renders only inside `selectedDeviceIdentity(for:)`, which is called only with
+                // a device — so deselecting cannot leave a readiness answer on screen for a
+                // drive that is no longer named anywhere near it.
+                readinessBanner(for: device)
+
                 Text("""
                      Block size and block count are as reported by IOKit. The helper \
-                     confirms them directly from the device before any run begins.
+                     confirms them directly from the device before any run begins. The serial \
+                     number is the USB device's: an external enclosure keeps its own serial when \
+                     the drive inside it is swapped.
                      """)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -349,8 +501,13 @@ struct DeviceListView: View {
                     .font(.headline)
             }
 
-            readinessBanner
-
+            // The readiness banner moved into the Selected device pane on 2026-08-05. What is
+            // left here is only the controls that *act*, which is the split the merge was for:
+            // "what is this drive and is it ready" above, "do something to it" here.
+            //
+            // These three controls are themselves scheduled for removal — user decision
+            // 2026-08-05, FR-SAFE-5 withdrawn and FR-SAFE-6 reversed. Step 11's Start owns
+            // unmount → acquire → run → release, with Step 14's warnings as the confirmation.
             let control = mountControlState(for: device)
 
             HStack(spacing: 10) {
@@ -397,20 +554,25 @@ struct DeviceListView: View {
         }
     }
 
-    /// What the helper says about the selected device, or why it could not be asked.
+    /// What the helper says about the given device, or why it could not be asked.
+    ///
+    /// - Parameter device: the drive this answer is about. Taking it as a parameter rather than
+    ///   reading `discovery.selectedDevice` is what makes the no-selection case *unrepresentable*
+    ///   rather than merely handled: there is no longer a code path that renders a readiness
+    ///   answer with nothing selected, so none can be left stale by a deselection. The previous
+    ///   `selectedDevice == nil` branch is gone with it — this is only ever called from
+    ///   `selectedDeviceIdentity(for:)`, which has a device by construction.
     @ViewBuilder
-    private var readinessBanner: some View {
-        if discovery.selectedDevice == nil {
-            Label("Select a drive above to check whether it is ready for a test.",
-                  systemImage: "info.circle")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        } else if let readinessError {
+    private func readinessBanner(for device: DiscoveredDevice) -> some View {
+        if let readinessError {
+            // "below" until Step 9 moved the diagnostics panel into its own window. An
+            // instruction that points somewhere the thing no longer is sends the user looking
+            // for a control that is not there — NFR-USE-5 asks for the corrective step, and a
+            // wrong one is worse than none.
             Label("""
                   The helper could not be asked whether this drive is ready: \
-                  \(readinessError) Install and enable it under “Privileged helper & \
-                  diagnostics” below — only the helper can permit a run.
+                  \(readinessError) Install and enable it in the Privileged Helper & \
+                  Diagnostics window (Window menu, or ⇧⌘D) — only the helper can permit a run.
                   """, systemImage: "questionmark.circle")
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
@@ -470,7 +632,7 @@ struct DeviceListView: View {
             case .success(let value):
                 readiness = value
                 readinessError = nil
-                helperHoldsDevice = value.helperHoldsThisDevice
+                model.helperHoldsDevice = value.helperHoldsThisDevice
             case .failure(let error):
                 readiness = nil
                 readinessError = error.localizedDescription
@@ -506,7 +668,9 @@ struct DeviceListView: View {
             switch result {
             case .success(let acquisition):
                 if case .acquired = acquisition {
-                    helperHoldsDevice = true
+                    model.helperHoldsDevice = true
+                    model.heldDeviceName = device.bsdName.rawValue
+                    model.heldDeviceSerial = device.usbSerialNumber
                     lastOutcome = OutcomeMessage(ok: true, text: acquisition.message)
                 } else {
                     // A refusal is the *expected* outcome whenever a volume is mounted,
@@ -534,7 +698,11 @@ struct DeviceListView: View {
 
         helper.releaseDevice { result in
             accessOperationInFlight = false
-            helperHoldsDevice = false
+            model.helperHoldsDevice = false
+            // `lastRunDeviceName` and `lastRunDeviceSerial` are deliberately *not* cleared: the
+            // run they name happened, and its figures are still on screen.
+            model.heldDeviceName = nil
+            model.heldDeviceSerial = nil
             switch result {
             case .success(let message):
                 lastOutcome = OutcomeMessage(ok: true, text: message
@@ -559,5 +727,70 @@ struct DeviceListView: View {
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+// MARK: - Keeping a selection from being cleared during a run
+
+/// Sets `allowsEmptySelection` on the `List`'s backing `NSTableView`.
+///
+/// ## Why this reaches into AppKit at all
+///
+/// The device list must not lose its selection while a run is active, because the helper's claim
+/// follows the selection and dropping it would release the drive under an active write. The
+/// *authoritative* guard for that is in `DeviceDiscovery.select`/`deselect`, which refuse outright
+/// and are unit-tested; this is only about the picture agreeing with the model.
+///
+/// Three pure-SwiftUI attempts failed, each disproved by measurement rather than abandoned on a
+/// hunch (see the call site). The table changes its own selection before the binding is consulted,
+/// and nothing available in SwiftUI puts it back afterwards. `allowsEmptySelection` prevents the
+/// change instead, and it is the real table's own behaviour — the selection stays genuine, with
+/// keyboard navigation and VoiceOver semantics intact, which a hand-drawn highlight would have
+/// cost.
+///
+/// ## What it depends on, and how it fails
+///
+/// That SwiftUI's `List` is backed by an `NSTableView`. True on macOS 26; not contractual, and a
+/// future OS could change it.
+///
+/// **It fails safe.** If no table is found, nothing is set and the behaviour degrades to exactly
+/// what shipped before this: a list that can *look* deselected during a run while the model holds
+/// firm. It cannot fail into releasing a device, because it is not what prevents that.
+private struct TableSelectionPolicy: NSViewRepresentable {
+
+    let allowsEmptySelection: Bool
+
+    func makeNSView(context: Context) -> NSView { NSView(frame: .zero) }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        // Deferred one turn: on the first layout pass this view exists before the list's table
+        // does, so looking now would find nothing and silently do nothing — the same "ran too
+        // early to see anything" shape as the focus fix earlier in this file.
+        DispatchQueue.main.async {
+            nsView.nearestTableView()?.allowsEmptySelection = allowsEmptySelection
+        }
+    }
+}
+
+private extension NSView {
+
+    /// The closest `NSTableView`, searched by walking up the ancestor chain and looking down from
+    /// each level. Returns the nearest match, so a second list elsewhere in the window cannot be
+    /// picked up by accident.
+    func nearestTableView() -> NSTableView? {
+        var ancestor: NSView? = self
+        while let current = ancestor {
+            if let table = current.firstTableViewInSubtree() { return table }
+            ancestor = current.superview
+        }
+        return nil
+    }
+
+    func firstTableViewInSubtree() -> NSTableView? {
+        if let table = self as? NSTableView { return table }
+        for subview in subviews {
+            if let table = subview.firstTableViewInSubtree() { return table }
+        }
+        return nil
     }
 }

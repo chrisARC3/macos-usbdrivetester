@@ -59,10 +59,36 @@ struct HelperDiagnosticsView: View {
     @State private var versionMismatch = false
     @State private var isCalling = false
 
+    /// Step 9's bounded-cycle scaffolding.
+    ///
+    /// `cycleIsRunning` and `linkSpeedCode` are **bindings** rather than local state because the
+    /// metrics panel lives in `ContentView`, above this disclosure: it needs to know a run is in
+    /// flight (the app knows its own run's lifecycle, so the helper is never asked) and it needs
+    /// the negotiated link speed to show beside measured throughput. Step 11 owns both properly
+    /// when the run-control state machine becomes the single source of run state.
+    @Binding var cycleIsRunning: Bool
+    @Binding var linkSpeedCode: Int
+
+    /// Whether the helper holds a device — the bounded cycle's precondition. Acquired in the
+    /// *main* window, needed here, so it lives in `AppModel`.
+    let deviceIsHeld: Bool
+
+    /// Whether new privileged work may still be issued (`AppModel.mayIssueNewWork`).
+    ///
+    /// False once a quit is pending. "Cancel and Quit" promises to issue no further work, and this
+    /// control is the only thing in the app that issues any — so the promise is kept here or it is
+    /// not kept at all. The confirmation is a sheet on the *main* window, which leaves this window
+    /// clickable underneath it, so the disable is doing real work rather than guarding an
+    /// unreachable state.
+    let mayIssueNewWork: Bool
+
+    @State private var cycleResult: ActionResult?
+
     var body: some View {
         Form {
             registrationSection
             connectionSection
+            boundedCycleSection
             parameterSection
             teardownSection
         }
@@ -147,6 +173,149 @@ struct HelperDiagnosticsView: View {
                       """, systemImage: "exclamationmark.triangle.fill")
                     .font(.callout)
                     .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    // MARK: - Step 9's bounded cycle (scaffolding — Step 11 deletes this)
+
+    /// Starts one bounded pass so the live metrics panel has something to display.
+    ///
+    /// ## Everything about this is deliberately not configurable
+    ///
+    /// * **Block 0**, always. FR-TEST-4 says a run begins at the first addressable block, and
+    ///   FR-TEST-10 says every I/O begins on a 1 MiB boundary — block 0 satisfies both, and a
+    ///   start the user could influence would satisfy neither by construction.
+    /// * **4 MiB**, the FR-CTRL-8 default, hard-coded. The real dropdown is Step 11's, because
+    ///   its whole behaviour is defined in terms of pause and resume, which do not exist yet.
+    /// * **1 GiB**, `TesterProtocol.maximumBytesPerCall` — the most one uncancellable privileged
+    ///   call may cover. A whole-device run is a *sequence* of these, and sequencing them is
+    ///   Step 11's job, not something to improvise here.
+    ///
+    /// So this covers the first gibibyte and stops. It is not a run in the product's sense and
+    /// the wording says so, because a control that looks like Start on a tool that writes to
+    /// drives must not be mistaken for one.
+    private var boundedCycleSection: some View {
+        Section("Bounded cycle (Step 9 scaffolding)") {
+            // "above" until Step 9 moved this panel into its own window — the metrics are now in
+            // the main window, which is the whole reason this is not a modal sheet. Same class of
+            // stale spatial reference as the device panel's "diagnostics below".
+            Text("""
+                 Runs the read → write-back → verify cycle over the **first 1 GiB** of the held \
+                 device, at the 4 MiB default I/O size, so the metrics panel in the main window \
+                 has a live run to display — keep that window visible while this runs. This is \
+                 not the product's run: that covers the whole device and arrives with the run \
+                 controls in Step 11.
+                 """)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Label("""
+                  This writes to the drive. The cycle writes back exactly the bytes it read, \
+                  which is proven non-destructive in simulation and verified byte-for-byte on \
+                  hardware — but it is still a write, and it needs the device already acquired.
+                  """, systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                // Disabled until a device is actually held, rather than pressable-and-failing.
+                //
+                // Reported 2026-08-04 as "the button appears to do nothing": it was working
+                // exactly as written — the helper answered "no device is held" in 25 ms, the
+                // spinner flashed for a single frame, and a failure message was the only trace.
+                // Every other control here disables itself and names the corrective step
+                // (FR-SAFE-4, NFR-USE-5); this one stated its precondition in prose and then
+                // looked live. **Prose is not a precondition.**
+                Button("Run one bounded cycle") { runBoundedCycle() }
+                    .disabled(isCalling || cycleIsRunning || !deviceIsHeld || !mayIssueNewWork)
+                if cycleIsRunning {
+                    ProgressView().controlSize(.small)
+                    Text("running…").font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer()
+            }
+
+            // Named rather than left to the dimming, like every other refusal in this app
+            // (NFR-USE-5). Checked before the no-device message because it is the more specific
+            // reason: with a quit pending, acquiring a device would not make this pressable.
+            if !mayIssueNewWork {
+                Label("""
+                      The app has been asked to quit, so no new work can be started. Choose \
+                      “Continue Testing” in the main window to carry on.
+                      """, systemImage: "hourglass")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else if !deviceIsHeld {
+                Label("""
+                      No device is held. Select a drive in the main window, unmount its volumes, \
+                      then use “Acquire exclusive access” — only the helper can permit a run, and \
+                      it derives the geometry this needs from the descriptor it holds.
+                      """, systemImage: "info.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            resultRow(cycleResult)
+        }
+    }
+
+    /// Ask for the device's geometry, then run one bounded pass over its first gibibyte.
+    ///
+    /// The profile call is not optional politeness: 1 GiB is a byte figure and the request is in
+    /// **blocks**, so converting it needs the device's logical block size. Assuming 512 would be
+    /// wrong on 4,096-byte geometry (NFR-COMPAT-5) and would silently ask for eight times the
+    /// intended range — which the helper would then refuse as over the per-call cap, reporting a
+    /// size error for what was really an assumption. The same call yields the negotiated link
+    /// speed the metrics panel shows beside measured throughput.
+    private func runBoundedCycle() {
+        cycleResult = nil
+        cycleIsRunning = true
+
+        helper.deviceProfile { profileResult in
+            guard case .success(let profile) = profileResult, profile.isAvailable,
+                  profile.logicalBlockSize > 0 else {
+                cycleIsRunning = false
+                cycleResult = ActionResult(
+                    ok: false,
+                    message: "Could not read the device's geometry. Acquire a device first — the "
+                           + "helper derives geometry from ioctls on the descriptor it holds, and "
+                           + "will not open one speculatively to answer a query.")
+                return
+            }
+
+            linkSpeedCode = profile.usbLinkSpeedCode
+
+            let blockCount = TesterProtocol.maximumBytesPerCall / UInt64(profile.logicalBlockSize)
+            helper.runRetentionCycle(startBlock: 0,
+                                     blockCount: blockCount,
+                                     ioSizeBytes: TesterProtocol.defaultIOSizeBytes) { result in
+                cycleIsRunning = false
+
+                switch result {
+                case .success(let outcome):
+                    // "Completed" means every planned chunk was processed — NOT that they all
+                    // passed. A run that finds bad blocks and keeps going still completes
+                    // (FR-FAIL-3), so the failure count is what decides how this reads.
+                    var text = outcome.message
+                    if let overhead = outcome.hostOverheadFraction {
+                        text += String(format: "\n\nHost overhead: %.3f%% of device I/O time.",
+                                       overhead * 100)
+                    }
+                    if let core = outcome.helperCoreFraction {
+                        text += String(format: " Helper CPU: %.1f%% of one core.", core * 100)
+                    }
+                    cycleResult = ActionResult(
+                        ok: outcome.didComplete && outcome.failedRangeCount == 0,
+                        message: text)
+                case .failure(let error):
+                    cycleResult = ActionResult(ok: false,
+                                               message: "The cycle could not be run: "
+                                                   + error.localizedDescription)
+                }
             }
         }
     }

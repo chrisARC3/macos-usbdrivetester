@@ -108,10 +108,88 @@ nonisolated enum DeviceAcquisition: Equatable {
     }
 }
 
-/// Owns the `NSXPCConnection` to the privileged helper and exposes typed calls.
+/// What the helper established about the device it holds (Step 7's `deviceProfile`, called from
+/// the app from Step 9).
+nonisolated struct DeviceProfile: Equatable {
+
+    /// `false` when no device is held; everything else is then meaningless.
+    let isAvailable: Bool
+
+    /// Authoritative, ioctl-derived geometry (BUILD-PLAN 7.3).
+    let logicalBlockSize: UInt32
+    let blockCount: UInt64
+
+    /// The FR-TEST-9 verdict as it stood at acquire.
+    let cacheBypass: CacheBypassOutcome
+
+    /// Raw IORegistry `Device Speed` code, or `-1` when the registry reported none. Raw rather
+    /// than interpreted, because no SDK header declares this enumeration — see
+    /// `Core/USBLinkSpeed` and `scripts/usb-speed-check.sh`.
+    let usbLinkSpeedCode: Int
+
+    let message: String
+
+    /// Capacity in bytes, for showing measured throughput against something.
+    var byteCount: UInt64 { blockCount * UInt64(logicalBlockSize) }
+}
+
+/// How a bounded cycle ended.
+nonisolated struct RunCycleOutcome: Equatable {
+
+    /// Every planned chunk was processed. **Says nothing about whether they all passed** — a run
+    /// that finds bad blocks and keeps going still completes (FR-FAIL-3).
+    let didComplete: Bool
+
+    let chunksProcessed: UInt64
+    let failedRangeCount: Int
+    let failureSummary: String
+
+    /// FR-TEST-9's verdict at the end of the run. Qualifies the verify result when it is not
+    /// `.bypassed`.
+    let cacheBypass: CacheBypassOutcome
+
+    /// NFR-PERF-1's figure: 2 × the I/O size, whatever the range's size.
+    let bufferBytesHeld: Int
+
+    /// Host work as a fraction of device I/O time (NFR-PERF-3), or `nil` if not established.
+    let hostOverheadFraction: Double?
+
+    /// The daemon's CPU as a fraction of one core over the run (BUILD-PLAN 9.5a), or `nil`.
+    let helperCoreFraction: Double?
+
+    let message: String
+}
+
+/// Owns the `NSXPCConnection`s to the privileged helper and exposes typed calls.
 final class HelperConnection {
 
     private var connection: NSXPCConnection?
+
+    /// A **second, non-owning** connection, used only for `runProgress`.
+    ///
+    /// ## Why two connections is not a design preference
+    ///
+    /// Measured 2026-08-04 (`scripts/xpc-concurrency-check.sh disk4`, 0 failures): while the
+    /// helper is inside a blocking privileged call, **a second message on that same connection is
+    /// not delivered until the call returns.** Twenty-four pings issued at 100 ms intervals during
+    /// a 2,827.9 ms `digestRange` were all answered between 2,828.0 and 2,828.5 ms — the queue
+    /// draining *after* the call finished. A **second connection** was answered concurrently
+    /// throughout, in 0.2–0.3 ms.
+    ///
+    /// `runRetentionCycle` blocks for the whole run. So polling progress on ``connection`` would
+    /// return nothing at all until the run ended, which is indistinguishable from a wedged
+    /// daemon — and would make NFR-PERF-5's "refresh at least once per second" unachievable by
+    /// construction rather than by a bug.
+    ///
+    /// ## Non-owning, and why that word is load-bearing
+    ///
+    /// This connection **never calls `acquireDevice`**. The helper releases a claim when the
+    /// connection that acquired it goes away (NFR-REL-5), scoped by
+    /// `HelperActivity.releaseIfOwned(by:)` to that connection's own acquisition — so this one
+    /// dropping releases nothing and cannot pull a device out from under a run. The device has
+    /// exactly one owner, which is why Step 6 hoisted `HelperConnection` to a single shared
+    /// instance in the first place.
+    private var progressConnection: NSXPCConnection?
 
     // MARK: - Connection lifecycle
 
@@ -141,13 +219,34 @@ final class HelperConnection {
         return new
     }
 
-    /// Tear down the connection. Used before re-registering the daemon (a stale
+    /// The progress connection, created on first use.
+    private func currentProgressConnection() -> NSXPCConnection {
+        if let progressConnection { return progressConnection }
+
+        let new = NSXPCConnection(machServiceName: HelperIdentity.machServiceName,
+                                  options: .privileged)
+        new.remoteObjectInterface = NSXPCInterface(with: TesterControl.self)
+        new.invalidationHandler = { [weak self] in
+            log.error("helper progress connection invalidated")
+            DispatchQueue.main.async { self?.progressConnection = nil }
+        }
+        new.interruptionHandler = {
+            log.error("helper progress connection interrupted")
+        }
+        new.resume()
+        progressConnection = new
+        return new
+    }
+
+    /// Tear down both connections. Used before re-registering the daemon (a stale
     /// connection outlives the daemon it pointed at) and on app exit. Step 4 folds
     /// this into the productised teardown path.
     func invalidate() {
-        log.notice("invalidating helper connection")
+        log.notice("invalidating helper connections")
         connection?.invalidate()
         connection = nil
+        progressConnection?.invalidate()
+        progressConnection = nil
     }
 
     // MARK: - Calls
@@ -304,6 +403,98 @@ final class HelperConnection {
         }
     }
 
+    // MARK: - Step 7's device profile, called by the app from Step 9
+
+    /// What the helper established about the device it holds — geometry, the FR-TEST-9 verdict,
+    /// and the **negotiated USB link speed**.
+    ///
+    /// On the protocol since Step 7 but never called from the app until now. Step 9 needs the
+    /// link speed: judging a drive's throughput means comparing it with the manufacturer's
+    /// advertised sustained figure *after accounting for the negotiated link*, and that is the
+    /// user's judgement to make (decision 2026-08-04) — which they cannot make with only one of
+    /// the two numbers.
+    ///
+    /// Passive and side-effect-free: it performs no I/O and opens nothing. Requires a device to
+    /// be held.
+    func deviceProfile(completion: @escaping (Result<DeviceProfile, Error>) -> Void) {
+        withProxy(completion) { tester, finish in
+            tester.deviceProfile { available, ioctlBlockSize, ioctlBlockCount, _, _,
+                                   cacheBypassCode, linkSpeedCode, _, message in
+                finish(.success(DeviceProfile(
+                    isAvailable: available,
+                    logicalBlockSize: ioctlBlockSize,
+                    blockCount: ioctlBlockCount,
+                    cacheBypass: CacheBypassOutcome(wireValue: cacheBypassCode),
+                    usbLinkSpeedCode: linkSpeedCode,
+                    message: message)))
+            }
+        }
+    }
+
+    // MARK: - Step 9: the run, and watching it
+
+    /// Run the bounded read → write-back → verify cycle over the held device.
+    ///
+    /// **This is the only call the app makes that writes to a drive**, and it blocks for the
+    /// whole run — which is precisely why ``runProgress(completion:)`` goes out on a different
+    /// connection.
+    ///
+    /// Bounded to `TesterProtocol.maximumBytesPerCall`; the helper validates the request rather
+    /// than trusting it. Step 11 replaces this with real run control.
+    func runRetentionCycle(startBlock: UInt64,
+                           blockCount: UInt64,
+                           ioSizeBytes: Int,
+                           completion: @escaping (Result<RunCycleOutcome, Error>) -> Void) {
+        withProxy(completion) { tester, finish in
+            tester.runRetentionCycle(startBlock: startBlock,
+                                     blockCount: blockCount,
+                                     ioSizeBytes: ioSizeBytes) { completed, chunks, failedRanges,
+                                                                 failureSummary, cacheBypassCode,
+                                                                 _, bufferBytesHeld,
+                                                                 hostOverheadFraction,
+                                                                 helperCoreFraction, message in
+                finish(.success(RunCycleOutcome(
+                    didComplete: completed,
+                    chunksProcessed: chunks,
+                    failedRangeCount: failedRanges,
+                    failureSummary: failureSummary,
+                    cacheBypass: CacheBypassOutcome(wireValue: cacheBypassCode),
+                    bufferBytesHeld: bufferBytesHeld,
+                    // `-1` is the wire's "could not be established"; it stops here.
+                    hostOverheadFraction: hostOverheadFraction >= 0 ? hostOverheadFraction : nil,
+                    helperCoreFraction: helperCoreFraction >= 0 ? helperCoreFraction : nil,
+                    message: message)))
+            }
+        }
+    }
+
+    /// Ask the helper what the run in progress is doing (FR-METR-2/4/5/6, NFR-PERF-5).
+    ///
+    /// **Goes out on ``progressConnection``, not the main one**, because a second message on a
+    /// connection with a blocking call in flight is not delivered until that call returns
+    /// (measured 2026-08-04). Safe to call once a second for a whole run: the helper takes a
+    /// lock, reads counters and walks a fixed 2,240-bucket histogram.
+    func runProgress(completion: @escaping (Result<RunProgressSnapshot, Error>) -> Void) {
+        withProxy(completion, on: currentProgressConnection()) { tester, finish in
+            tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
+                                 remainingSeconds, latencySamples, latencyMinimum,
+                                 latencyMaximum, latencyP99Upper, chunksFailed in
+                finish(.success(RunProgressSnapshot(
+                    available: available,
+                    fractionComplete: fraction,
+                    currentBlock: currentBlock,
+                    readBytesPerSecond: readRate,
+                    writeBytesPerSecond: writeRate,
+                    estimatedRemainingSeconds: remainingSeconds,
+                    readLatencySampleCount: latencySamples,
+                    readLatencyMinimumNanoseconds: latencyMinimum,
+                    readLatencyMaximumNanoseconds: latencyMaximum,
+                    readLatencyP99UpperBoundNanoseconds: latencyP99Upper,
+                    chunksFailed: chunksFailed)))
+            }
+        }
+    }
+
     // MARK: - Plumbing
 
     /// Obtain the remote proxy and hand it to `body`, routing every failure path —
@@ -313,16 +504,21 @@ final class HelperConnection {
     /// were not signed under the expected Team ID, the helper's code-signing
     /// requirement would invalidate the connection and every call below would fail
     /// through this path. A foreign client sees exactly this.
+    /// - Parameter connection: which connection to send on. Defaults to the owning one; only
+    ///   ``runProgress(completion:)`` passes the progress connection, and it must, because the
+    ///   owning connection is blocked for the duration of a run.
     private func withProxy<T>(_ completion: @escaping (Result<T, Error>) -> Void,
+                              on connection: NSXPCConnection? = nil,
                               _ body: (TesterControl, @escaping (Result<T, Error>) -> Void) -> Void) {
         let finish: (Result<T, Error>) -> Void = { result in
             DispatchQueue.main.async { completion(result) }
         }
 
-        let proxy = currentConnection().remoteObjectProxyWithErrorHandler { error in
-            log.error("helper transport error: \(error.localizedDescription, privacy: .public)")
-            finish(.failure(error))
-        }
+        let proxy = (connection ?? currentConnection())
+            .remoteObjectProxyWithErrorHandler { error in
+                log.error("helper transport error: \(error.localizedDescription, privacy: .public)")
+                finish(.failure(error))
+            }
 
         guard let tester = proxy as? TesterControl else {
             finish(.failure(HelperConnectionError.proxyUnavailable))

@@ -20,8 +20,8 @@
 //  Requires root, because /dev/rdiskN is root:operator.
 //
 //  Usage:
-//      exclusivity-probe <disk4>                 run the measurement battery
-//      exclusivity-probe <disk4> --hold <secs>   claim + open and hold, so another
+//      exclusivity-probe <diskN>                 run the measurement battery
+//      exclusivity-probe <diskN> --hold <secs>   claim + open and hold, so another
 //                                                process can measure what it sees
 //
 //  ## Lessons from the first version, which produced a wrong answer
@@ -44,7 +44,7 @@ import DiskArbitration
 
 let arguments = CommandLine.arguments
 guard arguments.count > 1 else {
-    FileHandle.standardError.write(Data("usage: exclusivity-probe <disk4> [--hold <secs>]\n".utf8))
+    FileHandle.standardError.write(Data("usage: exclusivity-probe <diskN> [--hold <secs>]\n".utf8))
     exit(2)
 }
 let bsdName = arguments[1]

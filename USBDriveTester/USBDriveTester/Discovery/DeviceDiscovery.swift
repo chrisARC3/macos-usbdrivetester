@@ -53,6 +53,17 @@ final class DeviceDiscovery {
     /// Set when a hot-plug event arrives while frozen, so it can be applied on unfreeze.
     private(set) var hasPendingChange = false
 
+    // A `selectionSyncToken` lived here on 2026-08-05: a counter bumped on every declined
+    // selection change, so the view could notice and put the table's highlight back where the
+    // model said it belonged. Two consumers were built on it — a plain observed read, then
+    // `.id()` to force a rebuild — and **neither worked**. `List` pushes its selection down only
+    // when the bound value changes, and a refusal by definition does not change it.
+    //
+    // Removed rather than kept "in case": it was machinery that provably did nothing, and dead
+    // scaffolding in a store this small is a future reader's wasted hour. The fix that works
+    // prevents the deselection instead of undoing it — `TableSelectionPolicy` in `DeviceListView`,
+    // setting `NSTableView.allowsEmptySelection` while a run is active.
+
     private let source: DeviceSource
     private var isObserving = false
 
@@ -91,9 +102,16 @@ final class DeviceDiscovery {
 
     /// Rebuild the list from the source and re-apply the selection policy.
     ///
-    /// Runs whatever the freeze state — the freeze governs *automatic* refreshes, and
-    /// an explicit call (the Refresh button, or Step 12's post-device-loss re-run of
-    /// discovery, FR-DEV-8) is a deliberate act.
+    /// Runs whatever the freeze state — the freeze governs *automatic* refreshes, and an
+    /// explicit call is a deliberate act.
+    ///
+    /// - Important: the only remaining caller of that kind is Step 12's post-device-loss re-run
+    ///   of discovery (FR-DEV-8). The GUI's Refresh button was removed on 2026-08-05 (user
+    ///   decision) because it was redundant — the list is driven by IOKit arrival/departure — and
+    ///   because it offered the user a one-click way to rebuild the list *during a run*, which is
+    ///   the one thing FR-DEV-7's freeze exists to prevent. Do not re-add a UI affordance for
+    ///   this without re-reading that: the freeze bypass is correct for a deliberate recovery
+    ///   step and wrong for a button.
     func refresh(reason: String = "manual refresh") {
         let previous = devices
         let current = source.enumerateDevices()
@@ -135,6 +153,10 @@ final class DeviceDiscovery {
     /// a stale tap arriving just as a device disappears should be a no-op, not a
     /// deselection the user did not ask for.
     func select(_ id: UInt64) {
+        guard !isRunActive else {
+            log.notice("selection change refused: a run is active")
+            return
+        }
         guard devices.contains(where: { $0.registryEntryID == id }) else { return }
         guard id != selectedDeviceID else { return }
         selectedDeviceID = id
@@ -145,6 +167,38 @@ final class DeviceDiscovery {
                        (\(device.capacityDescription, privacy: .public))
                        """)
         }
+    }
+
+    /// Clear the selection because the user deselected in the list — ⌘-click on the selected row,
+    /// or a click in the empty space below the last one.
+    ///
+    /// ## Why this exists (2026-08-05, user decision)
+    ///
+    /// It did not, and that was the defect. `select(_:)` takes a non-optional, and the view's
+    /// binding dropped the `nil` the `List` reports on deselection. Dropping it changed no
+    /// `@Observable` state, so no view update was scheduled, so the `NSTableView` stayed visually
+    /// deselected while `selectedDeviceID` still named the drive — and every pane below went on
+    /// describing a device the list no longer showed as chosen.
+    ///
+    /// - Note: a deselection lasts until the device set next changes. `refresh()` re-applies
+    ///   ``DeviceSelectionPolicy``, which with no previous selection returns the first usable
+    ///   device (FR-DEV-3) — so plugging in or removing any drive re-selects one. That is
+    ///   deliberate: FR-DEV-3's default is about a *list*, and a rebuilt list is a new one.
+    /// ## Refused during a run, and this is a safety guard rather than tidiness
+    ///
+    /// Since 2026-08-05 the helper's claim **follows the selection**: `DeviceListView` releases
+    /// the device when the selection stops naming it. A deselection during a run would therefore
+    /// release the drive out from under an active write. The refusal lives here, in the store,
+    /// rather than only in the view, because the view's `selectionDisabled` covers *rows* — and a
+    /// click in the empty space below the last row is not a row.
+    func deselect() {
+        guard !isRunActive else {
+            log.notice("deselection refused: a run is active")
+            return
+        }
+        guard selectedDeviceID != nil else { return }
+        selectedDeviceID = nil
+        log.notice("selection cleared by the user")
     }
 
     // MARK: - Run state (FR-DEV-7)

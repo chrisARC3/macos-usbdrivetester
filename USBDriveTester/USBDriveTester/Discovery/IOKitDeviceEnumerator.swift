@@ -80,6 +80,11 @@ private nonisolated enum RegistryKey {
     static let productName               = "Product Name"
     static let vendorName                = "Vendor Name"
     static let mediumType                = "Medium Type"
+
+    /// Lives on the USB device node several levels *above* the media, alongside
+    /// `Physical Interconnect` — so it is read with the same upward search, not a direct
+    /// property read on the media. Verified on `disk4`, `disk6` and `disk8`, 2026-08-05.
+    static let usbSerialNumber           = "USB Serial Number"
 }
 
 /// Where the device list comes from.
@@ -224,7 +229,11 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
             logicalBlockSize: logicalBlockSize,
             mountedVolumeNames: MountTable.volumeNames(
                 on: Self.bsdNamesInSubtree(of: media, wholeDiskName: bsdName),
-                in: mountTable))
+                in: mountTable),
+            // Sanitised rather than taken as read: a bridge reporting sixteen zeros would
+            // otherwise become an identifier that every drive behind that bridge shares.
+            usbSerialNumber: USBSerialNumber.sanitised(
+                Self.ancestorString(media, RegistryKey.usbSerialNumber)))
     }
 
     // MARK: - Registry helpers
@@ -248,6 +257,20 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
     /// `Protocol Characteristics` and `Device Characteristics` live on the
     /// `IOBlockStorageDevice` several levels up the chain, not on the media itself —
     /// hence the upward recursive search rather than a direct property read.
+    /// Find a string-valued property on this object or any of its ancestors.
+    ///
+    /// Same upward search as ``ancestorDictionary(_:_:)``, for keys that are plain strings rather
+    /// than nested dictionaries — `USB Serial Number` is on the USB device node, several levels
+    /// above the media.
+    private static func ancestorString(_ entry: io_object_t, _ key: String) -> String? {
+        let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
+        return IORegistryEntrySearchCFProperty(entry,
+                                               kIOServicePlane,
+                                               key as CFString,
+                                               kCFAllocatorDefault,
+                                               options) as? String
+    }
+
     private static func ancestorDictionary(_ entry: io_object_t, _ key: String) -> [String: Any]? {
         let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
         return IORegistryEntrySearchCFProperty(entry,

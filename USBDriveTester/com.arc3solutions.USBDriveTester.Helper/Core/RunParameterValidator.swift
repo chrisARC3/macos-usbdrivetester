@@ -245,3 +245,110 @@ public enum RunParameterValidator {
                                  byteLength: byteLength)
     }
 }
+
+// MARK: - Where a run may be placed (FR-TEST-10)
+
+/// Why a run's placement was refused.
+///
+/// Separate from ``RunParameterRejection`` on purpose. That type expresses the **device's**
+/// contract — raw macOS devices reject misaligned I/O with `EINVAL`, and a range past the end is
+/// not addressable. This one expresses **this product's** policy, which is stricter than the
+/// device requires and exists for a different reason.
+public enum RunPlacementRejection: Error, Equatable, CustomStringConvertible {
+
+    /// The run would begin somewhere other than a 1 MiB boundary.
+    case startNotOnBoundary(startBlock: UInt64, byteOffset: UInt64)
+
+    /// The run covers a length that is not a whole number of MiB, and does not end at the
+    /// device's final block.
+    case lengthNotWholeBoundaries(blockCount: UInt64, byteLength: UInt64, endBlock: UInt64,
+                                  deviceBlockCount: UInt64)
+
+    public var description: String {
+        let mib = RunPlacement.boundaryBytes
+        switch self {
+        case .startNotOnBoundary(let startBlock, let byteOffset):
+            return "Cannot run: block \(startBlock) is byte offset \(byteOffset), which is not a "
+                 + "multiple of \(mib) (1 MiB). All test I/O must begin on a 1 MiB boundary "
+                 + "(FR-TEST-10) — misaligned I/O makes the device read-modify-write internally, "
+                 + "which lowers measured throughput and adds wear, and would corrupt the very "
+                 + "measurement that throughput reporting exists to provide."
+        case .lengthNotWholeBoundaries(let blockCount, let byteLength, let endBlock, let deviceBlocks):
+            return "Cannot run: \(blockCount) blocks is \(byteLength) bytes, which is not a whole "
+                 + "number of 1 MiB units, and the range ends at block \(endBlock) rather than at "
+                 + "the device's last block (\(deviceBlocks)). A whole-device run is covered as a "
+                 + "sequence of bounded calls, so a call of a non-whole length would leave the "
+                 + "next one misaligned (FR-TEST-10). Only the final range may be short."
+        }
+    }
+}
+
+/// Where a run may begin and how much it may cover (FR-TEST-10).
+///
+/// ## Why this is separate from ``RunParameterValidator/validate(byteOffset:byteLength:geometry:)``
+///
+/// That function is the *device's* contract, and it is also what the Step 3 XPC parameter-demo
+/// exercises against a simulated 1 MiB device. Folding a 1 MiB placement rule into it would
+/// reject most of that demo's offsets while telling the user something about a policy the demo
+/// is not about. These are two different rules with two different reasons, so they are two
+/// functions.
+///
+/// ## The rule
+///
+/// | | |
+/// |---|---|
+/// | Start | a whole multiple of 1 MiB from block 0 |
+/// | Length | a whole multiple of 1 MiB, **unless** the range ends at the device's last block |
+///
+/// The exemption is FR-TEST-5's short final chunk, which is unavoidable: `disk4` is 1,953,525,168
+/// blocks — 953,869 whole MiB plus 1,456 blocks.
+///
+/// ## It is a guard against a caller, not against the run's arithmetic
+///
+/// A real run begins at block 0 (FR-TEST-4), and a position reached after any mix of {1,2,4,8}
+/// MiB chunks is always an integer number of MiB — so the engine cannot generate a misaligned
+/// start even when the transfer size changes mid-run (FR-CTRL-8, revised 2026-08-04). What this
+/// stops is a *caller* asking for one, and the helper is where that has to be stopped because the
+/// GUI is not the only caller (NFR-REL-7).
+public enum RunPlacement {
+
+    /// The boundary every run begins on. **1 MiB.**
+    ///
+    /// Chosen because it keeps starting LBAs in sync with all four UI-selectable transfer sizes
+    /// (FR-CTRL-8) and because 1 MiB alignment implies 4 KiB page alignment and covers most
+    /// erase-block sizes. Physical geometry cannot be queried, so this makes physical alignment
+    /// *far more likely* rather than certain — which is what the requirement claims and all it
+    /// claims.
+    public static let boundaryBytes: UInt64 = 1 << 20
+
+    /// Blocks per boundary for a given geometry: 2,048 at 512 B, 256 at 4,096 B.
+    public static func blocksPerBoundary(logicalBlockSize: UInt32) -> UInt64 {
+        boundaryBytes / UInt64(logicalBlockSize)
+    }
+
+    /// Check a prospective run's placement.
+    ///
+    /// - Throws: ``RunPlacementRejection`` naming which half of the rule failed.
+    public static func validate(startBlock: UInt64,
+                                blockCount: UInt64,
+                                geometry: DeviceGeometry) throws {
+        let blockSize = UInt64(geometry.logicalBlockSize)
+        let byteOffset = startBlock * blockSize
+        let byteLength = blockCount * blockSize
+
+        guard byteOffset % boundaryBytes == 0 else {
+            throw RunPlacementRejection.startNotOnBoundary(startBlock: startBlock,
+                                                            byteOffset: byteOffset)
+        }
+
+        // The only range allowed to be short is one that reaches the device's last block.
+        let endBlock = startBlock &+ blockCount
+        guard byteLength % boundaryBytes != 0 else { return }
+        guard endBlock != geometry.blockCount else { return }
+
+        throw RunPlacementRejection.lengthNotWholeBoundaries(blockCount: blockCount,
+                                                             byteLength: byteLength,
+                                                             endBlock: endBlock,
+                                                             deviceBlockCount: geometry.blockCount)
+    }
+}

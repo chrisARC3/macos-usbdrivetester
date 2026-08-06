@@ -173,6 +173,36 @@ false pass, exactly the hazard NFR-INST-2's clean-system clause exists to avoid.
 
 ---
 
+### 2026-08-05 — NFR-PERF-3 measured (no wording change)
+
+**Not an amendment to the requirement.** NFR-PERF-3's text is unchanged and remains qualitative —
+"device-bound, not host-bound", with no fixed percentage (resolved 2026-06-25, Open Question 1).
+Recorded here because *"NFR-PERF-3 has never had a number"* was true from the baseline until Step 9
+and is written into several places in the build plan; anyone reading this document should know it
+is no longer true, and what the numbers are.
+
+Measured on the designated scratch device (Samsung T5, serial `12345686DAA9`) in the
+**product's own run path** — not from an external CPU observation, and
+not from the gate's SHA-256 fingerprint, which is what the 36–39% figure quoted during Step 8
+actually was. Swept across all four I/O sizes of FR-CTRL-8 (`scripts/metrics-check.sh`, 0
+failures). At the 4 MiB default with the device moving ~470 MB/s:
+
+| | |
+|---|---|
+| per-chunk compare + metrics + bookkeeping, ÷ device I/O wall-clock | **2.55%** → the run is **97.4% device-bound** |
+| whole daemon's CPU | **4.22% of one core**, cross-checked by an independent `ps` sampler peaking at 8.5% |
+
+**Host cost follows bytes moved, not chunk count.** Across an 8× range of I/O size, µs/MiB varied
+1.32× while µs/chunk varied 8.65×. A larger I/O size therefore does **not** reduce it.
+
+**The requirement is satisfied on every transport this product is likely to meet, and the margin
+shrinks as transports get faster.** Because the cost is per-byte, its share of run time rises in
+proportion to throughput: ~10.9% at USB 3.2 Gen 2×2 and ~20.6% at USB4/Thunderbolt. Host work would
+equal device time near 18.4 GB/s; the daemon would saturate one core near 11.1 GB/s. Neither is
+reachable over USB mass storage today. This is carried as a **release-note item** for Step 16 —
+BUILD-PLAN Step 16, detailed step 7 — because "device-bound" is a claim that weakens with faster
+hardware and the notes should say so rather than imply it is unconditional.
+
 ## Assumptions
 
 - This is a **single-user, single-host desktop tool**; multi-user concurrency, networked operation, and high-availability/service-uptime requirements are not applicable.

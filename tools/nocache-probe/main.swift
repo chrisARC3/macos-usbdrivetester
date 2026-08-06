@@ -140,7 +140,8 @@ let arguments = CommandLine.arguments
 guard arguments.count >= 2, arguments.count <= 4 else {
     FileHandle.standardError.write(Data("""
         usage: sudo nocache-probe <bsdName> [ioSizeMiB] [readsPerPhase]
-               bsdName        canonical whole-disk name, e.g. disk4
+               bsdName        canonical whole-disk name, e.g. diskN — resolved from a SERIAL
+//                             by scripts/lib/device-identity.sh, not typed
                ioSizeMiB      1, 2, 4 or 8 (default 4) — the FR-CTRL-8 choices
                readsPerPhase  reads of the same region per phase (default 4, minimum 2)
 
@@ -152,18 +153,18 @@ let bsdName = arguments[1]
 
 // Canonical whole-disk names only. This mirrors `WholeDiskName(validating:)` in Core, which
 // cannot be imported here: this tool is compiled standalone by swiftc, outside the Xcode
-// project. Duplicated on purpose rather than relaxed — a probe that accepted "disk4s2" or a
+// project. Duplicated on purpose rather than relaxed — a probe that accepted a slice name or a
 // path would open something other than the whole disk it claims to.
 guard bsdName.hasPrefix("disk") else {
-    fail("\"\(bsdName)\" is not a whole-disk BSD name (expected e.g. disk4)")
+    fail("\"\(bsdName)\" is not a whole-disk BSD name (expected e.g. diskN)")
 }
 let unitDigits = bsdName.dropFirst("disk".count)
 guard !unitDigits.isEmpty,
       unitDigits.allSatisfy({ $0 >= "0" && $0 <= "9" }),
       let unitNumber = UInt32(unitDigits),
       "disk\(unitNumber)" == bsdName else {
-    fail("\"\(bsdName)\" is not a canonical whole-disk name — not a slice (disk4s2), "
-       + "not a raw node (rdisk4), and not a path")
+    fail("\"\(bsdName)\" is not a canonical whole-disk name — not a slice (diskNsM), "
+       + "not a raw node (rdiskN), and not a path")
 }
 
 let ioSizeMiB = arguments.count >= 3 ? Int(arguments[2]) ?? 4 : 4

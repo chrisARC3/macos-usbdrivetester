@@ -24,7 +24,8 @@ enum DeviceFixtures {
                        mediumType: String? = "Solid State",
                        sizeBytes: UInt64 = 1_000_204_886_016,
                        logicalBlockSize: UInt32 = 512,
-                       mountedVolumeNames: [String] = []) -> DiscoveredDevice {
+                       mountedVolumeNames: [String] = [],
+                       usbSerialNumber: String? = "12345686DAA9") -> DiscoveredDevice {
         DiscoveredDevice(registryEntryID: id,
                          bsdName: BSDDeviceName(bsdName),
                          vendorName: vendor,
@@ -32,7 +33,8 @@ enum DeviceFixtures {
                          mediumType: mediumType,
                          sizeBytes: sizeBytes,
                          logicalBlockSize: logicalBlockSize,
-                         mountedVolumeNames: mountedVolumeNames)
+                         mountedVolumeNames: mountedVolumeNames,
+                         usbSerialNumber: usbSerialNumber)
     }
 
     // MARK: - The development machine, as IOKit actually reports it

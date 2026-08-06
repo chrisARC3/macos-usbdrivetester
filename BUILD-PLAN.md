@@ -3,7 +3,7 @@
 **Status:** Draft for execution
 **Date:** 2026-06-25
 **Last amended:** 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Disk
-Access), and the test target fixed to `disk4` with disk images removed as an option
+Access), and the test target fixed to the designated scratch device with disk images removed as an option
 (see "Test hardware")
 **Source documents:**
 - [Product Brief](USBDriveTester.md)
@@ -58,30 +58,66 @@ follows Steps 1–7: a `Step N: <title>` subject, a body explaining what changed
 including any requirement added or amended, and any defect found — and the verification
 results with their numbers.
 
-### Test hardware (amended 2026-08-01, user decision)
+### Test hardware (amended 2026-08-01; **identity moved to serial numbers 2026-08-06**)
 
-Every step with a real-hardware gate uses **`disk4`** — Samsung Portable SSD T5, 1 TB,
-512-byte blocks, one exFAT volume `Test_Drive`. It holds only expendable test files.
+> **Drives are named here by USB SERIAL NUMBER. A BSD name is not an identity and must not be
+> used as one** (user decision 2026-08-06, and the product has said the same since 2026-08-05).
+>
+> **This is not a style rule. It was learned.** A reboot on 2026-08-06 renumbered this machine's
+> drives: the designated scratch device stopped being `disk4` and became `disk8` — and `disk4`
+> became the **22 TB Seagate holding Backup and Time Machine**. Every gate script took a BSD name
+> on the command line and trusted it, and every document said `disk4`. The documented command
+> `retention-cycle-check.sh disk4` would have unmounted the backup drive and written a gibibyte
+> to it. Worse, `metrics-check.sh` carried a guard that *refused any drive but `disk4`* — a safety
+> check that the renumbering turned exactly inside out: it would have refused the correct drive
+> and admitted the backup.
+>
+> **What that means for anyone reading this document.** Every BSD name below is either historical
+> (what a drive was called on the day something was measured) or an example of the *form* of a BSD
+> name. None of them designates hardware. The scripts no longer accept one as an identity either:
+> they resolve their target through `scripts/lib/device-identity.sh`, which asks the app's own
+> enumerator for the drive with the expected **serial**, cross-checks its block count, and refuses
+> otherwise — with a message naming both serials. Passing a stale `diskN` is refused rather than
+> obeyed. **Shown refusing on 2026-08-06**, not merely shown passing.
 
-- **`disk6` must never be tested** — it holds this source tree.
-- **`disk8`** (Seagate 22 TB) is for read-only checks such as 64-bit block-count handling.
+| role | drive | **serial** | notes |
+|---|---|---|---|
+| **scratch** — every write gate | Samsung Portable SSD T5, 1 TB, 512 B blocks, one exFAT volume `Test_Drive` | **`12345686DAA9`** | Contents expendable. 1,953,525,168 blocks. |
+| **bulk** — read-only, by prior agreement | Seagate Expansion HDD, 22 TB | **`00000000NT17XBRA`** | Live HFS volume + Time Machine. **Never a write target.** 42,970,644,479 blocks. |
+| **source tree** — never tested | Samsung SSD 990 EVO Plus in a Ugreen enclosure | **`013117100578`** | Holds this repository. The serial belongs to the *enclosure*. |
 
-  > **Amended 2026-08-02, user decision (Step 7 scoping): `disk4` only, "unless there is
-  > an important test case that cannot be satisfied with `disk4`".** `disk8` is therefore
-  > **not** part of any gate by default; using it requires a specific case to be named and
-  > agreed first, per step. Reading its geometry is not free — it means unmounting a 22 TB
-  > volume, and only `disk4`'s contents are expendable.
+- **The internal disk** (Apple Fabric, not USB) is the non-USB exclusion case and is excluded by
+  discovery, not by name.
+
+**How to run a hardware gate, from 2026-08-06.** Pass no drive at all — the script finds its own:
+
+```
+./scripts/metrics-check.sh                        # resolves serial 12345686DAA9
+./scripts/retention-cycle-check.sh [startBlock] [--quick]
+./scripts/large-address-check.sh                  # resolves serial 00000000NT17XBRA
+```
+
+`--device <serial|diskN>` still exists, and is a **confirmation, never an override**: it must
+agree with the role the script was written for, or the script refuses. A bare `diskN` is accepted
+in that position for one reason — so that an old command line is checked and refused rather than
+silently obeyed.
+
+  > **Amended 2026-08-02, user decision (Step 7 scoping): the scratch device only, "unless there
+  > is an important test case that cannot be satisfied with"** it. The Seagate is therefore
+  > **not** part of any gate by default; using it requires a specific case to be named and agreed
+  > first, per step. Reading its geometry is not free — it means unmounting a 22 TB volume, and
+  > only the scratch device's contents are expendable.
   >
   > **One such case was known, and has since been agreed and closed: NFR-COMPAT-6.**
-  > `disk4` is **1,953,525,168** blocks, *below* 2³² (4,294,967,296), so no test on `disk4`
+  > The scratch device is **1,953,525,168** blocks, *below* 2³² (4,294,967,296), so no test on it
   > can distinguish a correct 64-bit block count from one a USB bridge has truncated to 32
-  > bits. `disk8` is 42,970,644,479 blocks — ten times over the boundary — and is the only
+  > bits. The Seagate is 42,970,644,479 blocks — ten times over the boundary — and is the only
   > hardware here that can.
   >
   > **Agreed and run 2026-08-02, before Step 8**, via `scripts/large-address-check.sh`:
-  > 10/10, see Step 7's gate. That run is the model for any future `disk8` use — **read-only**
-  > (`O_RDONLY`, no `O_EXLOCK`), **nothing unmounted**, the live volume named to the user
-  > before it starts and verified still mounted afterwards. `disk8` remains outside every
+  > 10/10, see Step 7's gate. That run is the model for any future use of the Seagate —
+  > **read-only** (`O_RDONLY`, no `O_EXLOCK`), **nothing unmounted**, the live volume named to the
+  > user before it starts and verified still mounted afterwards. It remains outside every
   > other gate: a specific case still has to be named and agreed before it is used again.
 - **Disk images are not a test target.** Discovery excludes them (they report
   `Physical Interconnect == "Virtual Interface"`), and they lack the USB bridge, real
@@ -93,7 +129,7 @@ Every step with a real-hardware gate uses **`disk4`** — Samsung Portable SSD T
 The drive's data being expendable relaxes the *consequence* of a bug, never the discipline:
 simulation-first still applies wherever the plan calls for it.
 
-> **`disk4` must hold real data, not empty space (added 2026-08-03, learned on hardware).**
+> **The scratch device must hold real data, not empty space (added 2026-08-03, learned on hardware).**
 > Step 8's gate places its run at a **random** LBA. `Test_Drive` was 1% used, so the first
 > placement landed on unwritten space — and a cycle over an all-zero region is non-destructive
 > however wrongly it addresses the device: reading zeros, writing zeros back and verifying zeros
@@ -126,7 +162,7 @@ simulation-first still applies wherever the plan calls for it.
 | 5 | AI-3 | Device discovery & selection | GUI | USB devices enumerate, sort stably, default-select, live-refresh |
 | 6 | AI-4 | Mount-guard: unmount + exclusive whole-disk claim | Helper | Test refuses to start unless unmounted **and** claimed; precise errors |
 | 7 | AI-5 | Raw I/O core: open `rdiskN`, no-cache, block geometry, chunking | Helper | Geometry read correctly; chunk plan correct incl. final chunk |
-| 8 | AI-6 | read → write-back → read-verify cycle | Helper/core | Cycle is bit-for-bit non-destructive in simulation **and** on `disk4`, whole-device fingerprint unchanged |
+| 8 | AI-6 | read → write-back → read-verify cycle | Helper/core | Cycle is bit-for-bit non-destructive in simulation **and** on the scratch device, whole-device fingerprint unchanged |
 | 9 | AI-8 | Metrics: throughput + read-latency min/max/p99 | Both | Live metrics refresh ≥1/s; ETA converges; constant-memory p99 |
 | 10 | AI-7 | Failure modes + bad-block report + Markdown export | Both | Stop-on-error and log-and-continue both correct; report exports |
 | 11 | AI-10 | Run-control state machine: start/pause/resume/stop/restart | Both | Illegal transitions blocked; pause settles at chunk boundary |
@@ -230,7 +266,7 @@ Make the helper a real, `SMAppService`-registered LaunchDaemon, define the versi
 ### Detailed steps
 1. **Register the daemon.** In the GUI, use `SMAppService.daemon(plistName: "<helper-id>.plist")`. Call `.register()` to install; read `.status` (`.enabled`, `.requiresApproval`, `.notRegistered`, `.notFound`). When `.requiresApproval`, guide the user to **System Settings → General → Login Items & Extensions** (NFR-INST-1). Surface status clearly in the GUI.
 2. **Stand up the XPC listener in the helper.** The daemon's `main` creates an `NSXPCListener` for the Mach service name from the plist, sets a delegate implementing `listener(_:shouldAcceptNewConnection:)`, and `resume()`s. Keep the daemon alive (run loop).
-3. **Define the real XPC protocol** in `Shared/` and **version it** (NFR-MAINT-1) — e.g. include a `protocolVersion` query the GUI checks on connect. Keep the interface **minimal** (NFR-SEC-3): device geometry query, start run (with parameters), pause, resume, stop, and a callback/progress channel back to the GUI. Use a second `*Client` protocol for helper→GUI progress callbacks via `NSXPCConnection.exportedObject`.
+3. **Define the real XPC protocol** in `Shared/` and **version it** (NFR-MAINT-1) — e.g. include a `protocolVersion` query the GUI checks on connect. Keep the interface **minimal** (NFR-SEC-3): device geometry query, start run (with parameters), pause, resume, stop, and a callback/progress channel back to the GUI. Use a second `*Client` protocol for helper→GUI progress callbacks via `NSXPCConnection.exportedObject`. **(Not what Step 9 built — see Step 9, detailed step 4. The GUI polls `runProgress` on a second connection instead; no reverse protocol and no exported object on the app side. Left as written because it was the plan at the time.)**
 4. **Validate the caller's code signature (the security crux, FR-ARCH-5 / NFR-SEC-2).** In `shouldAcceptNewConnection`, before configuring the exported object, require the connection's peer to satisfy a code-signing requirement pinned to your **Team ID**:
    - Preferred modern API: `connection.setCodeSigningRequirement("anchor apple generic and certificate leaf[subject.OU] = \"<YOUR_TEAM_ID>\"")` (macOS 13+). Per NFR-SEC-2, Team-ID match is the accepted bar — do **not** additionally pin bundle id or Apple anchor beyond this requirement string.
    - Reject (return `false`) if the requirement is not met.
@@ -291,7 +327,7 @@ Enumerate connected USB mass-storage devices, present them in a stable, identifi
 
 ### Detailed steps
 1. **Enumerate USB mass-storage whole disks.** Use IOKit: match `kIOMediaClass` with `kIOMediaWholeKey = true`, then walk each media object's parent chain to confirm it sits behind a **USB** transport (USB mass-storage). For each match collect:
-   - **BSD name** (`kIOBSDNameKey`) → e.g. `disk6` (FR-DEV-6).
+   - **BSD name** (`kIOBSDNameKey`) → e.g. `disk6` (FR-DEV-6). A *locator*, not an identity: it is assigned at enumeration and names a different drive after a replug or a reboot (see "Test hardware").
    - **Capacity** = `kIOMediaSizeKey` (bytes) (FR-DEV-6, NFR-USE-3).
    - **Logical block size** = `kIOMediaPreferredBlockSizeKey` and/or confirm later via ioctl (FR-DEV-5; reconciled in Step 7).
    - **Model / vendor / product** from the USB device properties up the chain.
@@ -444,7 +480,7 @@ Implement the real `RawBlockDevice` for hardware: open the raw device uncached, 
    Read a chunk from the **middle of the device, not chunk 0** — block 0 holds the GPT and partition table, the region the OS has most recently touched, so its "first" read is the least likely to be genuinely cold.
 
    > **MEASURED 2026-08-02 — re-read timing does NOT discriminate. Mechanism revised.**
-   > `./scripts/nocache-calibration.sh disk4` (4 MiB, 4 reads/phase, 0 failures) settled the
+   > `./scripts/nocache-calibration.sh` on the scratch device (4 MiB, 4 reads/phase, 0 failures) settled the
    > open risk in the negative. With `F_NOCACHE` unset, four reads of one region took
    > 12,295 / 8,829 / 8,786 / 8,737 µs; with the flags set, a different region took
    > 8,903 / 8,872 / 8,846 / 8,887 µs. A 4 MiB copy from RAM on this machine takes **58 µs**,
@@ -519,8 +555,8 @@ Implement the real `RawBlockDevice` for hardware: open the raw device uncached, 
    >
    > | Device | Blocks (512 B) | Chunks @ 4 MiB | Materialised plan |
    > |---|---|---|---|
-   > | `disk4` — 1.0 TB | 1,953,525,168 | 238,468 | **9.1 MiB** |
-   > | `disk8` — 22 TB | 42,970,644,479 | 5,245,440 | **200.1 MiB** |
+   > | scratch device — 1.0 TB | 1,953,525,168 | 238,468 | **9.1 MiB** |
+   > | Seagate — 22 TB | 42,970,644,479 | 5,245,440 | **200.1 MiB** |
    >
    > So the requirement is restated here as its true scope: **no run-state structure may
    > scale with device capacity** — not the buffers, not the plan, not anything Steps 8–10
@@ -533,22 +569,22 @@ Implement the real `RawBlockDevice` for hardware: open the raw device uncached, 
 7. **`os_log`** device open and geometry (NFR-OBS-1) — never log contents (NFR-SEC-6).
 
 ### Verification Gate — COMPLETE (2026-08-02)
-- [x] Against the **designated scratch device** (`disk4`), geometry (block size, block count, capacity) reads correctly and matches `diskutil info`. *(Amended 2026-08-01: disk images are not an option — see "The test target" below.)* — **`scripts/geometry-check.sh disk4`, 9 PASS / 0 failures:** 512 / 1,953,525,168 / 1,000,204,886,016, matching `diskutil` on all three and matching the helper's independent IOKit reading.
-- [x] The chunk plan computed for several sizes (e.g. a device whose block count is **not** a multiple of `blocksPerChunk`) yields a correct final chunk equal to the exact remaining blocks — verified by **unit tests using `InMemoryBlockDevice`** with deliberately awkward sizes, for both 512B and 4096B blocks. — `RetentionTestEngineTests` (7 cases, unchanged since Step 2) plus `ChunkPlanTests` (12), which adds the **real** geometries: `disk4` → 238,468 chunks with a 3,504-block remainder, `disk8` → 5,245,440 chunks with an 8,191-block remainder, the latter verified by full traversal.
+- [x] Against the **designated scratch device**, geometry (block size, block count, capacity) reads correctly and matches `diskutil info`. *(Amended 2026-08-01: disk images are not an option — see "The test target" below.)* — **`scripts/geometry-check.sh` on the scratch device, 9 PASS / 0 failures:** 512 / 1,953,525,168 / 1,000,204,886,016, matching `diskutil` on all three and matching the helper's independent IOKit reading.
+- [x] The chunk plan computed for several sizes (e.g. a device whose block count is **not** a multiple of `blocksPerChunk`) yields a correct final chunk equal to the exact remaining blocks — verified by **unit tests using `InMemoryBlockDevice`** with deliberately awkward sizes, for both 512B and 4096B blocks. — `RetentionTestEngineTests` (7 cases, unchanged since Step 2) plus `ChunkPlanTests` (12), which adds the **real** geometries: the scratch device → 238,468 chunks with a 3,504-block remainder, the Seagate → 5,245,440 chunks with an 8,191-block remainder, the latter verified by full traversal.
 - [x] Peak buffer memory == ~2×`ioSize` regardless of device size (instrument and confirm; NFR-PERF-1) — **and no other run-state structure scales with capacity either (NFR-PERF-2)**, the chunk plan included. *(Amended 2026-08-02 — see step 6 above: the original wording said "buffer memory", which a 200 MiB materialised plan for a 22 TB device would have passed.)* — `ChunkBuffers` cannot scale because capacity is not one of its inputs; `peakAllocatedBytes` instrumented and asserted flat across a 1,000-chunk loop; the plan is now a lazily-computed `Sequence`, proved by an 18-exabyte plan (4.4 trillion chunks, ~176 TB if materialised) that is fully usable.
 - [x] `F_NOCACHE`/`F_GLOBAL_NOCACHE` are set — **both `fcntl` calls checked, and the acquire fails if either does not return 0.** — hardware: `CACHE_BYPASS=1`.
-- [x] **The cache-bypass self-check exists and works (FR-TEST-9).** `scripts/nocache-calibration.sh disk4` has established, on real hardware, whether re-read timing can discriminate F_NOCACHE off from on, and the classifier's thresholds are the measured numbers. If the calibration shows the comparison **cannot** discriminate, that is recorded as the finding and the check reports `inconclusive` — it is **not** allowed to report `bypassed` on evidence that would say `bypassed` regardless. *(Added 2026-08-02. The original wording — "verified by code path / no cache-hit behavior on re-read timing" — accepted a code path as sufficient; `fcntl(F_NOCACHE)` returning 0 on `/dev/null` is why that is not.)*
+- [x] **The cache-bypass self-check exists and works (FR-TEST-9).** `scripts/nocache-calibration.sh` has established, on real hardware, whether re-read timing can discriminate F_NOCACHE off from on, and the classifier's thresholds are the measured numbers. If the calibration shows the comparison **cannot** discriminate, that is recorded as the finding and the check reports `inconclusive` — it is **not** allowed to report `bypassed` on evidence that would say `bypassed` regardless. *(Added 2026-08-02. The original wording — "verified by code path / no cache-hit behavior on re-read timing" — accepted a code path as sufficient; `fcntl(F_NOCACHE)` returning 0 on `/dev/null` is why that is not.)*
 
       **Result: the calibration showed re-read timing CANNOT discriminate**, so the mechanism
       was rebuilt rather than the finding rationalised away. `bypassed` now rests on a
       structural fact — `fstat` proving the descriptor is the **character** device, which
       catches opening `/dev/diskN` by mistake — and timing is retained only as a *falsifier*,
-      against a ceiling derived from the negotiated USB link speed (1.333 GB/s for `disk4`,
+      against a ceiling derived from the negotiated USB link speed (1.333 GB/s for the scratch device,
       against the 0.475 GB/s it delivers). Timing can falsify; it cannot verify.
 
-- [x] **NFR-COMPAT-6 on hardware that can actually test it.** *(Added to this gate 2026-08-02 by user instruction: verify it on `disk8` before Step 8 begins. It was previously recorded here as a known limit carried forward.)* Nothing run on `disk4` can discharge this — at 1,953,525,168 blocks it is below 2³², where a bridge truncating its count to 32 bits is indistinguishable from a correct one, and the failure is silent: the tool would test the first portion of a larger drive and report a clean pass.
+- [x] **NFR-COMPAT-6 on hardware that can actually test it.** *(Added to this gate 2026-08-02 by user instruction: verify it on the Seagate before Step 8 begins. It was previously recorded here as a known limit carried forward.)* Nothing run on the scratch device can discharge this — at 1,953,525,168 blocks it is below 2³², where a bridge truncating its count to 32 bits is indistinguishable from a correct one, and the failure is silent: the tool would test the first portion of a larger drive and report a clean pass.
 
-      **`scripts/large-address-check.sh disk8` passes 10/10.** `DKIOCGETBLOCKCOUNT` returns
+      **`scripts/large-address-check.sh` passes 10/10 on the Seagate.** `DKIOCGETBLOCKCOUNT` returns
       **42,970,644,479** — not the 20,971,519 (10.7 GB instead of 22 TB) a truncation would
       give. Reads succeed at block 0, at 2³²−1, at **2³²**, at 2³²+10⁶, and at the last block
       (42,970,644,478). A read one block **past** the end is refused. The last block is
@@ -559,16 +595,16 @@ Implement the real `RawBlockDevice` for hardware: open the raw device uncached, 
       or wrapped addressing would have made the past-the-end read land on a valid low block
       and succeed.
 
-      **Run read-only, with nothing unmounted.** `disk8` is not the expendable scratch device
+      **Run read-only, with nothing unmounted.** The Seagate is not the expendable scratch device
       — it carries a live HFS volume — so `tools/large-address-probe` departs from
       `DeviceClaim`'s flags deliberately and opens `O_RDONLY` with no `O_EXLOCK`: the
       descriptor cannot write, no volume has to be disturbed, and with no exclusive lock there
-      is no release to trigger DiskArbitration's remount. The script **refuses `disk4`** for
+      is no release to trigger DiskArbitration's remount. The script **refuses the scratch device** for
       being at or below 2³², so it cannot be pointed at hardware that would pass it vacuously.
 
 ### The test target (amended 2026-08-01, user decision)
 
-**All real-hardware I/O testing uses `disk4`** — the Samsung Portable SSD T5, 1 TB, 512-byte
+**All real-hardware I/O testing uses the scratch device** — the Samsung Portable SSD T5, serial `12345686DAA9`, 1 TB, 512-byte
 blocks, one exFAT volume `Test_Drive`. It holds only expendable test files. **Disk images
 are not used and are not supported as a test target.**
 
@@ -595,7 +631,7 @@ skip the in-memory proof; it is what makes the hardware run survivable when the 
 misses something.
 
 ### Risks / gotchas
-- **All destructive testing goes on `disk4`, the designated scratch device.** Even though the algorithm is non-destructive, bugs in this step write to raw blocks. Never `disk6` (holds the source tree) or `disk8`.
+- **All destructive testing goes on the designated scratch device** (serial `12345686DAA9`). Even though the algorithm is non-destructive, bugs in this step write to raw blocks. Never the drive holding the source tree, and never the Seagate. The scripts enforce this by serial; they no longer accept a BSD name as an identity.
 - Raw devices reject misaligned offsets/lengths with `EINVAL` — alignment is not optional.
 - Some USB bridges report odd geometry; trust the ioctl and reject impossible values.
 - **The helper needs Full Disk Access** (NFR-INST-4, added 2026-08-01) or the raw open fails `EPERM`. Running as root is not sufficient.
@@ -646,17 +682,17 @@ Implement the heart of the tool: for each chunk, read original → write the *sa
 - [x] **Hard-error classification (FR-FAIL-6):** with read-error and write-error fault injection, the engine produces correctly-typed `BlockRangeFailure`s for the injected ranges.
 - [x] **One-chunk-in-flight (NFR-REL-4):** instrumentation confirms only one chunk's worth of original data is ever held. *(Amended 2026-08-02: `ChunkBuffers.peakAllocatedBytes` from Step 7 already covers the **buffer** half and is not sufficient on its own — it cannot see a second chunk's original being held, or per-chunk state accumulating beside bounded buffers, which is what NFR-REL-4 actually names. The gate additionally requires an **ordering** proof over the recorded device operations, and — per this project's standing rule — the checker must first be shown capable of **failing** against hand-built bad sequences.)*
 - [x] **A failed read leaves the device untouched (added 2026-08-02):** with a read fault injected on one chunk, the backing store at that chunk's offset is unchanged — not merely that a failure was recorded. This is the stale-buffer hazard of step 10 above.
-- [x] The cycle also runs against the **designated scratch device** (`disk4`) and leaves its contents unchanged. **Only after the simulation proof passes.** *(Amended 2026-08-01: disk images are not a test target — see Step 7, "The test target". The drive's data is expendable, which is what makes this survivable if the simulation proof missed something — it is not a reason to run it before that proof passes.)*
+- [x] The cycle also runs against the **designated scratch device** and leaves its contents unchanged. **Only after the simulation proof passes.** *(Amended 2026-08-01: disk images are not a test target — see Step 7, "The test target". The drive's data is expendable, which is what makes this survivable if the simulation proof missed something — it is not a reason to run it before that proof passes.)*
 
   > **Amended 2026-08-02, user decision.** "End-to-end" is bounded, and "checksum before == after" is made specific:
   >
-  > - **One run of 1 GiB − 512 KiB (2,096,128 blocks)**, starting at a **random** LBA that is a multiple of **8,192** — one 4 MiB chunk at 512-byte geometry, so the gate writes at the offsets a real whole-device run would use — and at least 1 GiB before the logical end of the drive. Random placement spreads NAND wear across repeated gate runs; the end-of-drive margin keeps the run clear of the device boundary. 3 GiB of I/O (R+W+R), under ~15 s at the 200 MiB/s floor and ≈6.8 s at `disk4`'s measured 475 MB/s. The start LBA is chosen by the **script**, not the helper, and is printed and recorded so a failure can be re-run in the same place. On `disk4` that is one of **238,212** positions, 0 through 1,951,424,512; block 0 is a legal draw, so a run may land on the GPT — deliberate, and the only live case for the "torn write bricks the drive" risk below.
+  > - **One run of 1 GiB − 512 KiB (2,096,128 blocks)**, starting at a **random** LBA that is a multiple of **8,192** — one 4 MiB chunk at 512-byte geometry, so the gate writes at the offsets a real whole-device run would use — and at least 1 GiB before the logical end of the drive. Random placement spreads NAND wear across repeated gate runs; the end-of-drive margin keeps the run clear of the device boundary. 3 GiB of I/O (R+W+R), under ~15 s at the 200 MiB/s floor and ≈6.8 s at the scratch device's measured 475 MB/s. The start LBA is chosen by the **script**, not the helper, and is printed and recorded so a failure can be re-run in the same place. On the scratch device that is one of **238,212** positions, 0 through 1,951,424,512; block 0 is a legal draw, so a run may land on the GPT — deliberate, and the only live case for the "torn write bricks the drive" risk below.
   > - **The range is deliberately not a whole multiple of the I/O size.** 1 GiB divides by 4 MiB exactly, so a full 1 GiB run would contain no short final chunk; shortening it by 512 KiB yields 255 full chunks plus a final chunk of 7,168 blocks, which exercises FR-TEST-5's `original(byteCount:)` / `verify(byteCount:)` path — and whether the bridge accepts a **write** shorter than the I/O size — on real media, at no cost.
-  > - **Not discharged by this gate, and not to be mistaken for covered:** the final chunk at the **physical end** of the device, and the whole-device traversal. Neither is reachable under the clear-of-the-end rule; both belong to a later, separately agreed run, following the `disk8` precedent.
+  > - **Not discharged by this gate, and not to be mistaken for covered:** the final chunk at the **physical end** of the device, and the whole-device traversal. Neither is reachable under the clear-of-the-end rule; both belong to a later, separately agreed run, following the Seagate precedent.
   > - **The evidence is a per-1-GiB SHA-256 vector plus a whole-device digest, taken twice, both inside the claim window.** The vector costs the same I/O as a scalar digest and localises any difference to a 1 GiB window rather than merely asserting one exists. Both digests must be taken while the helper still holds the claim: releasing makes DiskArbitration remount ~4 ms later, and a mounted exFAT volume writes to itself, so an "after" digest taken post-release would differ for reasons unrelated to this tool.
   > - **The digest tool is built and run before the gate design commits to it**, because it must first settle a fact this project has not measured: whether a second process can `open("/dev/rdiskN", O_RDONLY)` while the helper holds `O_EXLOCK`. The 2026-07-30 matrix records that two plain `O_RDWR` opens both succeed and that a second `O_EXLOCK` is refused — but not that combination, and the digest ordering above rests on it.
   >
-  > **DISCHARGED 2026-08-03.** `./scripts/retention-cycle-check.sh disk4`, placement block
+  > **DISCHARGED 2026-08-03.** `./scripts/retention-cycle-check.sh` on the scratch device, placement block
   > **277,372,928**, 15 checks / 0 failures. The whole device was fingerprinted before and after
   > — **932 windows, 1,000,204,886,016 bytes, exactly the device's reported size** — and the two
   > vectors are byte-identical. Verified independently of the script afterwards: **0 of 932
@@ -666,14 +702,14 @@ Implement the heart of the tool: for each chunk, read original → write the *sa
   > `FASTEST_BYTES_PER_SECOND=492,870,060`, `BUFFER_BYTES=8,388,608`.
   >
   > **CORRECTED 2026-08-02, on hardware.** That fact was measured, and the answer is **no**: with the helper holding `O_EXLOCK`, a root process carrying Terminal's Full Disk Access grant and requesting **no lock at all** is refused `EBUSY`. So "taken by a separate process while the helper still holds the claim" is impossible, and the two bullets above are wrong as written. **Both fingerprints must be taken by the helper, through its own descriptor.** The pre-flight existed precisely to catch this before the design was committed to; assuming it would have produced a gate that failed at the "after" fingerprint, ~40 minutes in, immediately after the first write this project ever made to real media — with no way to distinguish a digest that could not be taken from a device that had been changed.
-- [x] **The run's cache-bypass verdict survives real I/O (FR-TEST-9):** on `disk4` the assessment is still `bypassed` at the end of the run, and the fastest observed read is transport-plausible (~475 MB/s), not RAM-plausible (71.3 GB/s measured on this machine).
+- [x] **The run's cache-bypass verdict survives real I/O (FR-TEST-9):** on the scratch device the assessment is still `bypassed` at the end of the run, and the fastest observed read is transport-plausible (~475 MB/s), not RAM-plausible (71.3 GB/s measured on this machine).
 
 ### Risks / gotchas
 - A torn write to GPT/superblocks can brick an otherwise-good drive (per the brief) — this is exactly why the simulation-first verification above is mandatory before trusting hardware.
 - Ensure the write of buffer A truly precedes the verify read, and that nothing can answer the verify read without the device.
 
   > **Amended 2026-08-02.** This bullet used to end *"(Step 7's `F_NOCACHE` is what makes the verify meaningful)"*. **Step 7 measured that this is false.** `/dev/rdiskN` is the **character** device, the unified buffer cache belongs to the **block** node (`/dev/diskN`), and `F_NOCACHE` therefore had nothing to suppress — with it unset, repeated reads took ~8.8 ms, identical to with it set, while a 4 MiB copy from RAM takes 58 µs. What makes the verify meaningful is that the descriptor **is** the character device, which is why FR-TEST-9's check became structural (`fstat` → `S_ISCHR`) with timing retained only as a falsifier. Left as written, this line points the next reader at the wrong mechanism and would justify re-proposing the timing check the calibration probe already killed.
-- **`chunkPlan()` must not appear in the run path or in any many-chunk test** — it is the materialised plan (9.1 MiB for `disk4`, 200.1 MiB for `disk8`) that NFR-PERF-2 forbids. A run iterates `chunks()`. Stated because `chunkPlan()` is still the more convenient API and the Step 2 tests use it.
+- **`chunkPlan()` must not appear in the run path or in any many-chunk test** — it is the materialised plan (9.1 MiB for the scratch device, 200.1 MiB for the Seagate) that NFR-PERF-2 forbids. A run iterates `chunks()`. Stated because `chunkPlan()` is still the more convenient API and the Step 2 tests use it.
 - **The simulated device must be filled from a seeded PRNG keyed by block index**, so a mis-addressed write is detectable by content. Uniform random is not enough, and an all-zero or repeating fill would let a wrong-offset write pass — the same family of vacuity as a verify that compares a buffer with itself.
 
 ---
@@ -682,7 +718,10 @@ Implement the heart of the tool: for each chunk, read original → write the *sa
 
 **Original action item:** AI-8
 **Satisfies:** FR-METR-1/2/3/4/5/6; NFR-PERF-3/4/5/6/7, NFR-USE-1/2
-**Trust boundary:** measured **helper-side**, displayed **GUI-side** via XPC progress callbacks.
+**Trust boundary:** measured **helper-side**, displayed **GUI-side** — by the GUI **polling**
+`runProgress` on a **second XPC connection**, not by a helper→GUI callback. Measured 2026-08-04:
+a second message on a connection with a blocking call in flight is not delivered until that call
+returns, while a second connection is answered in 0.2–0.3 ms. See detailed step 4.
 
 ### Objective
 Measure average read and write throughput and per-chunk read latency (min/max/p99), and surface progress + a measured-throughput ETA live in the GUI, refreshing at least once per second, all with negligible overhead and constant memory.
@@ -692,6 +731,42 @@ Measure average read and write throughput and per-chunk read latency (min/max/p9
 2. **Read latency per chunk (FR-METR-3):** time each original read. Maintain **min**, **max**, and a **p99** using a **constant-memory** method (fixed-bucket histogram or a streaming/approximate percentile such as t-digest) — must **not** store per-chunk samples (NFR-PERF-7).
 3. **Progress + ETA (FR-METR-5/6):** percent complete and current block offset; ETA = remaining bytes ÷ measured average throughput, **updated continuously** and converging over time (NFR-PERF-6). Never assume a fixed link speed (NFR-COMPAT-7).
 4. **Live push to GUI (FR-METR-2/4, NFR-PERF-5):** helper sends a metrics snapshot to the GUI over the XPC progress callback **at least once per second**. Keep the per-chunk measurement overhead negligible relative to device I/O (NFR-PERF-3).
+
+   > **Measured 2026-08-04, before this step was written, and it constrains the mechanism.**
+   > `scripts/xpc-concurrency-check.sh`, 0 failures on the scratch device. Read-only: the long call underneath
+   > the probe is `digestRange`, not `runRetentionCycle`.
+   >
+   > While the helper is inside a blocking privileged call, **a second message on that same
+   > connection is not delivered until the call returns.** Twenty-four pings issued at 100 ms
+   > intervals during a 2,827.9 ms digest were all answered between 2,828.0 and 2,828.5 ms —
+   > the queue draining in ~0.6 ms *after* the call finished. **A second connection was
+   > answered concurrently throughout, in 0.2–0.3 ms.**
+   >
+   > So the daemon is not blocked; the connection is. Three mechanisms follow, and the
+   > difference between them is what has been measured:
+   >
+   > * **poll on the run's own connection** — ruled out by the above. It cannot work.
+   > * **push on the run's own connection** — what this step originally assumed. Needs a
+   >   reverse `@objc` protocol, an exported object on the *app* side, and the helper calling
+   >   back one-way (no reply block) from a 1 Hz timer on its own queue, never from the I/O
+   >   loop. **Rests on a further unmeasured assumption**: that an outbound send succeeds on a
+   >   connection whose inbound queue is blocked.
+   > * **poll on a second connection** — measured working, today, with no assumption left over.
+   >   One additive query method; no reverse protocol; no new inbound surface on the app; the
+   >   helper never initiates traffic to a client; and the GUI owns the ≥1/s cadence, so
+   >   NFR-PERF-5 is satisfied by the GUI's own timer rather than by the daemon.
+   >
+   > **Decided 2026-08-04, user decision: poll on a second connection.** The wording of this
+   > step ("the helper sends") anticipated the push and is superseded — it was written before
+   > the delivery behaviour was known. The deciding argument is that it is the only one of the
+   > three that rests on no unmeasured assumption; push would still require establishing that
+   > an outbound send succeeds on a connection whose inbound queue is blocked, which is
+   > precisely the kind of plausible-sounding claim this pre-flight had just falsified once.
+   >
+   > The second connection is **non-owning**: it never calls `acquireDevice`, so
+   > `HelperActivity.releaseIfOwned(by:)` means its death releases nothing (NFR-REL-5). Both
+   > connections live inside the app's single `HelperConnection`, which was hoisted to one
+   > shared instance in Step 6 precisely so the device has one owner.
 5. **UI responsiveness (NFR-PERF-4):** all heavy work is in the helper / off the main thread; the GUI only renders snapshots. Format values human-readably with clear units — MB/s, ms (NFR-USE-1) — and show percent/position/ETA clearly (NFR-USE-2).
 
 5a. **Measure the helper's CPU cost per unit of throughput (NFR-PERF-3, added 2026-08-02, user observation).** NFR-PERF-3 requires the run to be *device-bound, not host-bound*, and nothing has ever put a number on it. Record helper CPU as a percentage of one core against the measured MB/s, so the ratio can be extrapolated to faster transports.
@@ -701,17 +776,79 @@ Measure average read and write throughput and per-chunk read latency (min/max/p9
    > The **cycle's** own per-chunk cost is a `memcmp` of the chunk (the block-by-block walk is paid only on mismatch), expected to be far cheaper — order 40–80 µs against ~25 ms of I/O at 500 MB/s. **Expected, not measured.** That is exactly the kind of assumption this project has been burned by, and NFR-PERF-3 is the requirement that says it must not be assumed.
 6. **Carry metrics into the report:** expose the final throughput and latency stats so Step 10's report can include them.
 
-### Verification Gate (must pass before Step 10)
-- [ ] During a (simulated or real) run, the GUI shows read & write throughput, read-latency min/max/p99, percent complete, current position, and ETA, all **refreshing ≥ once per second**.
-- [ ] p99/min/max computed with **constant memory** — verified by running a very large simulated device and confirming no per-chunk sample growth.
-- [ ] ETA converges toward actual remaining time as the run progresses (observed on a long-enough run).
-- [ ] GUI stays responsive (scroll/interact) throughout (NFR-PERF-4).
-- [ ] Latency p99 from a controlled fault-injection (artificially slow reads on some chunks) reflects the injected slow tail.
-- [ ] **Helper CPU is recorded against measured throughput (NFR-PERF-3, added 2026-08-02)**, as a percentage of one core at a stated MB/s, on the designated scratch device. The run must be shown device-bound rather than host-bound — and if the ratio implies the host becomes the limit at a transport speed the product plausibly meets, that is a **release-note item**, carried to Step 16.
+### Verification Gate — COMPLETE (2026-08-05)
+- [x] During a (simulated or real) run, the GUI shows read & write throughput, read-latency min/max/p99, percent complete, current position, and ETA, all **refreshing ≥ once per second**. — `metrics-check.sh` **0 failures** on the scratch device: 13–14 snapshots per run arrived **while the privileged call was blocking**, widest gap **505 ms** against the 1000 ms requirement, at all four I/O sizes. User confirmed the GUI panel and progress display on 2026-08-05.
+- [x] p99/min/max computed with **constant memory** — verified by running a very large simulated device and confirming no per-chunk sample growth. — Discharged **structurally plus by test**, not by running a large device: see conflict 4 below. `LatencyHistogram.init()` takes no parameters, so capacity cannot reach it; `LatencyHistogramTests` drives **5,245,440** observations (more than the Seagate has chunks) and asserts the bucket array is unchanged at 2,240 entries / 17,920 bytes.
+- [x] ETA converges toward actual remaining time as the run progresses (observed on a long-enough run). — Discharged by a **synthetic run with a known true remaining time** (`RunMetricsTests`): 100 chunks whose rate changes partway, error **1200 → 450 → 200 → 75 → 3.03 ms**. Observed on real media too, converging to 0.1 s over a 7 s run. The multi-hour observation the wording implies is **not dischargeable** under the 1 GiB cap — see conflict 2.
+- [x] GUI stays responsive (scroll/interact) throughout (NFR-PERF-4). — **User-observed on hardware 2026-08-05**, across two live bounded cycles against the scratch device with the v8 daemon. Exercised: scrolling the selected-device detail and the device list, drag-selecting a throughput value, dragging and resizing the main window, holding a menu open, and switching focus between both windows. **No stalls, no beachball, clean redraws** — and, the part only interaction can settle, **the metrics kept advancing *during* those gestures**. That last property is not implied by the off-main-thread structure: the 1 Hz timer is published on the `.common` run-loop mode, so it survives AppKit's tracking loops; on `.default` the run would have been fine while the display froze every time the user touched the window, which is the failure mode this item exists to catch and which nothing renderable or scriptable can see.
+- [x] Latency p99 from a controlled fault-injection (artificially slow reads on some chunks) reflects the injected slow tail. — Injected as **duration** through the already-injected `MonotonicClock`, not as a fault: `InMemoryBlockDevice`'s injection produces errors, not latency, and a failed read is not a read latency at all. `p99ExcludesTheFastPopulationEntirely` requires the interval to exclude the fast population outright, so it distinguishes rather than merely brackets.
+- [x] **Helper CPU is recorded against measured throughput (NFR-PERF-3, added 2026-08-02)**, as a percentage of one core at a stated MB/s, on the designated scratch device. The run must be shown device-bound rather than host-bound — and if the ratio implies the host becomes the limit at a transport speed the product plausibly meets, that is a **release-note item**, carried to Step 16. — At the 4 MiB default with the device moving ~470 MB/s: in-span host overhead **2.55%** of device I/O time, daemon CPU **4.22% of one core**, independently cross-checked by a `ps` sampler peaking at 8.5%. The run is **97.4% device-bound**. **The release-note condition IS met** and is recorded in Step 16, detailed step 7.
+
+Also discharged, and not asked for by the wording above:
+- [x] **FR-TEST-10 shown *refusing*.** A run that satisfies a placement rule proves only that the rule did not get in the way. A start at block 1 and a length one block short of a whole MiB were both refused with **zero chunks processed**.
+- [x] **NFR-PERF-1 at every I/O size:** buffers held exactly 2 × the I/O size for 1, 2, 4 and 8 MiB.
+- [x] **The engine's rewritten loop is still non-destructive on real media.** `retention-cycle-check.sh` **15/15** on the scratch device, all **932** whole-device window fingerprints unchanged after writing 1,072,693,248 bytes (NFR-REL-1).
+
+### UI work folded into this step after the gate (2026-08-05, user decision)
+
+With the gate passed, the user reviewed the running app and raised a series of UI defects and one
+product-design change. Asked whether to commit Step 9 first or fold the work in, the user chose
+**fold in** — so Step 9's commit covers the metrics work *and* this. The full record is in
+PROGRESS.md, "Step 9 — UI work folded in after the gate"; what follows is what the plan needs.
+
+**Delivered, in five increments.** A `ui-probe` view that had silently rendered the wrong state
+since it was written; the device list focused on launch, with its Refresh button removed; merged
+panes, deselection that auto-releases, a selection frozen during a run, and **drives identified by
+USB serial number**; the main scene changed from `WindowGroup` to **`Window`**; and a
+**quit/close confirmation** with a wind-down that stops at the call boundary.
+
+**Verification.** **551 tests, 0 failures, 65 suites** (was 497 at the gate, 516 before the last
+increment). **Zero source warnings from all three clean builds** — `build.sh Debug`,
+`build.sh Release`, `test.sh`, DerivedData wiped before each. Five deliberate mutations of the quit
+logic, **all five caught**, including the two paths no amount of clicking can reach. The hardware
+gates above are unchanged and were not re-run, verified rather than assumed: **no helper, `Core/`
+or `Shared/` file has been touched** by any of this work.
+
+**Two requirements-level consequences**, both recorded in the FR document's 2026-08-05 amendment:
+**FR-SAFE-5 withdrawn, FR-SAFE-6 reversed, FR-SAFE-7 moot** — the work itself belongs to Step 11
+and is gated on Step 14, and is **not** brought forward into this step.
+
+- [x] **NFR-PERF-4, re-checked against the post-UI-work binary.** Increments 3 and 4 change the
+  window layer, which is what that requirement is about, so the earlier user observation did not
+  carry over. **Re-checked and passed, user-observed 2026-08-06** on the installed Release build
+  with the helper re-registered from `/Applications` and confirmed by Check version: a live
+  bounded cycle over the scratch device while scrolling, drag-selecting a value, resizing the
+  window, holding a menu open and switching windows — with the metrics still **advancing during**
+  those gestures, which is the part only interaction can settle.
+- [x] **The confirmation dialog observed in the product.** A SwiftUI `alert` is presented in its own
+  window, so `ui-probe` cannot capture it. **User-observed 2026-08-06**, both entry points: ⌘Q and
+  the main window's close button raise the same dialog on the main window (bringing it forward from
+  the diagnostics window), *Continue Testing* leaves everything as it was, the bounded-cycle control
+  is disabled with its corrective note while a quit is pending, and *Cancel and Quit* quits. Also
+  confirmed: **`File ▸ New Window` and ⌘W are gone**, and the Window menu reopens a closed main
+  window — the behaviour the scene probe predicted, now seen in the product.
+
+> The two items above are recorded as the user reported them. **No figures are claimed for them
+> here**, because none were re-measured: they are observations of behaviour, and the numbers in
+> this gate come from `metrics-check.sh`.
 
 ### Risks / gotchas
 - Don't let metrics formatting/IPC dominate per-chunk time — batch/throttle the once-per-second push rather than sending per chunk.
 - Approximate-percentile error is acceptable (the spec says "e.g., p99"); document the method chosen.
+- **Progress freezes on a failing drive unless an observer event is added (found 2026-08-04).** A chunk whose read, write, or verify-read *hard-errors* never reaches `observer?.chunkCompleted(...)` — all three `catch` blocks `continue` past it. (A verify *mismatch* does still emit, having completed all three phases.) An observer-based accumulator would therefore stall its chunk counter while the engine walks on: percent complete frozen, ETA running away, throughput reading low, on exactly the drive this tool exists to find. `failureDetected` cannot fill the gap — it carries no timing and can fire many times per chunk — and on a hard read error there is no timing at all, because `readNanoseconds` is computed *after* the read, on the success path only.
+- **A "very large simulated device" cannot show constant memory, and would be the wrong evidence.** `InMemoryBlockDevice` allocates its whole backing store, so "very large" is bounded by RAM; and a genuinely large traversal is bounded by *time* — the Seagate's geometry is 5,245,440 chunks, i.e. ~21 TB of `memcmp` even at RAM speed. Constant memory is shown the way `ChunkBuffers` shows it: **structurally**, by there being no input through which capacity could reach the accumulator, plus a direct test driving millions of observations into it. Running a big device would be the weaker claim wearing the bigger costume — the same trap Step 2's "peak *buffer* memory" wording set.
+- **`InMemoryBlockDevice`'s fault injection produces errors, not latency.** The slow tail the gate asks for has to be injected as **duration**, through the already-injected `MonotonicClock` — which is also the real thing for a statistic that is pure arithmetic over durations, and is deterministic rather than sleep-flaky.
+- **The ETA denominator is not the read rate.** A cycle moves 3× the range (read + write + verify), so ETA must divide remaining *range* bytes by *range bytes covered ÷ wall elapsed*. Using read throughput would make every ETA about three times too optimistic. Read and write throughput (FR-METR-1) are separate figures — `bytesRead ÷ time-spent-reading` and `bytesWritten ÷ time-spent-writing`. Three distinct rates that are easy to collapse into one wrong one.
+- **Do not measure the overhead with an unpinned clock.** NFR-PERF-3's ratio is measured with `clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)`, the same call being timed around. Its own cost must be pinned first, or the measurement partly measures itself.
+
+### Conflicts between this step's original text and what Steps 7–8 established (recorded 2026-08-04)
+
+Recorded rather than silently edited, so the delta from the plan as written is auditable.
+
+1. **"During a (simulated or real) run, the GUI shows …" presumes a GUI that can start a run.** It cannot: `HelperConnection` has no `runRetentionCycle`, and the only caller in the project is `tools/mount-guard-client`. Even if the CLI started one, a progress callback would land on the CLI's connection. So this step must add a GUI-side trigger — which collides with Step 8's own note that the bounded call "is deliberately **not** enough to serve as a substitute for the run-control machinery". Resolved by D2: the metrics **panel** is product surface and goes in the main window; the **trigger** is scaffolding and Step 11 deletes it. (It went into the diagnostics **window** — that panel moved out of the main window on 2026-08-04.)
+2. **"ETA converges … observed on a long-enough run" is unreachable under the 1 GiB cap, which this step must not lift.** 1 GiB at the scratch device's measured 475–505 MB/s is **~6.5–7 s**, i.e. about six refreshes. Convergence is therefore proven in unit tests over a synthetic run with a known true remaining time, and *observed* on the real bounded run. A multi-hour convergence observation is **not discharged** and belongs to Step 11.
+3. **A run is one call, so this step's progress and ETA are per-call, not per-device.** That is not what FR-METR-5 means by "test progress". Whole-device progress and ETA are Step 11's, and are recorded as not discharged.
+4. **The gate's CPU item and NFR-PERF-3's own wording are two different numbers.** The requirement states a ratio of *per-chunk compare + metrics + bookkeeping* to the *wall-clock of the I/O* — directly measurable in the product's own run path. Step 5a asks for CPU as a percentage of one core at a stated MB/s, which is the extrapolation figure for the release note. **Both** are measured; measuring only the second would leave the requirement's own claim unnumbered.
 
 ---
 
@@ -765,6 +902,94 @@ React to classified failures per the user-selected mode, and conclude every run 
 > already carries `FailureDisposition { continueRun, stopRun }`, which the engine honours by
 > issuing no further I/O; Step 8 ships one caller that always continues.
 
+> **Inherited from Step 9's D1 pre-flight (measured 2026-08-04) — read this before designing pause/stop.**
+> While the helper is inside a blocking privileged call, **a second message on that same connection
+> is not delivered until the call returns.** Measured on the scratch device: 24 pings issued during a 2,827.9 ms
+> `digestRange` were all answered between 2,828.0 and 2,828.5 ms, the queue draining *after* the
+> call finished. A **second connection** was answered concurrently throughout, in 0.2–0.3 ms. The
+> daemon is not blocked; the connection is.
+>
+> Two consequences for this step. **Pause and stop must be able to reach a running helper**, and a
+> call on the run's own connection provably cannot while `runRetentionCycle` blocks — so either the
+> control path uses a second connection, or the run call must stop being a blocking one. Second:
+> the same property already applies to `releaseDevice`'s "the device is in use — try again shortly"
+> refusal and `prepareForShutdown`'s busy refusal (Step 4). Both are correct, and both are only
+> *reachable* from a connection other than the one running. The 1 GiB cap is what keeps that
+> survivable at ~7 s — a second justification for the cap that had not been written down.
+>
+> **Also inherited from Step 9: FR-TEST-10 constrains how this step may slice a whole-device run.**
+> Every call must start on a **1 MiB boundary** and cover a **whole number of MiB**, the sole
+> exception being a range that ends at the device's final block (FR-TEST-5's short final chunk).
+> The helper enforces both and refuses otherwise — verified refusing on hardware, not merely
+> assumed. So a sequencer that advanced by, say, "1 GiB or whatever is left" would be refused on
+> its last-but-one call against a device whose size is not a whole number of MiB, which the scratch device's
+> is not (953,869 MiB **plus 1,456 blocks**). Slice by whole MiB and let only the final call be
+> short.
+>
+> Two more things Step 9 leaves in place that this step's design depends on: **progress is
+> byte-denominated, never chunk-denominated** (which is what makes FR-CTRL-8's revised mid-run
+> size change expressible at all), and **`chunkMeasured` fires once per chunk on every path**,
+> including the three failure branches — so a run-control display keeps advancing on a failing
+> drive instead of freezing.
+
+> **Inherited from Step 9's UI work (user decisions 2026-08-05) — this step now owns the claim.**
+> **FR-SAFE-5 is withdrawn, FR-SAFE-6 is reversed, FR-SAFE-7 is moot** (see the FR document's
+> 2026-08-05 amendment). The `Unmount All`, `Acquire exclusive access` and `Release` buttons are
+> **this step's to delete**, and **Start becomes the owner of the whole sequence**: unmount the
+> selected device's volumes → acquire exclusive access → run → release on completion, stop or
+> failure, after which macOS remounts the volumes by itself. If the volumes cannot be unmounted or
+> the claim cannot be taken, report the actual cause (FR-SAFE-4 still distinguishes "still mounted"
+> from "claimed elsewhere") and abort, leaving the cause for the user to clear.
+>
+> **FR-SAFE-1/2/3 and NFR-REL-3 are untouched** — no write may happen unless every volume is
+> unmounted *and* exclusive access is held. Only who performs the unmount has changed.
+>
+> **This removal is gated on Step 14's warnings existing.** The explicit unmount click is currently
+> the only deliberate act between selecting a drive and writing to it; FR-WARN-1/2/3 are what
+> replace it. Deleting these controls before those warnings exist would leave the product briefly
+> *less* guarded than either the current design or the intended one. Either build Step 14 first or
+> land both together.
+>
+> **Two interim behaviours this step subsumes**, both introduced in Step 9 and both stop-gaps for
+> the claim not yet belonging to the run:
+> - **The claim follows the selection** — deselecting a drive, or selecting a different one,
+>   releases it. Once Start owns the claim this rule is redundant and should go, not be carried.
+> - **The selection is frozen while a run is active** (`DeviceDiscovery.select`/`deselect` refuse,
+>   and `TableSelectionPolicy` sets `NSTableView.allowsEmptySelection = false`). The refusal is
+>   still wanted; the *reason* changes from "a selection change would release the device" to "the
+>   run owns the device".
+>
+> **And one defect this step deletes rather than fixes.** `AppModel.helperHoldsDevice` is written
+> from `checkDeviceReadiness`'s `helperHoldsThisDevice` — a *per-device* answer — but read at every
+> use site as "the helper holds *some* device". The two can only disagree when the held device and
+> the selected device differ, which the follow-the-selection rule currently makes unreachable. A
+> run-owned claim removes the ambiguity at the source; do not reintroduce a selection-scoped flag.
+
+> **Inherited from Step 9's increment 4 (built 2026-08-05) — the quit machinery this step must
+> keep honest.** Quitting during a run now asks first, and "Cancel and Quit" means **stop at the
+> call boundary**: issue no further work, wait for the in-flight privileged call to return, release
+> the device, terminate. `Quit/QuitPolicy` holds both truth tables, `Quit/QuitSequence` the
+> release-then-terminate step, `Quit/MainWindowCloseGuard` the close half, and
+> `Quit/AppLifecycleDelegate` the ⌘Q half. Three things this step inherits:
+>
+> - **`AppModel.mayIssueNewWork` is a precondition, not a hint.** It is `false` from the moment a
+>   quit is *pending*, and today the only thing that issues privileged work — the bounded-cycle
+>   button — consults it. **A run sequencer must check it before every call it issues**, or the
+>   first half of the promise ("issue no further work") silently stops being kept the moment a run
+>   becomes a sequence rather than a single call.
+> - **The boundary is `cycleIsRunning` going false**, and the wind-down hangs off that transition.
+>   When the state machine replaces both run-state sources, the boundary must move with it — and
+>   the "the run already finished while the dialog was up" case must survive the move
+>   (`quittingAfterTheRunHasAlreadyFinishedDoesNotWaitForever` is the test that pins it).
+> - **`QuitPolicy` takes `runIsActive` as the union of the stand-in toggle and a real cycle**, which
+>   is what makes the dialog exercisable without writing to a drive. Collapsing both into one
+>   authoritative source is this step's job; the policy's shape does not need to change.
+>
+> **The wait exists because of D1, not for tidiness.** `releaseDevice` goes out on the owning
+> connection, and a second message on a connection with a blocking call in flight is not delivered
+> until that call returns. Issuing the release mid-run would queue it behind the very call it was
+> meant to shorten. Any pause/stop this step adds is subject to the same constraint.
+
 **Original action item:** AI-10
 **Satisfies:** FR-CTRL-1/2/3/4/5/6/7/8/9; NFR-REL-10
 **Trust boundary:** state owned **GUI-side**, enforced **helper-side** (pause must settle in the helper).
@@ -797,6 +1022,23 @@ Implement the explicit run-control state machine with legal-transition enforceme
 
 ## Step 12 — Device-loss handling (hot-unplug / de-enumeration mid-run)
 
+> **Inherited from Step 9 (user decision 2026-08-05) — how FR-DEV-8's recovery should behave.**
+> The requirement says "terminate the test, present a suitable error message, and re-run the
+> initial device discovery routine" and stops there. Three details were specified during Step 9
+> and are recorded so they are not re-derived:
+>
+> - **Wait for the in-flight I/O to time out rather than trying to abort it.** The same
+>   stop-at-a-call-boundary shape agreed for quitting mid-run, and consistent with there being no
+>   cancellation of a privileged call once issued. **That shape now exists in code**: Step 9's
+>   `Quit/QuitSequence` is exactly "wait for one thing, or for a deadline, then act — once", with
+>   its clock injected. Device loss is the same problem with a different trigger, and reusing it
+>   would inherit the once-only and cannot-hang properties already mutation-tested rather than
+>   writing a second version of them.
+> - **Rebuild the device list from scratch**, not patch it.
+> - **The rebuilt list re-applies FR-DEV-3's default**, so recovery lands on the first device
+>   rather than on nothing. `DeviceSelectionPolicy` already does this — a rebuild with no previous
+>   selection returns the first usable device — so the behaviour is inherited, not new work.
+
 **Original action item:** AI-9
 **Satisfies:** FR-DEV-8; FR-FAIL-7; NFR-REL-5/6
 **Trust boundary:** detected **helper-side** (I/O errors) and via **DiskArbitration/IOKit** removal callbacks; surfaced **GUI-side**.
@@ -813,13 +1055,13 @@ If the device under test disappears mid-run, immediately terminate the test clea
 6. **`os_log`** device loss and clean termination (NFR-OBS-1/2 — logs must be enough to diagnose the interrupted run after the fact).
 
 ### Verification Gate (must pass before Step 13)
-- [ ] Physically unplugging the device mid-run (`disk4`, the designated scratch device) **immediately** terminates the run, releases the node, and shows the specific device-loss error — the GUI stays alive and usable.
+- [ ] Physically unplugging the device mid-run (the designated scratch device) **immediately** terminates the run, releases the node, and shows the specific device-loss error — the GUI stays alive and usable.
 - [ ] Discovery re-runs automatically; reconnecting the device repopulates the list.
 - [ ] No resume is offered; only restart-from-beginning.
 - [ ] Logs after the event are sufficient to reconstruct what happened (which device, at what offset) without recording contents.
 
 ### Risks / gotchas
-- Simulate this safely first by injecting `ENXIO` via the `InMemoryBlockDevice` fault hook, then confirm on real hardware with `disk4`.
+- Simulate this safely first by injecting `ENXIO` via the `InMemoryBlockDevice` fault hook, then confirm on real hardware with the scratch device.
 - Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state).
 
 ---
@@ -852,6 +1094,30 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 # Phase 5 — Honesty & Observability
 
 ## Step 14 — Mandatory pre-run warnings & honest framing
+
+> **Inherited from the 2026-08-06 renumbering — the default selection now lands on a backup drive,
+> and this step is where that stops mattering.** FR-DEV-2 sorts by BSD name and FR-DEV-3 selects
+> the first usable device. Both are satisfied. But BSD names are assigned at enumeration, so *which
+> physical drive is selected on launch* changes when the machine renumbers — and after this
+> reboot it is the **22 TB Seagate with Backup and Time Machine mounted**. Observed by rendering
+> the real device list (`scripts/render-ui.sh devices`), not reasoned about.
+>
+> Harmless today: nothing happens without an explicit unmount and acquire, and the panel already
+> says "Testing a drive you are using is not advisable." **It stops being harmless at Step 11**,
+> where Start owns unmount → acquire → run: the default selection then sits one deliberate click
+> away from a write, on whichever drive happened to sort first. FR-WARN-1/2/3's acknowledgement is
+> what stands in that gap, which is why Step 11's removal of the explicit unmount is gated on this
+> step existing.
+>
+> **The warnings must name the drive they are about** — model *and* USB serial, not the BSD name,
+> for exactly the reason this note exists. An acknowledgement that says "disk4" is an
+> acknowledgement of a name that may have moved.
+>
+> **Open question for the user, not settled here:** whether FR-DEV-3's default-select-the-first
+> rule should survive contact with this. Any alternative would need a principled way to prefer one
+> drive, and the app cannot know which drive its user considers expendable — so inventing a
+> heuristic ("prefer removable", "prefer unmounted") would be a judgement dressed as a default.
+> Recorded rather than acted on.
 
 **Original action item:** AI-11
 **Satisfies:** FR-WARN-1/2/3/4; NFR-USE-4/6/8
@@ -930,11 +1196,83 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
    not on the one that prompted it: the 36–39% of one core observed at ~500 MB/s during Step 8's
    gate was the gate's own SHA-256 fingerprint, which is **not** in the product's run path.
 
+   > **The condition was measured on 2026-08-04/05, and it is MET. This is no longer conditional.**
+   >
+   > Measured on the scratch device in the product's own run path, swept across **all four** I/O sizes
+   > (`scripts/metrics-check.sh`, 0 failures). At the 4 MiB default, with the device moving
+   > ~470 MB/s: in-span host overhead **2.55%** of device I/O time, daemon CPU **4.22% of one
+   > core**. So at USB 3.1 Gen 2 the run is **97.4% device-bound** — NFR-PERF-3 is satisfied
+   > comfortably, and the 36–39% figure that prompted this item was indeed the gate's SHA-256
+   > fingerprint, not the product.
+   >
+   > **Host cost follows BYTES MOVED, not chunk count** — the question this sweep existed to
+   > settle. Across an 8× range of I/O size, µs/MiB varied **1.32×** while µs/chunk varied
+   > **8.65×**. **A larger I/O size does not reduce host overhead**, and the release note must not
+   > suggest otherwise.
+   >
+   > Because the cost is per-byte, its *share* of run time rises in proportion to transport speed:
+   >
+   > | transport | in-span overhead | daemon CPU |
+   > |---|---|---|
+   > | USB 3.1 Gen 2 (measured, ~470 MB/s) | 2.6% | 4.2% of one core |
+   > | USB 3.2 Gen 2×2 (~2 GB/s) | 10.9% | 18.0% of one core |
+   > | USB4 / Thunderbolt (~3.8 GB/s) | **20.6%** | **34.1% of one core** |
+   >
+   > Host work equals device time near **18.4 GB/s**; the daemon saturates one core near
+   > **11.1 GB/s**. USB4 enclosures exist and this product plausibly meets them, so **the release
+   > notes must say that on the fastest transports a meaningful fraction of run time is host
+   > processing rather than device I/O** — while being clear that the run stays device-bound on
+   > every transport this tool is likely to meet.
+   >
+   > **Correction (2026-08-05).** An earlier draft of this note said the daemon saturates one core
+   > near **4.7 GB/s**. That was an arithmetic error — a stray factor of 0.5 — and it understated
+   > the headroom by more than half. It also rested on a single 4 MiB data point and used the
+   > *fastest observed read* as the throughput rather than the run's actual rate. The figures above
+   > come from four sizes and wall-clock throughput.
+   >
+   > **One thing measured but not explained, and deliberately not guessed at.** Total daemon CPU
+   > (`getrusage`) fits roughly **209 µs fixed per chunk + 207 µs per MiB**, while the *in-span*
+   > overhead follows bytes alone. The difference is work outside the timed span — which the span
+   > is documented to exclude, since it stops before the observer is called. What that per-chunk
+   > term actually is has not been measured, and the 40–80 µs estimate that stood for three steps
+   > was wrong by 11× for exactly the want of measuring rather than reasoning.
+
+8. **Release notes — what a drive's serial number identifies (added 2026-08-05, user decision).**
+   The UI and the run report identify the tested drive by its **USB serial number**, because the
+   BSD name (`diskN`) is assigned at enumeration and is a different drive after any replug. The
+   notes must say what that serial actually names.
+
+   > **It identifies the USB device presented to the host, which is not always the drive.**
+   > Measured on the development machine 2026-08-05:
+   >
+   > | drive | reported serial | what it names |
+   > |---|---|---|
+   > | Samsung Portable SSD T5 | `12345686DAA9` | the drive — enclosure and drive are one unit |
+   > | Samsung 990 EVO Plus in a Ugreen caddy | `013117100578` | **the caddy** |
+   > | Seagate Expansion HDD | `00000000NT17XBRA` | the drive |
+   >
+   > For a bare enclosure the serial belongs to the bridge, so **swapping the drive inside a caddy
+   > leaves the reported serial unchanged** — two different SSDs tested in the same caddy will be
+   > reported under one identity. Accepted as a limit rather than worked around: nothing visible at
+   > the USB block level can see past the bridge, which is the same boundary FR-TEST-9 runs into
+   > when it cannot prove a verify read came from NAND.
+   >
+   > **Some bridges report a placeholder instead of a serial.** The same Ugreen caddy reports a
+   > SCSI INQUIRY serial of `0000000000000000`. The app rejects any serial that is a single
+   > repeated character, so a placeholder is reported as *no serial* rather than becoming an
+   > identifier every drive behind that bridge would share. A drive with no usable serial is
+   > labelled as such, and its run report says its results cannot be told apart from an identical
+   > model's.
+   >
+   > The note belongs in the release notes rather than only in the UI because the **exported
+   > report outlives the session** — the same reasoning that puts FR-TEST-9's qualification into
+   > the report (Step 10, detailed step 3).
+
 ### Verification Gate (release gate)
 - [ ] `codesign --verify --deep --strict` and `spctl -a -vv` pass on the app; the embedded helper is validly signed under the expected Team ID.
 - [ ] Hardened runtime is on; entitlement set is minimal and justified.
 - [ ] Notarization succeeds and the ticket is stapled (`stapler validate` passes).
-- [ ] On a clean macOS 26 Mac: the app launches with **no Gatekeeper warning**, registers and (after approval) enables the helper, runs a full test on `disk4`, and uninstalls the helper cleanly.
+- [ ] On a clean macOS 26 Mac: the app launches with **no Gatekeeper warning**, registers and (after approval) enables the helper, runs a full test on the scratch device, and uninstalls the helper cleanly.
 - [ ] The helper's Team-ID code-signing requirement (Step 3) now matches the real signing identity end-to-end.
 
 ### Risks / gotchas
@@ -968,6 +1306,6 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 
 1. **One step at a time.** Do not begin a step until the previous step's Verification Gate is fully checked off.
 2. **Simulate before you touch hardware.** Steps 2, 7, 8, 9, 10, 12 all have an in-memory verification *before* the real-device verification. Never debug the algorithm on a drive you can't afford to lose.
-3. **Always test on the designated scratch device** (`disk4`) for any real-hardware step. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise. Disk images are **not** an alternative — discovery excludes them by design, and they lack the USB bridge, block device and NAND this tool exists to exercise (amended 2026-08-01).
+3. **Always test on the designated scratch device** (serial `12345686DAA9`) for any real-hardware step. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise. Disk images are **not** an alternative — discovery excludes them by design, and they lack the USB bridge, block device and NAND this tool exists to exercise (amended 2026-08-01).
 4. **The trust boundary is sacred.** Raw I/O only ever happens in the helper; the GUI never elevates. Re-confirm this at every step that adds helper code.
 5. **Record what you verified.** A one-paragraph note per step (in `PROGRESS.md` or the commit) keeps the deliberate pace auditable.

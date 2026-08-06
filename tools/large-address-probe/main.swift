@@ -5,12 +5,12 @@
 //  ## The question, precisely
 //
 //  NFR-COMPAT-6 requires 64-bit block offsets and counts "with no capacity-related limits
-//  short of the device's own". Step 7's gate could not discharge it: `disk4` is 1,953,525,168
+//  short of the device's own". Step 7's gate could not discharge it: the scratch device is 1,953,525,168
 //  blocks, *below* 2³², so a USB bridge that truncated its block count to 32 bits would be
 //  indistinguishable there from a correct one — and the failure mode is silent. The tool would
 //  test the first portion of a larger drive and report a clean pass.
 //
-//  `disk8` is 42,970,644,479 blocks, ten times past the boundary. A 32-bit truncation would
+//  The Seagate is 42,970,644,479 blocks, ten times past the boundary. A 32-bit truncation would
 //  report **20,971,519 blocks — 10.7 GB instead of 22 TB**, which is the specific wrong answer
 //  this probe exists to rule out.
 //
@@ -18,7 +18,7 @@
 //
 //  `DeviceClaim` opens `O_RDWR | O_EXLOCK | O_NONBLOCK`, and every other probe in this project
 //  matches that on purpose. **This one does not**, because the drive it targets is not the
-//  designated scratch device — `disk8` carries a live filesystem — and the departure buys three
+//  designated scratch device — the Seagate carries a live filesystem — and the departure buys three
 //  guarantees that matter more here than flag fidelity:
 //
 //    1. `O_RDONLY` means the descriptor **physically cannot write**. A bug in this file cannot

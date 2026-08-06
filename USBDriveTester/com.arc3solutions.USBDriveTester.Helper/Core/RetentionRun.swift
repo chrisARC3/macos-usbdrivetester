@@ -410,20 +410,129 @@ public enum FailureDisposition: Equatable {
     case stopRun
 }
 
-/// How long each phase of one chunk's cycle took.
-///
-/// Measured because FR-TEST-9's falsifier needs it (see ``CacheBypassAssessment/observe(bytes:nanoseconds:)``),
-/// and passed on because Step 9 builds throughput and read-latency statistics from exactly
-/// these numbers. Step 8 computes **no** statistics from them: no averages, no min/max, no p99.
-public struct ChunkTiming: Equatable {
-    public let readNanoseconds: UInt64
-    public let writeNanoseconds: UInt64
-    public let verifyNanoseconds: UInt64
+// MARK: - What one chunk's cycle cost
 
-    public init(readNanoseconds: UInt64, writeNanoseconds: UInt64, verifyNanoseconds: UInt64) {
+/// Which phase a chunk reached, and how it ended.
+///
+/// Five cases rather than a `Bool`, because each implies a different set of numbers being
+/// meaningful. A chunk that failed its write has a valid read latency and no write throughput;
+/// a chunk that failed its read has neither. Collapsing them would make a consumer guess.
+public enum ChunkOutcome: Equatable, Sendable, CustomStringConvertible {
+
+    /// Read, write and verify all completed, and the comparison matched.
+    case completed
+
+    /// All three phases completed; the verify read differed from what was written.
+    ///
+    /// **Timing-wise this is a complete chunk** — every byte moved — so it contributes to every
+    /// rate and to both latency distributions. It is a *data* failure, not an I/O one, and
+    /// counting it as a phase failure would depress the throughput of a drive that is reading
+    /// and writing perfectly well.
+    case verifyMismatch
+
+    /// The original read failed. Nothing was written, nothing verified.
+    case failedReading
+
+    /// The write failed. The read had succeeded; nothing was verified (rule 3 of the cycle).
+    case failedWriting
+
+    /// The verify read failed. The read and the write had both succeeded.
+    case failedVerifying
+
+    /// Did every phase move its bytes?
+    public var didCompleteAllPhases: Bool {
+        self == .completed || self == .verifyMismatch
+    }
+
+    /// Did this chunk fail in a way that stopped I/O partway through?
+    public var isPhaseFailure: Bool {
+        switch self {
+        case .failedReading, .failedWriting, .failedVerifying: return true
+        case .completed, .verifyMismatch:                      return false
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .completed:       return "completed"
+        case .verifyMismatch:  return "verify mismatch"
+        case .failedReading:   return "failed reading"
+        case .failedWriting:   return "failed writing"
+        case .failedVerifying: return "failed verifying"
+        }
+    }
+}
+
+/// Everything measurable about one chunk's trip through the cycle.
+///
+/// ## This replaced Step 8's `ChunkTiming` (Step 9, 2026-08-04)
+///
+/// `ChunkTiming` carried three durations and was emitted **only for chunks that completed every
+/// phase** — all three `catch` blocks in the cycle `continue` past the emission. That was
+/// harmless while nothing computed statistics from it, and became a defect the moment something
+/// did: an accumulator fed only completed chunks stalls its progress counter while the engine
+/// walks on, so percent-complete freezes and the ETA runs away **on exactly the failing drive
+/// this tool exists to find**, at the moment somebody is watching hardest.
+///
+/// So this is emitted **once per chunk, whatever happened**, and says which phase was reached.
+/// It is a strict superset of what `ChunkTiming` carried, which is why that type is gone rather
+/// than kept alongside: two representations of one fact are two things that can drift.
+///
+/// A duration is `nil` when that phase was never attempted, and non-`nil` when it was — whether
+/// or not it succeeded. Which of those applies is decided by ``outcome``, never by inspecting
+/// the durations, so a phase that failed in an unmeasurably short time cannot be mistaken for a
+/// phase that never ran.
+public struct ChunkMeasurement: Equatable, Sendable {
+
+    /// Bytes this chunk covers. Shorter than the I/O size on a plan's final chunk (FR-TEST-5).
+    public let byteLength: Int
+
+    /// One past the last block this chunk covers — the run's position after it (FR-METR-6).
+    public let endBlock: UInt64
+
+    /// How the chunk ended.
+    public let outcome: ChunkOutcome
+
+    /// Time in the original read, successful or not. `nil` only if no read was attempted.
+    ///
+    /// Also what FR-TEST-9's falsifier consumes
+    /// (see ``CacheBypassAssessment/observe(bytes:nanoseconds:)``).
+    public let readNanoseconds: UInt64?
+
+    /// Time in the write-back. `nil` when the read failed, so no write was attempted.
+    public let writeNanoseconds: UInt64?
+
+    /// Time in the verify read. `nil` when the read or the write failed.
+    public let verifyNanoseconds: UInt64?
+
+    /// Time this chunk spent in **host** work rather than waiting on the device — the compare,
+    /// the write-guard re-check, the loop's own bookkeeping. NFR-PERF-3's numerator.
+    ///
+    /// Computed as the chunk's whole span minus the three device phases, so it captures
+    /// everything in the loop that is not a device call rather than only the parts somebody
+    /// remembered to time.
+    ///
+    /// - Note: it stops just before the observer is called, so it excludes whatever the
+    ///   *observer* costs. That is deliberate: this is a figure about the cycle, and including
+    ///   the observer would make it depend on who is watching. Nothing is hidden by the choice —
+    ///   `MetricsSnapshot.unaccountedNanoseconds` measures the wall clock independently and
+    ///   would show an expensive observer as unaccounted time.
+    public let hostOverheadNanoseconds: UInt64
+
+    public init(byteLength: Int,
+                endBlock: UInt64,
+                outcome: ChunkOutcome,
+                readNanoseconds: UInt64?,
+                writeNanoseconds: UInt64?,
+                verifyNanoseconds: UInt64?,
+                hostOverheadNanoseconds: UInt64) {
+        self.byteLength = byteLength
+        self.endBlock = endBlock
+        self.outcome = outcome
         self.readNanoseconds = readNanoseconds
         self.writeNanoseconds = writeNanoseconds
         self.verifyNanoseconds = verifyNanoseconds
+        self.hostOverheadNanoseconds = hostOverheadNanoseconds
     }
 }
 
@@ -444,22 +553,34 @@ public struct RunStart: Equatable {
     /// Fixed I/O size (FR-CTRL-8).
     public let ioSizeBytes: Int
 
+    /// The device's logical block size (512 or 4096, NFR-COMPAT-5).
+    ///
+    /// Added in Step 9. Without it an observer cannot turn ``blockCount`` into bytes, and every
+    /// metric in FR-METR is denominated in bytes — so a run's total size was not derivable from
+    /// what Step 8 handed over.
+    public let logicalBlockSize: Int
+
     /// Chunks the plan contains.
     public let chunkCount: UInt64
 
     /// The FR-TEST-9 verdict the run starts from.
     public let cacheBypass: CacheBypassState
 
+    /// Bytes the run's range covers, counted **once** — not the 3× the cycle actually moves.
+    public var rangeByteCount: UInt64 { blockCount * UInt64(logicalBlockSize) }
+
     public init(deviceName: String,
                 startBlock: UInt64,
                 blockCount: UInt64,
                 ioSizeBytes: Int,
+                logicalBlockSize: Int,
                 chunkCount: UInt64,
                 cacheBypass: CacheBypassState) {
         self.deviceName = deviceName
         self.startBlock = startBlock
         self.blockCount = blockCount
         self.ioSizeBytes = ioSizeBytes
+        self.logicalBlockSize = logicalBlockSize
         self.chunkCount = chunkCount
         self.cacheBypass = cacheBypass
     }
@@ -479,10 +600,16 @@ public protocol RunObserver: AnyObject {
     /// Once, before the first chunk. The helper logs the run start here (BUILD-PLAN 8.7).
     func runStarted(_ start: RunStart)
 
-    /// After each chunk's read → write → verify completes without failing.
-    func chunkCompleted(_ chunk: Chunk, timing: ChunkTiming)
+    /// **Once per chunk, whatever happened to it** — completed, mismatched, or failed at any
+    /// phase. This is the event a metrics accumulator counts progress from, which is why it
+    /// fires on the failure paths too (see ``ChunkMeasurement``).
+    func chunkMeasured(_ chunk: Chunk, measurement: ChunkMeasurement)
 
     /// A block range failed. The helper logs it here (BUILD-PLAN 8.7, NFR-OBS-1).
+    ///
+    /// Distinct from a failing ``chunkMeasured(_:measurement:)``, and not a replacement for it:
+    /// this can fire **many times for one chunk** — once per contiguous run of mismatched
+    /// blocks — and carries no timing, so it cannot drive progress or throughput.
     ///
     /// - Returns: whether to keep going. Defaults to ``FailureDisposition/continueRun``, which
     ///   is FR-FAIL-4's default mode.
@@ -494,9 +621,56 @@ public protocol RunObserver: AnyObject {
 
 public extension RunObserver {
     func runStarted(_ start: RunStart) {}
-    func chunkCompleted(_ chunk: Chunk, timing: ChunkTiming) {}
+    func chunkMeasured(_ chunk: Chunk, measurement: ChunkMeasurement) {}
     func failureDetected(_ failure: BlockRangeFailure) -> FailureDisposition { .continueRun }
     func runFinished(_ summary: RunSummary) {}
+}
+
+// MARK: - Watching a run from more than one place
+
+/// Delivers every event to several observers.
+///
+/// The engine takes one observer, and from Step 9 the helper needs two: the one that logs
+/// (NFR-OBS-1) and the one that accumulates metrics (FR-METR-*). Composing them here rather
+/// than having the logger forward to the accumulator keeps each observer a single thing, and
+/// makes "did every event reach both?" a property a test can assert.
+///
+/// - Important: **every** observer is called, with no short-circuiting, including on
+///   ``failureDetected(_:)``. An observer that only watches must never be able to change what
+///   the run does by being asked first.
+public final class ObserverFanOut: RunObserver {
+
+    private let observers: [RunObserver]
+
+    public init(_ observers: [RunObserver]) {
+        self.observers = observers
+    }
+
+    public func runStarted(_ start: RunStart) {
+        for observer in observers { observer.runStarted(start) }
+    }
+
+    public func chunkMeasured(_ chunk: Chunk, measurement: ChunkMeasurement) {
+        for observer in observers { observer.chunkMeasured(chunk, measurement: measurement) }
+    }
+
+    /// Stop wins.
+    ///
+    /// Every observer is asked — none is skipped once an answer is known — and the run stops if
+    /// **any** of them says to. That is the conservative direction and it is the one that makes
+    /// composition safe: adding a passive observer, which answers with the default
+    /// ``FailureDisposition/continueRun``, can never override a decision to stop.
+    public func failureDetected(_ failure: BlockRangeFailure) -> FailureDisposition {
+        var disposition = FailureDisposition.continueRun
+        for observer in observers where observer.failureDetected(failure) == .stopRun {
+            disposition = .stopRun
+        }
+        return disposition
+    }
+
+    public func runFinished(_ summary: RunSummary) {
+        for observer in observers { observer.runFinished(summary) }
+    }
 }
 
 // MARK: - The clock

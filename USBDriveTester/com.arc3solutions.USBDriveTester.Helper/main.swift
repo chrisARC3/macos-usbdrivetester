@@ -643,7 +643,7 @@ final class TesterControlImpl: NSObject, TesterControl {
                            blockCount: UInt64,
                            ioSizeBytes: Int,
                            reply: @escaping (Bool, UInt64, Int, String,
-                                             Int, Double, Int, String) -> Void) {
+                                             Int, Double, Int, Double, Double, String) -> Void) {
 
         ioLog.notice("""
                      runRetentionCycle from \(self.peer, privacy: .public): \
@@ -656,7 +656,8 @@ final class TesterControlImpl: NSObject, TesterControl {
                                        blockCount: blockCount,
                                        ioSizeBytes: ioSizeBytes) {
 
-        case .success(let summary):
+        case .success(let result):
+            let summary = result.summary
             // `completed` says every planned chunk was processed. It deliberately does NOT
             // mean they all passed — a run that finds bad blocks and keeps going still
             // completes (FR-FAIL-3), and collapsing the two would be the report saying
@@ -676,6 +677,10 @@ final class TesterControlImpl: NSObject, TesterControl {
                   summary.cacheBypass.state.wireCode,
                   summary.cacheBypass.fastestObservedBytesPerSecond,
                   summary.bufferBytesHeld,
+                  // NFR-PERF-3's two figures. `-1` for "could not be established" — never 0,
+                  // which is a legitimate and very different answer.
+                  result.hostOverheadFraction ?? -1,
+                  result.helperCoreFraction ?? -1,
                   message)
 
         case .failure(let refusal):
@@ -684,9 +689,55 @@ final class TesterControlImpl: NSObject, TesterControl {
                         \(refusal.description, privacy: .public)
                         """)
             reply(false, 0, 0, "",
-                  CacheBypassOutcome.unrecognised.rawValue, 0, 0,
+                  CacheBypassOutcome.unrecognised.rawValue, 0, 0, -1, -1,
                   refusal.description)
         }
+    }
+
+    // MARK: - Step 9: live metrics
+    //
+    // Called on a SECOND connection while `runRetentionCycle` blocks this one. That is not a
+    // convention, it is what the transport requires: measured 2026-08-04, a second message on a
+    // connection with a call in flight is not delivered until the call returns.
+    //
+    // Read-only, takes no device slot, touches no descriptor. It reads the accumulating counters
+    // under the metrics lock and computes a percentile over a fixed 2,240-bucket histogram, so
+    // it is safe to call once a second for the whole of a run.
+
+    func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double,
+                                       UInt64, UInt64, UInt64, UInt64, UInt64) -> Void) {
+
+        guard let snapshot = MetricsChannel.shared.snapshot else {
+            // No run has started since this daemon launched. Everything else is meaningless
+            // and is zero rather than a plausible-looking figure.
+            reply(false, 0, 0, -1, -1, -1, 0, 0, 0, 0, 0)
+            return
+        }
+
+        // `-1` for a rate that has not been measured yet. Zero would print as "0 MB/s", which
+        // means *stalled* — a real and alarming condition — and using it for "nothing has
+        // happened yet" would show an alarm to report an absence.
+        let readRate = snapshot.readBytesPerSecond ?? -1
+        let writeRate = snapshot.writeBytesPerSecond ?? -1
+        let remaining = snapshot.estimatedRemainingNanoseconds
+            .map { Double($0) / 1_000_000_000 } ?? -1
+
+        // The p99 travels as its upper bound: the true value is at or below it, within one
+        // bucket of at most 1.5625%. `readLatencySampleCount` is what says whether the three
+        // latency figures mean anything — 0 nanoseconds is itself a legitimate reading.
+        let latency = snapshot.readLatency
+
+        reply(true,
+              snapshot.fractionComplete,
+              snapshot.currentBlock,
+              readRate,
+              writeRate,
+              remaining,
+              latency.count,
+              latency.minimumNanoseconds ?? 0,
+              latency.maximumNanoseconds ?? 0,
+              latency.p99?.upperBoundNanoseconds ?? 0,
+              snapshot.chunksFailed)
     }
 
     /// SHA-256 of a bounded range of the held device (Step 8, gate item 5).

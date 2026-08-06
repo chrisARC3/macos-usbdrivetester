@@ -104,7 +104,36 @@ nonisolated struct DiscoveredDevice: Identifiable, Hashable {
     /// without saying so is a list that invites exactly one mistake.
     let mountedVolumeNames: [String]
 
+    /// The USB device's serial number, or `nil` when it did not supply a usable one.
+    ///
+    /// **This is the only stable identity in this type.** `bsdName` is assigned at enumeration and
+    /// changes on replug; `registryEntryID` is deliberately *not* stable across a replug either,
+    /// so that re-plugging a drive cannot silently restore a selection onto different hardware.
+    /// Neither can say which drive a run was performed on, which is what this is for.
+    ///
+    /// Sanitised by ``USBSerialNumber`` — see there for why a value can be present and still be
+    /// rejected, and for what a serial does and does not identify.
+    let usbSerialNumber: String?
+
     var id: UInt64 { registryEntryID }
+
+    /// The serial for display, or a plain statement that there is not one.
+    ///
+    /// Never an empty string and never a placeholder: a blank where an identifier belongs reads as
+    /// a rendering fault, and the user cannot tell it from a drive whose serial simply has not
+    /// loaded yet.
+    var serialDescription: String {
+        usbSerialNumber ?? "Serial number not available"
+    }
+
+    /// `S/N 12345686DAA9`, or the not-available phrase standing alone.
+    ///
+    /// The prefix is dropped when there is no number, because `S/N Serial number not available`
+    /// doubles the label.
+    var serialSummary: String {
+        guard let usbSerialNumber else { return serialDescription }
+        return "S/N \(usbSerialNumber)"
+    }
 
     // MARK: - Geometry (FR-DEV-5, NFR-COMPAT-5/6)
 

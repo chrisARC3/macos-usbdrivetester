@@ -3,7 +3,7 @@
 **Status:** Baselined (amended — see [Amendments](#amendments-to-the-baseline))
 **Date:** 2026-06-25
 **Baselined:** 2026-06-25
-**Last amended:** 2026-08-02 (FR-TEST-9 added — run-start cache-bypass verification)
+**Last amended:** 2026-08-05 (FR-SAFE-5 withdrawn, FR-SAFE-6 reversed, FR-SAFE-7 moot — the run owns unmount and acquire)
 **Source documents:** [USBDriveTester.md](USBDriveTester.md), [ADR-001-usb-drive-tester.md](ADR-001-usb-drive-tester.md)
 **Companion document:** [Non-Functional Requirements](nonfunctional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
@@ -66,9 +66,9 @@ This document specifies the **functional requirements** — the observable behav
 | FR-SAFE-2 | The system shall verify that all volumes belonging to the selected device are unmounted before starting a test. | M | PB Managing Mounted Volumes |
 | FR-SAFE-3 | The system shall acquire exclusive whole-disk access to the device node (e.g., via DiskArbitration claim / `diskutil unmountDisk`) and shall not start a test unless exclusive access is held. | M | ADR Consequences; Action Item 4 |
 | FR-SAFE-4 | When a test cannot start, the system shall display a clear error message identifying the actual cause: (a) one or more of the device's volumes are still mounted (instruct the user to unmount them), or (b) the volumes are unmounted but exclusive whole-disk access cannot be acquired because the device node is claimed by another process. | M | PB Managing Mounted Volumes; ADR Consequences; Action Item 4 |
-| FR-SAFE-5 | The system shall provide a **single control** that mounts or unmounts **all** volumes of the selected device. Its label and its action shall always agree and shall reflect the selected device's current mount state: **"Unmount All"** when one or more of its volumes are mounted, **"Mount All"** when none are. The control shall be **disabled when no device is selected**, where it shall show the default label "Unmount All". | M | Derived from PB/ADR (convenience); **revised and elevated C→M by user decision 2026-07-30** — see Amendments |
-| FR-SAFE-6 | The system shall not mount or unmount any volume implicitly as a side effect of starting a test. Mounting and unmounting shall occur only in response to explicit user action through the control of FR-SAFE-5. | M | user decision 2026-07-30 |
-| FR-SAFE-7 | The control of FR-SAFE-5 shall additionally be disabled while a run is active or while the helper holds exclusive whole-disk access, since mounting the device under test would violate NFR-REL-3. | M | derived 2026-07-30 |
+| FR-SAFE-5 | ~~Withdrawn 2026-08-05~~ — see Amendments. Was: a single Mount All / Unmount All control. Superseded by the run owning unmount and acquire. | — | **withdrawn 2026-08-05** |
+| FR-SAFE-6 | ~~Reversed 2026-08-05~~ — see Amendments. Was: no implicit mount/unmount as a side effect of starting a test. Starting a test now **does** unmount the selected device's volumes and acquire exclusive access, and releases on completion. FR-SAFE-1/2/3 and NFR-REL-3 are unaffected — what changed is who performs the unmount, not whether it must have happened. | — | **reversed 2026-08-05** |
+| FR-SAFE-7 | ~~Moot 2026-08-05~~ — see Amendments. Constrained the state of FR-SAFE-5's control, which no longer exists. The hazard it guarded against (mounting the device under test mid-run, violating NFR-REL-3) is now unreachable: no control can mount a device, and the run holds the claim for its own duration. | — | **moot 2026-08-05** |
 
 ## FR-TEST — Test Execution Core
 
@@ -83,6 +83,7 @@ This document specifies the **functional requirements** — the observable behav
 | FR-TEST-7 | The test shall be non-destructive by design: data read from a location shall be the only data written back to that location (no patterns or known-value overwrites). | M | PB Test Algorithm; ADR Trade-off Analysis |
 | FR-TEST-8 | When a verify comparison detects a mismatch, the system shall treat that chunk's block range as a failure and handle it per the selected failure-handling mode (see FR-FAIL). | M | PB Test Algorithm; PB Handling I/O Failures |
 | FR-TEST-9 | At the start of every run the system shall verify that its reads are not being served from the host buffer cache, and shall report that verification's outcome to the user and in the run report. A failed or inconclusive verification shall **qualify the verify result rather than prevent the run** — the read → write-back refresh remains valid, but fault detection may be unreliable. | M | user decision 2026-08-02 |
+| FR-TEST-10 | All test I/O shall begin at an offset that is a whole multiple of **1 MiB** from the start of the device, and any bounded portion of a run shall cover a whole multiple of 1 MiB **unless** it ends at the device's final addressable block. The privileged helper shall enforce both rather than trusting the caller. | M | user decision 2026-08-04 |
 
 ## FR-FAIL — I/O Failure Handling
 
@@ -107,7 +108,7 @@ This document specifies the **functional requirements** — the observable behav
 | FR-CTRL-5 | The user shall be able to restart a test from the beginning. | M | PB Features |
 | FR-CTRL-6 | The system shall enforce valid control transitions via a defined run-control state machine (e.g., resume only from paused, pause only while running). | M | ADR Action Item 10 |
 | FR-CTRL-7 | The system shall require the user to select the failure-handling mode (FR-FAIL-1) before a run can be started. | M | PB Handling I/O Failures |
-| FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable before a run starts and fixed for the duration of that run. | M | user decision 2026-06-25 |
+| FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable before a run starts and while a run is paused or stopped, and fixed while a run is actively running. A run resumed after a size change continues from its point of pause using the newly selected size. | M | user decision 2026-06-25; **revised 2026-08-04** |
 | FR-CTRL-9 | The system shall test only one device at a time; a new run shall not be startable while another run is in progress. | M | user decision 2026-06-25 |
 
 ## FR-METR — Metrics Capture & Live Monitoring
@@ -244,14 +245,14 @@ Step 14's honest-framing warnings are its natural neighbour.
 > **What Step 8 added is the falsifier's live half.** Each read's throughput is fed into the
 > assessment as the run proceeds, and can only ever **downgrade** the verdict — a plausible rate
 > is what an uncached read and a slow cache hit look like alike, so it never promotes. Measured
-> on `disk4` 2026-08-03: a full run's fastest read was 492,870,060 B/s and the verdict stayed
+> on the scratch device 2026-08-03: a full run's fastest read was 492,870,060 B/s and the verdict stayed
 > `bypassed`. The falsifier was independently shown to fire — a run against an in-memory device,
 > under the real clock, is correctly flagged `likelyCached`, because it genuinely *is* answered
 > from RAM.
 
 **The open risk was measured the same day, and it was real.** Recorded here because it
 changes how the requirement is met, though not what it requires. `scripts/nocache-calibration.sh`
-on `disk4` established that a re-read timing comparison **cannot discriminate**: with
+on the scratch device established that a re-read timing comparison **cannot discriminate**: with
 `F_NOCACHE` unset, repeated reads of one region took 12.3 ms then ~8.8 ms; with it set,
 ~8.9 ms throughout. A 4 MiB copy from RAM on the same machine takes 58 µs, so a genuine cache
 hit would be ~150× faster than either — the small first-read difference is warm-up, not
@@ -274,6 +275,152 @@ legitimately be served from it. The verify proves the data round-tripped through
 I/O path; it does not prove the medium retained it. This is a genuine constraint on what a
 clean pass means and belongs with FR-WARN-3's honest framing rather than being carried
 silently.
+
+### 2026-08-04 — FR-TEST-10 added; FR-CTRL-8 revised
+
+**Trigger.** User decisions during Step 9 scoping, after a proposal to let the user type a
+starting block was rejected.
+
+**FR-TEST-10 — added.** Every I/O begins on a **1 MiB boundary**, and a bounded portion of a run
+covers a whole multiple of 1 MiB unless it ends at the device's last block.
+
+**Why 1 MiB, and why this is not a tidiness rule.** It keeps starting LBAs in sync with all four
+UI-selectable transfer sizes, and it makes it far more likely that an I/O begins on one of the
+device's *physical* block boundaries — 1 MiB alignment implies 4 KiB page alignment and covers
+most erase-block sizes. Physical geometry cannot be queried, so this improves the odds rather than
+guaranteeing anything, which is exactly how the user framed it.
+
+The consequence that makes it a correctness rule rather than a performance one: a misaligned start
+makes the device perform read-modify-write internally, which **depresses measured throughput and
+adds wear**. FR-METR-1's throughput figure exists so the user can compare it against the
+manufacturer's advertised sustained rate as a wear heuristic (see below). Misaligned I/O would
+therefore manufacture the exact signal the measurement exists to detect — a systematic bias toward
+"this drive looks worn", on a tool whose output is a judgement about somebody's hardware.
+
+**Why the length rule, and not just the start.** A whole-device run is covered as a sequence of
+bounded calls (`TesterProtocol.maximumBytesPerCall`, 1 GiB). If any call covers a length that is
+not a whole number of MiB, the *next* call starts misaligned — so enforcing only the start would
+let a caller walk itself out of alignment one call at a time. The exemption for a range ending at
+the device's final block is FR-TEST-5's short final chunk, which is legitimate and unavoidable:
+the scratch device is 1,953,525,168 blocks, which is 953,869 whole MiB plus 1,456 blocks.
+
+**Why the helper enforces it.** NFR-REL-7 — the helper re-checks rather than trusting the caller.
+Making a misaligned start unexpressible in the GUI is right, but the GUI is not the only caller:
+the CLI gate clients are, and so is anything signed under the Team ID.
+
+**It is self-maintaining for a real run, and that is the point.** Runs always begin at block 0
+(FR-TEST-4), and a position reached after any mix of {1,2,4,8} MiB chunks is always an integer
+number of MiB. So no transfer-size change can produce a misaligned resume, and the helper's check
+is a guard against a *caller*, never against the run's own arithmetic.
+
+**Found immediately, and worth recording.** Step 8's hardware gate requested `1 GiB − 512 KiB` —
+deliberately, to force a short final chunk on real media — which is 1023.5 MiB and would have been
+**refused** by this rule, roughly 35 minutes into the gate's before-fingerprint pass. Changed to
+`1 GiB − 1 MiB`, which still yields 255 full 4 MiB chunks plus a short 3 MiB one, so FR-TEST-5 is
+still exercised and the expected chunk count is unchanged at 256.
+
+**FR-CTRL-8 — revised.** Previously the I/O size was "configurable before a run starts and **fixed
+for the duration of that run**". It is now also configurable **while a run is paused or stopped**,
+and a resumed run continues from its point of pause using the newly selected size. Fixed only
+while actively running.
+
+Two consequences follow, both of which the metrics design already had to satisfy for other
+reasons:
+
+1. **Progress must be measured in bytes, not chunks.** A size change alters how many chunks remain,
+   so a chunk-denominated percentage would jump at the moment of the change.
+2. **Read-latency statistics span the sizes used.** An 8 MiB read takes roughly twice as long as a
+   4 MiB one, so a run whose size changed has a bimodal latency distribution. The statistics
+   **keep accumulating** rather than resetting (user decision 2026-08-04): a drive that produced
+   one 30-second read at 4 MiB is showing retry behaviour that matters regardless of what was
+   selected afterwards, and resetting would delete that evidence. The run report records which
+   sizes were used.
+
+**A slider was considered and rejected** for the progress display: a slider implies the thumb can
+be dragged, and the starting block is never user-selectable. A progress bar with a live percentage
+says only what is true.
+
+### 2026-08-05 — FR-SAFE-5 withdrawn; FR-SAFE-6 reversed; FR-SAFE-7 moot; FR-SAFE-4(a) remedy revised
+
+**Trigger.** User decision during Step 9's UI work, on reviewing the shipped main window.
+
+> *"For the production version of this tool, I can see no reason for the 'Unmount All' button, the
+> 'Acquire exclusive access' button and the 'Release' buttons… What I expected was to be able to
+> select a drive and immediately start a test run. The software should automatically unmount and
+> acquire exclusive access to the drive as part of the test run itself."* — user, 2026-08-05
+
+**FR-SAFE-6 — reversed.** It read: *"The system shall not mount or unmount any volume implicitly as
+a side effect of starting a test. Mounting and unmounting shall occur only in response to explicit
+user action through the control of FR-SAFE-5."* Starting a test now **does** unmount the selected
+device's volumes and acquire exclusive access as part of the start transition, and releases on
+completion, cancellation or failure — after which macOS remounts the volumes on its own.
+
+**FR-SAFE-5 — withdrawn.** The single Mount All / Unmount All control is removed along with the
+acquire and release controls. Its no-selection and during-run states (FR-SAFE-7) go with it.
+
+**FR-SAFE-4(a) — remedy revised, not the requirement.** The system must still identify the actual
+cause when a test cannot start. What changes is the instruction: where (a) previously told the user
+to unmount the volumes themselves, the system now attempts the unmount, and reports and aborts if
+it cannot — for example a volume held busy by another process. The distinction FR-SAFE-4 exists to
+preserve, between "still mounted" and "unmounted but the node is claimed elsewhere", is unaffected.
+
+**What does not change, and this is the point.** FR-SAFE-1, FR-SAFE-2, FR-SAFE-3 and **NFR-REL-3**
+are untouched: no block write may occur unless every volume is unmounted **and** exclusive
+whole-disk access is held. Unmount-then-acquire as part of starting satisfies that exactly. The
+reversal is about *who performs the unmount*, never about whether it must have happened.
+
+**Why the reversal is sound, given FR-SAFE-6 was itself a deliberate addition (2026-07-30).**
+
+1. **The premise for elevating FR-SAFE-5 to M has lapsed.** The stated rationale was that *"a drive
+   left unmounted after a test previously had to be remounted through Disk Utility or the Finder"*.
+   Steps 6 and 7 then measured the opposite: releasing an `O_EXLOCK` open or a `DADiskClaim` makes
+   DiskArbitration remount the volume within milliseconds. Confirmed from the shipped Release button
+   on 2026-08-05. There is nothing for a Mount All control to do.
+2. **The deliberate-confirmation role passes to FR-WARN-1/2/3**, which are M and must be
+   acknowledged *before a run*. An explicit unmount click is a confirmation step in disguise; the
+   warnings are one on purpose.
+3. **It removes a class of defect rather than relocating it.** Tying the claim's lifetime to a UI
+   selection produced a state where the app believed no device was held while the helper held one,
+   greying out the only control that could give it back. A claim owned by the run cannot drift from
+   the run.
+
+**Sequencing, and a constraint on it.** The controls stay until **Step 11**, which owns the start
+and terminal transitions, and their removal is gated on **Step 14**'s warnings existing — removing
+the explicit unmount before there is any confirmation step would leave the product briefly *less*
+guarded than either the current design or the intended one.
+
+**Four GUI decisions recorded with it, none of them a requirement change.**
+
+- **The device list's Refresh button is removed.** No requirement ever specified it; FR-DEV-7's
+  live refresh is driven by IOKit arrival/departure and already keeps the list current. It was also
+  the one control that let a user rebuild the list *during* a run, which is precisely what
+  FR-DEV-7's freeze exists to prevent.
+- **The helper's claim follows the selection.** Deselecting a drive, or selecting a different one,
+  releases it — holding exclusive access to a device the UI does not name as selected is a mismatch
+  between what the product shows and what it controls. Correspondingly, **the selection is frozen
+  while a run is active**, since changing it would otherwise release the device under an active
+  write. Both are interim behaviours that Step 11 subsumes when Start takes ownership of the claim.
+- **The app has exactly one main window.** The main scene became a `Window` rather than a
+  `WindowGroup`, which removes `File ▸ New Window`. A second main window would have carried its own
+  device list and its own selection while sharing one exclusive claim, so the two could have named
+  different drives while only one was held — **NFR-USE-3's hazard**, on the screen whose whole job
+  is stopping the wrong drive from being written to. No requirement asked for a second window; this
+  removes the means to create one rather than adding a rule against it.
+- **Quitting or closing the main window during a run asks first, and quitting stops at the call
+  boundary.** The dialog offers *Cancel and Quit* / *Continue Testing*; *Cancel and Quit* issues no
+  further work, waits for the privileged call already in flight to return, releases the device, and
+  then terminates. It deliberately does **not** claim to stop the run: there is no cancellation of
+  a privileged call until FR-CTRL-4's machinery exists (Step 11), and a control that says "stop"
+  without stopping is a capability claimed rather than held.
+
+  Recorded as a decision rather than as a new requirement, because the territory belongs to
+  **FR-CTRL** from Step 11 — at which point stopping *is* a capability and this behaviour becomes
+  one branch of the run-control state machine rather than a rule of its own. What it rests on today
+  is already required: **FR-FAIL-7** (an interrupted run cannot be resumed, so ending one by
+  accident costs the whole run) and **NFR-REL-5** (terminate cleanly, issue no further writes,
+  release the node). Quitting without asking was never *unsafe* — the helper releases a claim when
+  the connection that took it goes away — so what this adds is deliberateness and an acknowledged
+  release, not a safety property the product previously lacked.
 
 ## Open Questions
 

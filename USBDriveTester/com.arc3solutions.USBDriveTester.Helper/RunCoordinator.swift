@@ -34,6 +34,11 @@ import os
 
 private let ioLog = Logger(subsystem: HelperIdentity.loggingSubsystem, category: "io")
 
+/// Step 9's category (NFR-OBS-1), the last of the six `HelperIdentity` names. One predicate
+/// shows a run's measured figures without the I/O chatter:
+/// `log show --predicate 'subsystem == "com.arc3solutions.USBDriveTester" and category == "metrics"'`.
+private let metricsLog = Logger(subsystem: HelperIdentity.loggingSubsystem, category: "metrics")
+
 // MARK: - Why a cycle was refused
 
 /// Why the helper would not run the requested cycle.
@@ -69,6 +74,10 @@ enum RetentionCycleRefusal: Error, Equatable, CustomStringConvertible {
     /// The buffers could not be allocated.
     case buffersUnavailable(ChunkBufferError)
 
+    /// The run would not begin on a 1 MiB boundary, or would cover a partial one without
+    /// reaching the end of the device (FR-TEST-10).
+    case placementRefused(RunPlacementRejection)
+
     /// The engine refused or stopped for a reason that is **this tool's** fault, not the
     /// drive's — see ``RunAbort``.
     case aborted(RunAbort)
@@ -99,6 +108,8 @@ enum RetentionCycleRefusal: Error, Equatable, CustomStringConvertible {
             return "Cannot run: the held device is no longer usable (\(detail))."
         case .buffersUnavailable(let error):
             return "Cannot run: \(error)"
+        case .placementRefused(let rejection):
+            return rejection.description
         case .aborted(let abort):
             return abort.description
         case .digestFailed(let detail):
@@ -176,9 +187,25 @@ enum RunCoordinator {
     /// read or written until every check has passed — which matters more here than anywhere
     /// else in the project, because the next thing that happens is a write to somebody's
     /// drive.
+    /// What a cycle produced, plus the two figures NFR-PERF-3 asks for.
+    ///
+    /// A separate type rather than more `RunSummary` fields: the summary is Core's, and CPU
+    /// consumption is a fact about *this process* that a pure algorithm has no business knowing.
+    struct CycleResult {
+        let summary: RunSummary
+
+        /// Host work as a fraction of device I/O time, measured inside the cycle's own loop.
+        /// `nil` when no I/O was timed.
+        let hostOverheadFraction: Double?
+
+        /// The daemon's CPU over the run, as a fraction of one core (BUILD-PLAN 9.5a).
+        /// `nil` when it could not be established — never `0`, which means something else.
+        let helperCoreFraction: Double?
+    }
+
     static func runCycle(startBlock: UInt64,
                          blockCount: UInt64,
-                         ioSizeBytes: Int) -> Result<RunSummary, RetentionCycleRefusal> {
+                         ioSizeBytes: Int) -> Result<CycleResult, RetentionCycleRefusal> {
 
         // 1. The request itself, before anything is claimed or allocated (NFR-REL-7).
         guard blockCount > 0 else { return .failure(.emptyRequest) }
@@ -206,6 +233,27 @@ enum RunCoordinator {
         guard requestedBytes <= TesterProtocol.maximumBytesPerCall else {
             return .failure(.requestTooLarge(requestedBytes: requestedBytes,
                                              maximumBytes: TesterProtocol.maximumBytesPerCall))
+        }
+
+        // 3a. FR-TEST-10, against the AUTHORITATIVE ioctl geometry rather than anything the
+        //     caller asserted (NFR-REL-7). Making a misaligned start unexpressible in the GUI is
+        //     right but not sufficient: the CLI gate clients are callers too, as is anything
+        //     signed under the Team ID.
+        //
+        //     A misaligned start makes the device read-modify-write internally, which lowers
+        //     measured throughput — and throughput here is a wear heuristic the user judges
+        //     (decision 2026-08-04). Accepting one would manufacture the exact signal the
+        //     measurement exists to detect.
+        do {
+            try RunPlacement.validate(startBlock: startBlock,
+                                      blockCount: blockCount,
+                                      geometry: geometry)
+        } catch let rejection as RunPlacementRejection {
+            return .failure(.placementRefused(rejection))
+        } catch {
+            return .failure(.placementRefused(
+                .startNotOnBoundary(startBlock: startBlock,
+                                    byteOffset: startBlock * UInt64(geometry.logicalBlockSize))))
         }
 
         // 4. The block device over the held descriptor, using the AUTHORITATIVE ioctl geometry
@@ -239,7 +287,31 @@ enum RunCoordinator {
         let assessment = CacheBypassAssessment(device.uncachedIO, linkSpeed: device.usbLinkSpeed)
 
         let engine = RetentionTestEngine(device: blockDevice, ioSizeBytes: ioSizeBytes)
-        let observer = RunLogger()
+
+        // 7. Two observers, fanned out: one logs (NFR-OBS-1), one accumulates metrics
+        //    (FR-METR-*). Composed rather than chained, so neither has to remember to forward
+        //    events to the other — the same forget-a-method hazard that made Step 8's
+        //    `chunkCompleted` skip every failing chunk.
+        //
+        //    Installing the metrics observer in `MetricsChannel` is what makes `runProgress`
+        //    able to find it from a *different connection*, which it must: a second message on
+        //    this connection will not be delivered until this call returns (measured
+        //    2026-08-04, scripts/xpc-concurrency-check.sh).
+        let metrics = MetricsChannel.shared.begin()
+        let observer = ObserverFanOut([RunLogger(), metrics])
+
+        // NFR-PERF-3's CPU figure brackets only the cycle. Reading `getrusage` costs one
+        // syscall, twice per run — not per chunk.
+        let cpuBefore = HelperCPUSample.processCPUSeconds()
+        let wallBefore = RunClock.monotonicNanoseconds()
+
+        func perfFigures(_ summary: RunSummary) -> (Double?, Double?) {
+            let wallSeconds = Double(RunClock.monotonicNanoseconds() &- wallBefore) / 1_000_000_000
+            let core = HelperCPUSample.coreFraction(from: cpuBefore,
+                                                    to: HelperCPUSample.processCPUSeconds(),
+                                                    wallSeconds: wallSeconds)
+            return (metrics.snapshot?.hostOverheadFraction, core)
+        }
 
         do {
             let summary = try engine.run(buffers: buffers,
@@ -251,7 +323,12 @@ enum RunCoordinator {
                                          grant: { device.grant },
                                          observer: observer)
             logDeviceDiagnostics(blockDevice)
-            return .success(summary)
+
+            let (overhead, core) = perfFigures(summary)
+            logPerformance(summary, overheadFraction: overhead, coreFraction: core)
+            return .success(CycleResult(summary: summary,
+                                        hostOverheadFraction: overhead,
+                                        helperCoreFraction: core))
         } catch let abort as RunAbort {
             ioLog.error("""
                         retention cycle ABORTED on \(device.device.rawValue, privacy: .public): \
@@ -329,6 +406,45 @@ enum RunCoordinator {
         } catch {
             return .failure(.digestFailed(detail: String(describing: error)))
         }
+    }
+
+    /// Log the run's measured figures under the `metrics` category (NFR-OBS-1).
+    ///
+    /// Once per run, not per chunk. Addressing and timing only — never device contents
+    /// (NFR-SEC-6) — and **no verdict**: throughput is reported for the user to judge against
+    /// the manufacturer's advertised figure and the negotiated link speed, not graded by this
+    /// tool (user decision 2026-08-04).
+    private static func logPerformance(_ summary: RunSummary,
+                                       overheadFraction: Double?,
+                                       coreFraction: Double?) {
+        guard let snapshot = MetricsChannel.shared.snapshot else { return }
+
+        func rate(_ bytesPerSecond: Double?) -> String {
+            guard let bytesPerSecond else { return "not measured" }
+            return String(format: "%.1f MB/s", bytesPerSecond / 1_000_000)
+        }
+        func percent(_ fraction: Double?) -> String {
+            guard let fraction else { return "not measured" }
+            return String(format: "%.3f%%", fraction * 100)
+        }
+        func milliseconds(_ nanoseconds: UInt64?) -> String {
+            guard let nanoseconds else { return "n/a" }
+            return String(format: "%.3f ms", Double(nanoseconds) / 1_000_000)
+        }
+
+        metricsLog.notice("""
+                          run metrics: read \(rate(snapshot.readBytesPerSecond), privacy: .public), \
+                          write \(rate(snapshot.writeBytesPerSecond), privacy: .public), \
+                          covering \(rate(snapshot.coverageBytesPerSecond), privacy: .public); \
+                          read latency min \(milliseconds(snapshot.readLatency.minimumNanoseconds), privacy: .public) \
+                          max \(milliseconds(snapshot.readLatency.maximumNanoseconds), privacy: .public) \
+                          p99 <= \(milliseconds(snapshot.readLatency.p99?.upperBoundNanoseconds), privacy: .public) \
+                          over \(snapshot.readLatency.count, privacy: .public) reads; \
+                          host overhead \(percent(overheadFraction), privacy: .public) of device I/O time; \
+                          daemon CPU \(percent(coreFraction), privacy: .public) of one core; \
+                          unaccounted \(milliseconds(snapshot.unaccountedNanoseconds), privacy: .public); \
+                          \(summary.chunksProcessed, privacy: .public) chunks
+                          """)
     }
 
     /// The `errno`-level detail of the last I/O failure, which `DeviceIOError` deliberately

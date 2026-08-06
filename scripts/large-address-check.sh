@@ -4,10 +4,12 @@
 #
 # WHY THIS EXISTS
 #
-# Step 7's gate ran on disk4, which is 1,953,525,168 blocks — BELOW 2^32. A USB bridge that
+# Step 7's gate ran on the scratch device (serial 12345686DAA9), which is 1,953,525,168 blocks
+# — BELOW 2^32. A USB bridge that
 # truncated its block count to 32 bits would be indistinguishable there from a correct one, and
 # the failure would be silent: the tool would test the first portion of a larger drive and
-# report a clean pass. disk8 is 42,970,644,479 blocks, ten times past the boundary, and a
+# report a clean pass. The Seagate (serial 00000000NT17XBRA) is 42,970,644,479 blocks, ten
+# times past the boundary, and a
 # truncation would report 20,971,519 blocks — 10.7 GB instead of 22 TB.
 #
 # READ-ONLY, AND NOTHING IS UNMOUNTED.
@@ -30,15 +32,18 @@
 #   * An interactive Terminal: the probe runs under sudo and sudo needs a TTY.
 #
 # Usage:
-#   scripts/large-address-check.sh disk8
+#   scripts/large-address-check.sh [--device <serial|diskN>]
 #
 set -euo pipefail
 
-DISK="${1:-}"
-if [[ -z "$DISK" ]]; then
-    echo "usage: $0 <whole-disk-bsd-name>   e.g. $0 disk8" >&2
-    exit 2
-fi
+# The target drive is resolved by USB SERIAL NUMBER, not by the BSD name on the command line
+# (2026-08-06). A reboot renumbers these; `disk4` was this project's scratch device until one did,
+# and then named the 22 TB backup drive. An old-style bare `diskN` argument is still accepted —
+# it is CHECKED against the serial, and refused if it names a different drive.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/device-identity.sh"
+parse_device_flag "$@" || exit 2
+set -- ${DEVICE_FLAG_REMAINING[@]+"${DEVICE_FLAG_REMAINING[@]}"}
+DISK="$(resolve_target bulk "$DEVICE_ARGUMENT")" || exit 1
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Development/Xcode.app/Contents/Developer}"
 
@@ -63,16 +68,11 @@ check() {
 # Safety
 # ---------------------------------------------------------------------------------------
 
-if [[ ! "$DISK" =~ ^disk[0-9]+$ ]]; then
-    echo "refusing: \"${DISK}\" is not a canonical whole-disk name (expected e.g. disk8)" >&2
-    exit 2
-fi
-
-if [[ "$DISK" == "disk0" || "$DISK" == "disk6" ]]; then
-    echo "refusing: ${DISK} is excluded by name — disk0 is the internal disk and disk6 holds" >&2
-    echo "          the source tree." >&2
-    exit 2
-fi
+# The name checks that used to live here — "is this a canonical whole-disk name", "is it disk0 or
+# disk6" — are gone, and were not merely deleted. `resolve_target` has already established which
+# physical drive this is BY SERIAL NUMBER and cross-checked its geometry, which is a stronger
+# statement than any list of names can make. Those checks were also, by 2026-08-06, wrong: they
+# were written when the scratch device was disk4, and a reboot made disk4 the backup drive.
 
 DU_INFO="$(diskutil info "$DISK" 2>&1 || true)"
 

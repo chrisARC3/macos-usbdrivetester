@@ -5,7 +5,7 @@
 //  ## Why this exists as a separate tool
 //
 //  `ioreg` can list every USB device's "Device Speed", but it cannot answer the question the
-//  helper actually asks: *what link is `disk4` behind?* A disk's IOMedia entry does not carry
+//  helper actually asks: *what link is this disk behind?* A disk's IOMedia entry does not carry
 //  the USB device's properties — they live several levels up the IOService plane, past the
 //  block-storage driver and the SCSI peripheral. Reaching them needs an upward, recursive
 //  registry search, which is code rather than a shell pipeline.
@@ -23,7 +23,8 @@
 //  and the ceiling that follows from it, so all three can be disagreed with.
 //
 //  NON-DESTRUCTIVE and unprivileged. Reads the IORegistry only: no device is opened, nothing
-//  is unmounted, no root required. It is safe to run against any disk including `disk6`.
+//  is unmounted, no root required. It is safe to run against any disk, including the one
+//  holding the source tree.
 //
 //  Usage:
 //      usb-speed-probe <bsdName> [<bsdName> ...]
@@ -88,7 +89,7 @@ let names = Array(CommandLine.arguments.dropFirst())
 guard !names.isEmpty else {
     FileHandle.standardError.write(Data("""
         usage: usb-speed-probe <bsdName> [<bsdName> ...]
-               e.g. usb-speed-probe disk4 disk8
+               e.g. usb-speed-probe disk8 disk4
 
         """.utf8))
     exit(2)

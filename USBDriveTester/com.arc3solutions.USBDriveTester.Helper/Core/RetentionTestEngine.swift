@@ -373,17 +373,24 @@ public extension RetentionTestEngine {
         var bytesVerified: UInt64 = 0
         var outcome = RunOutcome.completed
 
+        let blockSize = device.logicalBlockSize
+
         observer?.runStarted(RunStart(deviceName: deviceName,
                                       startBlock: plan.startBlock,
                                       blockCount: plan.blockCount,
                                       ioSizeBytes: ioSizeBytes,
+                                      logicalBlockSize: blockSize,
                                       chunkCount: plan.chunkCount,
                                       cacheBypass: assessment.state))
 
-        let blockSize = device.logicalBlockSize
-
         for chunk in plan {
             chunksProcessed += 1
+
+            // The chunk's span starts here, so host overhead below captures *everything* in this
+            // iteration that is not a device call — the write-guard re-check, the compare, the
+            // loop's own bookkeeping — rather than only the parts somebody remembered to time.
+            let chunkStart = clock()
+            var sawMismatch = false
 
             /// Record a failure and ask the observer whether to carry on.
             /// - Returns: `true` to keep running.
@@ -392,11 +399,38 @@ public extension RetentionTestEngine {
                                                 blockCount: blocks,
                                                 kind: kind)
                 failures.record(failure)
+                if kind == .verifyMismatch { sawMismatch = true }
                 guard observer?.failureDetected(failure) == FailureDisposition.stopRun else {
                     return true
                 }
                 outcome = .stoppedOnFailure(failure)
                 return false
+            }
+
+            /// Emit this chunk's measurement. **Called exactly once per chunk, on every path** —
+            /// completed, mismatched, or failed at any phase. That is what keeps a metrics
+            /// consumer's progress moving on a failing drive; see ``ChunkMeasurement``.
+            ///
+            /// `spanEnd` is passed in rather than read here so it can be captured *before* the
+            /// observer is involved: host overhead is a figure about the cycle, and it must not
+            /// vary with what the observer costs.
+            ///
+            /// `RunMetricsObserverTests` asserts the once-per-chunk property against runs with
+            /// every mix of outcomes, because "every path remembered to call this" is exactly
+            /// the kind of thing that is true until somebody adds a path.
+            func measure(_ chunkOutcome: ChunkOutcome,
+                         endedAt spanEnd: UInt64,
+                         read: UInt64?, write: UInt64?, verify: UInt64?) {
+                let span = spanEnd > chunkStart ? spanEnd - chunkStart : 0
+                let deviceTime = (read ?? 0) &+ (write ?? 0) &+ (verify ?? 0)
+                observer?.chunkMeasured(chunk, measurement: ChunkMeasurement(
+                    byteLength: chunk.byteLength,
+                    endBlock: chunk.startBlock &+ chunk.blockCount,
+                    outcome: chunkOutcome,
+                    readNanoseconds: read,
+                    writeNanoseconds: write,
+                    verifyNanoseconds: verify,
+                    hostOverheadNanoseconds: span > deviceTime ? span - deviceTime : 0))
             }
 
             // 1. Read the original into buffer A (FR-TEST-3).
@@ -407,7 +441,15 @@ public extension RetentionTestEngine {
                                 atByteOffset: chunk.byteOffset)
                 loaded = LoadedChunk(chunk: chunk, byteCount: chunk.byteLength)
             } catch let error as DeviceIOError {
+                // Timed even though it failed. Step 8 did not time this path at all, because
+                // nothing consumed it; a metrics consumer needs it, and a drive that takes
+                // thirty seconds to fail a read has spent thirty seconds of the run.
+                let failedAt = clock()
+                // Before `measure`: if this is an addressing fault it is *our* bug, the run
+                // aborts, and it is not a measurement of the device.
                 let kind = try Self.failureKind(for: error, operation: .readError)
+                measure(.failedReading, endedAt: failedAt,
+                        read: failedAt &- readStart, write: nil, verify: nil)
                 if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
                 break
             }
@@ -417,6 +459,9 @@ public extension RetentionTestEngine {
 
             // 2. Write buffer A back, unchanged, to the same place (FR-TEST-7, NFR-REL-2).
             //    The guard is re-checked here, per chunk, not once at the top.
+            //
+            //    A refusal throws `RunAbort` and no measurement is emitted for this chunk —
+            //    correct, because the run ends and the chunk never happened.
             try Self.requireWriteAccess(grant(), deviceName: deviceName)
 
             let writeStart = clock()
@@ -424,7 +469,10 @@ public extension RetentionTestEngine {
                 try device.write(UnsafeRawBufferPointer(buffers.original(byteCount: loaded.byteCount)),
                                  atByteOffset: loaded.chunk.byteOffset)
             } catch let error as DeviceIOError {
+                let failedAt = clock()
                 let kind = try Self.failureKind(for: error, operation: .writeError)
+                measure(.failedWriting, endedAt: failedAt,
+                        read: readNanoseconds, write: failedAt &- writeStart, verify: nil)
                 // Rule 3: no verify after a failed write.
                 if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
                 break
@@ -438,7 +486,11 @@ public extension RetentionTestEngine {
                 try device.read(into: buffers.verify(byteCount: loaded.byteCount),
                                 atByteOffset: loaded.chunk.byteOffset)
             } catch let error as DeviceIOError {
+                let failedAt = clock()
                 let kind = try Self.failureKind(for: error, operation: .readError)
+                measure(.failedVerifying, endedAt: failedAt,
+                        read: readNanoseconds, write: writeNanoseconds,
+                        verify: failedAt &- verifyStart)
                 if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
                 break
             }
@@ -457,12 +509,18 @@ public extension RetentionTestEngine {
                 logicalBlockSize: blockSize,
                 emit: { start, blocks in record(.verifyMismatch, from: start, blocks: blocks) })
 
-            if !finishedScan { break }
+            // Captured after the scan, which on a *mismatching* chunk has already called the
+            // observer once per differing range — so for those chunks the overhead figure does
+            // include the observer's failure handling. On a healthy drive the scan is a single
+            // `memcmp` that calls nobody, which is the case NFR-PERF-3 is about.
+            let comparedAt = clock()
 
-            observer?.chunkCompleted(chunk,
-                                     timing: ChunkTiming(readNanoseconds: readNanoseconds,
-                                                         writeNanoseconds: writeNanoseconds,
-                                                         verifyNanoseconds: verifyNanoseconds))
+            // Emitted before the stop check, so the chunk a stop happened on is still measured.
+            measure(sawMismatch ? .verifyMismatch : .completed,
+                    endedAt: comparedAt,
+                    read: readNanoseconds, write: writeNanoseconds, verify: verifyNanoseconds)
+
+            if !finishedScan { break }
         }
 
         failures.finish()

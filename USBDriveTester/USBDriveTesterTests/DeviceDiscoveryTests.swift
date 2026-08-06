@@ -136,6 +136,107 @@ struct DeviceDiscoveryTests {
         #expect(store.selectedDevice?.bsdName.rawValue == "disk4")
     }
 
+    // MARK: - Deselection (added 2026-08-05)
+
+    /// The defect this fixes: the view's binding dropped the `nil` a `List` reports on
+    /// deselection, so the table deselected while the store went on naming the drive — and every
+    /// pane below described a device the list no longer showed as chosen.
+    @Test func deselectClearsTheSelection() {
+        let (store, _) = makeStore([DeviceFixtures.testDrive, DeviceFixtures.largeDrive])
+        store.start()
+        #expect(store.selectedDevice != nil)
+
+        store.deselect()
+
+        #expect(store.selectedDeviceID == nil)
+        #expect(store.selectedDevice == nil)
+    }
+
+    @Test func deselectingWithNothingSelectedIsANoOp() {
+        let (store, _) = makeStore([])
+        store.start()
+        store.deselect()
+        #expect(store.selectedDeviceID == nil)
+    }
+
+    /// Deselection is **not** durable across a device-set change, and that is a decision rather
+    /// than an oversight: `refresh()` re-applies `DeviceSelectionPolicy`, and FR-DEV-3's default
+    /// is about a *list* — a rebuilt list is a new one.
+    ///
+    /// Pinned by a test because it is surprising in use ("I deselected, then plugged in a drive,
+    /// and something got selected"), and a surprising behaviour that only a comment defends is
+    /// one the next person will quietly "fix".
+    @Test func aDeviceSetChangeAfterDeselectingRestoresTheDefaultSelection() {
+        let (store, source) = makeStore([DeviceFixtures.testDrive])
+        store.start()
+        store.deselect()
+        #expect(store.selectedDeviceID == nil)
+
+        source.simulateChange(to: [DeviceFixtures.testDrive, DeviceFixtures.largeDrive])
+
+        #expect(store.selectedDevice?.bsdName.rawValue == "disk4")
+    }
+
+    /// A deselection must survive everything that is *not* a device-set change. The freeze is the
+    /// interesting one: during a run the store defers refreshes, so a deselection made before a
+    /// run must still be a deselection during it.
+    @Test func deselectionSurvivesTheRunFreeze() {
+        let (store, source) = makeStore([DeviceFixtures.testDrive])
+        store.start()
+        store.deselect()
+        store.setRunActive(true)
+
+        source.simulateChange(to: [DeviceFixtures.testDrive, DeviceFixtures.largeDrive])
+
+        #expect(store.selectedDeviceID == nil, "a deferred change must not re-select mid-run")
+    }
+
+    // MARK: - The selection is frozen during a run (safety, added 2026-08-05)
+
+    /// Since the helper's claim follows the selection, changing the selection during a run would
+    /// release the drive **out from under an active write**. The refusal is enforced here rather
+    /// than only in the view, because the view's `selectionDisabled` is a per-row modifier and a
+    /// click in the blank space below the last row is not a row.
+    ///
+    /// Found the hard way: the modifier was first applied to the `List` container, where it
+    /// compiles, renders, and does nothing at all.
+    @Test func selectingADifferentDeviceDuringARunIsRefused() {
+        let (store, _) = makeStore([DeviceFixtures.testDrive, DeviceFixtures.largeDrive])
+        store.start()
+        #expect(store.selectedDevice?.bsdName.rawValue == "disk4")
+
+        store.setRunActive(true)
+        store.select(DeviceFixtures.largeDrive.id)
+
+        #expect(store.selectedDevice?.bsdName.rawValue == "disk4",
+                "a run must pin the selection — the claim follows it")
+    }
+
+    @Test func deselectingDuringARunIsRefused() {
+        let (store, _) = makeStore([DeviceFixtures.testDrive])
+        store.start()
+        store.setRunActive(true)
+
+        store.deselect()
+
+        #expect(store.selectedDeviceID != nil,
+                "deselecting mid-run would release the device under an active write")
+    }
+
+    /// The freeze must lift with the run, or the list is left permanently unusable after the
+    /// first one — the same failure the deferred-refresh cases exist to prevent.
+    @Test func theSelectionIsChangeableAgainOnceTheRunEnds() {
+        let (store, _) = makeStore([DeviceFixtures.testDrive, DeviceFixtures.largeDrive])
+        store.start()
+        store.setRunActive(true)
+        store.select(DeviceFixtures.largeDrive.id)
+        store.setRunActive(false)
+
+        store.select(DeviceFixtures.largeDrive.id)
+
+        #expect(store.selectedDevice?.bsdName.rawValue == "disk8")
+    }
+
     // MARK: - Live refresh (FR-DEV-7)
 
     @Test func aConnectedDeviceAppearsInTheList() {

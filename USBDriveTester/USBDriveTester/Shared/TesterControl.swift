@@ -19,11 +19,17 @@
 //    * deviceProfile          — geometry + cache-bypass verdict for the held device (Step 7)
 //    * runRetentionCycle      — the read -> write-back -> verify cycle, bounded (Step 8)
 //    * digestRange            — SHA-256 of a bounded range of the held device (Step 8)
+//    * runProgress            — live metrics for the run in progress (Step 9)
 //
-//  Deferred on purpose: pause / resume / stop and the helper -> GUI progress-callback
-//  protocol. Those need Step 9's metrics and Step 11's state machine to be meaningful;
-//  stubbing them now would be dead code AND attack surface. Widening the protocol
-//  later is cheap, walking a wide one back is not (BUILD-PLAN Step 3, risks).
+//  Deferred on purpose: pause / resume / stop. Those need Step 11's state machine to be
+//  meaningful; stubbing them now would be dead code AND attack surface. Widening the
+//  protocol later is cheap, walking a wide one back is not (BUILD-PLAN Step 3, risks).
+//
+//  NOTE (Step 9): the helper -> GUI *callback* protocol that earlier notes anticipated was
+//  not built. Measured 2026-08-04, a second connection is answered concurrently while a
+//  privileged call blocks, so the GUI polls `runProgress` on its own connection instead —
+//  no reverse interface, no exported object on the app side, and the daemon keeps the
+//  property that it never initiates traffic to a client. See `scripts/xpc-concurrency-check.sh`.
 //
 //  NOTE (Step 8): `runRetentionCycle` is the FIRST method here that writes to a drive. The
 //  surface stayed narrow rather than growing a `startRun` family, and the call is bounded to
@@ -273,11 +279,73 @@ import Foundation
     ///     can assert the reads were transport-plausible rather than only that a threshold was
     ///     not crossed. `bufferBytesHeld` is NFR-PERF-1's figure: 2 × the I/O size,
     ///     whatever the range's size.
+    ///     `hostOverheadFraction` and `helperCoreFraction` are **NFR-PERF-3's two numbers**, and
+    ///     they arrive here rather than on the live progress query because they are read once —
+    ///     by a gate, and by Step 16's release note — not watched. The first is host work
+    ///     (compare, metrics, bookkeeping) as a fraction of device I/O time, measured inside the
+    ///     cycle's own loop. The second is the whole daemon's CPU as a fraction of one core,
+    ///     from `getrusage`. Both are `-1` when they could not be established; neither is ever
+    ///     `0` for "unknown", because 0 is a legitimate and very different answer.
     func runRetentionCycle(startBlock: UInt64,
                            blockCount: UInt64,
                            ioSizeBytes: Int,
                            reply: @escaping (Bool, UInt64, Int, String,
-                                             Int, Double, Int, String) -> Void)
+                                             Int, Double, Int, Double, Double, String) -> Void)
+
+    /// A snapshot of the run currently in progress (Step 9, FR-METR-2/4/5/6, NFR-PERF-5).
+    ///
+    /// **Read-only, cheap, and safe to call once a second** — it takes a lock, reads the
+    /// accumulating counters and computes a percentile over a fixed 2,240-bucket histogram. It
+    /// does not touch the device and does not take the device-operation slot.
+    ///
+    /// ## Why this must be called on a SECOND connection
+    ///
+    /// Measured 2026-08-04 (`scripts/xpc-concurrency-check.sh`): while the helper is inside a
+    /// blocking privileged call, **a second message on that same connection is not delivered
+    /// until the call returns.** Twenty-four pings issued during a 2,827.9 ms `digestRange` were
+    /// all answered between 2,828.0 and 2,828.5 ms — the queue draining *after* the call
+    /// finished. A **second connection** was answered concurrently throughout, in 0.2–0.3 ms.
+    ///
+    /// So a caller polling this on the connection that issued `runRetentionCycle` will receive
+    /// nothing until the run ends, which is indistinguishable from a wedged daemon. The app owns
+    /// a separate, **non-owning** connection for exactly this — non-owning because
+    /// `HelperActivity.releaseIfOwned(by:)` scopes release-on-disconnect to the connection that
+    /// acquired, so a progress connection dropping releases nothing (NFR-REL-5).
+    ///
+    /// ## What it deliberately does not carry
+    ///
+    /// No run identifier and no "is a run active" flag. The app issues the run on its own
+    /// connection and receives its completion there, so it already knows the lifecycle; having
+    /// the helper restate it would be a second source of a fact that already has one. Between
+    /// runs this returns the **last** run's final figures, which is what a caller wants to
+    /// display at the end of one — and a caller that has not started a run has nothing to
+    /// mistake them for.
+    ///
+    /// - Parameter reply: `(available, fractionComplete, currentBlock, readBytesPerSecond,
+    ///   writeBytesPerSecond, estimatedRemainingSeconds, readLatencySampleCount,
+    ///   readLatencyMinimumNanoseconds, readLatencyMaximumNanoseconds,
+    ///   readLatencyP99UpperBoundNanoseconds, chunksFailed)`.
+    ///
+    ///   `available` is `false` when no run has started since the daemon launched; every other
+    ///   value is then meaningless and is zero.
+    ///
+    ///   **The three `Double`s are `-1` when not yet known, never `0`.** A rate of zero means
+    ///   "stalled", which is a real and alarming condition; using it for "not measured yet"
+    ///   would print an alarming number to mean nothing happened. `readLatencySampleCount` plays
+    ///   the same role for the three latency figures, where `0` nanoseconds is a legitimate
+    ///   reading (a read the clock could not resolve).
+    ///
+    ///   The p99 is reported as its **upper bound** — the true value is at or below it, within
+    ///   one bucket, which is at most 1.5625% wide. A single number pretending to be exact would
+    ///   be the bucket's midpoint dressed up as a measurement; an upper bound is honest and is
+    ///   what a display can show as "p99 ≤ x".
+    ///
+    ///   Throughput is reported and **never graded** (user decision 2026-08-04). Whether a rate
+    ///   indicates wear is the user's judgement, made against the manufacturer's advertised
+    ///   sustained figure and the negotiated link speed — which the app already holds from
+    ///   ``deviceProfile(reply:)``. This tool measures; it does not diagnose.
+    func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double,
+                                       UInt64, UInt64, UInt64, UInt64, UInt64) -> Void)
 
     /// SHA-256 of a bounded range of the **held** device (Step 8, gate item 5).
     ///
@@ -432,6 +500,16 @@ public enum TesterProtocol {
     ///   open (`EBUSY`, 2026-08-02): adds `digestRange`. The gate's before/after fingerprints
     ///   were to be taken by a separate process, and that turns out to be impossible while the
     ///   claim is held — so the helper has to take them through its own descriptor.
+    /// - **8** — Step 9: adds `runProgress`, the live metrics query (FR-METR-2/4/5/6,
+    ///   NFR-PERF-5), and widens `runRetentionCycle`'s reply with NFR-PERF-3's two figures.
+    ///   A **signature change**, so the bump is mandatory rather than merely cheap — a v7 daemon
+    ///   would decode the cycle's reply block differently.
+    ///
+    ///   `runProgress` must be called on a **second connection**. Measured 2026-08-04: while the
+    ///   helper is inside a blocking privileged call, a second message on that same connection is
+    ///   not delivered until the call returns, while a second connection is answered concurrently
+    ///   in 0.2–0.3 ms. Polling on the run's own connection would return nothing until the run
+    ///   ended — indistinguishable from a wedged daemon.
     ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
@@ -444,7 +522,7 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 7
+    public static let version = 8
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

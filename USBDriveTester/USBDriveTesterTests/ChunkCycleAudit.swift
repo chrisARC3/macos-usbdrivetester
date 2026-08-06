@@ -333,19 +333,25 @@ enum ChunkCycleAudit {
 final class RecordingRunObserver: RunObserver {
 
     private(set) var start: RunStart?
-    private(set) var completedChunks: [Chunk] = []
-    private(set) var timings: [ChunkTiming] = []
     private(set) var failures: [BlockRangeFailure] = []
     private(set) var summary: RunSummary?
+
+    /// Every chunk the engine measured, in order — **including the ones that failed**, which is
+    /// the whole point of `chunkMeasured` replacing Step 8's `chunkCompleted` (Step 9, D5).
+    private(set) var measurements: [(chunk: Chunk, measurement: ChunkMeasurement)] = []
+
+    /// Only the chunks that got through every phase. What `chunkCompleted` used to report.
+    var completedChunks: [Chunk] {
+        measurements.filter { $0.measurement.outcome.didCompleteAllPhases }.map(\.chunk)
+    }
 
     /// What to answer when a failure arrives. Defaults to carrying on (FR-FAIL-4).
     var dispositionForFailure: (BlockRangeFailure) -> FailureDisposition = { _ in .continueRun }
 
     func runStarted(_ start: RunStart) { self.start = start }
 
-    func chunkCompleted(_ chunk: Chunk, timing: ChunkTiming) {
-        completedChunks.append(chunk)
-        timings.append(timing)
+    func chunkMeasured(_ chunk: Chunk, measurement: ChunkMeasurement) {
+        measurements.append((chunk: chunk, measurement: measurement))
     }
 
     func failureDetected(_ failure: BlockRangeFailure) -> FailureDisposition {

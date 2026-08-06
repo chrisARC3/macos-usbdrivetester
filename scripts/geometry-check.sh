@@ -35,15 +35,18 @@
 #     sudo: claim-contention-test.sh, large-address-check.sh, nocache-calibration.sh.)
 #
 # Usage:
-#   scripts/geometry-check.sh disk4
+#   scripts/geometry-check.sh [--device <serial|diskN>]
 #
 set -euo pipefail
 
-DISK="${1:-}"
-if [[ -z "$DISK" ]]; then
-    echo "usage: $0 <whole-disk-bsd-name>   e.g. $0 disk4" >&2
-    exit 2
-fi
+# The target drive is resolved by USB SERIAL NUMBER, not by the BSD name on the command line
+# (2026-08-06). A reboot renumbers these; `disk4` was this project's scratch device until one did,
+# and then named the 22 TB backup drive. An old-style bare `diskN` argument is still accepted —
+# it is CHECKED against the serial, and refused if it names a different drive.
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/device-identity.sh"
+parse_device_flag "$@" || exit 2
+set -- ${DEVICE_FLAG_REMAINING[@]+"${DEVICE_FLAG_REMAINING[@]}"}
+DISK="$(resolve_target scratch "$DEVICE_ARGUMENT")" || exit 1
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Development/Xcode.app/Contents/Developer}"
 
@@ -75,16 +78,11 @@ check() {
 # Safety
 # ---------------------------------------------------------------------------------------
 
-if [[ ! "$DISK" =~ ^disk[0-9]+$ ]]; then
-    echo "refusing: \"${DISK}\" is not a canonical whole-disk name (expected e.g. disk4)" >&2
-    exit 2
-fi
-
-if [[ "$DISK" == "disk0" || "$DISK" == "disk6" ]]; then
-    echo "refusing: ${DISK} is excluded by name — disk0 is the internal disk and disk6 holds" >&2
-    echo "          the source tree. BUILD-PLAN 'Test hardware': all testing uses disk4." >&2
-    exit 2
-fi
+# The name checks that used to live here — "is this a canonical whole-disk name", "is it disk0 or
+# disk6" — are gone, and were not merely deleted. `resolve_target` has already established which
+# physical drive this is BY SERIAL NUMBER and cross-checked its geometry, which is a stronger
+# statement than any list of names can make. Those checks were also, by 2026-08-06, wrong: they
+# were written when the scratch device was disk4, and a reboot made disk4 the backup drive.
 
 DU_INFO="$(diskutil info "$DISK" 2>&1 || true)"
 
@@ -107,12 +105,10 @@ if [[ -z "$DU_BLOCK_SIZE" || -z "$DU_BYTES" ]]; then
 fi
 DU_BLOCK_COUNT=$(( DU_BYTES / DU_BLOCK_SIZE ))
 
-if [[ "$DISK" != "disk4" ]]; then
-    echo
-    echo "  WARNING: ${DISK} is not disk4, the designated scratch device (BUILD-PLAN"
-    echo "           'Test hardware', amended 2026-08-02). This run is read-only and restores"
-    echo "           the mount state, but check the device below is the one you meant."
-fi
+# The "not disk4" warning that used to live here is gone: `resolve_target scratch` establishes
+# the drive by serial number before anything runs, so there is no longer a case where this script
+# is pointed at a drive nobody meant. Warning about a BSD name would now warn about the wrong
+# thing — it was disk4 that stopped being the scratch device, not the drive that changed.
 
 cat <<EOF
 
