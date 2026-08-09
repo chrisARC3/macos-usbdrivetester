@@ -548,6 +548,42 @@ settles rather than trusting the first look. This is the same shape as FR-TEST-9
 `fcntl(F_NOCACHE)` returning 0 on `/dev/null` — and for the same reason: **an API accepting a
 request is not the request having had its intended effect.**
 
+> **Sharpened 2026-08-09 — the mechanism is narrower than this, and the narrower form is the
+> actionable one.** Everything above remains true and its guidance still stands. What was not
+> known when it was written is *why* the success signal lies.
+>
+> **`DADiskUnmount` with `kDADiskUnmountOptionWhole` on a physical disk unmounts that disk's
+> DIRECT PARTITIONS ONLY.** It does not reach volumes inside an APFS container on the disk, and it
+> reports success with no dissenter having skipped them. Measured on a GPT drive carrying
+> exFAT + APFS + HFS+, from `diskarbitrationd`'s own log: `unmounted disk, id = /dev/disk8s2,
+> success` and `id = /dev/disk8s4, success`, and **no line at all for the APFS volume on the
+> synthesized disk** — while the app logged that it had unmounted all three.
+>
+> So the volume in the 2026-08-06 observation (`1TB_Samsung`, APFS on synthesized `disk7`) was
+> never unmounted rather than slow to unmount, and no amount of re-reading the mount table would
+> ever have seen it clear.
+>
+> **What this changes for anything that unmounts.** Verifying the postcondition is necessary but
+> not sufficient — a whole-disk unmount *cannot succeed* on an APFS drive, so a Start sequence
+> built on one would abort every run on the most common macOS filesystem. **Unmount each mounted
+> volume by its own device node**, from `DiscoveredDevice.mountedVolumeBSDNames`: a volume that is
+> mounted is by definition in the mount table, so it can always be enumerated and always has a
+> node. Mounting is the other way round and keeps the whole-disk option — the mount table cannot
+> list the volumes that are *not* mounted, so "mount every mountable volume" has nothing to
+> enumerate.
+>
+> **Why it stood for three steps.** Every write gate targets the scratch drive, whose only volume
+> is exFAT — a direct partition. The one drive the apparatus is permitted to touch cannot exhibit
+> the defect, so no gate could have caught it and none did. It surfaced only when a purpose-built
+> fixture carrying an APFS container was created to exercise a *different* control.
+>
+> Recorded here because the broad statement above is what a reader would otherwise act on, and it
+> would lead them to build the re-read loop and stop — which is precisely what happened. Full
+> account in `PROGRESS.md`, "Step 10 — the unmount rollback, verified (2026-08-09)"; the fix is
+> commit `9d1f3d3`. FR-SAFE-1/2/3 and NFR-REL-3 were never at risk: the helper evaluates
+> `DeviceAccessPrecondition` independently on the acquire path and refuses with `volumesMounted`,
+> which is what kept this a wrong message rather than an incident. **Keep that independence.**
+
 ## Open Questions
 
 None outstanding — all questions from iterations 1–2 have been resolved (see *user
