@@ -283,3 +283,66 @@ struct LinkSpeedFormattingTests {
         #expect(formatted.contains("99"))
     }
 }
+
+// MARK: - What the live panel shows, and when (user decision 2026-08-06)
+
+/// Step 10 gave the finished run its own window, with the full bad-block list and an export. The
+/// metrics panel under the device list stopped retaining that result — it is the **live** panel
+/// now, and nothing else.
+///
+/// The whole table is four rows and every one of them is a state a user reaches, so none is
+/// sampled. The row the change turned over is `available + not running`: `runProgress` keeps
+/// returning a finished run's figures until the next run replaces them, so before this the panel
+/// displayed a completed run indefinitely.
+struct RunMetricsPanelVisibilityTests {
+
+    private func snapshot(available: Bool) -> RunProgressSnapshot {
+        available
+            ? RunProgressSnapshot(available: true, fractionComplete: 1, currentBlock: 2_097_152,
+                                  readBytesPerSecond: 517_000_000,
+                                  writeBytesPerSecond: 491_000_000,
+                                  estimatedRemainingSeconds: 0,
+                                  readLatencySampleCount: 256,
+                                  readLatencyMinimumNanoseconds: 1_100_000,
+                                  readLatencyMaximumNanoseconds: 9_900_000,
+                                  readLatencyP99UpperBoundNanoseconds: 2_195_000,
+                                  chunksFailed: 0)
+            : .unavailable
+    }
+
+    /// FR-METR-2/4/5/6 are mandatory and require these figures **during** a run. This is the row
+    /// that must never be lost while trimming the panel back.
+    @Test func aRunInProgressShowsItsMeasurements() {
+        #expect(RunMetricsView.showsMeasurements(snapshot: snapshot(available: true),
+                                                 isRunning: true))
+    }
+
+    /// **The row Step 10 changed.** A finished run's figures are still in the helper's slot, and
+    /// the panel must not go on presenting them: that result now lives in the Run Report window,
+    /// where it is complete and exportable.
+    @Test func aFinishedRunIsNoLongerRetainedByThePanel() {
+        #expect(RunMetricsView.showsMeasurements(snapshot: snapshot(available: true),
+                                                 isRunning: false) == false)
+    }
+
+    /// The first moment of a run, before anything has been measured. Step 9 fixed a placeholder
+    /// that left a row of em-dashes visible behind it; this keeps that fixed.
+    @Test func aRunWithNothingMeasuredYetShowsThePlaceholder() {
+        #expect(RunMetricsView.showsMeasurements(snapshot: snapshot(available: false),
+                                                 isRunning: true) == false)
+    }
+
+    @Test func nothingRunningAndNothingMeasuredShowsThePlaceholder() {
+        #expect(RunMetricsView.showsMeasurements(snapshot: snapshot(available: false),
+                                                 isRunning: false) == false)
+    }
+
+    /// Both inputs are load-bearing: exactly one of the four combinations shows figures.
+    @Test func exactlyOneCombinationShowsFigures() {
+        let showing = [(true, true), (true, false), (false, true), (false, false)]
+            .filter { RunMetricsView.showsMeasurements(snapshot: snapshot(available: $0.0),
+                                                       isRunning: $0.1) }
+        #expect(showing.count == 1)
+        #expect(showing.first?.0 == true && showing.first?.1 == true)
+    }
+}

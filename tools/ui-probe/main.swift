@@ -63,14 +63,23 @@ private struct DiagnosticsHost: View {
     // `ContentView`, so rendering this view standalone needs somewhere for them to go.
     @State private var cycleIsRunning = false
     @State private var linkSpeedCode = -1
+    /// Step 10's mode picker (FR-FAIL-1). Rendered in FR-FAIL-4's default position; the
+    /// `diagnostics-stop-on-error` view is the same panel with the other one selected, because the
+    /// explanatory line underneath changes with it and that line is the whole point of the
+    /// control being a radio group rather than a checkbox.
+    @State private var failureMode: FailureModeCode = .standard
+    /// Applied on appear, because `@State` cannot be initialised from another stored property.
+    var initialFailureMode: FailureModeCode = .standard
     var body: some View {
         HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive,
                               helper: HelperConnection(),
                               cycleIsRunning: $cycleIsRunning,
                               linkSpeedCode: $linkSpeedCode,
+                              failureMode: $failureMode,
                               deviceIsHeld: deviceIsHeld,
                               mayIssueNewWork: mayIssueNewWork)
             .frame(minWidth: 560, minHeight: 480)
+            .onAppear { failureMode = initialFailureMode }
     }
 }
 
@@ -236,6 +245,111 @@ private struct MetricsIdleHost: View {
     }
 }
 
+/// The panel **after** a run has finished — the state Step 10 changed.
+///
+/// `runProgress` keeps returning the finished run's figures until the next run replaces them, so
+/// the snapshot here is fully populated and `isRunning` is `false`. Before 2026-08-06 that was
+/// the "Last run" pane, showing a complete set of measurements indefinitely. It must now show the
+/// placeholder instead, and that placeholder must say **where the result went** — a panel that
+/// only said "nothing is under way" would read as the run's result having been lost.
+///
+/// This render exists because a populated snapshot plus `isRunning: false` is precisely the
+/// combination the change turns on, and no other view exercises it.
+private struct MetricsFinishedHost: View {
+    var body: some View {
+        RunMetricsView(
+            snapshot: RunProgressSnapshot(
+                available: true,               // the helper still holds the finished run's figures
+                fractionComplete: 1,
+                currentBlock: 2_097_152,
+                readBytesPerSecond: 517_000_000,
+                writeBytesPerSecond: 491_000_000,
+                estimatedRemainingSeconds: 0,
+                readLatencySampleCount: 256,
+                readLatencyMinimumNanoseconds: 1_100_000,
+                readLatencyMaximumNanoseconds: 9_900_000,
+                readLatencyP99UpperBoundNanoseconds: 2_195_000,
+                chunksFailed: 0),
+            linkSpeedCode: -1,
+            isRunning: false,                  // …but no run is under way
+            startedAt: Date(timeIntervalSince1970: 1_785_940_728),
+            deviceName: "disk8",
+            deviceSerial: "12345686DAA9")
+            .padding()
+    }
+}
+
+// MARK: - Step 10's run report
+
+/// The report window's content, in each state worth looking at.
+///
+/// **This is why the report is a `Window` and not a sheet.** A sheet gets its own window and
+/// `render-ui.sh` cannot capture it — the quit confirmation, added in Step 9, has needed a person
+/// at the keyboard ever since for exactly that reason. Three of this project's defects were found
+/// by looking at a render and none of them by an assertion, so a surface that cannot be rendered
+/// gives up the check that has worked best.
+///
+/// The export button is wired to a no-op here: `NSSavePanel.runModal()` in a probe would hang
+/// waiting for a click that is never coming.
+private struct RunReportHost: View {
+
+    let report: RunReport?
+
+    var body: some View {
+        RunReportView(report: report, exportAction: { _ in })
+    }
+
+    /// The scratch device, so the figures on screen are the ones a real run produces.
+    static let device = ReportedDevice(modelDescription: "Samsung Portable SSD T5",
+                                       usbSerialNumber: "12345686DAA9",
+                                       bsdNameAtRunTime: "disk8",
+                                       capacityBytes: 1_000_204_886_016,
+                                       logicalBlockSize: 512)
+
+    /// A drive that reported no usable serial — a state no drive on this machine can produce,
+    /// and the one where the report has to admit it cannot identify what it tested.
+    static let unidentifiedDevice = ReportedDevice(modelDescription: "Generic USB 3.0 Enclosure",
+                                                  usbSerialNumber: nil,
+                                                  bsdNameAtRunTime: "disk8",
+                                                  capacityBytes: 500_107_862_016,
+                                                  logicalBlockSize: 512)
+
+    static func report(didComplete: Bool = true,
+                       rangeCount: Int = 0,
+                       encoded: String = "",
+                       blocks: UInt64 = 0,
+                       mode: Int = 2,
+                       bypass: Int = 1,
+                       device: ReportedDevice = RunReportHost.device) -> RunReport {
+        let reply = RunCycleOutcome(didComplete: didComplete,
+                                    chunksProcessed: didComplete ? 256 : 2,
+                                    failedRangeCount: rangeCount,
+                                    failureSummary: "",
+                                    cacheBypassCode: bypass,
+                                    bufferBytesHeld: 8 << 20,
+                                    hostOverheadFraction: 0.0255,
+                                    helperCoreFraction: 0.0422,
+                                    failureModeUsedCode: mode,
+                                    failedRangesEncoded: encoded,
+                                    failedBlockCount: blocks,
+                                    readBytesPerSecond: 517_000_000,
+                                    writeBytesPerSecond: 491_000_000,
+                                    readLatencySampleCount: 256,
+                                    readLatencyMinimumNanoseconds: 1_100_000,
+                                    readLatencyMaximumNanoseconds: 9_900_000,
+                                    readLatencyP99UpperBoundNanoseconds: 2_195_000,
+                                    message: "")
+        return RunReport(reply: reply,
+                         startBlock: 0,
+                         blockCount: 2_097_152,
+                         ioSizesUsed: [4 << 20],
+                         device: device,
+                         startedAt: Date(timeIntervalSince1970: 1_785_940_728),
+                         finishedAt: Date(timeIntervalSince1970: 1_785_940_735),
+                         usbLinkSpeedDescription: "10 Gb/s (USB 3.1 Gen 2)")!
+    }
+}
+
 // Not `@MainActor`: top-level code in main.swift is nonisolated even under
 // -default-isolation MainActor, so annotating this makes it uncallable from here.
 func makeRootView(_ name: String) -> NSView {
@@ -244,6 +358,13 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: false))
     case "diagnostics-held":
         return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true))
+    case "diagnostics-stop-on-error":
+        // The same panel with FR-FAIL-2 selected. Worth its own render because the explanatory
+        // line under the picker changes with the selection — it is what tells a user that everything past
+        // the first failure is left **untested**, which is not the same as passed — and a control
+        // whose only visible difference is which radio is filled would not need one.
+        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true,
+                                                       initialFailureMode: .stopOnFirstError))
     case "diagnostics-quitting":
         // A device is held, so nothing else would disable the control: what this render checks is
         // that the quit-pending refusal is the reason shown, and that it reads as one.
@@ -253,6 +374,8 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: QuittingContentHost())
     case "metrics":
         return NSHostingView(rootView: MetricsHost())
+    case "metrics-finished":
+        return NSHostingView(rootView: MetricsFinishedHost())
     case "metrics-idle":
         return NSHostingView(rootView: MetricsIdleHost())
     case "empty":
@@ -268,10 +391,42 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: DeviceListHost())
     case "content":
         return NSHostingView(rootView: ContentView().environment(AppModel()))
+
+    // Step 10. Every state the report window can be in.
+    case "report":
+        return NSHostingView(rootView: RunReportHost(report: RunReportHost.report()))
+    case "report-failures":
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(rangeCount: 2,
+                                         encoded: "200:2:3;5000:4:1",
+                                         blocks: 6)))
+    case "report-stopped":
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(didComplete: false, rangeCount: 1,
+                                         encoded: "200:2:3", blocks: 2, mode: 1)))
+    case "report-qualified":
+        // FR-TEST-9's verdict is not `bypassed`. The one render that has to show the
+        // qualification **in the headline** — where a reader skimming for the verdict meets it —
+        // rather than only in the body below.
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(bypass: 2)))
+    case "report-unidentified":
+        // A drive that reported no usable serial: the report must say its results cannot be told
+        // apart from an identical model's.
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(device: RunReportHost.unidentifiedDevice)))
+    case "report-empty":
+        // Reachable from the Window menu before any run has finished. "Empty" and "broken" look
+        // identical unless one of them says which it is.
+        return NSHostingView(rootView: RunReportHost(report: nil))
+
     default:
         FileHandle.standardError.write(Data("""
             ui-probe: unknown view '\(name)'; expected content, content-quitting, devices, \
-            diagnostics, diagnostics-held, diagnostics-quitting, empty, metrics or metrics-idle\n
+            diagnostics, diagnostics-held, diagnostics-quitting, diagnostics-stop-on-error, \
+            empty, metrics, metrics-finished, metrics-idle, \
+            report, report-empty, report-failures, report-qualified, report-stopped or \
+            report-unidentified\n
             """.utf8))
         exit(2)
     }

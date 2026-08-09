@@ -78,7 +78,18 @@ struct RunMetricsView: View {
             // Replaced rather than overlaid. An overlay left a row of em-dashes visible *behind*
             // the placeholder, so the panel showed empty measurements and a note saying there
             // were none — two statements of the same thing, one of which looked like data.
-            if snapshot.isAvailable {
+            // See `showsMeasurements`. `isRunning` as well as `isAvailable` (user decision 2026-08-06). `runProgress`
+            // keeps returning the finished run's figures until the next run replaces them, so
+            // `isAvailable` alone left this panel showing a completed run indefinitely — the
+            // "Last run" pane. Step 10's report window carries that result now, in full and with
+            // an export; a second, thinner copy of it under the device list is redundant, and it
+            // was the copy that needed a drive name and a timestamp bolted on to stop it being
+            // read as the *selected* drive's numbers.
+            //
+            // What stays is the live half, which is neither redundant nor optional:
+            // FR-METR-2/4/5/6 require throughput, latency, progress and ETA to be displayed
+            // **during** a run, and no report exists while one is under way.
+            if Self.showsMeasurements(snapshot: snapshot, isRunning: isRunning) {
                 VStack(alignment: .leading, spacing: 12) {
                     progress
                     Divider()
@@ -101,8 +112,31 @@ struct RunMetricsView: View {
         }
     }
 
-    /// `Last run — S/N 12345686DAA9 (disk4)`, falling back to the bare phrase when nothing has
-    /// been run.
+    /// Whether the panel shows figures at all, as a decision rather than a condition buried in
+    /// the body.
+    ///
+    /// ## Why this is extracted
+    ///
+    /// It is a two-input truth table, and the interesting row is the one Step 10 changed: an
+    /// **available snapshot with no run under way**. `runProgress` keeps returning a finished
+    /// run's figures until the next run replaces them, so `isAvailable` alone left this panel
+    /// displaying a completed run indefinitely — the "Last run" pane, now superseded by the report
+    /// window and its export (user decision 2026-08-06).
+    ///
+    /// Pulled out where it can be tested because the alternative is a `if` inside a SwiftUI
+    /// `body`, and this project's record with view conditions verified by reading them is poor:
+    /// three modifiers in Step 9 compiled, rendered and did nothing. A render proves it once; a
+    /// test keeps it proved.
+    ///
+    /// Both inputs are load-bearing. Dropping `isRunning` restores the stale pane; dropping
+    /// `isAvailable` would show a row of em-dashes at the start of a run, which Step 9 already
+    /// fixed once.
+    static func showsMeasurements(snapshot: RunProgressSnapshot, isRunning: Bool) -> Bool {
+        snapshot.isAvailable && isRunning
+    }
+
+    /// `Run in progress — S/N 12345686DAA9 (disk8)`, falling back to the bare phrase when no run
+    /// is under way.
     ///
     /// The serial leads and the BSD name is parenthesised, in that order deliberately: the serial
     /// is the identity, and the BSD name is only where to find the drive today.
@@ -110,8 +144,10 @@ struct RunMetricsView: View {
     /// Attributed only when there are figures to attribute — heading an empty panel with a drive
     /// name would imply that drive had been run.
     private var heading: String {
-        let phrase = isRunning ? "Run in progress" : "Last run"
-        guard snapshot.isAvailable else { return phrase }
+        // No "Last run" phrase any more: this panel is only ever the live one, and a finished run
+        // lives in the report window.
+        let phrase = "Run in progress"
+        guard snapshot.isAvailable, isRunning else { return "Live run metrics" }
 
         switch (deviceSerial, deviceName) {
         case let (serial?, name?): return "\(phrase) — S/N \(serial) (\(name))"
@@ -238,10 +274,18 @@ struct RunMetricsView: View {
         }
     }
 
+    /// Everything this panel says when no run is under way.
+    ///
+    /// It has to say **where a finished run went**, not merely that nothing is happening. Until
+    /// Step 10 this panel retained the last run's figures, so a user who had just run something
+    /// found them here. They are now in the report window — and a placeholder that only said
+    /// "nothing is under way" would read as the result having been lost.
     private var idlePlaceholder: some View {
         HStack(spacing: 6) {
             Image(systemName: "info.circle")
-            Text("No run has been started yet — measurements appear here once one is under way.")
+            Text("Measurements appear here while a run is under way. When one finishes, its "
+               + "results — including the bad-block list — open in the Run Report window, "
+               + "where they can be exported.")
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }

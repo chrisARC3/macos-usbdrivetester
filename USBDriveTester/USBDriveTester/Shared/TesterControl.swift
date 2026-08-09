@@ -263,34 +263,76 @@ import Foundation
     ///     validates this rather than trusting it (NFR-REL-7): the *engine* accepts any
     ///     positive multiple of the block size so tests can use awkward sizes, but nothing
     ///     across this boundary may.
-    ///   - reply: `(completed, chunksProcessed, failedRangeCount, failureSummary,
-    ///     cacheBypassCode, fastestObservedBytesPerSecond, bufferBytesHeld, message)`.
+    ///   - failureModeCode: a ``FailureModeCode`` raw value (FR-FAIL-1). **Required, and
+    ///     refused rather than defaulted** if this build does not recognise it: quietly
+    ///     resolving an unknown code to FR-FAIL-4's default would answer a caller asking to
+    ///     stop on the first error with a run that writes to the whole drive.
+    ///   - reply: nineteen values, in the order below.
     ///
-    ///     `completed` is `true` only when every chunk in the range was processed — it says
-    ///     nothing about whether they all *passed*, because a run that finds bad blocks and
-    ///     keeps going still completes (FR-FAIL-3). `failedRangeCount` and `failureSummary`
-    ///     are how the result is judged; the summary carries block addressing only, never
-    ///     device contents (NFR-SEC-6).
+    ///     **The run** — `completed`, `chunksProcessed`, `message`. `completed` is `true` only
+    ///     when every chunk in the range was processed; it says nothing about whether they all
+    ///     *passed*, because a run that finds bad blocks and keeps going still completes
+    ///     (FR-FAIL-3).
     ///
-    ///     `cacheBypassCode` is a ``CacheBypassOutcome`` raw value — the FR-TEST-9 verdict as
-    ///     it stood at the **end** of the run, which is the acquire-time verdict possibly
+    ///     **The failures (FR-RPT-1)** — `failedRangeCount` (retained **plus** any the cap
+    ///     dropped), `failureSummary` (the human line, also carried inside `message`),
+    ///     `failedRangesEncoded` (``FailedRangeCoding``) and `failedBlockCount` (every failing
+    ///     block, *including* those in dropped ranges — never approximate). The retained ranges
+    ///     are what decodes; `failedRangeCount` minus their number is what the cap dropped, and
+    ///     a report showing the list must say so. All of it is block addressing, never device
+    ///     contents (NFR-SEC-6).
+    ///
+    ///     **The mode the run actually used** — `failureModeUsedCode`, a ``FailureModeCode`` raw
+    ///     value, or `0` when no run happened. Echoed back because the helper's `RunCoordinator`
+    ///     is not in the test target, so "the deciding observer really is installed" is otherwise
+    ///     a code-level inference — and on a healthy drive there is no failure to not-stop on, so
+    ///     nothing would ever reveal it.
+    ///
+    ///     **The final figures (FR-RPT-2/3)** — `readBytesPerSecond`, `writeBytesPerSecond`,
+    ///     `readLatencySampleCount`, and the three latency figures. They are here rather than
+    ///     read from ``runProgress(reply:)`` after the fact for one reason: `MetricsChannel`'s
+    ///     slot is replaced when a run *starts*, which happens after validation — so a **refused**
+    ///     run leaves the previous run's figures installed, and a report assembled from a
+    ///     post-reply poll would export the wrong run's measurements into the only artefact this
+    ///     product persists. Arriving in the reply, they belong to this run or they do not exist.
+    ///     Same sentinels as `runProgress`: rates are `-1` when not measured (never `0`, which
+    ///     means *stalled*), and a `readLatencySampleCount` of `0` makes the three latency values
+    ///     meaningless — `0` nanoseconds is itself a legitimate reading. The p99 travels as its
+    ///     **upper bound**.
+    ///
+    ///     **The rest** — `cacheBypassCode` is a ``CacheBypassOutcome`` raw value, the FR-TEST-9
+    ///     verdict as it stood at the **end** of the run: the acquire-time verdict possibly
     ///     downgraded by what the run's own throughput revealed. It never improves.
-    ///     `fastestObservedBytesPerSecond` is what the falsifier actually measured, so a gate
-    ///     can assert the reads were transport-plausible rather than only that a threshold was
-    ///     not crossed. `bufferBytesHeld` is NFR-PERF-1's figure: 2 × the I/O size,
-    ///     whatever the range's size.
-    ///     `hostOverheadFraction` and `helperCoreFraction` are **NFR-PERF-3's two numbers**, and
-    ///     they arrive here rather than on the live progress query because they are read once —
-    ///     by a gate, and by Step 16's release note — not watched. The first is host work
-    ///     (compare, metrics, bookkeeping) as a fraction of device I/O time, measured inside the
-    ///     cycle's own loop. The second is the whole daemon's CPU as a fraction of one core,
-    ///     from `getrusage`. Both are `-1` when they could not be established; neither is ever
-    ///     `0` for "unknown", because 0 is a legitimate and very different answer.
+    ///     `fastestObservedBytesPerSecond` is what the falsifier actually measured, so a gate can
+    ///     assert the reads were transport-plausible rather than only that a threshold was not
+    ///     crossed. `bufferBytesHeld` is NFR-PERF-1's figure: 2 × the I/O size, whatever the
+    ///     range's size. `hostOverheadFraction` and `helperCoreFraction` are **NFR-PERF-3's two
+    ///     numbers**, read once by a gate and by Step 16's release note rather than watched; both
+    ///     are `-1` when they could not be established, never `0`.
     func runRetentionCycle(startBlock: UInt64,
                            blockCount: UInt64,
                            ioSizeBytes: Int,
-                           reply: @escaping (Bool, UInt64, Int, String,
-                                             Int, Double, Int, Double, Double, String) -> Void)
+                           failureModeCode: Int,
+                           reply: @escaping (Bool,     //  1 completed
+                                             UInt64,   //  2 chunksProcessed
+                                             Int,      //  3 failedRangeCount
+                                             String,   //  4 failureSummary
+                                             Int,      //  5 cacheBypassCode
+                                             Double,   //  6 fastestObservedBytesPerSecond
+                                             Int,      //  7 bufferBytesHeld
+                                             Double,   //  8 hostOverheadFraction
+                                             Double,   //  9 helperCoreFraction
+                                             Int,      // 10 failureModeUsedCode        (v9)
+                                             String,   // 11 failedRangesEncoded        (v9)
+                                             UInt64,   // 12 failedBlockCount           (v9)
+                                             Double,   // 13 readBytesPerSecond         (v9)
+                                             Double,   // 14 writeBytesPerSecond        (v9)
+                                             UInt64,   // 15 readLatencySampleCount     (v9)
+                                             UInt64,   // 16 readLatencyMinimumNs       (v9)
+                                             UInt64,   // 17 readLatencyMaximumNs       (v9)
+                                             UInt64,   // 18 readLatencyP99UpperBoundNs (v9)
+                                             String)   // 19 message
+                                            -> Void)
 
     /// A snapshot of the run currently in progress (Step 9, FR-METR-2/4/5/6, NFR-PERF-5).
     ///
@@ -389,7 +431,7 @@ import Foundation
 ///   `Core/CacheBypassCheck.swift`, which is where the classification happens, for the same
 ///   reason `DeviceAccessRefusalCause` is duplicated: Core compiles into the helper and the
 ///   test target but deliberately **not** into the app module. A test pins the two together.
-public enum CacheBypassOutcome: Int {
+nonisolated public enum CacheBypassOutcome: Int {
 
     /// The descriptor is the raw character device with caching disabled. The verify comparison
     /// means what it says.
@@ -465,6 +507,198 @@ public enum DeviceAccessRefusalCause: Int {
     }
 }
 
+/// Which of FR-FAIL-1's two failure-handling modes a run was started in, as it travels over
+/// the wire.
+///
+/// - Important: these raw values are duplicated by `FailureMode.wireCode` in
+///   `Core/RetentionRun.swift`, which is where the modes actually decide anything, for the same
+///   reason ``DeviceAccessRefusalCause`` is duplicated: Core compiles into the helper and the
+///   test target but deliberately **not** into the app module. `FailureModeTests` pins the two.
+///
+/// ## Why this one has an unrecognised case and `FailureMode` does not
+///
+/// They sit on opposite sides of the trust boundary. Anything arriving over this interface is
+/// untrusted input even though the connection is code-signature-authenticated (NFR-REL-7), so a
+/// code this build does not know has to be *representable* in order to be **refused** — the same
+/// treatment an unpermitted I/O size gets. Inside the helper there is no such case, because a
+/// run that does not know its mode never starts.
+///
+/// It is never defaulted. Quietly resolving an unknown code to FR-FAIL-4's default would mean a
+/// caller asking to stop on the first error and getting a run that writes to the whole drive
+/// instead — a request silently answered with a different, larger action.
+nonisolated public enum FailureModeCode: Int {
+
+    /// **FR-FAIL-2** — halt on the first failed range.
+    case stopOnFirstError = 1
+
+    /// **FR-FAIL-3/4** — record it and keep going. The default.
+    case logAndContinue = 2
+
+    /// Anything this build does not recognise. **Refused, never defaulted.**
+    case unrecognised = 0
+
+    /// FR-FAIL-4's default, for a caller that has no reason to choose.
+    public static let standard = FailureModeCode.logAndContinue
+
+    /// Map a wire value, never trapping on one this build does not know.
+    public init(wireValue: Int) {
+        self = FailureModeCode(rawValue: wireValue) ?? .unrecognised
+    }
+
+    /// Is this a mode a run may actually start in?
+    public var isRunnable: Bool { self != .unrecognised }
+}
+
+/// What kind of failure a reported range was, as it travels over the wire.
+///
+/// - Important: duplicated by `BlockFailureKind` in `Core/RetentionRun.swift`; pinned by
+///   `FailedRangeCodingTests`.
+nonisolated public enum FailedBlockRangeKind: Int, CaseIterable {
+
+    /// The original read failed, so nothing was written to this range.
+    case readError = 1
+
+    /// The write-back failed, so nothing was verified.
+    case writeError = 2
+
+    /// The write reported success and the re-read differed from what was written.
+    case verifyMismatch = 3
+
+    /// Map a wire value. `nil` — not a fallback case — because a range whose kind cannot be
+    /// read is a range the report must not print. See ``FailedRangeCoding``.
+    public init?(wireValue: Int) {
+        self.init(rawValue: wireValue)
+    }
+
+    /// How the kind is named in the report and in a log line. Matches
+    /// `BlockFailureKind.description` word for word, so one failure does not acquire two names
+    /// depending on which side of the boundary printed it.
+    public var reportName: String {
+        switch self {
+        case .readError:      return "read error"
+        case .writeError:     return "write error"
+        case .verifyMismatch: return "verify mismatch"
+        }
+    }
+}
+
+/// One failed block range, on its way from the helper to the report (FR-RPT-1).
+///
+/// Block units rather than bytes, because that is what a user can act on — a byte offset into a
+/// 1 TB device is not a thing anyone can look up — and because it is what the report tabulates.
+///
+/// The initialiser is failable and enforces the two invariants that make ``endBlock`` safe to
+/// compute and the range meaningful to print. That is the same move ``LoadedChunk`` makes in
+/// Core: a value that cannot be represented is better than one that is checked at every use
+/// site and eventually isn't.
+nonisolated public struct FailedBlockRange: Equatable, CustomStringConvertible {
+
+    /// First failing block.
+    public let startBlock: UInt64
+
+    /// How many blocks failed. Always at least 1.
+    public let blockCount: UInt64
+
+    /// What went wrong.
+    public let kind: FailedBlockRangeKind
+
+    /// - Returns: `nil` when `blockCount` is zero — an empty failed range says nothing and
+    ///   would render as a blank row — or when the range would run past the end of the address
+    ///   space, which would make ``endBlock`` trap.
+    public init?(startBlock: UInt64, blockCount: UInt64, kind: FailedBlockRangeKind) {
+        guard blockCount >= 1 else { return nil }
+        guard !startBlock.addingReportingOverflow(blockCount).overflow else { return nil }
+        self.startBlock = startBlock
+        self.blockCount = blockCount
+        self.kind = kind
+    }
+
+    /// One past the last failing block. Cannot overflow — the initialiser refuses a range that
+    /// would.
+    public var endBlock: UInt64 { startBlock + blockCount }
+
+    /// Matches `BlockRangeFailure.description`, for the reason given on
+    /// ``FailedBlockRangeKind/reportName``.
+    public var description: String {
+        blockCount == 1
+            ? "block \(startBlock): \(kind.reportName)"
+            : "blocks \(startBlock)–\(endBlock - 1) (\(blockCount)): \(kind.reportName)"
+    }
+}
+
+/// Carries ``FailedBlockRange`` values across the XPC boundary as one `String`.
+///
+/// ## Why a string rather than an array of objects
+///
+/// Every parameter on ``TesterControl`` is an ObjC-representable primitive, deliberately, so the
+/// interface needs no `NSSecureCoding` class whitelist (see this file's header). A list of
+/// ranges is the first thing Step 10 needs that is not naturally one — so it is encoded here,
+/// once, in the file both the app and the helper compile, rather than duplicated on each side
+/// the way the wire *enums* have to be.
+///
+/// ## Why a malformed record fails the whole decode
+///
+/// ``decode(_:)`` returns `nil` if **any** record is bad, rather than skipping it. Skipping
+/// would produce a shorter list that still looks complete — the same failure `FailureLog`'s
+/// `isTruncated` exists to prevent, arriving by a different door and into the one artefact that
+/// outlives the session. A report that silently omits a bad block is worse than no report.
+///
+/// Format: records separated by `;`, fields by `:`, as
+/// `<startBlock>:<blockCount>:<kindCode>`. An empty string means no failed ranges, which is the
+/// commonest case and costs nothing. Human-glanceable on purpose — it appears in log lines.
+nonisolated public enum FailedRangeCoding {
+
+    static let recordSeparator: Character = ";"
+    static let fieldSeparator: Character = ":"
+
+    /// Encode a list. The inverse of ``decode(_:)`` for every list this can produce.
+    public static func encode(_ ranges: [FailedBlockRange]) -> String {
+        ranges
+            .map { "\($0.startBlock)\(fieldSeparator)\($0.blockCount)\(fieldSeparator)\($0.kind.rawValue)" }
+            .joined(separator: String(recordSeparator))
+    }
+
+    /// Decode a list, or `nil` if anything about the input is not exactly what ``encode(_:)``
+    /// produces.
+    ///
+    /// Strict by intent. `UInt64(_: String)` alone would accept a leading `+` and reject a value
+    /// that overflows — useful, but not a complete accept-set — so the digits are checked
+    /// explicitly first. Everything a caller could send that is not a canonical encoding is a
+    /// `nil`, and a `nil` is the app declining to build a report rather than building a wrong one.
+    public static func decode(_ encoded: String) -> [FailedBlockRange]? {
+        guard !encoded.isEmpty else { return [] }
+
+        var ranges: [FailedBlockRange] = []
+        ranges.reserveCapacity(encoded.count / 8)
+
+        for record in encoded.split(separator: recordSeparator, omittingEmptySubsequences: false) {
+            let fields = record.split(separator: fieldSeparator, omittingEmptySubsequences: false)
+            guard fields.count == 3,
+                  let startBlock = digits(fields[0]),
+                  let blockCount = digits(fields[1]),
+                  let kindCode = digits(fields[2]),
+                  kindCode <= UInt64(Int.max),
+                  let kind = FailedBlockRangeKind(wireValue: Int(kindCode)),
+                  let range = FailedBlockRange(startBlock: startBlock,
+                                               blockCount: blockCount,
+                                               kind: kind)
+            else { return nil }
+            ranges.append(range)
+        }
+        return ranges
+    }
+
+    /// A run of ASCII digits and nothing else, in range for `UInt64`.
+    ///
+    /// Rejects the empty string, `+5`, ` 5`, `0x10`, non-ASCII digits, and anything that
+    /// overflows. Written out rather than left to `UInt64.init(_:)` so the accept-set is exact
+    /// and can be tested as one.
+    private static func digits(_ text: Substring) -> UInt64? {
+        guard !text.isEmpty, text.allSatisfy({ $0.isASCII && $0.isNumber }) else { return nil }
+        return UInt64(text)
+    }
+}
+
 /// Version of the ``TesterControl`` contract (NFR-MAINT-1).
 ///
 /// Bump ``version`` whenever a change would break an older peer: removing or
@@ -510,6 +744,18 @@ public enum TesterProtocol {
     ///   not delivered until the call returns, while a second connection is answered concurrently
     ///   in 0.2–0.3 ms. Polling on the run's own connection would return nothing until the run
     ///   ended — indistinguishable from a wedged daemon.
+    /// - **9** — Step 10: `runRetentionCycle` takes a ``FailureModeCode`` (FR-FAIL-1) and its
+    ///   reply carries what the end-of-run report needs — the failed ranges themselves
+    ///   (FR-RPT-1), the total failing block count, the final throughput and read-latency figures
+    ///   (FR-RPT-2/3), and the mode the run actually used. A **signature change on both sides**,
+    ///   so the bump is mandatory: a v8 daemon would neither receive the mode nor encode the
+    ///   reply block this app decodes.
+    ///
+    ///   The figures are in the reply rather than polled from `runProgress` afterwards because
+    ///   `MetricsChannel`'s slot is replaced when a run *starts* — after validation — so a
+    ///   **refused** run leaves the previous run's figures installed, and a report assembled from
+    ///   a post-reply poll would export the wrong run's measurements. In the reply they belong to
+    ///   this run or they do not exist.
     ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
@@ -522,7 +768,7 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 8
+    public static let version = 9
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

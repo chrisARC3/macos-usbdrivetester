@@ -84,6 +84,19 @@ final class MainWindowCloseGuard: NSObject, NSWindowDelegate {
         switch model.mainWindowCloseRequested() {
         case .allowClose:
             return true
+
+        case .allowCloseAndQuit:
+            // **After the close, not during it.** `windowShouldClose` is asked *whether* the
+            // window may close; the window has not closed yet at this point, and terminating from
+            // inside the answer would have AppKit tearing the app down through a delegate call it
+            // is still waiting on. One turn of the run loop later, the close has completed and the
+            // termination is an ordinary one — which is what makes it go through
+            // `applicationShouldTerminate` and pick up the same guard as ⌘Q.
+            DispatchQueue.main.async { [weak model] in
+                model?.quitBecauseTheMainWindowClosed()
+            }
+            return true
+
         case .askFirst, .refuseSilently:
             // The window never closes as part of a confirmed quit: either the app terminates and
             // takes it, or the user chose to keep testing and it stays exactly where it was.

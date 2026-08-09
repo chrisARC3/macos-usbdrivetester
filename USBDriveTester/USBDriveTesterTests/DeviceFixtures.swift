@@ -25,6 +25,10 @@ enum DeviceFixtures {
                        sizeBytes: UInt64 = 1_000_204_886_016,
                        logicalBlockSize: UInt32 = 512,
                        mountedVolumeNames: [String] = [],
+                       // Defaults to a plausible node per volume, so a fixture that only cares
+                       // about names still produces an index-aligned pair — the invariant the
+                       // restore depends on.
+                       mountedVolumeBSDNames: [String]? = nil,
                        usbSerialNumber: String? = "12345686DAA9") -> DiscoveredDevice {
         DiscoveredDevice(registryEntryID: id,
                          bsdName: BSDDeviceName(bsdName),
@@ -34,6 +38,8 @@ enum DeviceFixtures {
                          sizeBytes: sizeBytes,
                          logicalBlockSize: logicalBlockSize,
                          mountedVolumeNames: mountedVolumeNames,
+                         mountedVolumeBSDNames: mountedVolumeBSDNames
+                            ?? mountedVolumeNames.enumerated().map { "\(bsdName)s\($0.offset + 1)" },
                          usbSerialNumber: usbSerialNumber)
     }
 

@@ -113,6 +113,7 @@ struct DeviceListView: View {
     /// The last mount/unmount or acquire/release result, shown verbatim.
     @State private var lastOutcome: OutcomeMessage?
 
+
     private struct OutcomeMessage: Equatable {
         let ok: Bool
         let text: String
@@ -654,8 +655,49 @@ struct DeviceListView: View {
         }
 
         switch direction {
-        case .unmountAll: mounter.unmountAll(device, completion: finish)
-        case .mountAll:   mounter.mountAll(device, completion: finish)
+        case .unmountAll:
+            // **A failed unmount is undone** (user decision 2026-08-06). A whole-disk unmount
+            // dissents as a unit but leaves already-unmounted volumes unmounted, so a refusal by
+            // one busy volume otherwise strands the user with a half-dismounted drive — which is
+            // what happened, with the wrong drive selected.
+            //
+            // The sequencing is `VolumeMounter.restoringUnmount` rather than two nested calls
+            // here, because written here it was untestable: a mutation deleting the rollback
+            // outright was caught by nothing. `finish` runs once, at the end of whichever path
+            // was taken, so the control stays disabled through the remount.
+            // Captured before anything is unmounted: the restore puts back exactly these, and
+            // nothing else. EFI is absent from this list precisely because it was not mounted.
+            let before = Array(zip(device.mountedVolumeNames, device.mountedVolumeBSDNames))
+                .map { (name: $0.0, bsdName: $0.1) }
+
+            VolumeMounter.restoringUnmount(
+                unmount: { done in mounter.unmountAll(device, completion: done) },
+                mountedBefore: before,
+                // **The postcondition, read back** — `DADiskUnmount` can report success with a
+                // volume still mounted (measured 2026-08-06), which is why the first two versions
+                // of this were inert.
+                //
+                // Read from the **mount table alone**, not by re-enumerating. `before` already
+                // holds this device's volume nodes, from the enumerator's own IOKit subtree walk,
+                // so the attribution question is already answered and `getfsstat` is the whole
+                // remaining question. Calling `discovery.refresh()` here — as the first version
+                // did — rebuilds the device list underneath the `List` up to a dozen times during
+                // the settle, and a selection binding that round-trips fires
+                // `.onChange(of: selectedDeviceID)`, which clears `lastOutcome`. That would erase
+                // the very message this whole path exists to produce.
+                volumesStillMounted: {
+                    let mountedNodes = Set(MountTable.current().compactMap(\.bsdName))
+                    return before.filter { mountedNodes.contains($0.bsdName) }.map(\.name)
+                },
+                // 150 ms × 12 ≈ 1.8 s of grace for the table to catch up with the callback.
+                retry: { again in
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: again)
+                },
+                restore: { lost, done in mounter.mount(volumeBSDNames: lost, completion: done) },
+                completion: finish)
+
+        case .mountAll:
+            mounter.mountAll(device, completion: finish)
         }
     }
 
@@ -669,8 +711,10 @@ struct DeviceListView: View {
             case .success(let acquisition):
                 if case .acquired = acquisition {
                     model.helperHoldsDevice = true
-                    model.heldDeviceName = device.bsdName.rawValue
-                    model.heldDeviceSerial = device.usbSerialNumber
+                    // Identity captured at CLAIM time. The enumeration that produced it can
+                    // be gone by the time a report is written; the report is about the drive
+                    // the run touched, not whatever is present afterwards.
+                    model.heldDevice = ReportedDevice(device)
                     lastOutcome = OutcomeMessage(ok: true, text: acquisition.message)
                 } else {
                     // A refusal is the *expected* outcome whenever a volume is mounted,
@@ -701,8 +745,7 @@ struct DeviceListView: View {
             model.helperHoldsDevice = false
             // `lastRunDeviceName` and `lastRunDeviceSerial` are deliberately *not* cleared: the
             // run they name happened, and its figures are still on screen.
-            model.heldDeviceName = nil
-            model.heldDeviceSerial = nil
+            model.heldDevice = nil
             switch result {
             case .success(let message):
                 lastOutcome = OutcomeMessage(ok: true, text: message

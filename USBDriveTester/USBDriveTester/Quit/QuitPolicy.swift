@@ -102,7 +102,38 @@ nonisolated enum QuitDisposition: Equatable {
 /// What the main window should do about a close attempt.
 nonisolated enum WindowCloseDisposition: Equatable {
 
+    /// Let the window close and leave the app running.
+    ///
+    /// Reached only while the app is **already terminating**, where AppKit is closing every window
+    /// on its way out. Closing the main window is otherwise a request to quit — see
+    /// ``allowCloseAndQuit``.
     case allowClose
+
+    /// Let the window close, then ask the app to terminate (user decision 2026-08-06).
+    ///
+    /// ## Why closing the main window quits, rather than only closing the last window
+    ///
+    /// The first version of this used AppKit's
+    /// `applicationShouldTerminateAfterLastWindowClosed`, which fires only when **no window at
+    /// all** is left. Observed in the product, that reads as arbitrary: closing the main window
+    /// quit the app, or didn't, depending on whether a diagnostics panel the user had opened
+    /// earlier happened to still be up. The rule was a fact about AppKit's window count, not
+    /// about anything the user did.
+    ///
+    /// > *"I don't think that this is an intuitive user experience. I think closing the main
+    /// > window should always try to terminate the app."* — user, 2026-08-06
+    ///
+    /// So the main window's close **is** the quit request, and the auxiliary windows are what they
+    /// look like: panels belonging to the app, which go when it goes.
+    ///
+    /// ## "Try to terminate", precisely
+    ///
+    /// The termination is *requested*, not performed — it goes out as an ordinary
+    /// `NSApp.terminate(_:)` and lands in `applicationShouldTerminate`, which applies the same
+    /// guard every other route does. This case is only ever produced from the idle state, so that
+    /// guard will allow it; but routing it through rather than around means a run can never be
+    /// abandoned by this path even if this table is later changed.
+    case allowCloseAndQuit
 
     /// Refuse the close and put the confirmation on screen. The window never closes as part of
     /// this: the decision treats closing the main window as a *quit* request, so either the app
@@ -166,7 +197,9 @@ nonisolated enum QuitPolicy {
             return .refuseSilently
 
         case .idle:
-            return runIsActive ? .askFirst : .allowClose
+            // Closing the main window is a quit request (user decision 2026-08-06). During a run
+            // it is the same quit request every other route makes, and gets the same dialog.
+            return runIsActive ? .askFirst : .allowCloseAndQuit
         }
     }
 }

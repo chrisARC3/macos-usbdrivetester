@@ -42,9 +42,30 @@
 //
 //  So the change removes ⌘N — and ⌘W with it, since SwiftUI stops generating the File menu
 //  entirely, which leaves the title-bar button as the only way to close the main window (that is
-//  what `MainWindowCloseGuard` intercepts during a run). And a closed main window is not lost: the
-//  Window menu keeps an item that brings it back, which is why this does not need
-//  `applicationShouldTerminateAfterLastWindowClosed`.
+//  what `MainWindowCloseGuard` intercepts during a run). A closed main window is also not lost:
+//  the Window menu keeps an item that brings it back.
+//
+//  ## Closing the MAIN window quits the app (user decision 2026-08-06)
+//
+//  Step 9 concluded from the paragraph above that the app need not quit when its window closes —
+//  the window is recoverable, so leaving it running costs nothing. **That was reasoned, not
+//  observed**, and Step 9 recorded the whole area as measured-on-a-probe-but-never-seen-in-the-product.
+//  Seen in the product, it is wrong: the helper's claim outlives the window, so the app could sit
+//  invisibly with somebody's drive unmounted and no UI to release it.
+//
+//  The rule is **the main window's close is a quit request**, and it lives in
+//  `QuitPolicy.closeDisposition` where the truth table is tested. The diagnostics and report
+//  windows are panels belonging to the app; they go when it goes, and closing one of *them* does
+//  nothing to the app.
+//
+//  An interim version used `applicationShouldTerminateAfterLastWindowClosed` alone, and observing
+//  that is what produced the rule above: it fires only when no window is left, so closing the main
+//  window quit the app or not depending on whether a panel opened earlier was still up — a
+//  behaviour keyed on AppKit's window count rather than on anything the user did. That flag is
+//  still set, now as a backstop for ending up with no UI by some route nobody enumerated.
+//
+//  Neither route can bypass the during-a-run confirmation, which refuses the close before AppKit
+//  ever gets as far as terminating.
 //
 
 import SwiftUI
@@ -74,6 +95,7 @@ struct USBDriveTesterApp: App {
         }
         .commands {
             CommandGroup(after: .windowList) {
+                RunReportWindowCommand()
                 DiagnosticsWindowCommand()
             }
         }
@@ -87,6 +109,40 @@ struct USBDriveTesterApp: App {
                 .environment(model)
         }
         .defaultSize(width: 660, height: 720)
+
+        // Step 10. A `Window` for the same reason the diagnostics panel is one — there is
+        // exactly one most-recent run, so a second copy of this would be two views of one truth
+        // — and for one more that decided it against a sheet: a `Window` is renderable by
+        // `tools/ui-probe`, and a sheet is not. This project has found three defects by
+        // rendering that no assertion caught.
+        //
+        // It opens itself when a run ends and stays reachable from the Window menu afterwards.
+        Window("Run Report", id: WindowID.report) {
+            RunReportWindow()
+                .environment(model)
+        }
+        .defaultSize(width: 720, height: 760)
+    }
+}
+
+/// The menu item that opens the run report.
+private struct RunReportWindowCommand: View {
+
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button("Run Report") { openWindow(id: WindowID.report) }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+    }
+}
+
+/// The report window's content.
+private struct RunReportWindow: View {
+
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        RunReportView(report: model.lastRunReport)
     }
 }
 
@@ -112,14 +168,35 @@ private struct HelperDiagnosticsWindow: View {
 
     @Environment(AppModel.self) private var model
 
+    /// Opens the report window when a run ends. `Window` is single-instance, so asking to open an
+    /// already-open one brings it forward rather than making a second.
+    @Environment(\.openWindow) private var openWindow
+
     var body: some View {
         @Bindable var model = model
         HelperDiagnosticsView(simulatedRunActive: $model.simulatedRunActive,
                               helper: model.helper,
                               cycleIsRunning: $model.cycleIsRunning,
                               linkSpeedCode: $model.linkSpeedCode,
+                              failureMode: $model.failureMode,
                               deviceIsHeld: model.helperHoldsDevice,
-                              mayIssueNewWork: model.mayIssueNewWork)
+                              mayIssueNewWork: model.mayIssueNewWork,
+                              reportProduced: { report in
+                                  model.lastRunReport = report
+                                  // A refused call is not a run: no report, and the log says why
+                                  // so that its absence is explicable rather than looking like a
+                                  // lost one. Nothing is opened for it either — a window that
+                                  // appeared saying "no run has finished yet" immediately after
+                                  // pressing the button would be worse than no window.
+                                  guard let report else {
+                                      RunReportLog.noReportForRefusedCall(
+                                          "the request did not become a run")
+                                      return
+                                  }
+                                  RunReportLog.reportProduced(report)
+                                  openWindow(id: WindowID.report)
+                              },
+                              reportedDevice: model.lastRunDevice)
             .frame(minWidth: 560, minHeight: 480)
     }
 }

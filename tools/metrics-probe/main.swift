@@ -246,6 +246,19 @@ struct CycleRun {
     let samples: [Sample]
     let replyNanoseconds: UInt64
     let startNanoseconds: UInt64
+
+    // Protocol v9 (Step 10). The final figures now arrive in the cycle's own reply rather than
+    // having to be polled for afterwards — which is the whole point: `MetricsChannel`'s slot is
+    // replaced when a run *starts*, so a refused run leaves the previous run's numbers behind,
+    // and this probe's Step 9 predecessor read exactly that kind of stale value once already.
+    let failureModeUsed: Int
+    let failedBlockCount: UInt64
+    let finalReadBytesPerSecond: Double
+    let finalWriteBytesPerSecond: Double
+    let finalLatencySamples: UInt64
+    let finalLatencyMinimumNanoseconds: UInt64
+    let finalLatencyMaximumNanoseconds: UInt64
+    let finalLatencyP99UpperNanoseconds: UInt64
 }
 
 func runCycle(ioSizeBytes: Int) -> CycleRun {
@@ -263,6 +276,14 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
     var core = -1.0
     var message = ""
     var replyNanoseconds: UInt64 = 0
+    var failureModeUsed = FailureModeCode.unrecognised.rawValue
+    var failedBlockCount: UInt64 = 0
+    var finalReadRate = -1.0
+    var finalWriteRate = -1.0
+    var finalLatencySamples: UInt64 = 0
+    var finalLatencyMinimum: UInt64 = 0
+    var finalLatencyMaximum: UInt64 = 0
+    var finalLatencyP99Upper: UInt64 = 0
 
     let startNanoseconds = nowNanoseconds()
 
@@ -273,11 +294,18 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
         finished.raise()
         semaphore.signal()
     }) {
+        // FR-FAIL-4's default (protocol v9). This probe measures a *healthy* device, so the
+        // mode never acts on anything — but the reply says which mode ran, and that is
+        // asserted, because it is the only evidence available that the mode reached the run
+        // path when there is no failure for it to stop on.
         tester.runRetentionCycle(startBlock: 0,
                                  blockCount: runBlocks,
-                                 ioSizeBytes: ioSizeBytes) { done, chunkCount, failed, summary,
-                                                             bypass, _, buffers, hostOverhead,
-                                                             coreFraction, text in
+                                 ioSizeBytes: ioSizeBytes,
+                                 failureModeCode: FailureModeCode.standard.rawValue) {
+            done, chunkCount, failed, summary, bypass, _, buffers, hostOverhead,
+            coreFraction, modeUsed, _, failedBlocks, readRate, writeRate,
+            latencySampleCount, latencyMin, latencyMax, latencyP99, text in
+
             replyNanoseconds = nowNanoseconds()
             completed = done
             chunks = chunkCount
@@ -287,6 +315,14 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
             bufferBytes = buffers
             overhead = hostOverhead
             core = coreFraction
+            failureModeUsed = modeUsed
+            failedBlockCount = failedBlocks
+            finalReadRate = readRate
+            finalWriteRate = writeRate
+            finalLatencySamples = latencySampleCount
+            finalLatencyMinimum = latencyMin
+            finalLatencyMaximum = latencyMax
+            finalLatencyP99Upper = latencyP99
             message = text
             finished.raise()
             semaphore.signal()
@@ -388,7 +424,15 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
                         ? replyNanoseconds - startNanoseconds : 0,
                     samples: log.all,
                     replyNanoseconds: replyNanoseconds,
-                    startNanoseconds: startNanoseconds)
+                    startNanoseconds: startNanoseconds,
+                    failureModeUsed: failureModeUsed,
+                    failedBlockCount: failedBlockCount,
+                    finalReadBytesPerSecond: finalReadRate,
+                    finalWriteBytesPerSecond: finalWriteRate,
+                    finalLatencySamples: finalLatencySamples,
+                    finalLatencyMinimumNanoseconds: finalLatencyMinimum,
+                    finalLatencyMaximumNanoseconds: finalLatencyMaximum,
+                    finalLatencyP99UpperNanoseconds: finalLatencyP99Upper)
 }
 
 func column(_ text: String, _ width: Int) -> String {
@@ -446,6 +490,24 @@ for size in sweepSizes {
     print("[size:\(size)] FINAL_READ_BYTES_PER_SECOND=\(final?.readBytesPerSecond ?? -1)")
     print("[size:\(size)] FINAL_WRITE_BYTES_PER_SECOND=\(final?.writeBytesPerSecond ?? -1)")
     print("[size:\(size)] FINAL_CHUNKS_FAILED=\(final?.chunksFailed ?? 0)")
+
+    // Protocol v9 (Step 10). The same six figures, by a completely different route: these came
+    // back in `runRetentionCycle`'s reply, the `FINAL_*` ones above from a `runProgress` poll
+    // issued after it. **They must agree.**
+    //
+    // That agreement is the only check available on the part of the v9 reply no unit test can
+    // reach. The reply is nineteen positional values assembled in the helper's `main.swift`, six
+    // of them adjacent same-typed numbers — two `Double` rates and four `UInt64` latency figures
+    // — and a transposition there would compile, run, and put read throughput under "write" in
+    // an exported report. Two independent paths to the same numbers is what makes it visible.
+    print("[size:\(size)] REPLY_FAILURE_MODE_USED=\(run.failureModeUsed)")
+    print("[size:\(size)] REPLY_FAILED_BLOCKS=\(run.failedBlockCount)")
+    print("[size:\(size)] REPLY_READ_BYTES_PER_SECOND=\(run.finalReadBytesPerSecond)")
+    print("[size:\(size)] REPLY_WRITE_BYTES_PER_SECOND=\(run.finalWriteBytesPerSecond)")
+    print("[size:\(size)] REPLY_LATENCY_SAMPLES=\(run.finalLatencySamples)")
+    print("[size:\(size)] REPLY_LATENCY_MIN_NS=\(run.finalLatencyMinimumNanoseconds)")
+    print("[size:\(size)] REPLY_LATENCY_MAX_NS=\(run.finalLatencyMaximumNanoseconds)")
+    print("[size:\(size)] REPLY_LATENCY_P99_NS=\(run.finalLatencyP99UpperNanoseconds)")
 
     // The full snapshot table only for the default size, or the output becomes unreadable.
     guard size == detailedSize else { continue }
@@ -513,16 +575,35 @@ print("[probe] TRANSPORT_FAILED=\(transportFailed ? 1 : 0)")
 // Neither of these performs any I/O: `RunCoordinator.runCycle` validates placement before it
 // vends a block device, so a refusal costs nothing and touches nothing.
 
-func expectRefusal(_ label: String, startBlock: UInt64, blockCount: UInt64) {
+func expectRefusal(_ label: String,
+                   startBlock: UInt64,
+                   blockCount: UInt64,
+                   failureModeCode: Int = FailureModeCode.standard.rawValue) {
     blockingCall(label, on: runConnection, timeout: 60) { tester, done in
         tester.runRetentionCycle(startBlock: startBlock,
                                  blockCount: blockCount,
-                                 ioSizeBytes: detailedSize) { completed, chunks, _, _, _, _, _,
-                                                             _, _, message in
+                                 ioSizeBytes: detailedSize,
+                                 failureModeCode: failureModeCode) {
+            completed, chunks, _, _, _, _, _, _, _, modeUsed, ranges, failedBlocks,
+            readRate, writeRate, latencySamples, _, _, _, message in
+
             // `completed == false` and no chunks processed is what a refusal looks like; a
             // refusal that had already written something would show up as chunks > 0.
             print("[\(label)] REFUSED=\(completed || chunks > 0 ? 0 : 1)")
             print("[\(label)] CHUNKS=\(chunks)")
+
+            // Protocol v9 (Step 10). **A refused run must carry no figures at all**, and this is
+            // the hardware evidence for why the figures travel in this reply rather than being
+            // polled from `runProgress` afterwards: at this moment the helper's `MetricsChannel`
+            // slot still holds the *previous* run's numbers, because `begin()` runs after
+            // validation. A caller that went looking would find them, correctly formatted, and
+            // put another run's measurements into an exported report.
+            print("[\(label)] MODE_USED=\(modeUsed)")
+            print("[\(label)] RANGES_ENCODED=\(ranges)")
+            print("[\(label)] FAILED_BLOCKS=\(failedBlocks)")
+            print("[\(label)] READ_BYTES_PER_SECOND=\(readRate)")
+            print("[\(label)] WRITE_BYTES_PER_SECOND=\(writeRate)")
+            print("[\(label)] LATENCY_SAMPLES=\(latencySamples)")
             print("[\(label)] MESSAGE=\(message)")
             done()
         }
@@ -530,15 +611,21 @@ func expectRefusal(_ label: String, startBlock: UInt64, blockCount: UInt64) {
 }
 
 print("")
-print("  asking for two placements FR-TEST-10 forbids; both must be refused …")
+print("  asking for three runs the helper must refuse …")
 print("")
 
-// Half one: a start one block past zero — 512 bytes in, not a 1 MiB boundary.
+// Half one: a start one block past zero — 512 bytes in, not a 1 MiB boundary (FR-TEST-10).
 expectRefusal("misaligned", startBlock: 1, blockCount: runBlocks)
 
 // Half two: a length one block short of a whole number of MiB, in the middle of the device so
-// the final-range exemption cannot apply.
+// the final-range exemption cannot apply (FR-TEST-10).
 expectRefusal("partial", startBlock: 0, blockCount: runBlocks - 1)
+
+// And FR-FAIL-1's mode, which protocol v9 made a required parameter. An unrecognised code is
+// REFUSED, never defaulted: resolving it to FR-FAIL-4's default would answer a caller asking to
+// stop on the first error with a run that writes to the whole drive. The placement is valid here,
+// so the refusal can only be the mode.
+expectRefusal("badmode", startBlock: 0, blockCount: runBlocks, failureModeCode: 99)
 
 let allCompleted = !runs.isEmpty && runs.allSatisfy { $0.completed }
 releaseAndExit(transportFailed || !allCompleted ? 1 : 0)

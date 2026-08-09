@@ -69,6 +69,15 @@ struct HelperDiagnosticsView: View {
     @Binding var cycleIsRunning: Bool
     @Binding var linkSpeedCode: Int
 
+    /// FR-FAIL-1's mode for the next run, chosen **before** it starts.
+    ///
+    /// A binding into `AppModel` rather than local state, for the same reason as the two above:
+    /// the run is issued here and the report that names the mode is shown in a third window.
+    /// Step 11 moves this control to the main window's pre-run controls beside the I/O-size
+    /// dropdown, where FR-CTRL-7 requires it; the value it sets does not move with it.
+    @Binding var failureMode: FailureModeCode
+
+
     /// Whether the helper holds a device — the bounded cycle's precondition. Acquired in the
     /// *main* window, needed here, so it lives in `AppModel`.
     let deviceIsHeld: Bool
@@ -81,6 +90,16 @@ struct HelperDiagnosticsView: View {
     /// clickable underneath it, so the disable is doing real work rather than guarding an
     /// unreachable state.
     let mayIssueNewWork: Bool
+
+    /// Hands the finished run's report to the app. Called with `nil` when the helper **refused**
+    /// the call, which is not a run and gets no report.
+    ///
+    /// A closure rather than a direct write, so `tools/ui-probe` can host this view with no model
+    /// behind it and so the assembly stays visible at the one call site that has all the pieces.
+    var reportProduced: (RunReport?) -> Void = { _ in }
+
+    /// The drive the run is on, captured when the claim was taken (`AppModel.lastRunDevice`).
+    var reportedDevice: ReportedDevice?
 
     @State private var cycleResult: ActionResult?
 
@@ -219,6 +238,34 @@ struct HelperDiagnosticsView: View {
                 .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
 
+            // FR-FAIL-1: the mode is chosen **before** the run, and FR-FAIL-4 makes log-and-continue
+            // the default. Disabled while a run is in flight — the mode is fixed for the run's
+            // duration, and a control that looks changeable mid-run would imply otherwise.
+            //
+            // Step 11 moves this to the main window's pre-run controls beside the I/O-size
+            // dropdown, where FR-CTRL-7 requires the choice before Start is enabled.
+            Picker("On failure", selection: $failureMode) {
+                Text("Log and continue").tag(FailureModeCode.logAndContinue)
+                Text("Stop on first error").tag(FailureModeCode.stopOnFirstError)
+            }
+            .pickerStyle(.radioGroup)
+            .disabled(cycleIsRunning)
+            .onChange(of: failureMode) { _, mode in RunReportLog.modeSelected(mode) }
+
+            Text(failureMode == .stopOnFirstError
+                 ? """
+                   The run halts at the first failed block range. **Everything past it is left \
+                   untested** — which is not the same as passed.
+                   """
+                 : """
+                   Every failed block range is recorded and the rest of the range is still \
+                   refreshed. The default, and the safer choice for a drive already suspected of \
+                   failing.
+                   """)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             HStack {
                 // Disabled until a device is actually held, rather than pressable-and-failing.
                 //
@@ -263,6 +310,35 @@ struct HelperDiagnosticsView: View {
         }
     }
 
+    /// The drive the report is about, as it was when the claim was taken.
+    ///
+    /// `AppModel.lastRunDevice` and not the current selection: the report is about the drive the
+    /// run touched, and by the time it is written the list may have been rebuilt or the drive
+    /// unplugged. `nil` only if a run somehow began with nothing held, which the disabled Start
+    /// makes unreachable — reported as an unidentified drive rather than guessed at, because a
+    /// report that invented an identity would be worse than one that admits it has none.
+    private func makeReport(_ outcome: RunCycleOutcome,
+                            blockCount: UInt64,
+                            ioSize: Int,
+                            startedAt: Date,
+                            linkSpeedCode: Int) -> RunReport? {
+        let device = reportedDevice ?? ReportedDevice(modelDescription: "Unidentified drive",
+                                                      usbSerialNumber: nil,
+                                                      bsdNameAtRunTime: nil,
+                                                      capacityBytes: 0,
+                                                      logicalBlockSize: 512)
+        return RunReport(reply: outcome,
+                         startBlock: 0,
+                         blockCount: blockCount,
+                         // One size today. FR-CTRL-8's mid-run change is Step 11's, and the model
+                         // and renderer already handle a list of them.
+                         ioSizesUsed: [ioSize],
+                         device: device,
+                         startedAt: startedAt,
+                         finishedAt: Date(),
+                         usbLinkSpeedDescription: MetricsFormatting.linkSpeed(code: linkSpeedCode))
+    }
+
     /// Ask for the device's geometry, then run one bounded pass over its first gibibyte.
     ///
     /// The profile call is not optional politeness: 1 GiB is a byte figure and the request is in
@@ -274,6 +350,12 @@ struct HelperDiagnosticsView: View {
     private func runBoundedCycle() {
         cycleResult = nil
         cycleIsRunning = true
+
+        // Taken here, before the profile call, so the report's elapsed figure covers the whole
+        // operation the user waited through rather than only the privileged call inside it.
+        let startedAt = Date()
+        let ioSize = TesterProtocol.defaultIOSizeBytes
+        let mode = failureMode
 
         helper.deviceProfile { profileResult in
             guard case .success(let profile) = profileResult, profile.isAvailable,
@@ -292,8 +374,23 @@ struct HelperDiagnosticsView: View {
             let blockCount = TesterProtocol.maximumBytesPerCall / UInt64(profile.logicalBlockSize)
             helper.runRetentionCycle(startBlock: 0,
                                      blockCount: blockCount,
-                                     ioSizeBytes: TesterProtocol.defaultIOSizeBytes) { result in
+                                     ioSizeBytes: ioSize,
+                                     failureMode: mode) { result in
                 cycleIsRunning = false
+
+                // FR-RPT-1..5. `RunReport.init?` returns `nil` for a call the helper refused —
+                // which is not a run, and gets no report rather than a file describing a test
+                // that never touched the drive. The transport-failure case below likewise:
+                // there is no reply to build one from.
+                if case .success(let outcome) = result {
+                    reportProduced(makeReport(outcome,
+                                              blockCount: blockCount,
+                                              ioSize: ioSize,
+                                              startedAt: startedAt,
+                                              linkSpeedCode: profile.usbLinkSpeedCode))
+                } else {
+                    reportProduced(nil)
+                }
 
                 switch result {
                 case .success(let outcome):

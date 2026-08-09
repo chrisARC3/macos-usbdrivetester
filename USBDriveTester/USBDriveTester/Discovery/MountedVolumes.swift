@@ -124,6 +124,27 @@ nonisolated enum MountTable {
     ///   - table: A snapshot from ``current()``.
     /// - Returns: Volume names in mount-table order, de-duplicated. Order is preserved
     ///   rather than sorted so a device's volumes read the same way twice running.
+    /// The **device nodes** of the volumes mounted on `bsdNames`, in the same order as
+    /// ``volumeNames(on:in:)`` returns their names.
+    ///
+    /// Deliberately the same walk and the same de-duplication rule as the names, so the two
+    /// arrays correspond element for element. A volume that can be named must be mountable by
+    /// node, or a restore would be unable to put back something it had just reported losing.
+    static func volumeBSDNames(on bsdNames: Set<String>, in table: [MountedVolume]) -> [String] {
+        var seen = Set<String>()
+        var nodes: [String] = []
+
+        for volume in table {
+            guard let bsdName = volume.bsdName, bsdNames.contains(bsdName) else { continue }
+            // Keyed on the *volume name*, matching `volumeNames(on:in:)` — so the two arrays stay
+            // index-aligned even when one volume is mounted at two points.
+            if seen.insert(volume.volumeName).inserted {
+                nodes.append(bsdName)
+            }
+        }
+        return nodes
+    }
+
     static func volumeNames(on bsdNames: Set<String>, in table: [MountedVolume]) -> [String] {
         var seen = Set<String>()
         var names: [String] = []

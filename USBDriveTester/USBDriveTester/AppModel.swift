@@ -73,9 +73,12 @@ final class AppModel {
             // Capture *which drive* and *when*, at the moment the run starts. See
             // `lastRunDeviceName` and `lastRunStartedAt` for why the metrics panel needs both.
             if cycleIsRunning {
-                lastRunDeviceName = heldDeviceName
-                lastRunDeviceSerial = heldDeviceSerial
+                lastRunDevice = heldDevice
                 lastRunStartedAt = Date()
+                // The previous run's report is not this run's, and leaving it on screen while a
+                // new run is in flight is the stale-pane defect Step 9 was reported for, in a
+                // window instead of a panel.
+                lastRunReport = nil
             } else if quitState == .windingDown {
                 // **This is the call boundary.** The privileged call has returned, so the device
                 // can be released — which it could not be a moment ago, because a message on the
@@ -86,21 +89,22 @@ final class AppModel {
         }
     }
 
-    /// BSD name of the drive the helper currently holds, or `nil` when it holds none.
+    /// The drive the helper currently holds, or `nil` when it holds none.
     ///
     /// Tracked alongside ``helperHoldsDevice`` rather than derived from the device list, because
     /// the claim belongs to the *helper* and outlives any particular selection — which is exactly
     /// the property the list's selection does not have.
-    var heldDeviceName: String?
-
-    /// Serial number of the drive the helper currently holds, or `nil` when it holds none or the
-    /// drive reported none.
     ///
-    /// Carried beside ``heldDeviceName`` because the BSD name is a locator and this is the
-    /// identity — see `DiscoveredDevice.usbSerialNumber`.
-    var heldDeviceSerial: String?
+    /// ## Why this is a `ReportedDevice` and not the two strings it used to be (Step 10)
+    ///
+    /// It was `heldDeviceName` plus `heldDeviceSerial`, and Step 10 needs the model name, the
+    /// capacity and the block size as well — the report identifies its drive properly or it
+    /// identifies nothing. Four parallel optionals that must all be set and cleared together are
+    /// four things that can disagree; one optional record cannot. The old names survive below as
+    /// computed accessors, so nothing that only wanted the BSD name had to change.
+    var heldDevice: ReportedDevice?
 
-    /// BSD name of the drive the most recent run was performed on.
+    /// The drive the most recent run was performed on.
     ///
     /// ## Why the metrics panel has to name its drive (2026-08-05, user decision)
     ///
@@ -112,16 +116,37 @@ final class AppModel {
     /// Naming the drive fixes it without deleting evidence, which clearing the panel would have
     /// done. A measurement whose subject is unstated is the same defect as a percentile printed
     /// without its bound: not wrong, just not saying what it is about.
-    ///
-    /// Step 10's report supersedes this — it records device identity as a matter of course.
-    var lastRunDeviceName: String?
+    var lastRunDevice: ReportedDevice?
+
+    /// BSD name of the held drive — a **locator**, shown on live surfaces beside the serial.
+    var heldDeviceName: String? { heldDevice?.bsdNameAtRunTime }
+
+    /// BSD name of the drive the last run used. Live-adjacent: the metrics panel shows it beside
+    /// the serial so a user can cross-check two identifiers against the machine in front of them.
+    var lastRunDeviceName: String? { lastRunDevice?.bsdNameAtRunTime }
 
     /// Serial number of the drive the most recent run was performed on.
     ///
     /// The one field that survives a replug as an answer to "which drive was this?". `nil` when
     /// that drive reported no serial, which the metrics panel states with a warning rather than
     /// leaving the model name to imply an identification it cannot make.
-    var lastRunDeviceSerial: String?
+    var lastRunDeviceSerial: String? { lastRunDevice?.usbSerialNumber }
+
+    // MARK: - The end-of-run report (Step 10)
+
+    /// The report the most recent **run** produced, or `nil` when no run has finished this
+    /// session — or when the last call was **refused**, which is not a run and gets no report.
+    ///
+    /// Not history: FR-RPT keeps each run standalone and this is replaced by the next one.
+    /// Export is the only persistence (FR-RPT-5).
+    var lastRunReport: RunReport?
+
+    /// FR-FAIL-1's mode for the next run, chosen before it starts. FR-FAIL-4's default.
+    ///
+    /// Lives here rather than in the diagnostics view because Step 11 moves the control that sets
+    /// it to the main window's pre-run controls, beside the I/O-size dropdown and the Start
+    /// button (FR-CTRL-7), while the thing that reads it stays wherever the run is issued.
+    var failureMode: FailureModeCode = .standard
 
     /// When the most recent run started.
     ///
@@ -226,6 +251,21 @@ final class AppModel {
         return disposition
     }
 
+    /// The main window has closed and the app should now go (user decision 2026-08-06).
+    ///
+    /// Called by `MainWindowCloseGuard` **one run-loop turn after** it allowed the close, so the
+    /// window is actually gone by the time this runs.
+    ///
+    /// It **requests** a termination rather than performing one: `terminateAction` is
+    /// `NSApp.terminate(_:)`, which lands in `applicationShouldTerminate` and picks up the same
+    /// guard ⌘Q does. That routing is the point. `QuitPolicy` only produces
+    /// ``WindowCloseDisposition/allowCloseAndQuit`` from the idle state, so the guard will allow
+    /// it today — but a run started in the window between the close and this call, or a later
+    /// change to that table, cannot turn closing a window into an abandoned run.
+    func quitBecauseTheMainWindowClosed() {
+        terminateAction()
+    }
+
     /// "Continue Testing" — the run goes on and the app stays.
     func continueTesting() {
         if quitState == .confirming { quitState = .idle }
@@ -262,8 +302,7 @@ final class AppModel {
             // has to be able to tell the app's own quit from a user pressing ⌘Q again.
             self.quitState = .terminating
             self.helperHoldsDevice = false
-            self.heldDeviceName = nil
-            self.heldDeviceSerial = nil
+            self.heldDevice = nil
             self.terminateAction()
         }
         quitSequence = sequence
@@ -276,4 +315,5 @@ final class AppModel {
 enum WindowID {
     static let main = "main"
     static let diagnostics = "diagnostics"
+    static let report = "report"
 }

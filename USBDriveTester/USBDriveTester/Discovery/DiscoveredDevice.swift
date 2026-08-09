@@ -104,6 +104,21 @@ nonisolated struct DiscoveredDevice: Identifiable, Hashable {
     /// without saying so is a list that invites exactly one mistake.
     let mountedVolumeNames: [String]
 
+    /// The BSD names those volumes are mounted from, e.g. `disk8s2` — in the same order.
+    ///
+    /// Carried alongside the display names because **a name cannot be mounted and a BSD name
+    /// can**. Restoring a partially-failed unmount means remounting *exactly* the volumes that
+    /// went, which needs their device nodes; the whole-disk mount that does not need them mounts
+    /// every mountable volume instead, which on a GPT drive means bringing up an EFI partition
+    /// that was never mounted to begin with (observed 2026-08-06).
+    ///
+    /// It cannot be derived from the whole-disk name by prefix: an APFS volume is mounted from a
+    /// **synthesised** disk, so `1TB_Samsung` lives at `/dev/disk7s1` while its physical disk is
+    /// `disk6`. Only the IOKit subtree walk connects them, which is what the enumerator already
+    /// does to produce ``mountedVolumeNames`` — so this comes from the same walk rather than a
+    /// second, weaker guess.
+    let mountedVolumeBSDNames: [String]
+
     /// The USB device's serial number, or `nil` when it did not supply a usable one.
     ///
     /// **This is the only stable identity in this type.** `bsdName` is assigned at enumeration and

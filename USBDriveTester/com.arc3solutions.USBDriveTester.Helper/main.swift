@@ -642,19 +642,59 @@ final class TesterControlImpl: NSObject, TesterControl {
     func runRetentionCycle(startBlock: UInt64,
                            blockCount: UInt64,
                            ioSizeBytes: Int,
-                           reply: @escaping (Bool, UInt64, Int, String,
-                                             Int, Double, Int, Double, Double, String) -> Void) {
+                           failureModeCode: Int,
+                           reply: @escaping (Bool, UInt64, Int, String, Int, Double, Int,
+                                             Double, Double, Int, String, UInt64, Double,
+                                             Double, UInt64, UInt64, UInt64, UInt64,
+                                             String) -> Void) {
+
+        /// Every refusal path replies with **no figures at all** — rates `-1`, latency sample
+        /// count `0`, no ranges, and a `failureModeUsedCode` of `0` because no run happened.
+        ///
+        /// That is the point of carrying the figures here rather than polling `runProgress`
+        /// afterwards: `MetricsChannel`'s slot still holds the *previous* run's numbers at this
+        /// moment, and a caller that went looking would find them and report them as this run's.
+        func refuse(_ detail: String) {
+            ioLog.error("""
+                        runRetentionCycle REFUSED for \(self.peer, privacy: .public): \
+                        \(detail, privacy: .public)
+                        """)
+            reply(false, 0, 0, "",
+                  CacheBypassOutcome.unrecognised.rawValue, 0, 0, -1, -1,
+                  FailureModeCode.unrecognised.rawValue, "", 0,
+                  -1, -1, 0, 0, 0, 0,
+                  detail)
+        }
+
+        let wireMode = FailureModeCode(wireValue: failureModeCode)
 
         ioLog.notice("""
                      runRetentionCycle from \(self.peer, privacy: .public): \
                      startBlock=\(startBlock, privacy: .public) \
                      blockCount=\(blockCount, privacy: .public) \
-                     ioSize=\(ioSizeBytes, privacy: .public)
+                     ioSize=\(ioSizeBytes, privacy: .public) \
+                     failureModeCode=\(failureModeCode, privacy: .public)
                      """)
+
+        // FR-FAIL-1's mode is REQUIRED and is refused rather than defaulted (NFR-REL-7).
+        // Resolving an unknown code to FR-FAIL-4's default would answer a caller asking to stop
+        // on the first error with a run that writes to the whole drive — a request silently met
+        // by a larger action, which is the one direction this boundary must never fail in.
+        let failureMode: FailureMode
+        switch wireMode {
+        case .stopOnFirstError: failureMode = .stopOnFirstError
+        case .logAndContinue:   failureMode = .logAndContinue
+        case .unrecognised:
+            refuse("Cannot run: \(failureModeCode) is not a failure-handling mode this helper "
+                 + "recognises. Allowed: \(FailureModeCode.stopOnFirstError.rawValue) (stop on "
+                 + "first error), \(FailureModeCode.logAndContinue.rawValue) (log and continue).")
+            return
+        }
 
         switch RunCoordinator.runCycle(startBlock: startBlock,
                                        blockCount: blockCount,
-                                       ioSizeBytes: ioSizeBytes) {
+                                       ioSizeBytes: ioSizeBytes,
+                                       failureMode: failureMode) {
 
         case .success(let result):
             let summary = result.summary
@@ -670,6 +710,25 @@ final class TesterControlImpl: NSObject, TesterControl {
             // indistinguishable from a passing one.
             message += summary.cacheBypass.state.reportLine
 
+            // FR-RPT-1's ranges. Only the **retained** ones can be listed; `totalRangeCount`
+            // above is retained plus dropped, and `failedBlockCount` counts every failing block
+            // including those the cap dropped. A report showing the list must say when the two
+            // disagree — `FailureLog.isTruncated`'s whole reason for existing.
+            let encodedRanges = FailedRangeCoding.encode(
+                summary.failures.ranges.compactMap { failure in
+                    guard let kind = FailedBlockRangeKind(wireValue: failure.kind.wireCode) else {
+                        return nil
+                    }
+                    return FailedBlockRange(startBlock: failure.startBlock,
+                                            blockCount: failure.blockCount,
+                                            kind: kind)
+                })
+
+            // FR-RPT-2/3, from **this run's** observer (see `CycleResult.metrics`). Same
+            // sentinels as `runProgress`: `-1` is "not measured", never `0`, which means
+            // *stalled*; and a sample count of `0` is what makes the three latency figures
+            // meaningless, because `0` nanoseconds is itself a legitimate reading.
+            let latency = result.metrics?.readLatency
             reply(summary.isComplete,
                   summary.chunksProcessed,
                   summary.failures.totalRangeCount,
@@ -681,16 +740,19 @@ final class TesterControlImpl: NSObject, TesterControl {
                   // which is a legitimate and very different answer.
                   result.hostOverheadFraction ?? -1,
                   result.helperCoreFraction ?? -1,
+                  result.failureMode.wireCode,
+                  encodedRanges,
+                  summary.failures.failedBlockCount,
+                  result.metrics?.readBytesPerSecond ?? -1,
+                  result.metrics?.writeBytesPerSecond ?? -1,
+                  latency?.count ?? 0,
+                  latency?.minimumNanoseconds ?? 0,
+                  latency?.maximumNanoseconds ?? 0,
+                  latency?.p99?.upperBoundNanoseconds ?? 0,
                   message)
 
         case .failure(let refusal):
-            ioLog.error("""
-                        runRetentionCycle REFUSED for \(self.peer, privacy: .public): \
-                        \(refusal.description, privacy: .public)
-                        """)
-            reply(false, 0, 0, "",
-                  CacheBypassOutcome.unrecognised.rawValue, 0, 0, -1, -1,
-                  refusal.description)
+            refuse(refusal.description)
         }
     }
 

@@ -40,7 +40,7 @@
 //            wait:<sentinelPath>
 //            digest:<startBlock>:<blockCount>
 //            digest-all:<windowBytes>:<outputPath>[:<startBlock>:<blockCount>]
-//            cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]
+//            cycle:<startBlock>:<blockCount>[:<ioSizeBytes>[:<failureModeCode>]]
 //
 //  `profile` was added in Step 7. It is passive — it reports what `acquire` established and
 //  performs no I/O — but it requires a device to be held, so it only makes sense after
@@ -69,7 +69,7 @@ guard arguments.count >= 3 else {
                          wait:<sentinelPath>
                          digest:<startBlock>:<blockCount>
                          digest-all:<windowBytes>:<outputPath>[:<start>:<count>]
-                         cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]   (WRITES)
+                         cycle:<startBlock>:<blockCount>[:<ioSizeBytes>[:<failureModeCode>]] (WRITES)
 
         """.utf8))
     exit(2)
@@ -370,40 +370,50 @@ for command in commands {
     case let cycle where cycle.hasPrefix("cycle:"):
         // Step 8. THE ONLY COMMAND HERE THAT WRITES TO THE DRIVE.
         //
-        //   cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]
+        //   cycle:<startBlock>:<blockCount>[:<ioSizeBytes>[:<failureModeCode>]]
         //
         // Requires `acquire` earlier in the same invocation — the helper releases on
         // connection loss, so a separate process would find nothing held.
+        //
+        // `failureModeCode` is a `FailureModeCode` raw value (1 = stop on first error,
+        // 2 = log and continue) and defaults to FR-FAIL-4's. It is on the command line so a
+        // gate can send a deliberately **invalid** code and see the helper refuse — the
+        // refusal is the only part of the mode path a healthy drive can demonstrate.
         let fields = cycle.dropFirst("cycle:".count).split(separator: ":", omittingEmptySubsequences: false)
         guard fields.count >= 2,
               let startBlock = UInt64(fields[0]),
               let blockCount = UInt64(fields[1]) else {
             FileHandle.standardError.write(Data("""
                 bad cycle command '\(cycle)'
-                usage: cycle:<startBlock>:<blockCount>[:<ioSizeBytes>]
+                usage: cycle:<startBlock>:<blockCount>[:<ioSizeBytes>[:<failureModeCode>]]
 
                 """.utf8))
             exit(2)
         }
         let ioSize = fields.count >= 3 ? (Int(fields[2]) ?? TesterProtocol.defaultIOSizeBytes)
                                        : TesterProtocol.defaultIOSizeBytes
+        let modeCode = fields.count >= 4 ? (Int(fields[3]) ?? FailureModeCode.standard.rawValue)
+                                         : FailureModeCode.standard.rawValue
 
         print("[cycle] START_BLOCK=\(startBlock)")
         print("[cycle] BLOCK_COUNT=\(blockCount)")
         print("[cycle] IO_SIZE=\(ioSize)")
+        print("[cycle] FAILURE_MODE_REQUESTED=\(modeCode)")
 
         call("cycle", timeout: 300) { tester, done in
             tester.runRetentionCycle(startBlock: startBlock,
                                      blockCount: blockCount,
-                                     ioSizeBytes: ioSize) { completed, chunks, failedRanges,
-                                                            failureSummary, cacheBypass,
-                                                            fastestBytesPerSecond,
-                                                            bufferBytesHeld,
-                                                            hostOverheadFraction,
-                                                            helperCoreFraction, message in
+                                     ioSizeBytes: ioSize,
+                                     failureModeCode: modeCode) {
+                completed, chunks, failedRangeCount, failureSummary, cacheBypass,
+                fastestBytesPerSecond, bufferBytesHeld, hostOverheadFraction,
+                helperCoreFraction, failureModeUsed, failedRangesEncoded, failedBlockCount,
+                readBytesPerSecond, writeBytesPerSecond, latencySamples,
+                latencyMinimum, latencyMaximum, latencyP99Upper, message in
+
                 print("[cycle] COMPLETED=\(completed ? 1 : 0)")
                 print("[cycle] CHUNKS=\(chunks)")
-                print("[cycle] FAILED_RANGES=\(failedRanges)")
+                print("[cycle] FAILED_RANGES=\(failedRangeCount)")
                 print("[cycle] FAILURE_SUMMARY=\(failureSummary)")
                 print("[cycle] CACHE_BYPASS=\(cacheBypass)")
                 print("[cycle] FASTEST_BYTES_PER_SECOND=\(Int(fastestBytesPerSecond.rounded()))")
@@ -412,6 +422,22 @@ for command in commands {
                 // could not establish them — never 0, which means something quite different.
                 print("[cycle] HOST_OVERHEAD_FRACTION=\(hostOverheadFraction)")
                 print("[cycle] HELPER_CORE_FRACTION=\(helperCoreFraction)")
+
+                // Step 10, protocol v9. `FAILURE_MODE_USED` is what the run actually ran in —
+                // the only evidence available on a healthy drive that the mode reached the run
+                // path at all, since there is no failure for it to act on. A gate compares it
+                // against `FAILURE_MODE_REQUESTED`.
+                print("[cycle] FAILURE_MODE_USED=\(failureModeUsed)")
+                print("[cycle] FAILED_RANGES_ENCODED=\(failedRangesEncoded)")
+                print("[cycle] FAILED_BLOCKS=\(failedBlockCount)")
+                // FR-RPT-2/3. `-1` is "not measured"; a sample count of 0 makes the three
+                // latency figures meaningless, because 0 ns is a legitimate reading.
+                print("[cycle] READ_BYTES_PER_SECOND=\(Int(readBytesPerSecond.rounded()))")
+                print("[cycle] WRITE_BYTES_PER_SECOND=\(Int(writeBytesPerSecond.rounded()))")
+                print("[cycle] LATENCY_SAMPLES=\(latencySamples)")
+                print("[cycle] LATENCY_MIN_NS=\(latencyMinimum)")
+                print("[cycle] LATENCY_MAX_NS=\(latencyMaximum)")
+                print("[cycle] LATENCY_P99_UPPER_NS=\(latencyP99Upper)")
                 print("[cycle] MESSAGE=\(message)")
                 done()
             }

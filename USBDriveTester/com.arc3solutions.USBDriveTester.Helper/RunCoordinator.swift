@@ -120,18 +120,39 @@ enum RetentionCycleRefusal: Error, Equatable, CustomStringConvertible {
 
 // MARK: - Logging what a run did
 
-/// The `RunObserver` the helper uses: it logs, and it always continues.
+/// The `RunObserver` the helper uses: it logs, and it never decides.
 ///
-/// Continuing is FR-FAIL-4's default. The user-selectable modes — stop on first error versus
-/// log and continue — are Step 10's, and this class is where the chosen mode will be wired in.
+/// ## Where the mode is, and why it is not here (Step 10, 2026-08-06)
+///
+/// An earlier note on this class said it was "where the chosen mode will be wired in". It is
+/// not. `Core/FailureModeObserver` obeys the mode and this class only **prints** it, for two
+/// reasons recorded there: a decision that governs whether a run keeps writing to a failing
+/// drive must live where a test can reach it — the test target compiles `Core/` and nothing else
+/// from the helper — and it must not sit inside this method's counter-and-limit bookkeeping,
+/// where a `return` on the wrong side of an `if` would answer "carry on" to a run that was asked
+/// to stop.
+///
+/// So ``failureDetected(_:)`` below still returns ``FailureDisposition/continueRun`` — not as a
+/// policy, but as the neutral answer of an observer that only watches. `ObserverFanOut`'s
+/// stop-wins rule is what makes that safe.
+///
+/// The mode is held here **only** to name it in the run-start line (BUILD-PLAN 10.6,
+/// NFR-OBS-1). Both this and the deciding observer are constructed from one value on one line in
+/// ``RunCoordinator/runCycle(startBlock:blockCount:ioSizeBytes:failureMode:)``, so the mode that
+/// is logged is the mode that ran.
 final class RunLogger: RunObserver {
 
     /// How many individual failures get their own log line before the log says it has stopped
     /// listing them. A drive with a million bad blocks must not produce a million log lines.
     static let loggedFailureLimit = 64
 
+    private let failureMode: FailureMode
     private var loggedFailures = 0
     private var announcedTruncation = false
+
+    init(failureMode: FailureMode) {
+        self.failureMode = failureMode
+    }
 
     func runStarted(_ start: RunStart) {
         ioLog.notice("""
@@ -141,6 +162,7 @@ final class RunLogger: RunObserver {
                      (\(start.blockCount, privacy: .public) blocks, \
                      \(start.chunkCount, privacy: .public) chunks of \
                      \(start.ioSizeBytes, privacy: .public) bytes); \
+                     failure mode: \(self.failureMode.reportName, privacy: .public); \
                      cache-bypass verdict at acquire: \(start.cacheBypass.description, privacy: .public)
                      """)
     }
@@ -159,6 +181,9 @@ final class RunLogger: RunObserver {
                         report carries the full list.
                         """)
         }
+        // The neutral answer of an observer that only watches — **not** the log-and-continue
+        // mode. `FailureModeObserver` decides; see this class's note. Under `ObserverFanOut`'s
+        // stop-wins rule this can never override a decision to stop.
         return .continueRun
     }
 
@@ -201,11 +226,38 @@ enum RunCoordinator {
         /// The daemon's CPU over the run, as a fraction of one core (BUILD-PLAN 9.5a).
         /// `nil` when it could not be established — never `0`, which means something else.
         let helperCoreFraction: Double?
+
+        /// **This run's** final figures (FR-RPT-2/3), read from the observer this call installed
+        /// rather than from `MetricsChannel.shared` (Step 10, protocol v9).
+        ///
+        /// The distinction is the whole reason these travel in the cycle's reply. `begin()`
+        /// replaces the shared slot when a run *starts*, which is after validation — so on a
+        /// **refused** run the slot still holds the *previous* run's figures. A caller that
+        /// polled `runProgress` once the reply arrived would get them, correctly formatted, and
+        /// put them in a report that outlives the session. Reading the local observer means a
+        /// refused run has no figures at all, which is the true answer.
+        ///
+        /// `nil` before the run's first event — a run refused before it started, or one that
+        /// never measured a chunk.
+        let metrics: MetricsSnapshot?
+
+        /// The mode this run was actually performed in.
+        ///
+        /// Reported rather than assumed by the caller: `RunCoordinator` is not in the test
+        /// target, so nothing in the unit suite can show that the deciding observer was
+        /// installed, and a healthy drive produces no failure that would reveal its absence.
+        let failureMode: FailureMode
     }
 
+    /// - Parameter failureMode: FR-FAIL-1's mode, chosen before the run. It is **not** defaulted
+    ///   here: the caller states it, and an unrecognised code arriving over XPC is refused at the
+    ///   boundary rather than resolved to FR-FAIL-4's default (see `FailureModeCode`). A
+    ///   parameter with a default value would make "nobody chose" and "somebody chose
+    ///   log-and-continue" the same call.
     static func runCycle(startBlock: UInt64,
                          blockCount: UInt64,
-                         ioSizeBytes: Int) -> Result<CycleResult, RetentionCycleRefusal> {
+                         ioSizeBytes: Int,
+                         failureMode: FailureMode) -> Result<CycleResult, RetentionCycleRefusal> {
 
         // 1. The request itself, before anything is claimed or allocated (NFR-REL-7).
         guard blockCount > 0 else { return .failure(.emptyRequest) }
@@ -288,17 +340,29 @@ enum RunCoordinator {
 
         let engine = RetentionTestEngine(device: blockDevice, ioSizeBytes: ioSizeBytes)
 
-        // 7. Two observers, fanned out: one logs (NFR-OBS-1), one accumulates metrics
-        //    (FR-METR-*). Composed rather than chained, so neither has to remember to forward
-        //    events to the other — the same forget-a-method hazard that made Step 8's
-        //    `chunkCompleted` skip every failing chunk.
+        // 7. Three observers, fanned out: one logs (NFR-OBS-1), one obeys the failure mode
+        //    (FR-FAIL-1/2/3), one accumulates metrics (FR-METR-*). Composed rather than chained,
+        //    so none has to remember to forward events to the others — the same forget-a-method
+        //    hazard that made Step 8's `chunkCompleted` skip every failing chunk.
+        //
+        //    **The composition is `RunObservers.forRun`, not an array literal here**, and that is
+        //    deliberate: this file is not in the test target, and the two watchers below both
+        //    answer a failure with the neutral `.continueRun`. An edit that dropped the deciding
+        //    observer from a hand-written array would turn FR-FAIL-2 into FR-FAIL-3 on real
+        //    hardware with no test failing anywhere. Core owns the assembly so the assembly is
+        //    tested; what is left here is one call.
+        //
+        //    `RunLogger` takes the same `failureMode` value on the same line — one prints the
+        //    mode, the other obeys it, so the mode in the log is necessarily the mode that ran.
         //
         //    Installing the metrics observer in `MetricsChannel` is what makes `runProgress`
         //    able to find it from a *different connection*, which it must: a second message on
         //    this connection will not be delivered until this call returns (measured
         //    2026-08-04, scripts/xpc-concurrency-check.sh).
         let metrics = MetricsChannel.shared.begin()
-        let observer = ObserverFanOut([RunLogger(), metrics])
+        let observer = RunObservers.forRun(mode: failureMode,
+                                           watchedBy: [RunLogger(failureMode: failureMode),
+                                                       metrics])
 
         // NFR-PERF-3's CPU figure brackets only the cycle. Reading `getrusage` costs one
         // syscall, twice per run — not per chunk.
@@ -328,7 +392,10 @@ enum RunCoordinator {
             logPerformance(summary, overheadFraction: overhead, coreFraction: core)
             return .success(CycleResult(summary: summary,
                                         hostOverheadFraction: overhead,
-                                        helperCoreFraction: core))
+                                        helperCoreFraction: core,
+                                        // The observer this call installed, not the shared slot.
+                                        metrics: metrics.snapshot,
+                                        failureMode: failureMode))
         } catch let abort as RunAbort {
             ioLog.error("""
                         retention cycle ABORTED on \(device.device.rawValue, privacy: .public): \

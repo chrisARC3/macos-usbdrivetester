@@ -76,6 +76,25 @@ public enum BlockFailureKind: Equatable, CustomStringConvertible {
         case .verifyMismatch: return "verify mismatch"
         }
     }
+
+    /// - Important: duplicated by `FailedBlockRangeKind` in `Shared/TesterControl.swift`, the
+    ///   same arrangement as ``CacheBypassState/wireCode`` and `DeviceAccessRefusal.causeCode`:
+    ///   Core compiles into the helper and the test target but deliberately **not** into the app
+    ///   module, so the wire needs its own mirror.
+    ///
+    ///   This exists rather than a `switch` at the helper's reply site because a mapping written
+    ///   there would be **untestable** — `main.swift` is not in the test target — and a
+    ///   transposition (a read error travelling as a write error) would compile, run, and put a
+    ///   wrong classification in a report somebody may act on by discarding a drive.
+    ///   `FailedRangeCodingTests.kindCodesMatchCoresClassification` is the only place both types
+    ///   are visible at once, and it pins the codes and the names together.
+    public var wireCode: Int {
+        switch self {
+        case .readError:      return 1
+        case .writeError:     return 2
+        case .verifyMismatch: return 3
+        }
+    }
 }
 
 /// A contiguous range of blocks that failed, and how.
@@ -397,9 +416,10 @@ public enum RunAbort: Error, Equatable, CustomStringConvertible {
 
 /// What the engine should do after a failure.
 ///
-/// Step 8 ships one caller, which always continues — FR-FAIL-4's default. The **modes**
-/// themselves (FR-FAIL-1/2/3) are Step 10's. This exists now because without a stop path,
-/// BUILD-PLAN 8.6 / NFR-REL-5 — "on stop, issue no further writes" — has nothing to test.
+/// Step 8 shipped one caller, which always continued — FR-FAIL-4's default. Step 10 adds the
+/// **modes** (FR-FAIL-1/2/3) that decide this; see ``FailureMode``. This existed before them
+/// because without a stop path, BUILD-PLAN 8.6 / NFR-REL-5 — "on stop, issue no further
+/// writes" — had nothing to test.
 public enum FailureDisposition: Equatable {
 
     /// Record it and carry on with the next chunk (FR-FAIL-3).
@@ -408,6 +428,82 @@ public enum FailureDisposition: Equatable {
     /// Stop now. The engine issues no further I/O of any kind and returns a summary whose
     /// outcome names this failure (NFR-REL-5).
     case stopRun
+}
+
+// MARK: - The two modes (FR-FAIL-1)
+
+/// How a run reacts to a failed block range — chosen **before** the run starts (FR-FAIL-1).
+///
+/// Two cases and no third. There is deliberately no "unknown" or "unset" member: a run that
+/// does not know its mode must not start, and the place that refuses is the trust boundary,
+/// where an unrecognised wire code is rejected the same way an unpermitted I/O size is
+/// (NFR-REL-7). Giving this type an unrecognised case would let one travel inward and be
+/// resolved by a `default:` somewhere — silently, into whichever mode the author of that
+/// `switch` happened to write first.
+///
+/// ## Why the disposition takes the failure's kind
+///
+/// FR-FAIL-2 says stop on "any I/O failure", and FR-TEST-8 plus FR-FAIL-6 make a verify
+/// mismatch a block-range failure too. **All three kinds therefore stop**, and taking the kind
+/// here is what lets a test assert that per kind rather than leaving the conjunction of two
+/// requirements implicit in a constant. The parameter is not a hint that the kinds differ
+/// today — they do not — it is the place a difference would have to be written down, and the
+/// place a test can prove there isn't one.
+public enum FailureMode: Equatable, CaseIterable, CustomStringConvertible {
+
+    /// **Stop on first error** (FR-FAIL-2): halt immediately on the first failed range. The
+    /// engine issues no further I/O, and the run's outcome names the offending range.
+    ///
+    /// There is no resume (FR-FAIL-7) — a run halted this way is restarted from the beginning.
+    case stopOnFirstError
+
+    /// **Log and continue** (FR-FAIL-3): record the range and keep refreshing the rest of the
+    /// device. The default (FR-FAIL-4).
+    case logAndContinue
+
+    /// FR-FAIL-4's default, stated once so nothing has to remember which it is.
+    public static let standard = FailureMode.logAndContinue
+
+    /// What the engine should do about `kind` in this mode.
+    public func disposition(for kind: BlockFailureKind) -> FailureDisposition {
+        switch self {
+        case .logAndContinue:
+            return .continueRun
+        case .stopOnFirstError:
+            // Every kind, including `verifyMismatch`: FR-FAIL-2's "any I/O failure" read
+            // together with FR-TEST-8, which makes a mismatched chunk a failed range. A drive
+            // that accepts a write and hands back something else has failed at the one thing
+            // this tool is checking.
+            switch kind {
+            case .readError, .writeError, .verifyMismatch:
+                return .stopRun
+            }
+        }
+    }
+
+    /// How the mode is named in the exported report and in the log (FR-RPT, NFR-OBS-1).
+    ///
+    /// Wording matched to FR-FAIL-1's own, because the report is read by someone who may go
+    /// looking for the control that produced it.
+    public var reportName: String {
+        switch self {
+        case .stopOnFirstError: return "Stop on first error"
+        case .logAndContinue:   return "Log and continue"
+        }
+    }
+
+    /// - Important: duplicated by `FailureModeCode` in `Shared/TesterControl.swift`, for the
+    ///   same reason `DeviceAccessRefusal.causeCode` is: Core compiles into the helper and the
+    ///   test target but deliberately **not** into the app module. `FailureModeTests` is the
+    ///   only place both are visible at once, and it pins them together.
+    public var wireCode: Int {
+        switch self {
+        case .stopOnFirstError: return 1
+        case .logAndContinue:   return 2
+        }
+    }
+
+    public var description: String { reportName }
 }
 
 // MARK: - What one chunk's cycle cost
@@ -670,6 +766,79 @@ public final class ObserverFanOut: RunObserver {
 
     public func runFinished(_ summary: RunSummary) {
         for observer in observers { observer.runFinished(summary) }
+    }
+}
+
+// MARK: - The observer that obeys the mode
+
+/// Answers every failure according to the run's chosen mode (FR-FAIL-1/2/3), **and does nothing
+/// else.**
+///
+/// ## Why this is not folded into the helper's `RunLogger`
+///
+/// `RunLogger` was written expecting to be where the mode wired in, and it is the obvious home:
+/// it is already the observer that sees every failure. Two reasons it is not.
+///
+/// First, **it would not be testable.** The test target compiles the fourteen `Core/` files and
+/// nothing else from the helper, by explicit membership. A decision that governs whether a run
+/// keeps writing to a failing drive must not live in a file no test can reach.
+///
+/// Second, `RunLogger.failureDetected` has real bookkeeping in it — a counter, a limit, and a
+/// once-only truncation notice — and a `return` on the wrong side of that `if` would silently
+/// answer "carry on" to a run that was asked to stop. Mixing a safety decision into a branch
+/// about how many log lines have been emitted is how one gets lost. This class has one method,
+/// one expression, and nothing to get lost behind.
+///
+/// It composes with the logger through ``ObserverFanOut``, whose stop-wins rule is what makes
+/// that safe: a passive observer answering the default ``FailureDisposition/continueRun`` can
+/// never override this one.
+public final class FailureModeObserver: RunObserver {
+
+    /// The mode this run was started in.
+    public let mode: FailureMode
+
+    public init(mode: FailureMode) {
+        self.mode = mode
+    }
+
+    public func failureDetected(_ failure: BlockRangeFailure) -> FailureDisposition {
+        mode.disposition(for: failure.kind)
+    }
+}
+
+/// Assembles the observer set a run is watched by, with the deciding observer always in it.
+///
+/// ## Why this is a function and not an array literal at the call site
+///
+/// The helper's `RunCoordinator` composes three observers: one that logs, this one that obeys the
+/// mode, and one that accumulates metrics. Two of the three answer a failure with the neutral
+/// ``FailureDisposition/continueRun`` because they only watch, so **the entire behaviour of
+/// stop-on-first-error rests on the deciding observer being in that list.**
+///
+/// And `RunCoordinator` is not in the test target — it compiles the fourteen `Core/` files and
+/// nothing else from the helper. So an edit that dropped one element from a hand-written array
+/// would turn FR-FAIL-2 into FR-FAIL-3 **on real hardware, silently**: no test would fail, the
+/// run would complete, and the report would be honest about a run that had ignored the mode it
+/// was given. On a healthy drive it would never even be noticeable, because there is no failure
+/// to not-stop on.
+///
+/// Making the composition one call moves it inside the tested boundary. What is left outside is
+/// a single call site rather than an assembly, and increment 3 adds a second, independent check:
+/// the cycle's reply names the mode the run actually used, so hardware can confirm the mode
+/// reached the run path even on a drive with nothing wrong with it.
+public enum RunObservers {
+
+    /// - Parameters:
+    ///   - mode: FR-FAIL-1's mode. Its observer is placed **first**, though position does not
+    ///     matter — `ObserverFanOut` asks every observer and stop wins. `RunObserverCompositionTests`
+    ///     pins that in both orders, so this is legibility rather than load-bearing ordering.
+    ///   - watchers: observers that only watch — the logger, the metrics accumulator, a test's
+    ///     recorder. None of them may change what the run does.
+    public static func forRun(mode: FailureMode,
+                              watchedBy watchers: [RunObserver]) -> ObserverFanOut {
+        var observers: [RunObserver] = [FailureModeObserver(mode: mode)]
+        observers.append(contentsOf: watchers)
+        return ObserverFanOut(observers)
     }
 }
 

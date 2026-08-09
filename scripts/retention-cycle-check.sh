@@ -245,7 +245,10 @@ echo "  I/O size     ${IO_SIZE} B  (${ALIGN_BLOCKS} blocks per chunk)"
 echo "  Run          blocks ${START_BLOCK} … $((END_BLOCK - 1))  (${RUN_BLOCKS} blocks, ${RUN_BYTES} bytes)"
 echo "               ${EXPECTED_CHUNKS} chunks — the last one short, on purpose, to exercise FR-TEST-5"
 echo "  Start        ${ORIGIN}"
-echo "  Re-run this exact placement with:  $0 ${DISK} ${START_BLOCK}"
+# NOT "$0 ${DISK} ${START_BLOCK}" — that was the pre-2026-08-06 form, and the argument parser
+# below now refuses any non-numeric argument, so following it produced "unrecognised argument
+# 'disk8'". The device is resolved by SERIAL and takes no positional argument at all.
+echo "  Re-run this exact placement with:  $0 ${START_BLOCK}"
 if (( START_BLOCK < 34 )); then
     echo
     echo "  NOTE: this run covers block 0 — the protective MBR, the GPT and the boot sector."

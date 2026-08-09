@@ -239,8 +239,10 @@ if [[ "$HELPER_PROTOCOL" == "$EXPECTED_PROTOCOL" && -n "$HELPER_PROTOCOL" ]]; th
     check pass "the running daemon implements protocol v${HELPER_PROTOCOL}"
 else
     check fail "protocol mismatch: daemon v${HELPER_PROTOCOL:-<none>}, expected v${EXPECTED_PROTOCOL:-?}"
-    echo "        Step 9 changed runRetentionCycle's signature. Re-install (scripts/install-app.sh)," >&2
-    echo "        unregister and re-register in the app, then confirm with Check version." >&2
+    echo "        runRetentionCycle's signature changed in protocol v8 (Step 9) and again in v9" >&2
+    echo "        (Step 10, which added the failure mode and the report's figures)." >&2
+    echo "        Re-install (scripts/install-app.sh), then unregister and re-register in the app" >&2
+    echo "        — install-app.sh only copies files — and confirm with Check protocol version." >&2
     exit 1
 fi
 
@@ -286,6 +288,51 @@ for SIZE in $SWEEP; do
     [[ "$(size_value "$SIZE" CACHE_BYPASS)" == "1" ]] \
         && check pass "${MIB} MiB: FR-TEST-9 verdict is 'bypassed'" \
         || check fail "${MIB} MiB: cache-bypass verdict is $(size_value "$SIZE" CACHE_BYPASS), not 1"
+
+    # --- Protocol v9 (Step 10). Two checks the wire could not support before.
+    #
+    # 1. THE MODE REACHED THE RUN. `RunCoordinator` is not in the test target, so nothing in the
+    #    unit suite can show that the deciding observer was installed — and this device is
+    #    healthy, so there is no failure for the mode to act on and reveal it. The helper echoing
+    #    back which mode it ran in is the only evidence available here.
+    MODE_USED="$(size_value "$SIZE" REPLY_FAILURE_MODE_USED)"
+    [[ "$MODE_USED" == "2" ]] \
+        && check pass "${MIB} MiB: the run used failure mode 2 (log and continue), as requested" \
+        || check fail "${MIB} MiB: the run reports failure mode ${MODE_USED:-?}, expected 2"
+
+    # 2. THE REPLY'S FIGURES AGREE WITH THE POLL'S. Same six numbers by two independent routes:
+    #    `REPLY_*` came back inside `runRetentionCycle`'s reply, `FINAL_*` from a `runProgress`
+    #    poll issued after it. The reply is nineteen positional values assembled in the helper's
+    #    `main.swift` — six of them adjacent same-typed numbers — and no unit test can reach that
+    #    assembly. A transposition there compiles, runs, and puts read throughput under "write"
+    #    in an exported report. This is what makes it visible.
+    for FIELD in READ_BYTES_PER_SECOND WRITE_BYTES_PER_SECOND \
+                 LATENCY_SAMPLES LATENCY_MIN_NS LATENCY_MAX_NS; do
+        REPLY_VALUE="$(size_value "$SIZE" "REPLY_${FIELD}")"
+        POLL_VALUE="$(size_value "$SIZE" "FINAL_${FIELD}")"
+        [[ -n "$REPLY_VALUE" && "$REPLY_VALUE" == "$POLL_VALUE" ]] \
+            && check pass "${MIB} MiB: ${FIELD} agrees across the reply and the poll (${REPLY_VALUE})" \
+            || check fail "${MIB} MiB: ${FIELD} is '${REPLY_VALUE:-?}' in the reply but '${POLL_VALUE:-?}' from the poll"
+    done
+
+    # 3. AND THE LATENCIES ARE ORDERED. min <= max is the cheapest transposition detector there
+    #    is, and it is independent of the agreement check above — the two figures could be
+    #    consistently swapped on both paths if the helper built both from the same wrong place.
+    LAT_MIN="$(size_value "$SIZE" REPLY_LATENCY_MIN_NS)"
+    LAT_MAX="$(size_value "$SIZE" REPLY_LATENCY_MAX_NS)"
+    LAT_P99="$(size_value "$SIZE" REPLY_LATENCY_P99_NS)"
+    if [[ -n "$LAT_MIN" && -n "$LAT_MAX" && "$LAT_MIN" -le "$LAT_MAX" && "$LAT_MIN" -le "$LAT_P99" ]]; then
+        check pass "${MIB} MiB: latency figures are ordered — min ${LAT_MIN} <= max ${LAT_MAX}, min <= p99 ${LAT_P99}"
+    else
+        check fail "${MIB} MiB: latency figures are not ordered — min ${LAT_MIN:-?}, max ${LAT_MAX:-?}, p99 ${LAT_P99:-?}"
+    fi
+
+    # 4. NO FAILING BLOCKS, counted the way the report will count them (FR-RPT-1). Distinct from
+    #    FAILED_RANGES above: that is a range count, this is every failing block including any
+    #    the retention cap dropped.
+    [[ "$(size_value "$SIZE" REPLY_FAILED_BLOCKS)" == "0" ]] \
+        && check pass "${MIB} MiB: no failing blocks" \
+        || check fail "${MIB} MiB: $(size_value "$SIZE" REPLY_FAILED_BLOCKS) failing block(s)"
 
     # NFR-PERF-1: buffers are 2 x the I/O size, whatever the range's size.
     BUFFERS="$(size_value "$SIZE" BUFFER_BYTES)"
@@ -468,6 +515,47 @@ PARTIAL_CHUNKS="$(grep -m1 -- '\[partial\] CHUNKS=' "$OUTPUT" | sed 's/.*=//' ||
 [[ "${PARTIAL_CHUNKS:-1}" == "0" ]] \
     && check pass "the refused partial-length request processed no chunks" \
     || check fail "the partial-length request processed ${PARTIAL_CHUNKS} chunk(s) before refusing"
+
+# --- FR-FAIL-1's mode, which protocol v9 made a required parameter (Step 10).
+#
+# An unrecognised mode code is REFUSED, never defaulted. That direction matters: quietly resolving
+# an unknown code to FR-FAIL-4's default would answer a caller asking to stop on the first error
+# with a run that writes to the whole drive — a request silently met by a larger action. The
+# placement in this request is valid, so a refusal can only be the mode.
+BADMODE_REFUSED="$(grep -m1 -- '\[badmode\] REFUSED=' "$OUTPUT" | sed 's/.*=//' || true)"
+BADMODE_CHUNKS="$(grep -m1 -- '\[badmode\] CHUNKS=' "$OUTPUT" | sed 's/.*=//' || true)"
+
+[[ "$BADMODE_REFUSED" == "1" ]] \
+    && check pass "an unrecognised failure-mode code was refused (FR-FAIL-1)" \
+    || check fail "failure-mode code 99 was NOT refused — an unknown mode is being defaulted"
+
+[[ "${BADMODE_CHUNKS:-1}" == "0" ]] \
+    && check pass "the refused bad-mode request processed no chunks" \
+    || check fail "the bad-mode request processed ${BADMODE_CHUNKS} chunk(s) before refusing"
+
+# --- A REFUSED RUN CARRIES NO FIGURES. This is the hardware evidence for why protocol v9 puts
+# the final throughput and latency in the cycle's own reply instead of leaving a caller to poll
+# `runProgress` after it.
+#
+# At this instant the helper's `MetricsChannel` slot still holds the numbers from the four
+# completed sweep runs above, because `begin()` runs after validation and a refusal returns before
+# it. A caller that polled would get them — correctly formatted, plausible, and belonging to a
+# different run — and put them in a report that outlives the session. In the reply they belong to
+# this run or they do not exist.
+for LABEL in misaligned partial badmode; do
+    MODE_USED="$(grep -m1 -- "\[$LABEL\] MODE_USED=" "$OUTPUT" | sed 's/.*=//' || true)"
+    READ_RATE="$(grep -m1 -- "\[$LABEL\] READ_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
+    WRITE_RATE="$(grep -m1 -- "\[$LABEL\] WRITE_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
+    SAMPLES="$(grep -m1 -- "\[$LABEL\] LATENCY_SAMPLES=" "$OUTPUT" | sed 's/.*=//' || true)"
+    RANGES="$(grep -m1 -- "\[$LABEL\] RANGES_ENCODED=" "$OUTPUT" | sed 's/.*=//' || true)"
+
+    if [[ "$MODE_USED" == "0" && "$READ_RATE" == "-1.0" && "$WRITE_RATE" == "-1.0" \
+          && "$SAMPLES" == "0" && -z "$RANGES" ]]; then
+        check pass "the refused '${LABEL}' run reported no mode and no figures"
+    else
+        check fail "the refused '${LABEL}' run reported figures — mode=${MODE_USED:-?} read=${READ_RATE:-?} write=${WRITE_RATE:-?} samples=${SAMPLES:-?} ranges='${RANGES}'"
+    fi
+done
 
 [[ "$(value_of 'RELEASED=')" == "1" ]] \
     && check pass "the helper released ${DISK}" \

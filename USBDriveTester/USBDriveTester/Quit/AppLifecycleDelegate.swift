@@ -49,6 +49,40 @@ final class AppLifecycleDelegate: NSObject, NSApplicationDelegate {
     /// Set by the main scene when it appears. Weak: the model is owned by the scene tree.
     weak var model: AppModel?
 
+    /// A **backstop**: if the app somehow ends up with no windows at all, it quits rather than
+    /// lingering invisibly.
+    ///
+    /// ## This is not the rule that makes closing the main window quit
+    ///
+    /// That rule is `QuitPolicy.closeDisposition`'s
+    /// ``WindowCloseDisposition/allowCloseAndQuit``, and the distinction was paid for by two
+    /// rounds of observation on 2026-08-06.
+    ///
+    /// Step 9 left AppKit's default (`false`), reasoning that a closed main window is recoverable
+    /// from the Window menu — **measured on a scene probe and never seen in the shipped app**,
+    /// which Step 9 recorded as such. Seen, it was wrong: the helper's claim outlives the window,
+    /// so until Step 11 gives the run ownership of the claim the app could sit invisibly with
+    /// somebody's drive unmounted and no UI to release it from.
+    ///
+    /// The first fix was this flag alone. Seen in the product, *that* was wrong too: it fires only
+    /// when no window is left, so closing the main window quit the app or didn't, depending on
+    /// whether a panel the user opened earlier happened to still be up. The behaviour tracked
+    /// AppKit's window count rather than anything the user did.
+    ///
+    /// > *"I don't think that this is an intuitive user experience. I think closing the main
+    /// > window should always try to terminate the app."* — user, 2026-08-06
+    ///
+    /// So the main window's close became the quit request, and this stayed as what it should
+    /// always have been: a guard against ending up with no UI by some route nobody enumerated.
+    /// With the main-window rule in place it should be unreachable in ordinary use — it is one
+    /// declarative line, it fails in the safe direction, and it costs nothing to leave correct.
+    ///
+    /// **Neither route can bypass the run guard.** Both end in `applicationShouldTerminate`
+    /// below, which refuses while a run is active.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        true
+    }
+
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // No model means the main window has never appeared, so nothing can have started a run.
         // Quitting is unambiguously fine, and refusing it would strand an app with no UI.

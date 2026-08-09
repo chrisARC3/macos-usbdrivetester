@@ -27,6 +27,41 @@
 
 import Foundation
 
+/// The wire's "not measured" conventions, in one place.
+///
+/// ## Why this is a shared type and not two copies of two `if`s
+///
+/// From protocol v9 there are **two** replies carrying these figures: `runProgress` for the run
+/// in flight, and `runRetentionCycle` for the run that just finished (Step 10 — they are in the
+/// cycle's own reply so a *refused* run cannot be reported with the previous run's numbers).
+/// Both use the same sentinels, and both must, or the same drive would read one way live and
+/// another way in the exported report.
+///
+/// Two copies of "`-1` means nil" is exactly the kind of duplication that survives until somebody
+/// fixes one of them.
+nonisolated enum WireSentinel {
+
+    /// A rate, or `nil` when the helper had not measured one.
+    ///
+    /// `-1` rather than `0`, and this is the whole point: a rate of zero means **stalled** — a
+    /// real and alarming condition — so using it for "nothing has happened yet" would print an
+    /// alarm to report an absence. A negative rate is otherwise impossible, which is what makes
+    /// the sentinel unambiguous. Non-finite values are rejected too: a `NaN` formats as "nan"
+    /// and an infinity as "inf", both of which read as data.
+    static func rate(_ value: Double) -> Double? {
+        value >= 0 && value.isFinite ? value : nil
+    }
+
+    /// A latency, or `nil` when there are no samples to have measured one from.
+    ///
+    /// Gated on the sample count rather than on the value, because **`0` nanoseconds is a
+    /// legitimate reading** — a read the clock could not resolve — and cannot be its own
+    /// sentinel.
+    static func latency(_ nanoseconds: UInt64, sampleCount: UInt64) -> Duration? {
+        sampleCount > 0 ? .nanoseconds(nanoseconds) : nil
+    }
+}
+
 /// What the helper reported about the run in progress.
 nonisolated struct RunProgressSnapshot: Equatable {
 
@@ -95,19 +130,16 @@ nonisolated struct RunProgressSnapshot: Equatable {
          readLatencyP99UpperBoundNanoseconds: UInt64,
          chunksFailed: UInt64) {
 
-        func rate(_ value: Double) -> Double? {
-            value >= 0 && value.isFinite ? value : nil
-        }
         func latency(_ nanoseconds: UInt64) -> Duration? {
-            readLatencySampleCount > 0 ? .nanoseconds(nanoseconds) : nil
+            WireSentinel.latency(nanoseconds, sampleCount: readLatencySampleCount)
         }
 
         self.isAvailable = available
         self.fractionComplete = Swift.min(Swift.max(fractionComplete, 0), 1)
         self.currentBlock = currentBlock
-        self.readBytesPerSecond = rate(readBytesPerSecond)
-        self.writeBytesPerSecond = rate(writeBytesPerSecond)
-        self.estimatedRemaining = rate(estimatedRemainingSeconds)
+        self.readBytesPerSecond = WireSentinel.rate(readBytesPerSecond)
+        self.writeBytesPerSecond = WireSentinel.rate(writeBytesPerSecond)
+        self.estimatedRemaining = WireSentinel.rate(estimatedRemainingSeconds)
         self.readLatencySampleCount = readLatencySampleCount
         self.readLatencyMinimum = latency(readLatencyMinimumNanoseconds)
         self.readLatencyMaximum = latency(readLatencyMaximumNanoseconds)

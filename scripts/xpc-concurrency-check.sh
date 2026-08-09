@@ -309,18 +309,26 @@ case "$SAME_VERDICT" in
     serialized)
         check pass "same-connection delivery is SERIALIZED (a definite finding, not a failure)"
         echo
-        echo "    → D1 resolves to PUSH. A poll on the run's own connection cannot be answered"
-        echo "      while runRetentionCycle is in flight, so Step 9 must build the reverse"
-        echo "      channel BUILD-PLAN 9.4 assumes: a second @objc protocol in Shared/, an"
-        echo "      exported object on the app side, and the helper calling back one-way (no"
-        echo "      reply block) so a wedged GUI cannot stall a privileged run."
+        echo "    → A poll on the run's OWN connection cannot be answered while"
+        echo "      runRetentionCycle is in flight. That is the finding, and it is unchanged."
         if [[ "$SECOND_VERDICT" == "concurrent" ]]; then
             echo
-            echo "      NOTE: a SECOND connection was answered concurrently. A second connection"
-            echo "      for progress is therefore also viable — but it is extra surface, and the"
-            echo "      helper's release-on-connection-loss is scoped to the connection that"
-            echo "      acquired (NFR-REL-5), so two connections mean two lifetimes to reason"
-            echo "      about. Push on the existing connection is the smaller change."
+            echo "      A SECOND connection was answered concurrently, and that is what Step 9"
+            echo "      built: the GUI polls runProgress on a separate, NON-OWNING connection."
+            echo "      Release-on-connection-loss is scoped to the connection that acquired"
+            echo "      (NFR-REL-5), so the progress connection dropping releases nothing."
+            echo
+            echo "      This branch used to end 'D1 resolves to PUSH … Step 9 must build the"
+            echo "      reverse channel'. That was the PRE-FLIGHT's reading, written before the"
+            echo "      second-connection number existed — and the decision went the other way."
+            echo "      Corrected 2026-08-06: no reverse interface was built, the daemon still"
+            echo "      never initiates traffic to a client, and a reader following the old text"
+            echo "      would have built a channel the product does not have."
+        else
+            echo
+            echo "      NOTE: the second connection was NOT answered concurrently this time."
+            echo "      Step 9's progress design depends on it being so — investigate before"
+            echo "      trusting any live-metrics result."
         fi
         ;;
     *)

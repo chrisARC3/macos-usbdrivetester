@@ -22,6 +22,8 @@
 
 import Testing
 import Foundation
+// `MemberImportVisibility`: `NSApplication` is AppKit's and a transitive import is not enough.
+import AppKit
 @testable import USBDriveTester
 
 @MainActor
@@ -76,10 +78,77 @@ struct AppModelQuitTests {
         #expect(model.quitState == .confirming)
     }
 
-    @Test func closingTheWindowWithNoRunIsAllowed() {
+    @Test func closingTheWindowWithNoRunClosesAndQuits() {
         let (model, _) = makeModel()
-        #expect(model.mainWindowCloseRequested() == .allowClose)
-        #expect(model.quitState == .idle)
+        #expect(model.mainWindowCloseRequested() == .allowCloseAndQuit)
+        #expect(model.quitState == .idle, "the quit is requested by the guard, not entered here")
+    }
+
+    // MARK: - Closing the MAIN window quits (user decision 2026-08-06)
+
+    /// The termination the guard requests after the window has closed. It goes through
+    /// `terminateAction`, which in the app is `NSApp.terminate(_:)` — so it lands in
+    /// `applicationShouldTerminate` and picks up the same guard ⌘Q does, rather than killing the
+    /// app directly.
+    @Test func closingTheMainWindowRequestsATermination() {
+        let (model, recorder) = makeModel()
+
+        #expect(model.mainWindowCloseRequested() == .allowCloseAndQuit)
+        model.quitBecauseTheMainWindowClosed()
+
+        #expect(recorder.terminations == 1)
+    }
+
+    /// The backstop, kept but no longer the rule. Step 9 left AppKit's default (`false`); the
+    /// first fix set this flag alone, and observing *that* showed it fires only when no window is
+    /// left — so closing the main window quit the app or not depending on whether a panel opened
+    /// earlier was still up. The main-window rule replaced it; this remains for ending up with no
+    /// UI by some route nobody enumerated.
+    @Test func endingUpWithNoWindowsAtAllAlsoQuits() {
+        #expect(AppLifecycleDelegate()
+                    .applicationShouldTerminateAfterLastWindowClosed(NSApplication.shared))
+    }
+
+    /// **The claim the comment makes, as a test rather than as prose.**
+    ///
+    /// `applicationShouldTerminateAfterLastWindowClosed` is only reached *after* a window has
+    /// closed — so it can only ever fire from a state where the close was allowed. During a run
+    /// the close is refused before AppKit gets that far, which is what stops "closing the last
+    /// window quits" from becoming a way to end a run without being asked.
+    ///
+    /// The two halves are checked together here because separately they are two facts, and it is
+    /// their conjunction that carries the safety property.
+    @Test func aCloseDuringARunIsRefusedBeforeTerminationCouldBeReached() {
+        let (model, _) = makeModel()
+        model.cycleIsRunning = true
+
+        // Half one: the close never happens, so there is no "last window closed" to act on.
+        #expect(model.mainWindowCloseRequested() == .askFirst)
+
+        // Half two: and even if a termination did arrive, the guard refuses it.
+        #expect(model.quitRequested() != .quitImmediately)
+    }
+
+    /// And from idle the termination goes straight through — no dialog for a user who closed the
+    /// window of an app that is doing nothing.
+    @Test func closingTheMainWindowWhenIdleQuitsWithoutAsking() {
+        let (model, _) = makeModel()
+        #expect(model.mainWindowCloseRequested() == .allowCloseAndQuit)
+        #expect(model.quitRequested() == .quitImmediately)
+    }
+
+    /// **The window closes and the app quits — those are two steps, and the run guard sits
+    /// between them.** `quitBecauseTheMainWindowClosed` requests rather than performs, so a run
+    /// that somehow began between the close and the request still gets its dialog instead of
+    /// being abandoned. Unreachable through the UI today; asserted because the whole point of
+    /// routing through `applicationShouldTerminate` is that it stays true if this table changes.
+    @Test func aRunBeginningBetweenTheCloseAndTheQuitIsStillProtected() {
+        let (model, _) = makeModel()
+        #expect(model.mainWindowCloseRequested() == .allowCloseAndQuit)
+
+        model.cycleIsRunning = true                    // the window has closed; a run starts
+        #expect(model.quitRequested() == .askFirst,
+                "the termination request must still meet the guard")
     }
 
     // MARK: - Continue Testing

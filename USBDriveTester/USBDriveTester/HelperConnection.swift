@@ -133,7 +133,7 @@ nonisolated struct DeviceProfile: Equatable {
     var byteCount: UInt64 { blockCount * UInt64(logicalBlockSize) }
 }
 
-/// How a bounded cycle ended.
+/// How a bounded cycle ended — everything the end-of-run report is built from (Step 10, v9).
 nonisolated struct RunCycleOutcome: Equatable {
 
     /// Every planned chunk was processed. **Says nothing about whether they all passed** — a run
@@ -141,8 +141,34 @@ nonisolated struct RunCycleOutcome: Equatable {
     let didComplete: Bool
 
     let chunksProcessed: UInt64
+
+    /// Failed ranges the run produced, **retained plus any the cap dropped** (FR-RPT-1).
+    /// Compare against ``failedRanges``'s count: a difference is the truncation, and a report
+    /// showing the list must say so.
     let failedRangeCount: Int
+
+    /// The human one-line summary, as the helper composed it.
     let failureSummary: String
+
+    /// The retained failed ranges themselves (FR-RPT-1).
+    ///
+    /// `nil` — not empty — when the helper sent something this build could not decode. The two
+    /// are deliberately different: empty means *the run found nothing*, and `nil` means *this
+    /// app cannot say what the run found*. Collapsing them would let a decode failure render as
+    /// a clean drive, which is the worst available way for this particular field to be wrong.
+    let failedRanges: [FailedBlockRange]?
+
+    /// Every failing block the run saw, **including blocks in ranges the cap dropped**. Never
+    /// approximate, and not derivable from ``failedRanges`` once truncation has happened.
+    let failedBlockCount: UInt64
+
+    /// The mode the run was actually performed in, as reported by the helper (FR-FAIL-1).
+    ///
+    /// Checked against what was asked for rather than assumed: the helper's `RunCoordinator` is
+    /// not in the test target, so nothing in the unit suite can show that the deciding observer
+    /// was installed — and a healthy drive produces no failure that would reveal its absence.
+    /// `.unrecognised` when no run happened.
+    let failureModeUsed: FailureModeCode
 
     /// FR-TEST-9's verdict at the end of the run. Qualifies the verify result when it is not
     /// `.bypassed`.
@@ -157,7 +183,91 @@ nonisolated struct RunCycleOutcome: Equatable {
     /// The daemon's CPU as a fraction of one core over the run (BUILD-PLAN 9.5a), or `nil`.
     let helperCoreFraction: Double?
 
+    /// Average read throughput over the run (FR-RPT-2), or `nil` when nothing was measured.
+    let readBytesPerSecond: Double?
+
+    /// Average write throughput over the run (FR-RPT-2), or `nil` when nothing was measured.
+    let writeBytesPerSecond: Double?
+
+    /// How many original reads the three latency figures are computed over. `0` makes them all
+    /// `nil`, because `0` nanoseconds is a legitimate reading and cannot be its own sentinel.
+    let readLatencySampleCount: UInt64
+
+    /// FR-RPT-3's three, `nil` when there are no samples. The p99 is the **upper bound**: the
+    /// true value is at or below it, within one histogram bucket. A report printing "p99 = x"
+    /// would dress a bracketing interval as a measurement.
+    let readLatencyMinimum: Duration?
+    let readLatencyMaximum: Duration?
+    let readLatencyP99UpperBound: Duration?
+
     let message: String
+
+    /// Decode one `runRetentionCycle` reply.
+    ///
+    /// **Every parameter is labelled, and that is the point.** The reply block is nineteen
+    /// positional values, six of which are adjacent same-typed numbers — two `Double` rates, four
+    /// `UInt64` latency figures — and it is assembled in the helper's `main.swift` and consumed
+    /// in a closure, neither of which any unit test can reach. A transposition there compiles,
+    /// runs, and puts read throughput under "write" in an exported report.
+    ///
+    /// Labelling does not make that impossible, but it puts each value's name beside it at the
+    /// one call site where the mistake would be made, and `RunCycleOutcomeTests` pins the decode
+    /// itself with values that are distinguishable from one another — a suite using `1.0` and
+    /// `1.0` would pass with the two swapped.
+    init(didComplete: Bool,
+         chunksProcessed: UInt64,
+         failedRangeCount: Int,
+         failureSummary: String,
+         cacheBypassCode: Int,
+         bufferBytesHeld: Int,
+         hostOverheadFraction: Double,
+         helperCoreFraction: Double,
+         failureModeUsedCode: Int,
+         failedRangesEncoded: String,
+         failedBlockCount: UInt64,
+         readBytesPerSecond: Double,
+         writeBytesPerSecond: Double,
+         readLatencySampleCount: UInt64,
+         readLatencyMinimumNanoseconds: UInt64,
+         readLatencyMaximumNanoseconds: UInt64,
+         readLatencyP99UpperBoundNanoseconds: UInt64,
+         message: String) {
+
+        func latency(_ nanoseconds: UInt64) -> Duration? {
+            WireSentinel.latency(nanoseconds, sampleCount: readLatencySampleCount)
+        }
+
+        self.didComplete = didComplete
+        self.chunksProcessed = chunksProcessed
+        self.failedRangeCount = failedRangeCount
+        self.failureSummary = failureSummary
+        self.failedRanges = FailedRangeCoding.decode(failedRangesEncoded)
+        self.failedBlockCount = failedBlockCount
+        self.failureModeUsed = FailureModeCode(wireValue: failureModeUsedCode)
+        self.cacheBypass = CacheBypassOutcome(wireValue: cacheBypassCode)
+        self.bufferBytesHeld = bufferBytesHeld
+        self.hostOverheadFraction = WireSentinel.rate(hostOverheadFraction)
+        self.helperCoreFraction = WireSentinel.rate(helperCoreFraction)
+        self.readBytesPerSecond = WireSentinel.rate(readBytesPerSecond)
+        self.writeBytesPerSecond = WireSentinel.rate(writeBytesPerSecond)
+        self.readLatencySampleCount = readLatencySampleCount
+        self.readLatencyMinimum = latency(readLatencyMinimumNanoseconds)
+        self.readLatencyMaximum = latency(readLatencyMaximumNanoseconds)
+        self.readLatencyP99UpperBound = latency(readLatencyP99UpperBoundNanoseconds)
+        self.message = message
+    }
+
+    /// How many retained ranges the cap dropped, or `nil` when the list could not be decoded.
+    ///
+    /// **Must be surfaced wherever ``failedRanges`` is shown.** A truncated list that does not
+    /// say it is truncated reads exactly like a complete one — `FailureLog`'s rule, carried
+    /// across the boundary into the artefact that outlives the session.
+    var droppedRangeCount: Int? {
+        failedRanges.map { max(0, failedRangeCount - $0.count) }
+    }
+
+    /// Did the cap drop anything?
+    var listIsTruncated: Bool { (droppedRangeCount ?? 0) > 0 }
 }
 
 /// Owns the `NSXPCConnection`s to the privileged helper and exposes typed calls.
@@ -441,28 +551,46 @@ final class HelperConnection {
     ///
     /// Bounded to `TesterProtocol.maximumBytesPerCall`; the helper validates the request rather
     /// than trusting it. Step 11 replaces this with real run control.
+    /// - Parameter failureMode: FR-FAIL-1's mode. Required — there is no default here, so
+    ///   "nobody chose" and "somebody chose log-and-continue" cannot be the same call. The helper
+    ///   refuses a code it does not recognise rather than defaulting.
     func runRetentionCycle(startBlock: UInt64,
                            blockCount: UInt64,
                            ioSizeBytes: Int,
+                           failureMode: FailureModeCode,
                            completion: @escaping (Result<RunCycleOutcome, Error>) -> Void) {
         withProxy(completion) { tester, finish in
             tester.runRetentionCycle(startBlock: startBlock,
                                      blockCount: blockCount,
-                                     ioSizeBytes: ioSizeBytes) { completed, chunks, failedRanges,
-                                                                 failureSummary, cacheBypassCode,
-                                                                 _, bufferBytesHeld,
-                                                                 hostOverheadFraction,
-                                                                 helperCoreFraction, message in
+                                     ioSizeBytes: ioSizeBytes,
+                                     failureModeCode: failureMode.rawValue) {
+                completed, chunks, failedRangeCount, failureSummary, cacheBypassCode,
+                _, bufferBytesHeld, hostOverheadFraction, helperCoreFraction,
+                failureModeUsedCode, failedRangesEncoded, failedBlockCount,
+                readBytesPerSecond, writeBytesPerSecond, readLatencySampleCount,
+                readLatencyMinimum, readLatencyMaximum, readLatencyP99Upper, message in
+
+                // Straight into a labelled initialiser, one value per line. Nineteen positional
+                // values with six adjacent same-typed numbers among them is exactly where a
+                // transposition hides, and this closure is not reachable by any unit test.
                 finish(.success(RunCycleOutcome(
                     didComplete: completed,
                     chunksProcessed: chunks,
-                    failedRangeCount: failedRanges,
+                    failedRangeCount: failedRangeCount,
                     failureSummary: failureSummary,
-                    cacheBypass: CacheBypassOutcome(wireValue: cacheBypassCode),
+                    cacheBypassCode: cacheBypassCode,
                     bufferBytesHeld: bufferBytesHeld,
-                    // `-1` is the wire's "could not be established"; it stops here.
-                    hostOverheadFraction: hostOverheadFraction >= 0 ? hostOverheadFraction : nil,
-                    helperCoreFraction: helperCoreFraction >= 0 ? helperCoreFraction : nil,
+                    hostOverheadFraction: hostOverheadFraction,
+                    helperCoreFraction: helperCoreFraction,
+                    failureModeUsedCode: failureModeUsedCode,
+                    failedRangesEncoded: failedRangesEncoded,
+                    failedBlockCount: failedBlockCount,
+                    readBytesPerSecond: readBytesPerSecond,
+                    writeBytesPerSecond: writeBytesPerSecond,
+                    readLatencySampleCount: readLatencySampleCount,
+                    readLatencyMinimumNanoseconds: readLatencyMinimum,
+                    readLatencyMaximumNanoseconds: readLatencyMaximum,
+                    readLatencyP99UpperBoundNanoseconds: readLatencyP99Upper,
                     message: message)))
             }
         }

@@ -98,8 +98,28 @@ struct QuitPolicyTests {
 
     // MARK: - Closing the main window
 
-    @Test func closingIsAllowedWhenNothingIsHappening() {
-        #expect(QuitPolicy.closeDisposition(runIsActive: false, quitState: .idle) == .allowClose)
+    /// **Closing the main window is a quit request** (user decision 2026-08-06), not merely a
+    /// close. An interim version keyed this on AppKit's `applicationShouldTerminateAfterLastWindowClosed`
+    /// instead, and observing it showed the problem: closing the main window quit the app or not
+    /// depending on whether a panel opened earlier was still up.
+    @Test func closingWhenNothingIsHappeningClosesAndQuits() {
+        #expect(QuitPolicy.closeDisposition(runIsActive: false, quitState: .idle)
+                == .allowCloseAndQuit)
+    }
+
+    /// `.allowClose` — close but stay — survives for exactly one state: the app is already on its
+    /// way out and AppKit is taking the windows with it. Answering `.allowCloseAndQuit` there
+    /// would request a second termination during the first.
+    @Test func plainAllowCloseIsReachableOnlyWhileTerminating() {
+        for active in [true, false] {
+            for state in [QuitState.idle, .confirming, .windingDown] {
+                #expect(QuitPolicy.closeDisposition(runIsActive: active, quitState: state)
+                        != .allowClose,
+                        "runIsActive=\(active) state=\(state) must not close-and-stay")
+            }
+        }
+        #expect(QuitPolicy.closeDisposition(runIsActive: false, quitState: .terminating)
+                == .allowClose)
     }
 
     /// The point of the decision: the close button asks the same question ⌘Q asks.
@@ -125,7 +145,7 @@ struct QuitPolicyTests {
 
     @Test func theWholeCloseTableIsPinned() {
         let expected: [(Bool, QuitState, WindowCloseDisposition)] = [
-            (false, .idle,        .allowClose),
+            (false, .idle,        .allowCloseAndQuit),
             (true,  .idle,        .askFirst),
             (false, .confirming,  .refuseSilently),
             (true,  .confirming,  .refuseSilently),
@@ -145,8 +165,11 @@ struct QuitPolicyTests {
     @Test func aCloseIsNeverAllowedWhileAQuitIsPending() {
         for state in [QuitState.confirming, .windingDown] {
             for active in [true, false] {
-                #expect(QuitPolicy.closeDisposition(runIsActive: active, quitState: state)
-                        != .allowClose)
+                let disposition = QuitPolicy.closeDisposition(runIsActive: active,
+                                                              quitState: state)
+                #expect(disposition != .allowClose)
+                #expect(disposition != .allowCloseAndQuit,
+                        "and it must not close-and-quit either — same hazard, new case")
             }
         }
     }

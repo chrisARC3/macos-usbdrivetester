@@ -162,6 +162,11 @@ This document specifies the **functional requirements** — the observable behav
 Changes made after the 2026-06-25 baseline. Recorded here so the delta from the
 baselined set is auditable rather than silently absorbed into the tables above.
 
+> **Latest: 2026-08-06/07 — four GUI decisions from Step 10**, at the end of this section. No
+> requirement text changes, but one of them records a **measured** constraint on any code that
+> unmounts, and another explains why the live metrics panel no longer retains a finished run
+> without FR-METR being affected.
+
 ### 2026-07-30 — FR-SAFE-5 revised; FR-SAFE-6 and FR-SAFE-7 added
 
 **Trigger.** User decision during Step 6 scoping.
@@ -488,6 +493,60 @@ authoritative at the moment a user is choosing what to write to.
 drive by model and **USB serial number**, never by BSD name, since a name can have moved since the
 list was drawn. Recorded against Step 14, and it is why Step 11's removal of the explicit unmount
 control is gated on Step 14 existing rather than merely sequenced after it.
+
+### 2026-08-06/07 — four GUI decisions from Step 10 (no requirement change)
+
+**Not amendments.** No requirement text changes. Recorded because each was taken from the user
+exercising the shipped app, and three of them touch a requirement closely enough that a reader
+would otherwise wonder whether it had been broken.
+
+**1. The live metrics panel no longer retains a finished run — and FR-METR is still satisfied.**
+Step 10 gave the finished run its own window with the full bad-block list and a Markdown export
+(FR-RPT-1/5). The panel under the device list kept displaying the last run's figures indefinitely,
+because `runProgress` returns them until a new run replaces them.
+
+> *"I see no reason to retain the Last Run pane since all the information is redundant and the
+> separate window & file exporting is far more valuable."* — user, 2026-08-06
+
+**FR-METR-2/4/5/6 are M and are unaffected**: they require throughput, latency, progress and ETA to
+be displayed **during** a run, and that display is untouched. What was removed is the *post-run*
+retention, which no requirement asks for — and no report exists while a run is under way, so there
+is nothing redundant about the live half. The idle panel now points at the report window, because a
+placeholder that only said "nothing is running" would read as the result having been lost.
+
+**2. Closing the main window quits the app.** Step 9 made the main scene a `Window` and left the
+app running when it closed, reasoning that the Window menu brings it back. Observed in the product,
+that leaves the app alive and invisible while the helper may still hold a claim — a drive
+unmounted, with no UI to release it. An interim fix used
+`applicationShouldTerminateAfterLastWindowClosed`, which fires only when *no* window remains, so
+the behaviour depended on whether a panel opened earlier was still up:
+
+> *"I don't think that this is an intuitive user experience. I think closing the main window should
+> always try to terminate the app."* — user, 2026-08-06
+
+The main window's close is now the quit request itself. It **cannot bypass the during-a-run
+confirmation** — that refuses the close before AppKit can terminate — so FR-FAIL-7's protection of
+an un-resumable run is unaffected.
+
+**3. A failed unmount is undone.** `DADiskUnmount` leaves already-unmounted volumes unmounted when
+one volume refuses, stranding a multi-volume drive half-dismounted:
+
+> *"if any volume unmount operation fails for any reason, just post an error message with the error
+> code (stated in english if available) and remount any volumes that did unmount successfully."*
+> — user, 2026-08-06
+
+FR-SAFE-5's control is withdrawn and Step 11 deletes it, so this is recorded as a decision rather
+than a requirement — but **the behaviour outlives the control**: Step 11's Start owns
+unmount → acquire → run, and its abort path reaches the same state with no manual control at all.
+Carried as an inherited note on Step 11.
+
+**4. And a measured fact that constrains anything which unmounts.** `DADiskUnmount` can report
+**success while a volume is still mounted**, and the mount table lags its callback. Neither is
+inferable from the API's own signal; both were found only by running the app and reading the
+unified log. Any code that unmounts must verify the mount table, and must re-read it until it
+settles rather than trusting the first look. This is the same shape as FR-TEST-9's origin —
+`fcntl(F_NOCACHE)` returning 0 on `/dev/null` — and for the same reason: **an API accepting a
+request is not the request having had its intended effect.**
 
 ## Open Questions
 

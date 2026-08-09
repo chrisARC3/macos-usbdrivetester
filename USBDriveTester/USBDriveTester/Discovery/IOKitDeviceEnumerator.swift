@@ -230,6 +230,11 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
             mountedVolumeNames: MountTable.volumeNames(
                 on: Self.bsdNamesInSubtree(of: media, wholeDiskName: bsdName),
                 in: mountTable),
+            // The same subtree, so the names and the nodes describe the same volumes in the same
+            // order. Restoring a partial unmount needs the nodes; nothing else does.
+            mountedVolumeBSDNames: MountTable.volumeBSDNames(
+                on: Self.bsdNamesInSubtree(of: media, wholeDiskName: bsdName),
+                in: mountTable),
             // Sanitised rather than taken as read: a bridge reporting sixteen zeros would
             // otherwise become an identifier that every drive behind that bridge shares.
             usbSerialNumber: USBSerialNumber.sanitised(

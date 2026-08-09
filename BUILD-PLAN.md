@@ -2,9 +2,12 @@
 
 **Status:** Draft for execution
 **Date:** 2026-06-25
-**Last amended:** 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Disk
-Access), and the test target fixed to the designated scratch device with disk images removed as an option
-(see "Test hardware")
+**Last amended:** 2026-08-06 — Step 10's scoping decisions recorded at the head of that step
+(protocol v9 carries the final figures; "stopped by user" deferred to Step 11 and device loss to
+Step 12; the report gets its own `Window`), with the matching inherited notes on Steps 11 and 12.
+Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Disk Access), and the
+test target fixed to the designated scratch device with disk images removed as an option (see
+"Test hardware")
 **Source documents:**
 - [Product Brief](USBDriveTester.md)
 - [ADR-001](ADR-001-usb-drive-tester.md) — the 16 Action Items this plan sequences
@@ -241,10 +244,19 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-08-06: Steps 1–9 are complete and committed. Step 10 is next and has not been
-> started.** Step 9 is `c6ec234`, with `4be5766` recording two decisions that followed it. The
-> authoritative state — including what each gate actually discharged and what it deliberately did
-> not — is `PROGRESS.md`; this table is the map, not the tracker.
+> **Status, 2026-08-07: Steps 1–9 are complete and committed. Step 10 is BUILT AND GATED BUT NOT
+> COMMITTED.** Step 9 is `c6ec234`, with `4be5766` recording two decisions that followed it; the
+> last commit on `main` is `8567e88` and **the whole of Step 10 is in the working tree**.
+>
+> All three hardware gates passed on 2026-08-07 and the suite stands at **722 tests / 86 suites /
+> 0 failures**, protocol **v9**. **One fix — the unmount rollback — is installed but has not been
+> verified by the user, and nothing should be committed before it is.**
+>
+> **Read `PROGRESS.md`, "Step 10 — STATE AT SESSION END", first.** It is written for a cold start
+> and says what is done, what is unverified, and what to do next. Step 10's scoping decisions are
+> also summarised at the head of Step 10 below. The authoritative state — including what each gate
+> actually discharged and what it deliberately did not — is `PROGRESS.md`; this table is the map,
+> not the tracker.
 
 | Step | AI | Title | Primarily on | Gate in one line |
 |------|----|-------|--------------|------------------|
@@ -947,6 +959,45 @@ Recorded rather than silently edited, so the delta from the plan as written is a
 
 ## Step 10 — Failure modes + end-of-run bad-block report + Markdown export
 
+> **Scoping decisions, 2026-08-06 (user), taken before any code was written.** Full record in
+> `PROGRESS.md`, "Step 10 — scoping and authoring log".
+>
+> 1. **The final figures come back in `runRetentionCycle`'s own reply — protocol v9.** They are
+>    not there today (see the correction below), and the alternative was to poll `runProgress`
+>    after the cycle returned. Chosen because `MetricsChannel.begin()` runs *after* validation, so
+>    a **refused** run leaves the previous run's figures installed in the slot — and a report
+>    assembled from a post-reply poll would export the wrong run's throughput and latency, in the
+>    one artefact that outlives the session. The version was bumping for the failure mode anyway;
+>    this removes the hazard by construction instead of detecting it.
+> 2. **"Stopped by user" is deferred to Step 11** — see the amended gate below.
+> 3. **The report gets its own `Window` scene**, like the diagnostics window: opened when a run
+>    ends, reopenable from the Window menu, and — the deciding reason — **renderable by
+>    `tools/ui-probe`**, where a sheet or an alert is not (a SwiftUI `alert` gets its own window;
+>    Step 9's quit confirmation always needed a person). The cost is a third automatic Window-menu
+>    entry beside the known cosmetic duplicate.
+>
+> **A correction to what Step 9 handed over.** Step 9's closing notes say *"final throughput and
+> latency are on the wire already — `runRetentionCycle`'s reply carries them"*. **They are not in
+> that reply.** Verified 2026-08-06 against `TesterControl.swift` and the helper's `main.swift`:
+> the reply carries `completed, chunksProcessed, failedRangeCount, failureSummary, cacheBypassCode,
+> fastestObservedBytesPerSecond, bufferBytesHeld, hostOverheadFraction, helperCoreFraction,
+> message`. The one rate in it is FR-TEST-9's falsifier figure — the *fastest observed read*, not
+> an average — and the app discards it. The final throughput and latency are reachable, but on
+> `runProgress`, which returns the last run's completed snapshot after the cycle ends. Decision 1
+> is what that correction produced.
+>
+> **Two things settled by checking rather than by reasoning, and they constrain the work.**
+> `failureSummary` **stays** in the reply: `metrics-check.sh` and `retention-cycle-check.sh` parse
+> `FAILURE_SUMMARY` / `FAILED_RANGES` out of `tools/mount-guard-client` and `tools/metrics-probe`,
+> and three tools call `runRetentionCycle` — all three must be updated with the signature. And the
+> new **wire vocabulary goes into `Shared/TesterControl.swift`** rather than a new `Shared/` file:
+> seven scripts name that one file as a single `SHARED=` in their standalone `swiftc` lines, so a
+> second file would mean editing all seven *and* a helper-target membership tick. Core keeps the
+> domain types, Shared keeps the wire mirrors, pinned by a test — the existing
+> `DeviceAccessRefusal.causeCode` pattern. The one genuinely two-sided thing, the failed-range
+> codec, lives in Shared as a **single** implementation, because the helper encodes and the app
+> decodes.
+
 **Original action item:** AI-7
 **Satisfies:** FR-FAIL-1/2/3/4/5; FR-RPT-1/2/3/4/5; NFR-USE-7
 **Trust boundary:** mode logic **helper-side**; report assembly/export **GUI-side**.
@@ -955,6 +1006,12 @@ Recorded rather than silently edited, so the delta from the plan as written is a
 React to classified failures per the user-selected mode, and conclude every run with a structured report — bad-block ranges + throughput + latency + outcome — exportable to Markdown.
 
 ### Detailed steps
+0. **The cycle's reply names the mode the run actually used** (added 2026-08-06, during increment
+   2). Not cosmetic: `RunCoordinator` is not in the test target, so "the deciding observer is
+   installed in the shipped run path" is otherwise a code-level inference — and on a healthy drive
+   there is no failure to not-stop on, so nothing would reveal it. Echoing the mode back is the
+   only evidence available without a bad drive. The report prints it (detailed step 3), and a
+   hardware gate asserts it.
 1. **Two modes, chosen before the run (FR-FAIL-1, default = log-and-continue FR-FAIL-4):**
    - **Stop on first error (FR-FAIL-2):** on the first hard I/O failure (or verify mismatch), halt immediately and report the offending range. (No resume — restart from the beginning, FR-FAIL-7.)
    - **Log and continue (FR-FAIL-3):** append the offending range to a bad-block list and keep refreshing the rest of the device.
@@ -984,11 +1041,33 @@ React to classified failures per the user-selected mode, and conclude every run 
 - [ ] **Log-and-continue (default):** with multiple injected faults, all bad ranges are recorded and the rest of the device is still refreshed to completion.
 - [ ] A clean run reports "completed clean / no currently-unreadable blocks," with throughput + latency stats present.
 - [ ] Exported Markdown is well-structured (headings, outcome line, tabulated ranges + stats) and opens cleanly in a Markdown viewer.
-- [ ] Outcome field correctly distinguishes clean / with-failures / stopped-on-error / stopped-by-user.
+- [ ] Outcome field correctly distinguishes clean / with-failures / stopped-on-error. ~~/ stopped-by-user~~ — **deferred to Step 11, user decision 2026-08-06.**
+
+  > **Why the fourth outcome is not this step's.** Nothing can stop a run until Step 11's
+  > `FR-CTRL-4` machinery exists, so "stopped by user" would be an outcome case with no trigger —
+  > and *a sound mechanism behind a trigger that never fires looks exactly like a broken
+  > mechanism* (Step 9's own lesson, paid for). The alternative considered was to build the case
+  > now and unit-test it; the user chose to ship only the outcomes reachable today, so that
+  > **nothing untriggerable ships**. The report's outcome vocabulary therefore grows in Step 11
+  > (stopped by user) and again in Step 12 (terminated by device loss). Recorded as an inherited
+  > note on both.
+  >
+  > The wording rule travels with it: whatever Step 11 adds must obey detailed step 5 —
+  > "completed clean" reads as *no currently-unreadable blocks found*, never as "healthy".
+
+- [ ] **The injected-fault items above are discharged in simulation, and can only be.** A healthy
+  scratch device produces no failures, and this project does not manufacture one on real hardware.
+  `InMemoryBlockDevice` already carries the three hooks (`injectReadFault`, `injectWriteFault`,
+  `injectSilentCorruption`), so FR-FAIL-2 and FR-FAIL-3 are proven there. The **hardware** half of
+  this gate is a clean bounded run on the scratch device producing a report and exporting it —
+  which is what keeps the hardware-dependent part small, as intended.
 
 ### Risks / gotchas
 - Coalesce contiguous failing chunks into ranges for a readable report, but don't lose a non-contiguous failure.
 - The report must include stats even when the run stopped early.
+- **Increments 2 and 3 touch `Core/` and the helper**, so all three hardware gates
+  (`xpc-concurrency-check.sh`, `metrics-check.sh`, `retention-cycle-check.sh`) must be re-run
+  before this step closes — two of them write to the scratch device.
 
 ---
 
@@ -1053,6 +1132,59 @@ React to classified failures per the user-selected mode, and conclude every run 
 > *less* guarded than either the current design or the intended one. Either build Step 14 first or
 > land both together.
 >
+> **A PARTIAL UNMOUNT THAT FAILS MUST NOT STRAND THE USER (found in real use, 2026-08-06).**
+> Reported against the control this step deletes, but the hazard survives the deletion and lands
+> squarely here.
+>
+> `DADiskUnmount` with `kDADiskUnmountOptionWhole` dissents as a unit, but **volumes it already
+> unmounted stay unmounted**. So an unmount refused by one busy volume leaves the drive partially
+> mounted. The user hit this with the *wrong drive selected* — volumes vanished from a drive they
+> had not meant to touch, and the control offered only to repeat the failure:
+>
+> > *"I very much wanted an easy way to restore the mounted volumes."*
+>
+> Step 10 fixed the control (it now offers "Mount All" after a refusal). **This step deletes that
+> control**, so the fix goes with it — and Start owning unmount → acquire → run → release
+> reproduces the same situation with *no manual control left at all*: unmount volume A, fail on
+> volume B, abort per FR-SAFE-4(a)'s revised remedy, and the user is left with A unmounted and
+> nothing to press.
+>
+> **So the abort path has to put the volumes back.** Either roll back the unmounts the attempt
+> performed, or offer the way back explicitly. An abort that leaves a drive half-unmounted has
+> changed the user's machine in a way they did not ask for and cannot undo through this app — on
+> the screen whose entire job is stopping the wrong drive from being touched.
+>
+> **AND THE UNMOUNT'S OWN SUCCESS SIGNAL CANNOT BE BELIEVED (measured 2026-08-06).**
+> `DADiskUnmount` calls back with **no dissenter — success — while a volume is still mounted**.
+> Confirmed from the unified log, which recorded `unmount succeeded on disk6: Unmounted every
+> volume on disk6: 1TB_Samsung` for a volume that was mounted and in active use at that moment.
+>
+> A `nil` dissenter means *nothing refused the request*, not *the volumes are unmounted*. Step 10
+> built two versions of the rollback on that signal and **both were inert by construction** before
+> the postcondition was checked instead.
+>
+> This step's Start sequence unmounts before it acquires. **It must verify the mount table rather
+> than trust the unmount's reply** — read it back the way `DeviceListView` now does, through the
+> enumerator's IOKit subtree walk (a BSD-name prefix match does not work: an APFS volume is
+> mounted from a synthesised disk).
+>
+> The safety property was never at risk and is worth stating for whoever reads this: the **helper**
+> evaluates `DeviceAccessPrecondition` independently on the acquire path and refuses with
+> `volumesMounted`, so a false "unmounted" in the app cannot put a write on a mounted drive. Keep
+> that independence — it is what turned this into a wrong message rather than an incident.
+>
+> **Two more things Step 10 paid for, both of which this step needs.**
+>
+> - **The mount table lags the callback.** Reading it the instant `DADiskUnmount` returns still
+>   lists a volume that has in fact gone, so a *successful* unmount reads as failed. Re-read until
+>   it settles, with a bounded budget — Step 10 uses twelve looks at 150 ms — before concluding
+>   anything. Without this, Start would abort every run it was about to perform.
+> - **Restore exactly what went, by device node.** A whole-disk mount brings up every *mountable*
+>   volume, which on a GPT drive means an EFI partition that was never mounted (observed on the
+>   scratch device). `DiscoveredDevice.mountedVolumeBSDNames` exists for this: a name cannot be
+>   mounted and a node can, and an APFS volume's node is not derivable from the physical disk by
+>   prefix. Capture the mounted set **before** unmounting; restore `before − still mounted`.
+
 > **Two interim behaviours this step subsumes**, both introduced in Step 9 and both stop-gaps for
 > the claim not yet belonging to the run:
 > - **The claim follows the selection** — deselecting a drive, or selecting a different one,
@@ -1092,6 +1224,28 @@ React to classified failures per the user-selected mode, and conclude every run 
 > connection, and a second message on a connection with a blocking call in flight is not delivered
 > until that call returns. Issuing the release mid-run would queue it behind the very call it was
 > meant to shorten. Any pause/stop this step adds is subject to the same constraint.
+
+> **Inherited from Step 10 (user decision 2026-08-06) — this step owns the "stopped by user"
+> outcome, and the pre-run controls.** Step 10 built both failure modes, the bad-block report and
+> the Markdown export, but deliberately shipped **only the outcomes reachable without a stop
+> control**: completed clean, completed with failures, stopped on error. Two things follow.
+>
+> - **The report's outcome vocabulary gains "stopped by user" here**, when FR-CTRL-4 gives it a
+>   trigger. It was not built in advance on purpose — a sound mechanism behind a trigger that
+>   never fires looks exactly like a broken one. Step 10's gate carries the deferred checkbox;
+>   this step discharges it. The wording rule comes with it: "completed clean" means *no
+>   currently-unreadable blocks were found*, never "healthy" (Step 10.5, FR-WARN-3).
+> - **FR-CTRL-7's "require a failure mode before start" is this step's**, not Step 10's, because
+>   there is no Start control until here. Step 10 puts the mode picker beside the bounded-cycle
+>   button in the **diagnostics** window, as scaffolding; this step relocates it to the real
+>   pre-run controls alongside the I/O-size dropdown and deletes the scaffolding with the button.
+>   The mode itself is `FailureMode` in `Core/RetentionRun.swift`, carried over XPC as
+>   `FailureModeCode` (protocol v9) — and an **unrecognised** mode code is *refused* at the
+>   boundary, never defaulted, for the reason recorded on that type.
+> - **A whole-device run is a sequence of calls, and each one takes a mode.** Whatever this step's
+>   sequencer does, `stopOnFirstError` has to mean "stop the *run*", not "stop this call" — a
+>   sequencer that saw one call stop on a failure and then issued the next would turn the mode
+>   into a no-op that still reports honestly per call.
 
 **Original action item:** AI-10
 **Satisfies:** FR-CTRL-1/2/3/4/5/6/7/8/9; NFR-REL-10
@@ -1141,6 +1295,57 @@ Implement the explicit run-control state machine with legal-transition enforceme
 > - **The rebuilt list re-applies FR-DEV-3's default**, so recovery lands on the first device
 >   rather than on nothing. `DeviceSelectionPolicy` already does this — a rebuild with no previous
 >   selection returns the first usable device — so the behaviour is inherited, not new work.
+
+> **A REAL DEVICE LOSS HAPPENED DURING STEP 10'S HARDWARE GATE (2026-08-06), AND IT SHOWS WHAT
+> THIS STEP IS ACTUALLY FOR.** Not a simulation, not a fault hook — the scratch device
+> de-enumerated part-way through `retention-cycle-check.sh`'s pre-run fingerprint. Full log in
+> `PROGRESS.md`, increment 6.
+>
+> **What the helper saw:** `errno 6` — `ENXIO`, *"Device not configured"* — on every read from
+> that moment, **including offset 0**. That is the exact signal detailed step 1 names. A bad block
+> gives `EIO` on that block; `ENXIO` on offset 0 of a working descriptor means the descriptor is
+> dead. The drive re-enumerated ~2 s later, healthy, at full link speed.
+>
+> **What the product did with it, and why it is wrong.** Nothing detected the loss, so the run in
+> log-and-continue mode did exactly what it is supposed to do with a bad drive: it recorded every
+> failing chunk and walked to the end. The reply was
+>
+> > `Cycle completed: 256 of 256 chunks; 2095104 block(s) in 1 range(s): read error`
+>
+> A report built from that says **"Completed with failures"** and tabulates one range of
+> **2,095,104 bad blocks**. The drive does not have two million bad blocks. It went away.
+>
+> **That is a false accusation about somebody's hardware**, produced by a tool whose entire output
+> is a judgement about their hardware — and it is the same class of error `RunAbort` exists to
+> prevent when the fault is *ours*. `RunAbort` refuses to record an addressing bug as a bad block
+> precisely so this cannot happen; device loss has no equivalent protection until this step
+> builds it.
+>
+> So the outcome case this step adds is not cosmetic. **Until it exists, a drive that drops off
+> the bus is reported as a catastrophically failing drive**, in an exported file that outlives the
+> session. Detect `ENXIO`/`EIO` per detailed step 1, and make sure the failures already recorded
+> before the loss are not presented as a bad-block verdict.
+>
+> One thing that did work, and is worth keeping: the run's figures came back `-1` / sample count
+> `0` rather than `0 MB/s`, because nothing was measured. The sentinel discipline held under a
+> real fault nobody arranged.
+>
+> **And the fix that must NOT be built.** The tempting shortcut is a heuristic in the report:
+> *"every chunk failed, so it was probably device loss rather than a bad drive."* **Do not.** A
+> genuinely dead drive also fails every chunk, so the heuristic is wrong exactly when being wrong
+> is most expensive — and it is a judgement the tool is not entitled to make, which is the same
+> rule that stops it grading throughput (D9) and stops FR-DEV-3 guessing which drive is
+> expendable. Device loss is **detected**, per detailed step 1, from `ENXIO`/`EIO` and the
+> DiskArbitration/IOKit removal callback. It is not inferred from a failure count.
+
+> **Inherited from Step 10 (user decision 2026-08-06) — this step owns the "terminated by device
+> loss" outcome.** Step 10's report ships the outcomes reachable without a stop control or a
+> removal event; Step 11 adds "stopped by user" and this step adds the fifth. Same reasoning:
+> nothing untriggerable ships. The report already carries everything the outcome needs beside it
+> — the ranges found before the loss, the partial statistics, and FR-TEST-9's verdict — so what
+> is added here is the outcome case and its wording, not a second report path. A run terminated
+> by device loss must still produce a report (FR-FAIL-5 admits no exception), and it must not
+> read as "completed".
 
 **Original action item:** AI-9
 **Satisfies:** FR-DEV-8; FR-FAIL-7; NFR-REL-5/6
