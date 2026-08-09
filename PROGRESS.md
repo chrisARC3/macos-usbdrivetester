@@ -4261,13 +4261,38 @@ judgement the tool is not entitled to make, dressed as a capability.
 
 ---
 
-## Step 10 — STATE AT SESSION END (2026-08-07) — READ THIS FIRST FOR A COLD START
+## Step 10 — COMPLETE AND COMMITTED (2026-08-09) — READ THIS FIRST FOR A COLD START
 
-**Everything Step 10 set out to build is built, and every gate that can be discharged has been.
-Nothing is committed. One fix is installed but unverified.** That is the whole picture; the
-detail is in the authoring log below.
+**Step 10 is done, verified on hardware, and committed in two commits. Step 11 is next and has
+not been started.**
 
-### Where the work stands
+| | |
+|---|---|
+| `15dbc40` | `Step 10: failure modes, bad-block report, and Markdown export` |
+| `9d1f3d3` | `Fix: unmount per volume by node — a whole-disk unmount skips APFS volumes` |
+
+**744 tests, 0 failures, 88 suites.** Zero source warnings from three clean builds. Helper source
+hash `737e6972bfdec1c5c1901a27bd5a00da2fed413166c909fc6639666c38e8907e` — unchanged since the
+gates, so all three still apply. Release build installed at `/Applications`.
+
+**The unmount rollback is verified.** It was the one outstanding item at the 2026-08-07 session
+end; verifying it exposed a **pre-existing Step 6 defect** — `DADiskUnmount` with
+`kDADiskUnmountOptionWhole` does not unmount APFS volumes in containers on the disk, and reports
+success having skipped them. Fixed in `9d1f3d3`. **Step 11's Start sequence depends on that fix**
+and on the fixture built to reach it. Full account below at "Step 10 — the unmount rollback,
+verified (2026-08-09)".
+
+**The hardware fixture for it is built and must not be re-formatted casually**: the 4 TB T5 EVO,
+serial `00000S7CLNJ0WC02266P`, carries GPT + EFI(unmounted) + `Vol_ExFAT` + `Vol_APFS` +
+`Vol_HFS`. Step 11 needs exactly this layout — its Start owns unmount → acquire → run and its
+abort path reaches the identical partial-unmount state with no manual control at all. Rebuilt by
+`scripts/make-unmount-fixture.sh` if lost.
+
+> **The section below is the 2026-08-07 snapshot, kept for audit.** Its "nothing is committed"
+> and "one fix is unverified" statements were true on that date and are **superseded by the
+> block above** — both were discharged on 2026-08-09.
+
+### Where the work stood on 2026-08-07 — SUPERSEDED
 
 | | |
 |---|---|
@@ -4301,7 +4326,7 @@ asserted: the twenty files that compile into the helper hash to
 `737e6972bfdec1c5c1901a27bd5a00da2fed413166c909fc6639666c38e8907e`. Every install since has been
 verified against it. All post-gate work is app-target only.
 
-### THE ONE THING THAT IS NOT VERIFIED
+### THE ONE THING THAT WAS NOT VERIFIED — DISCHARGED 2026-08-09
 
 **The unmount rollback's fourth and current version is installed but has not been tested by the
 user.** Everything else in this step has been exercised on hardware or in simulation.
@@ -4324,7 +4349,7 @@ drive with nothing open simply succeeds with no remount at all.
    needs DiskArbitration and a real drive. The *decision* above it — which volumes get restored —
    is tested. Recorded at the call site.
 
-### What to do first in a new session
+### What to do first in a new session — DONE 2026-08-09, kept for audit
 
 1. **Ask the user to verify the unmount rollback** (above). Do not commit before that.
 2. If it passes, the step is complete and ready to commit as
