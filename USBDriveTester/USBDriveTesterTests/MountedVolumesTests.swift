@@ -407,3 +407,148 @@ struct RestoringUnmountTests {
         }
     }
 }
+
+/// `VolumeMounter.unmountEach` — the per-volume unmount fan-out (2026-08-09).
+///
+/// ## The defect this replaced, and why nothing caught it for three steps
+///
+/// `unmountAll` used `DADiskUnmount(kDADiskUnmountOptionWhole)` on the *physical* disk, on the
+/// documented reading that it acts on "the volumes tied to the whole disk object". Measured on
+/// hardware, it unmounts the disk's **direct partitions only** and reports **success with no
+/// dissenter** having skipped any volume inside an APFS container. From `diskarbitrationd`:
+///
+///     unmounted disk, id = /dev/disk8s2, success.     <- exFAT, a direct partition
+///     unmounted disk, id = /dev/disk8s4, success.     <- HFS+,  a direct partition
+///     (no line for /dev/disk9s1 — the APFS volume was never attempted)
+///
+/// It survived from Step 6 because **every write gate targets the scratch T5, whose only volume
+/// is exFAT** — a direct partition. The one drive the apparatus may touch cannot exhibit the bug.
+/// It is also the true mechanism behind the 2026-08-06 note *"DADiskUnmount reports success while
+/// a volume is still mounted"*: `1TB_Samsung` is APFS on synthesized `disk7`, so it was never
+/// unmounted rather than slow to unmount.
+///
+/// The operation is injected, so *which volumes are attempted* and *what a partial refusal
+/// reports* are decided without DiskArbitration, a drive or a window — which is the half where
+/// the defect actually lived.
+struct UnmountEachTests {
+
+    private final class Log {
+        var attempted: [String] = []
+    }
+
+    private func run(_ volumes: [(name: String, bsdName: String)],
+                     refusing: [String: String] = [:],
+                     on wholeDisk: String = "disk8") -> (Log, VolumeMountOutcome?) {
+        let log = Log()
+        var final: VolumeMountOutcome?
+        VolumeMounter.unmountEach(
+            volumes,
+            on: wholeDisk,
+            using: { node, done in
+                log.attempted.append(node)
+                if let reason = refusing[node] { done(.failed(reason)) } else { done(.succeeded("unmounted")) }
+            },
+            completion: { final = $0 })
+        return (log, final)
+    }
+
+    private static let threeVolumes = [
+        (name: "Vol_ExFAT", bsdName: "disk8s2"),
+        (name: "Vol_APFS",  bsdName: "disk9s1"),   // synthesized disk — the skipped one
+        (name: "Vol_HFS",   bsdName: "disk8s4"),
+    ]
+
+    // MARK: The defect itself
+
+    /// **The regression test for the whole-disk unmount.** Every mounted volume must be
+    /// attempted *by its own node* — including one whose node is on a synthesized disk and is
+    /// therefore not derivable from the physical disk by prefix. A reversion to a single
+    /// whole-disk call attempts `disk8` and nothing else.
+    @Test func everyMountedVolumeIsAttemptedByItsOwnNode() {
+        let (log, final) = run(Self.threeVolumes)
+        #expect(log.attempted == ["disk8s2", "disk9s1", "disk8s4"])
+        #expect(log.attempted.contains("disk9s1"))   // the APFS volume the old code skipped
+        #expect(!log.attempted.contains("disk8"))    // never the physical disk
+        #expect(final?.isSuccess == true)
+    }
+
+    /// The success message may only claim what was actually attempted and succeeded. The old
+    /// code logged "Unmounted every volume on disk8: Vol_ExFAT, Vol_APFS, Vol_HFS" while
+    /// `Vol_APFS` stayed mounted — a true-looking sentence about an action never taken.
+    @Test func theSuccessMessageNamesTheVolumesThatWent() {
+        let (_, final) = run(Self.threeVolumes)
+        #expect(final?.message.contains("Vol_ExFAT") == true)
+        #expect(final?.message.contains("Vol_APFS") == true)
+        #expect(final?.message.contains("Vol_HFS") == true)
+        #expect(final?.message.contains("disk8") == true)
+    }
+
+    // MARK: Partial refusal — the state the rollback then undoes
+
+    @Test func oneRefusalFailsTheWholeOperation() {
+        let (log, final) = run(Self.threeVolumes, refusing: ["disk9s1": "the disk is in use."])
+        #expect(final?.isSuccess == false)
+        // The others are still attempted — that partial state is exactly what the rollback exists
+        // to undo, so short-circuiting on the first refusal would hide it rather than avoid it.
+        #expect(log.attempted.count == 3)
+    }
+
+    /// Only the volume that refused is named, with its own reason. The whole-disk version named
+    /// every volume on the drive whatever had happened, telling a user with one busy volume that
+    /// all three had failed and leaving them to guess which to close (NFR-USE-5).
+    @Test func onlyTheRefusingVolumeIsNamedAndItQuotesItsOwnReason() {
+        let (_, final) = run(Self.threeVolumes, refusing: ["disk9s1": "the disk is in use."])
+        #expect(final?.message.contains("Vol_APFS") == true)
+        #expect(final?.message.contains("the disk is in use.") == true)
+        #expect(final?.message.contains("Vol_ExFAT") == false)
+        #expect(final?.message.contains("Vol_HFS") == false)
+    }
+
+    @Test func severalRefusalsAreAllNamed() {
+        let (_, final) = run(Self.threeVolumes,
+                             refusing: ["disk9s1": "in use.", "disk8s4": "busy."])
+        #expect(final?.message.contains("Vol_APFS") == true)
+        #expect(final?.message.contains("Vol_HFS") == true)
+        #expect(final?.message.contains("Vol_ExFAT") == false)
+    }
+
+    @Test func aRefusalTellsTheUserWhatToDo() {
+        let (_, final) = run(Self.threeVolumes, refusing: ["disk8s2": "in use."])
+        #expect(final?.message.contains("Close any open files") == true)
+    }
+
+    // MARK: Boundaries
+
+    /// Nothing mounted is not an unmount. The postcondition already holds, and the message must
+    /// not read as though volumes were dismounted — the same distinction `mount(volumeBSDNames:)`
+    /// draws with "No volumes needed remounting."
+    @Test func nothingMountedSucceedsWithoutClaimingAnUnmountHappened() {
+        let (log, final) = run([])
+        #expect(log.attempted.isEmpty)
+        #expect(final?.isSuccess == true)
+        #expect(final?.message.contains("No volumes were mounted") == true)
+        #expect(final?.message.contains("Unmounted every volume") == false)
+    }
+
+    @Test func aSingleVolumeStillWorks() {
+        let (log, final) = run([(name: "Test_Drive", bsdName: "disk10s2")])
+        #expect(log.attempted == ["disk10s2"])
+        #expect(final?.isSuccess == true)
+    }
+
+    /// Exactly one result reaches the caller however the volumes resolve — two would leave the
+    /// control's in-flight flag and its message disagreeing about which operation they belong to.
+    @Test func theCallerIsToldExactlyOnce() {
+        for refusing in [[:], ["disk9s1": "in use."], ["disk8s2": "a.", "disk9s1": "b.", "disk8s4": "c."]] {
+            var count = 0
+            VolumeMounter.unmountEach(
+                Self.threeVolumes,
+                on: "disk8",
+                using: { node, done in
+                    if let reason = refusing[node] { done(.failed(reason)) } else { done(.succeeded("unmounted")) }
+                },
+                completion: { _ in count += 1 })
+            #expect(count == 1)
+        }
+    }
+}

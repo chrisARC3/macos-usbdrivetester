@@ -4899,11 +4899,23 @@ fingerprint pass* would have been distinguishable.
 
 **One clean run is not proof the drop is fixed.** It is the evidence available: the same gate, on
 the same drive, at a new placement, on a different port, with no `ENXIO`. If it recurs, the user
-has a second 1 TB Samsung drive available, which would discriminate between the T5/its enclosure,
+has a spare Samsung drive available, which would discriminate between the T5/its enclosure,
 this Mac's USB, and this tool's access pattern — a more useful role than replacing the
-characterised scratch device. Using it as a gate target would first need its serial and block
-count in `scripts/lib/device-identity.sh`, an entry in BUILD-PLAN's hardware table, and ~1 TB of
-`/dev/urandom` written to it.
+characterised scratch device.
+
+> **Corrected 2026-08-09.** This paragraph called it "a second 1 TB Samsung drive" and quoted the
+> cost of promoting it to a gate target as "~1 TB of `/dev/urandom`". Both were wrong. It is a
+> **Samsung PSSD T5 EVO, 4 TB**, serial **`00000S7CLNJ0WC02266P`**, 7,814,037,168 × 512 B — a
+> different model line at four times the capacity, so the refill cost is **~4 TB**. Its serial
+> and block count are now in `scripts/lib/device-identity.sh` and it has a row in BUILD-PLAN's
+> hardware table, so what a gate target still needs is the fill data. It has since acquired a
+> second role — the multi-volume unmount fixture — recorded with the table row.
+>
+> Worth reading as an instance of this file's own lesson rather than as a typo. The drive was
+> identified here by **model and capacity from memory**, which is an assigned identifier wearing
+> different clothes: nothing announced that it was wrong, and the error propagated straight into
+> a cost estimate for a future step. The serial and the block count are the intrinsic facts, and
+> `resolve_target` cross-checks the second against the first for exactly this reason.
 
 #### metrics-check: the three v9 assertions, on hardware
 
@@ -5228,6 +5240,319 @@ install.
 
 So the installed helper is a rebuild of exactly the code the three gates passed against. The
 installed binary was then verified newer than every source, as in Step 9.
+
+**The hash recipe, recorded 2026-08-09 because it was not.** The figure above was quoted without
+saying how to reproduce it, which makes it an assertion rather than a check — a hash nobody can
+re-derive is worth exactly as much as a claim. It is:
+
+```
+{ find USBDriveTester/com.arc3solutions.USBDriveTester.Helper -name '*.swift'; \
+  echo "USBDriveTester/USBDriveTester/Shared/TesterControl.swift"; } \
+  | sort | xargs shasum -a 256 | shasum -a 256
+```
+
+Twenty files: the helper target's nineteen plus `Shared/TesterControl.swift`. Note it hashes the
+**per-file digest list**, so the file *names* are part of the input — a renamed or added file
+changes the result even if no byte of code did, which is what is wanted. Re-derived 2026-08-09
+and still `737e6972…`, so all post-gate work remains app-target only.
+
+#### Step 10 — the unmount rollback, verified (2026-08-09)
+
+The one thing Step 10 left unverified. The procedure is written here rather than in a scratch note
+because **Step 11 needs it again**: its Start owns unmount → acquire → run and its abort path
+reaches the identical partial-unmount state with no manual control at all.
+
+**The scratch device cannot exercise this and that is not obvious.** The T5 has exactly one
+mounted volume, so `mountedBefore` has one entry, the restore set `before − still mounted` is
+always **empty**, `mount(volumeBSDNames:)` short-circuits on its `isEmpty` guard, and `mountOne`
+is **never called**. A run on it passes while leaving the half the fix was written for untouched —
+the same shape as increment 2's observer composition and Step 9's `chunkCompleted`: a mechanism
+behind a trigger that never fires. The only other multi-volume drive on this machine is the live
+Time Machine disk, hence a purpose-built fixture.
+
+**The fixture** — `scripts/make-unmount-fixture.sh`, on the T5 EVO (serial
+`00000S7CLNJ0WC02266P`). Confirmed through the app's own enumerator with
+`render-ui.sh devices`, not by reading `diskutil`:
+
+```
+disk8 — Samsung PSSD T5 EVO
+4.00 TB · S/N 00000S7CLNJ0WC02266P · Vol_ExFAT, Vol_APFS, Vol_HFS
+```
+
+| node | volume | why it is in the layout |
+|---|---|---|
+| `disk8s1` | EFI, **unmounted** | the trap. It is absent from `mountedBefore`, so it can only reach a restore via a whole-disk mount — the third attempt's defect. |
+| `disk8s2` | `Vol_ExFAT` | a **direct partition**: `…Whole` on this node reaches *up* to `disk8` and takes EFI with it. |
+| `disk9s1` | `Vol_APFS` | on a **synthesized** disk. Not derivable from `disk8` by prefix — the case `DiscoveredDevice.mountedVolumeBSDNames` exists for. |
+| `disk8s4` | `Vol_HFS` | a second direct partition, so a restore set can hold more than one node and a "restore exactly what went" bug cannot hide behind a set of size one. |
+
+**The three cases.** Only case 2 discriminates `kDADiskMountOptionDefault` from `…Whole`, which
+is the line recorded at `mountOne` as covered by no test.
+
+| # | setup | expected |
+|---|---|---|
+| 1 | nothing held open | plain success; **nothing remounted**, EFI stays down. The case the third attempt got wrong — it judged a good unmount failed and undid it 3 s later. |
+| 2 | `cd /Volumes/Vol_APFS` held in Terminal | error naming `Vol_APFS`; `Vol_ExFAT` **and** `Vol_HFS` restored by node; **EFI does not appear**. `mountOne` runs twice on direct partitions, where `…Whole` would raise EFI. |
+| 3 | `cd /Volumes/Vol_ExFAT` held in Terminal | error naming `Vol_ExFAT`; `Vol_APFS` restored — an APFS volume on a synthesized disk put back **by node**. |
+
+**Two things to watch beyond pass/fail.** Whether the error message *appears and then vanishes*
+rather than never appearing — those are different causes, and the removed `discovery.refresh()`
+only explains the second. And roughly how long case 2 takes: the settle budget is 12 × 150 ms
+≈ 1.8 s before it concludes, so a near-instant result means the settle loop is not running.
+
+#### Case 1 FAILED, and the cause is a fifth layer beneath the other four
+
+**`DADiskUnmount` with `kDADiskUnmountOptionWhole` does not unmount APFS volumes in containers on
+the disk.** It unmounts the disk's **direct partitions only**, reports **success with no
+dissenter**, and leaves the container's volumes mounted. From `diskarbitrationd`'s own log:
+
+```
+09:16:52.256  unmounted disk, id = /dev/disk8s2, success.        <- Vol_ExFAT, direct partition
+09:16:52.462  unmounted disk, id = /dev/disk8s4, success.        <- Vol_HFS,   direct partition
+09:16:52.465  USBDriveTester  unmount succeeded on disk8: … Vol_ExFAT, Vol_APFS, Vol_HFS.
+              ── no line for /dev/disk9s1. Vol_APFS was never attempted. ──
+09:16:54.197  USBDriveTester queued … disk mount, disk = /dev/disk8s2, options = 0x00000000
+09:16:54.208  USBDriveTester queued … disk mount, disk = /dev/disk8s4, options = 0x00000000
+```
+
+**This is the true mechanism behind the 2026-08-06 note.** That entry records *"`DADiskUnmount`
+can call back with no dissenter while a volume is still mounted"* and treats it as a property of
+the success signal. True, but too broad to act on — and the narrower statement is the actionable
+one. `1TB_Samsung` is an APFS volume on synthesized `disk7`; it was **never unmounted**, not
+slowly unmounted. The fourth attempt's settle loop was therefore tuned against a symptom whose
+cause was still unknown, which is why it waited 1.8 s for a state that could never arrive.
+
+**Pre-existing, not Step 10's.** `git diff 8567e88 -- VolumeMounter.swift` shows Step 10 added
+only the message helpers; `unmountAll`'s body and its whole-disk option are unchanged since
+Step 6.
+
+**And no gate could have caught it.** Every write gate targets the scratch T5, whose only volume
+is exFAT — a direct partition. The one drive the apparatus is permitted to touch cannot exhibit
+the bug. It took building a fixture with an APFS container on it to make the defect reachable at
+all, which is the argument for the fixture existing.
+
+#### What the failing case nevertheless proved
+
+All three of the fourth attempt's own fixes are now **confirmed on hardware**, by the same log:
+
+| property | evidence |
+|---|---|
+| the settle loop runs its budget | `52.465 → 54.197` = **1.732 s**, against 11 × 150 ms + 12 table reads |
+| restore exactly what went | solicitations for `disk8s2` and `disk8s4` only — **none for `disk8s1`, EFI** |
+| `mountOne` uses `kDADiskMountOptionDefault` | **`options = 0x00000000`** on the wire, per node |
+
+That last row is the line recorded at `mountOne` as *"not covered by a test — a mutation swapping
+it for `…Whole` is caught by nothing"*. It is still not covered by a test, but it now has an
+observation from **outside the process**, which is better standing than an API-contract argument.
+It took a failing case to obtain it.
+
+#### The fix (user decision 2026-08-09: fix it in Step 10)
+
+**Unmount is now per volume, by node**, from `DiscoveredDevice.mountedVolumeBSDNames` — a volume
+that is mounted is by definition in the mount table, so it can always be enumerated and always
+has a node. `VolumeMounter.unmountEach` holds the fan-out, static with its operation injected,
+the same shape as `restoringUnmount` and `RunObservers.forRun` and for the same reason: written
+inline it would need DiskArbitration and a real drive, which is exactly how the whole-disk unmount
+survived three steps under a green suite.
+
+**`mountAll` keeps `kDADiskMountOptionWhole`, and that asymmetry is not an inconsistency.** The
+mount table cannot list the volumes that are *not* mounted, so "mount every mountable volume" has
+nothing to enumerate. Unmount can always enumerate; Mount All never can. Stated at the top of the
+file, because the old header's reasoning — *"letting `diskarbitrationd` resolve the relationship
+is both less code and correct"* — is what produced the defect and had to be replaced rather than
+amended.
+
+**A better message falls out of it.** The whole-disk version named every volume on the drive
+whatever had actually happened, so one busy volume told the user all three had failed and left
+them guessing which to close. Per-volume dissenters name only the volumes that refused, each with
+its own reason (NFR-USE-5).
+
+**And the `os_log` gap that made this nearly undiagnosable is closed.** `mountOne` had its own
+hand-rolled session/box/timeout with **no logging at all**, so the entire rollback path — the one
+this control has now cost five attempts on — was invisible to the unified log. The 2026-08-09
+failure could only be reconstructed because `diskarbitrationd` happens to log on our behalf.
+`perform` now takes a BSD name instead of a `DiscoveredDevice`, and `mountOne`/`unmountOne` both
+route through it, so they inherit the logging instead of duplicating the plumbing without it
+(NFR-OBS-1).
+
+**Verified. 731 tests, 0 failures, 87 suites** — up from 722/86; count from the xcresult's
+`totalTestCount`. Zero source warnings from all three clean builds (`build.sh Debug`,
+`build.sh Release`, `test.sh`, DerivedData wiped before each). **The helper source hash is
+unchanged at `737e6972…`**, so the fix is app-target only and the three hardware gates still
+apply. All five standalone tools still compile and link.
+
+**Eight mutations, six caught, two not — and the two are recorded rather than glossed:**
+
+| defect introduced | caught by |
+|---|---|
+| only volumes whose node prefixes the physical disk are attempted (**the defect itself**) | `everyMountedVolumeIsAttemptedByItsOwnNode`, +21 issues |
+| a refusal reported as overall success | `severalRefusalsAreAllNamed`, +5 |
+| short-circuits on the first refusal | `theCallerIsToldExactlyOnce`, `aRefusalTellsTheUserWhatToDo` |
+| the refusal names every volume, not only those that refused | `onlyTheRefusingVolumeIsNamedAndItQuotesItsOwnReason`, +3 |
+| an empty set claims an unmount happened | `nothingMountedSucceedsWithoutClaimingAnUnmountHappened` |
+| completion fires once per volume | `theCallerIsToldExactlyOnce` |
+| **`unmountOne` reverts to `…Whole`** | **NOT CAUGHT** — needs DiskArbitration and a real drive |
+| **`mountOne` reverts to `…Whole`** | **NOT CAUGHT** — as recorded since 2026-08-06 |
+
+The two uncaught mutations are the option constants. `unmountOne`'s is a **new** uncovered line,
+noted at the call site rather than left implicit; both are pinned by the file header, by the
+fan-out being tested where the volume set is actually decided, and by hardware observation of the
+option value in `diskarbitrationd`'s log.
+
+#### RESULTS of the re-run: the fix works; one defect remains, and it is not where anyone looked
+
+**Cases 1 and 2 passed exactly as specified; case 3 behaved correctly.** The per-volume unmount is
+confirmed on hardware, from the app's own log:
+
+```
+10:46:09.314  unmount succeeded on disk9s1: unmounted                         <- Vol_APFS, synthesized disk
+10:46:09.383  unmount failed on disk8s2: DiskArbitration refused it (0xc010)  <- Vol_ExFAT, held open
+10:46:09.434  unmount succeeded on disk8s4: unmounted                         <- Vol_HFS
+10:46:11.245  mount succeeded on disk8s4: mounted
+10:46:11.290  mount succeeded on disk9s1: mounted
+              ── no line for disk8s1. EFI was not restored, because it never went. ──
+```
+
+`disk9s1` is the volume the whole-disk unmount silently skipped for three steps. It now gets its
+own attempt and succeeds. The rollback put back exactly the two that went. This is also the first
+time the rollback has been legible in the log at all — the `os_log` added to `mountOne`/
+`unmountOne` is what makes these six lines exist.
+
+**And the missing error message is NOT a state problem.** With every write to `lastOutcome`
+funnelled through `present`/`clearOutcome`:
+
+```
+10:46:11.290  outcome shown (error): Could not unmount Vol_ExFAT: DiskArbitration refused it
+              (status 0xc010). Close any open files or applications using the drive, then try
+              again.  ⏎⏎  Any volumes that had already unmounted have been asked to remount…
+```
+
+**There is no `outcome cleared` line after it — none at all.** The message is set, is correct,
+and is never erased. The user still does not see it.
+
+**So the mechanism this file has been carrying as the suspected cause is positively excluded.**
+The 2026-08-06 entry blamed `discovery.refresh()` inside the settle loop → a round-tripping
+selection binding → `.onChange(of: selectedDeviceID)` → `lastOutcome = nil`, and recorded honestly
+that it was *"a mechanism that would produce exactly the symptom, found by reading, not by
+observing"*. It is now ruled out by observation rather than left unconfirmed. Nothing clears the
+message; it is not drawn.
+
+That is worth the space because the reasoning was sound and the code change it produced was
+correct on its own terms — and it was still an explanation for the wrong defect. **A plausible
+mechanism that would produce the observed symptom is not the cause of the observed symptom**,
+and the only thing that separates them is an instrument that can tell the two states apart. There
+was no such instrument until the funnel existed, which is why four rounds of this control were
+argued about rather than measured.
+
+#### The message was below the fold — and the fix is a modal, for a reason beyond prominence
+
+**Confirmed by the user: scrolling the detail pane revealed it.** The text was rendering
+correctly, in the right place, the whole time. It is the last element inside the detail pane's
+`ScrollView`, below a device-identity block that is tall when the selected drive has several
+mounted volumes — so on the four-partition fixture it drew just past the bottom edge, in a scroll
+region that does not advertise itself as scrollable.
+
+**Two reasons for a modal, and the first is structural rather than cosmetic** (user, 2026-08-09):
+
+1. **Step 11 deletes the pane this message lives in.** Start takes over unmount → acquire → run →
+   release, and the "Mounting & exclusive access" section goes with the three buttons. An error
+   surface attached to a view that is about to be removed is not a surface.
+2. > *"if I missed the error message multiple times, and I'm the owner of this project, a user is
+   > also very likely to miss it — so it needs to be way more prominent."*
+
+**Failures interrupt; successes do not; the inline copy is kept either way.** A modal on every
+successful unmount trains the user to dismiss the dialog unread, which spends the prominence
+exactly when it is next needed. Keeping the inline copy means the text can still be re-read and
+text-selected after the dialog is gone — it is already `.textSelection(.enabled)`.
+
+**The cost, stated because it is the one Step 10 deliberately avoided elsewhere.** A SwiftUI
+`alert` gets its **own window**, so `scripts/render-ui.sh` cannot capture it. That is precisely
+why increment 5 gave the run report a `Window` scene rather than a sheet — two of that
+increment's defects were found only by looking at a render, and neither would have been found
+behind an alert. **This surface will always need a person to confirm the dialog appears.** What
+was done about it: the *decision* is a pure type (`OutcomePresentation`) tested where a mutation
+can reach it, and the route taken is logged, so the only thing left to a human is "did a dialog
+show up" rather than "was the right thing decided".
+
+`OutcomeAlert` is deliberately **separate state** from `lastOutcome`, not derived from it: the
+dialog is dismissed while the inline copy stays, so one value cannot represent both, and deriving
+presentation from `lastOutcome != nil && !ok` would re-raise the dialog on the next unrelated
+redraw.
+
+**Verified. 739 tests, 0 failures, 88 suites** — up from 731/87; count from the xcresult. Zero
+source warnings from all three clean builds. Helper source hash unchanged at `737e6972…`.
+
+**Five mutations, five catches:**
+
+| defect introduced | caught by |
+|---|---|
+| failures do **not** interrupt (**the original defect**) | `everyFailureInterrupts`, +13 issues |
+| successes interrupt too | `noSuccessInterrupts`, +12 |
+| every failure gets one generic title | `everyOperationHasItsOwnFailureTitle` |
+| the title never reaches the presentation | `theFailureTitleReachesThePresentation`, +3 |
+| both routes log the same name | `theTwoRoutesAreDistinguishableInTheLog`, +1 |
+
+**Not covered, and recorded as such:** the one line in `DeviceListView.present` that hands the
+title to `@State` — the same untestable-boundary as `unmountAll`'s single call to `unmountEach`,
+and covered instead by the human confirmation below.
+
+**What this cost, and what the shape of it was.** Five rounds on this control, and the last two
+defects were not in the mechanism at all: the fourth attempt's logic was correct and the message
+it produced was correct, and the user still could not act on either, because one was invisible to
+the log and the other was invisible on screen. **A correct value that nobody can observe is
+indistinguishable from a wrong one** — which is the same lesson as `DADiskUnmount` reporting
+success, arriving from the opposite direction. The instruments came last again; they should have
+come first.
+
+**Human confirmation of the dialog: PASSED.** Both cases — a busy volume and a clean drive —
+confirmed by the user 2026-08-09. The modal appears, headed with the operation, and the inline
+copy remains after dismissal.
+
+#### And then the success message was removed (user decision 2026-08-09)
+
+> *"there is no reason to post any result message for a successful unmount all"*
+
+Three reasons, and the first is structural rather than a matter of taste:
+
+1. **Step 11 folds unmounting into the start of a run**, so there will be no "Mounting & exclusive
+   access" pane to report into. The message is one that step deletes anyway.
+2. **Finder already says it** — the volume disappears from the desktop.
+3. **The Selected device pane already says it**, in standing text rather than transient:
+   `Mounted volumes — None mounted`.
+
+Reason 3 was **checked against the code before acting on it**, not taken on recollection —
+`DeviceListView` renders `device.mountedVolumesDescription ?? "None mounted"` from the live device
+record. Removing a message in favour of one that does not exist is this project's own "a
+corrective instruction pointing where the control is not is worse than none", and it has already
+happened twice in gate scripts.
+
+**Implemented as a third route on `OutcomePresentation`, not an `if` at the call site.** The rule
+is now: *failures always interrupt; successes are shown in place unless that operation's success
+is already evident elsewhere, in which case nothing is shown.* Only the **success** branch
+consults the operation — a per-operation exemption on the failure branch is how the one outcome a
+user must act on gets suppressed, and mutation **S3** confirms the suite catches exactly that.
+
+**The asymmetry with `mountAll` is deliberate and is the load-bearing part.** A successful mount
+can mount **nothing** — an unformatted drive, or a filesystem macOS cannot read — with no
+dissenter either way, and the standing pane reads "None mounted" for both *"nothing was asked"*
+and *"everything was asked and nothing could"*. Its message is the only thing separating them, so
+silencing it would delete an explanation rather than a duplicate.
+
+**`.silent` is silent to the user, never to the log.** An outcome nobody was told about and nobody
+recorded is precisely the state that cost this control two extra rounds, so the route is still
+logged and its name differs from `inline`'s (mutation **S4**).
+
+**Verified. 744 tests, 0 failures, 88 suites** — up from 739/88, count from the xcresult. Zero
+source warnings from all three clean builds. Helper source hash unchanged at `737e6972…`.
+
+**Four more mutations, four catches:**
+
+| defect introduced | caught by |
+|---|---|
+| the unmount success message comes back | `aSuccessfulUnmountIsNotReportedAtAll` |
+| every success is silenced (over-applied) | `aSuccessfulMountIsStillReported`, +2 |
+| **silencing leaks into the failure branch** | `aFailedUnmountIsNeverSilent`, +8 |
+| a silent outcome logs the same as inline | `aSilentOutcomeIsStillDistinguishableInTheLog` |
 
 ---
 

@@ -176,6 +176,35 @@ results with their numbers.
 | **scratch** — every write gate | Samsung Portable SSD T5, 1 TB, 512 B blocks, one exFAT volume `Test_Drive` | **`12345686DAA9`** | Contents expendable. 1,953,525,168 blocks. |
 | **bulk** — read-only, by prior agreement | Seagate Expansion HDD, 22 TB | **`00000000NT17XBRA`** | Live HFS volume + Time Machine. **Never a write target.** 42,970,644,479 blocks. |
 | **source tree** — never tested | Samsung SSD 990 EVO Plus in a Ugreen enclosure | **`013117100578`** | Holds this repository. The serial belongs to the *enclosure*. |
+| **fixture** — multi-volume unmount tests; reserve discriminator | Samsung PSSD **T5 EVO**, **4 TB**, 512 B blocks | **`00000S7CLNJ0WC02266P`** | Contents expendable. 7,814,037,168 blocks — **above 2³²**. Built by `scripts/make-unmount-fixture.sh`; see the two roles below. |
+
+**The fixture drive, added 2026-08-09.** It carries two roles and they do not conflict:
+
+1. **The multi-volume unmount fixture.** `VolumeMounter.restoringUnmount` can only be exercised
+   end to end on a drive with **two or more mounted volumes** — on a single-volume drive the
+   restore set is empty, `mount(volumeBSDNames:)` short-circuits and `mountOne` is never called,
+   so a run looks like a pass while leaving the interesting half untouched. The scratch T5 has
+   exactly one mounted volume and the only other multi-volume drive on this machine is the live
+   Time Machine disk. `scripts/make-unmount-fixture.sh` builds GPT + EFI(unmounted) + exFAT +
+   APFS + HFS+ on it. **Step 11 needs the same fixture**: its Start owns unmount → acquire → run
+   and its abort path reaches the identical partial-unmount state with no manual control at all.
+2. **The reserve discriminator for the unexplained de-enumeration** (Step 12's inherited note).
+   If the scratch drive drops off the bus again, this drive separates "the T5 or its enclosure"
+   from "this Mac's USB" from "this tool's access pattern".
+
+> **It was recorded as a "second 1 TB Samsung" until 2026-08-09 and that was wrong** — user
+> correction. It is a different model line (T5 **EVO**) at four times the capacity. The figure
+> mattered: the note that quoted it also quoted the cost of promoting it to a gate target as
+> "~1 TB of `/dev/urandom`", which is **~4 TB**, and 7,814,037,168 blocks is **above 2³²**, so
+> the drive is also a *writable* NFR-COMPAT-6 candidate where the Seagate is read-only. A
+> remembered capacity is an assigned identifier by another name; the serial and the block count
+> are the intrinsic ones, and `device-identity.sh` now cross-checks the latter.
+
+**Promoting it to a write-gate target** would still need the same three things as before —
+`FIXTURE_BLOCKS` is already in `scripts/lib/device-identity.sh` and the table row is above, so
+what remains is **~4 TB of `/dev/urandom`** written to it. Until that exists it is not a
+retention-gate target: a random placement landing on all-zero space reports a clean pass having
+proved nothing.
 
 - **The internal disk** (Apple Fabric, not USB) is the non-USB exclusion case and is excluded by
   discovery, not by name.

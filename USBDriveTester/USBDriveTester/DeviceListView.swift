@@ -27,6 +27,10 @@
 //
 
 import SwiftUI
+import os
+
+private nonisolated let log = Logger(subsystem: HelperIdentity.loggingSubsystem,
+                                     category: "safety")
 
 struct DeviceListView: View {
 
@@ -119,6 +123,70 @@ struct DeviceListView: View {
         let text: String
     }
 
+    /// The failure currently being shown modally, or `nil`.
+    ///
+    /// Separate from ``lastOutcome`` rather than derived from it: the dialog is dismissed while the
+    /// inline copy stays, so one value cannot represent both. Deriving the alert's presentation
+    /// from `lastOutcome != nil && !ok` would re-raise the dialog on the next unrelated redraw.
+    @State private var alert: OutcomeAlert?
+
+    private struct OutcomeAlert: Identifiable, Equatable {
+        let title: String
+        let text: String
+        var id: String { title + text }
+    }
+
+    // MARK: - The one place the user-visible outcome is written
+
+    /// Show `text` to the user, and record that it was shown (NFR-OBS-1).
+    ///
+    /// ## Why every write goes through here
+    ///
+    /// On 2026-08-09 the unmount rollback's error message was reported as **never appearing**,
+    /// across three test cases whose behaviour was otherwise exactly right. With ten scattered
+    /// assignments to `lastOutcome` and no logging anywhere near them, "never set" and "set, then
+    /// cleared a moment later" produce the identical observation — a blank pane — and the only
+    /// available instrument was a person watching the screen and trying to catch it.
+    ///
+    /// That is the same shape as every other defect this control has produced: a state that
+    /// cannot be distinguished from a different state by anything the project can measure. One
+    /// funnel with a log line in it makes the two distinguishable, and costs nothing.
+    /// - Parameter operation: what the outcome is about, so a failure's dialog can be headed with
+    ///   what failed rather than with a generic banner.
+    private func present(ok: Bool, _ text: String, from operation: OutcomeOperation) {
+        let route = OutcomePresentation.forOutcome(ok: ok, operation: operation)
+
+        // The inline copy is kept on every route that shows anything. The alert guarantees a
+        // failure is seen once; the inline copy is what lets it be re-read and text-selected after
+        // the dialog is dismissed.
+        //
+        // `.silent` leaves `lastOutcome` as the operation's own start already left it — nil — so
+        // nothing is displayed. It is NOT written and then hidden: a value on screen and a value
+        // in state that disagree is the defect this funnel exists to make impossible.
+        if route.showsInline {
+            lastOutcome = OutcomeMessage(ok: ok, text: text)
+        }
+
+        if case .interrupt(let title) = route {
+            alert = OutcomeAlert(title: title, text: text)
+        }
+
+        log.notice("""
+                   outcome shown (\(ok ? "ok" : "error", privacy: .public)) as \
+                   \(route.logName, privacy: .public): \(text, privacy: .public)
+                   """)
+    }
+
+    /// Clear the outcome, saying **why** — the half that makes a vanished message diagnosable.
+    ///
+    /// Silent when there was nothing to clear, so the log records erasures rather than every
+    /// no-op pass through a code path that happens to reset state.
+    private func clearOutcome(_ reason: String) {
+        guard lastOutcome != nil else { return }
+        log.notice("outcome cleared: \(reason, privacy: .public)")
+        lastOutcome = nil
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -133,7 +201,7 @@ struct DeviceListView: View {
         .onChange(of: discovery.selectedDeviceID) { _, _ in
             readiness = nil
             readinessError = nil
-            lastOutcome = nil
+            clearOutcome("the selected device changed")
 
             // ## The claim follows the selection (2026-08-05, user decision)
             //
@@ -168,6 +236,22 @@ struct DeviceListView: View {
             refreshReadiness()
         }
         .onAppear { refreshReadiness() }
+        // A failed mount/unmount/acquire/release interrupts (user decision 2026-08-09). The
+        // message it replaces was correct and never seen: it was the last element inside the
+        // detail pane's ScrollView, below the fold on a drive with several mounted volumes.
+        //
+        // **Step 11 must carry this with the sequence, not leave it here.** Start takes over
+        // unmount → acquire → run → release and deletes the pane this is attached to, and the
+        // failure it reports is exactly the one that strands a user with a half-unmounted drive.
+        // An alert attached to a deleted view is an error path with nowhere to surface.
+        .alert(alert?.title ?? "",
+               isPresented: Binding(get: { alert != nil },
+                                    set: { presented in if !presented { alert = nil } }),
+               presenting: alert) { _ in
+            Button("OK", role: .cancel) { }
+        } message: { alert in
+            Text(alert.text)
+        }
     }
 
     // MARK: - Header
@@ -644,11 +728,12 @@ struct DeviceListView: View {
     private func performMountAction(_ direction: MountControlDirection,
                                     on device: DiscoveredDevice) {
         mountOperationInFlight = true
-        lastOutcome = nil
+        clearOutcome("a mount or unmount was started")
 
         let finish: (VolumeMountOutcome) -> Void = { outcome in
             mountOperationInFlight = false
-            lastOutcome = OutcomeMessage(ok: outcome.isSuccess, text: outcome.message)
+            present(ok: outcome.isSuccess, outcome.message,
+                    from: direction == .unmountAll ? .unmount : .mount)
             // The device list live-updates through the VolumeChangeWatcher, so the label
             // re-evaluates itself; the readiness banner has to be asked again.
             refreshReadiness()
@@ -703,7 +788,7 @@ struct DeviceListView: View {
 
     private func acquire(_ device: DiscoveredDevice) {
         accessOperationInFlight = true
-        lastOutcome = nil
+        clearOutcome("an acquire was started")
 
         helper.acquireDevice(bsdName: device.bsdName.rawValue) { result in
             accessOperationInFlight = false
@@ -715,22 +800,20 @@ struct DeviceListView: View {
                     // be gone by the time a report is written; the report is about the drive
                     // the run touched, not whatever is present afterwards.
                     model.heldDevice = ReportedDevice(device)
-                    lastOutcome = OutcomeMessage(ok: true, text: acquisition.message)
+                    present(ok: true, acquisition.message, from: .acquire)
                 } else {
                     // A refusal is the *expected* outcome whenever a volume is mounted,
                     // so it is reported as a refusal rather than as a malfunction — but
                     // never as a success.
-                    lastOutcome = OutcomeMessage(ok: false, text: acquisition.message)
+                    present(ok: false, acquisition.message, from: .acquire)
                 }
             case .failure(let error):
                 // No permissive reading: if the helper could not be reached, access was
                 // not granted. Unlike uninstall, there is nothing safe about proceeding.
-                lastOutcome = OutcomeMessage(
-                    ok: false,
-                    text: """
-                          Exclusive access was NOT granted — the helper could not be \
-                          reached: \(error.localizedDescription)
-                          """)
+                present(ok: false, """
+                                   Exclusive access was NOT granted — the helper could not be \
+                                   reached: \(error.localizedDescription)
+                                   """, from: .acquire)
             }
             refreshReadiness()
         }
@@ -738,7 +821,7 @@ struct DeviceListView: View {
 
     private func release() {
         accessOperationInFlight = true
-        lastOutcome = nil
+        clearOutcome("a release was started")
 
         helper.releaseDevice { result in
             accessOperationInFlight = false
@@ -748,12 +831,10 @@ struct DeviceListView: View {
             model.heldDevice = nil
             switch result {
             case .success(let message):
-                lastOutcome = OutcomeMessage(ok: true, text: message
-                    + " macOS will normally remount the volumes shortly.")
+                present(ok: true, message
+                    + " macOS will normally remount the volumes shortly.", from: .release)
             case .failure(let error):
-                lastOutcome = OutcomeMessage(
-                    ok: false,
-                    text: "Release failed: \(error.localizedDescription)")
+                present(ok: false, "Release failed: \(error.localizedDescription)", from: .release)
             }
             refreshReadiness()
         }

@@ -72,6 +72,25 @@ readonly BULK_BLOCK_SIZE=512
 readonly SOURCE_TREE_SERIAL="013117100578"
 readonly SOURCE_TREE_MODEL="Samsung SSD 990 EVO Plus (Ugreen enclosure)"
 
+# Samsung PSSD T5 EVO, 4 TB, contents EXPENDABLE. Two roles, added 2026-08-09:
+#
+#   * the multi-volume fixture for the unmount-rollback checks (`make-unmount-fixture.sh`), which
+#     the single-volume scratch device cannot exercise — its restore set is always empty;
+#   * the reserve discriminator for the unexplained mid-gate de-enumeration (BUILD-PLAN Step 12).
+#
+# NOT a retention-gate target: it holds no /dev/urandom fill, so a random placement could land on
+# all-zero space and report a clean pass having proved nothing. `FIXTURE_BLOCKS` is here so that
+# the identification is cross-checked, not so that a write gate can point at it.
+#
+# It was recorded project-wide as "a second 1 TB Samsung" until 2026-08-09 (user correction). The
+# capacity was remembered rather than read, and a remembered capacity is an assigned identifier
+# wearing different clothes — which is the same failure mode as the BSD name this file exists to
+# eliminate. The serial and the block count below were read from the drive.
+readonly FIXTURE_SERIAL="00000S7CLNJ0WC02266P"
+readonly FIXTURE_MODEL="Samsung PSSD T5 EVO"
+readonly FIXTURE_BLOCKS=7814037168
+readonly FIXTURE_BLOCK_SIZE=512
+
 # ---------------------------------------------------------------------------
 # The resolver tool
 # ---------------------------------------------------------------------------
@@ -179,7 +198,8 @@ parse_device_flag() {
 
 # resolve_target <role> [argument]
 #
-#   role      `scratch` (the T5, the only write target) or `bulk` (the Seagate, read-only).
+#   role      `scratch` (the T5, the only retention-gate write target), `bulk` (the Seagate,
+#             read-only) or `fixture` (the T5 EVO, erasable, no fill data — see its constants).
 #   argument  optional. A serial number or a BSD name. Either must AGREE with the role; it is a
 #             confirmation, never an override. Omit it and the role's serial is used.
 #
@@ -194,6 +214,7 @@ resolve_target() {
     case "$role" in
         scratch) want_serial="$SCRATCH_SERIAL"; want_model="$SCRATCH_MODEL"; want_blocks="$SCRATCH_BLOCKS" ;;
         bulk)    want_serial="$BULK_SERIAL";    want_model="$BULK_MODEL";    want_blocks="$BULK_BLOCKS" ;;
+        fixture) want_serial="$FIXTURE_SERIAL"; want_model="$FIXTURE_MODEL"; want_blocks="$FIXTURE_BLOCKS" ;;
         *)       echo "device-identity: unknown role '$role'" >&2; return 2 ;;
     esac
 
@@ -215,6 +236,11 @@ resolve_target() {
                 echo "    that serial is $SOURCE_TREE_MODEL — IT HOLDS THE SOURCE TREE." >&2
             elif [[ "$actual_serial" == "$BULK_SERIAL" ]]; then
                 echo "    that serial is $BULK_MODEL — a live backup volume, never a write target." >&2
+            elif [[ "$actual_serial" == "$SCRATCH_SERIAL" ]]; then
+                echo "    that serial is $SCRATCH_MODEL — the scratch device, which holds fill.bin." >&2
+            elif [[ "$actual_serial" == "$FIXTURE_SERIAL" ]]; then
+                echo "    that serial is $FIXTURE_MODEL — the unmount fixture. It carries NO fill" >&2
+                echo "    data, so a retention gate on it would report a clean pass over zeroes." >&2
             fi
             echo "    BSD names are assigned at enumeration and change across a reboot or replug." >&2
             echo "    Re-run with no argument and the drive will be found by serial." >&2
@@ -240,6 +266,13 @@ resolve_target() {
     # Independent cross-checks. A serial lookup that returned the wrong hardware would otherwise
     # look exactly like one that returned the right hardware — the same reason `metrics-check.sh`
     # samples the daemon's CPU from outside as well as asking it.
+    #
+    # It is CORROBORATION, NOT IDENTIFICATION, and this machine proves the distinction rather
+    # than merely illustrating it: the scratch device and the drive HOLDING THE SOURCE TREE both
+    # report exactly 1,953,525,168 blocks (observed 2026-08-09, both attached at once). Block
+    # count alone cannot tell those two apart — only the serial can. So this check catches a
+    # serial that resolved to *differently sized* hardware; it must never be relaxed into an
+    # identity of its own, and nothing here may fall back to it when a serial is unavailable.
     if [[ "$blocks" != "$want_blocks" ]]; then
         echo "device-identity: REFUSED — serial $want_serial resolved to /dev/$bsd, but its" >&2
         echo "    geometry is $blocks blocks and the $role device has $want_blocks." >&2

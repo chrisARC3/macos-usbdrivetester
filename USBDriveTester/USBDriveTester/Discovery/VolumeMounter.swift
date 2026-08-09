@@ -12,18 +12,46 @@
 //  privileged XPC surface down to check / acquire / release (NFR-SEC-3) — the helper runs
 //  as root, so every method that does not have to exist there should not.
 //
-//  ## Whole-disk options, not per-volume calls
+//  ## Unmount is PER VOLUME, BY NODE. Mount All is whole-disk. The asymmetry is the point.
 //
-//  `kDADiskUnmountOptionWhole` and `kDADiskMountOptionWhole` act on "the volumes tied to
-//  the whole disk object", which is what `diskutil unmountDisk` / `mountDisk` do. Driving
-//  each volume individually would need the volumes' own device nodes, and for an APFS
-//  drive those are not derivable from the physical disk's name — `1TB_Samsung` is mounted
-//  from `/dev/disk7s1` while its physical disk is `disk6`, and only the IOKit registry
-//  connects the two (see MountedVolumes.swift). Letting `diskarbitrationd` resolve the
-//  relationship is both less code and correct for filesystems we have not tested against.
+//  This file used to drive both directions with the whole-disk options, on the reasoning that
+//  `kDADiskUnmountOptionWhole` acts on "the volumes tied to the whole disk object" — what
+//  `diskutil unmountDisk` does — so letting `diskarbitrationd` resolve the physical-disk ↔
+//  APFS-volume relationship was "both less code and correct for filesystems we have not tested
+//  against".
 //
-//  It also makes mounting possible at all: the mount table cannot list the volumes that
-//  are *not* mounted, so "mount all" has nothing to enumerate.
+//  **MEASURED FALSE, 2026-08-09.** `DADiskUnmount` with `kDADiskUnmountOptionWhole` on a
+//  physical disk unmounts that disk's **direct partitions only**. It does not reach volumes
+//  inside an APFS container on the disk, and it reports **success with no dissenter** having
+//  skipped them. From `diskarbitrationd`'s own log, on a GPT drive with exFAT + APFS + HFS+:
+//
+//      unmounted disk, id = /dev/disk8s2, success.     <- exFAT,  a direct partition
+//      unmounted disk, id = /dev/disk8s4, success.     <- HFS+,   a direct partition
+//      (no line for /dev/disk9s1 — the APFS volume was never attempted)
+//
+//  …while this file logged "Unmounted every volume on disk8: Vol_ExFAT, Vol_APFS, Vol_HFS."
+//
+//  That is also the true mechanism behind the 2026-08-06 observation recorded as *"DADiskUnmount
+//  reports success while a volume is still mounted"*. It did — but not as a general property of
+//  the success signal. `1TB_Samsung` is an APFS volume on synthesized `disk7`; it was never
+//  unmounted and never would have been. The narrower statement is the actionable one.
+//
+//  **So unmount names its volumes.** The set is exactly `DiscoveredDevice.mountedVolumeBSDNames`,
+//  from the enumerator's IOKit subtree walk — which is what connects `disk6` to `/dev/disk7s1`
+//  when a BSD-name prefix match cannot (see MountedVolumes.swift). A volume that is mounted is by
+//  definition in the mount table, so it can always be enumerated and always has a node.
+//
+//  **Mount All still cannot be**, and that asymmetry is not an inconsistency: the mount table
+//  cannot list the volumes that are *not* mounted, so "mount every mountable volume" has nothing
+//  to enumerate and must ask DiskArbitration to work it out. Hence `mountAll` keeps
+//  `kDADiskMountOptionWhole`, and the **restore** path — which puts back a known set — does not
+//  (see ``mount(volumeBSDNames:completion:)``, where using `…Whole` put an EFI partition on the
+//  desktop).
+//
+//  Nothing here may go back to a whole-disk unmount. The suite cannot catch that on its own —
+//  the option lives inside a call that needs DiskArbitration and a real drive — so it is pinned
+//  by this comment, by the per-volume fan-out being tested where it is decided, and by the
+//  hardware evidence above.
 //
 //  ## What it never does
 //
@@ -245,22 +273,104 @@ nonisolated final class VolumeMounter {
         }
     }
 
-    /// Unmount every volume of `device` (FR-SAFE-5).
+    /// Unmount every mounted volume of `device`, **one volume at a time, by device node**
+    /// (FR-SAFE-5). See the file header for why this is not a whole-disk unmount.
     func unmountAll(_ device: DiscoveredDevice,
                     completion: @escaping (VolumeMountOutcome) -> Void) {
 
-        let volumeList = device.mountedVolumesDescription ?? "its volumes"
-        perform(on: device, verb: "unmount", completion: completion) { disk, callback, context in
-            DADiskUnmount(disk, DADiskUnmountOptions(kDADiskUnmountOptionWhole),
+        // Index-aligned by construction: both arrays come from one mount-table snapshot and one
+        // IOKit subtree walk in `IOKitDeviceEnumerator`, with the same de-duplication key.
+        let volumes = Array(zip(device.mountedVolumeNames, device.mountedVolumeBSDNames))
+            .map { (name: $0.0, bsdName: $0.1) }
+
+        Self.unmountEach(volumes,
+                         on: device.bsdName.rawValue,
+                         using: { node, done in self.unmountOne(node, completion: done) },
+                         completion: completion)
+    }
+
+    /// Unmount each of `volumes` and report **once**, for all of them.
+    ///
+    /// ## Why this is a static function with its operation injected
+    ///
+    /// Same reason as ``restoringUnmount(unmount:mountedBefore:volumesStillMounted:retry:attempts:restore:completion:)``,
+    /// and the same reason `RunObservers.forRun` exists: written inline in `unmountAll` the
+    /// fan-out would need DiskArbitration and a real drive to exercise, so "does every mounted
+    /// volume get an attempt, and does one refusal fail the whole operation?" would be answerable
+    /// only by running the app. That is precisely how the whole-disk unmount survived from Step 6
+    /// to 2026-08-09 with a green suite over it.
+    ///
+    /// What remains outside the tested boundary is a single call in `unmountAll` and the option
+    /// constant inside ``unmountOne(_:completion:)``. Both are pinned by comment and by the
+    /// hardware evidence in the file header; neither is claimed to be covered.
+    ///
+    /// - Parameters:
+    ///   - volumes: the device's mounted volumes, name and node. Nodes come from
+    ///     `DiscoveredDevice.mountedVolumeBSDNames` — a name cannot be unmounted and a node can.
+    ///   - wholeDiskName: the physical disk, for the message only. Never used to unmount.
+    ///   - unmountOne: unmounts one volume by node.
+    ///   - completion: `.succeeded` only if **every** volume went. A partial result is a failure
+    ///     naming the volumes that refused and why — which is the state the rollback then undoes.
+    static func unmountEach(
+        _ volumes: [(name: String, bsdName: String)],
+        on wholeDiskName: String,
+        using unmountOne: @escaping (String, @escaping (VolumeMountOutcome) -> Void) -> Void,
+        completion: @escaping (VolumeMountOutcome) -> Void
+    ) {
+        guard !volumes.isEmpty else {
+            // Nothing was mounted, so the postcondition already holds. Worded so it cannot be
+            // read as "an unmount was performed" — the same distinction `mount(volumeBSDNames:)`
+            // draws between "nothing needed doing" and "the operation worked".
+            completion(.succeeded("No volumes were mounted on \(wholeDiskName)."))
+            return
+        }
+
+        var remaining = volumes.count
+        var refusals: [String] = []
+
+        for volume in volumes {
+            unmountOne(volume.bsdName) { outcome in
+                if case .failed(let reason) = outcome {
+                    refusals.append("\(volume.name): \(reason)")
+                }
+                remaining -= 1
+                guard remaining == 0 else { return }
+
+                if refusals.isEmpty {
+                    completion(.succeeded("Unmounted every volume on \(wholeDiskName): "
+                                        + volumes.map(\.name).joined(separator: ", ") + "."))
+                } else {
+                    // Names ONLY the volumes that refused, and each one's own reason (NFR-USE-5).
+                    // The whole-disk version named every volume on the drive whatever had actually
+                    // happened, which told a user with one busy volume that all of them had
+                    // failed — and left them guessing which to close.
+                    completion(.failed("Could not unmount "
+                                     + refusals.joined(separator: "; ")
+                                     + " Close any open files or applications using the drive, "
+                                     + "then try again."))
+                }
+            }
+        }
+    }
+
+    /// One volume, by node. `kDADiskUnmountOptionDefault` rather than `…Whole`: this is the
+    /// volume's own disk object, and `Whole` on it would reach back up to the physical drive —
+    /// which is the defect this method exists to avoid, and the exact mirror of the note on
+    /// ``mountOne(_:completion:)``.
+    ///
+    /// - Note: **not covered by a test**, for the same reason `mountOne` is not — the call needs
+    ///   DiskArbitration and a real drive. What *is* tested is ``unmountEach(_:on:using:completion:)``,
+    ///   which decides *which* volumes are attempted, and that is where the whole-disk defect
+    ///   actually lived.
+    private func unmountOne(_ bsdName: String,
+                            completion: @escaping (VolumeMountOutcome) -> Void) {
+        perform(on: bsdName, verb: "unmount", completion: completion) { disk, callback, context in
+            DADiskUnmount(disk, DADiskUnmountOptions(kDADiskUnmountOptionDefault),
                           callback, context)
         } describeSuccess: {
-            "Unmounted every volume on \(device.bsdName): \(volumeList)."
+            "unmounted"
         } describeFailure: { reason in
-            // Names the volume(s) and the reason, not merely that it failed
-            // (NFR-USE-5). An unmount refused because a file is open is the common case,
-            // and "unmount failed" alone leaves the user with nowhere to go.
-            "Could not unmount \(volumeList) on \(device.bsdName): \(reason) "
-          + "Close any open files or applications using the drive, then try again."
+            reason
         }
     }
 
@@ -315,35 +425,39 @@ nonisolated final class VolumeMounter {
     ///   the decision above it — which volumes are restored — and that is where the EFI behaviour
     ///   is actually determined. This line rests on the API contract and on observation, in the
     ///   same way `TableSelectionPolicy` rests on `List` being `NSTableView`-backed.
+    ///
+    ///   **Observed on hardware 2026-08-09**, which is better standing than it had: a rollback on
+    ///   the four-partition fixture produced, in `diskarbitrationd`'s own log,
+    ///   `queued solicitation, kind = disk mount, disk = /dev/disk8s2, options = 0x00000000` —
+    ///   `kDADiskMountOptionDefault` on the wire, per node, with **no solicitation for the EFI
+    ///   partition**. Still not a test; it is an observation from outside the process, and it is
+    ///   recorded because it is the only evidence this line can have.
     private func mountOne(_ bsdName: String,
                           completion: @escaping (VolumeMountOutcome) -> Void) {
-        guard let session = DASessionCreate(kCFAllocatorDefault),
-              let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else {
-            completion(.failed("could not talk to the disk-management service"))
-            return
+        // Through `perform` rather than hand-rolled, as it was until 2026-08-09. The duplicate
+        // implementation had no `os_log` in it, so the entire rollback path — the one this
+        // control has now cost five attempts on — was invisible to the unified log, and the
+        // 2026-08-09 failure could only be reconstructed because `diskarbitrationd` happens to
+        // log on our behalf. NFR-OBS-1: the paths that are hardest to reason about are the ones
+        // that most need to say what they did.
+        perform(on: bsdName, verb: "mount", completion: completion) { disk, callback, context in
+            DADiskMount(disk, nil, DADiskMountOptions(kDADiskMountOptionDefault),
+                        callback, context)
+        } describeSuccess: {
+            "mounted"
+        } describeFailure: { reason in
+            reason
         }
-
-        let box = OperationBox(session: session,
-                               describeSuccess: { "mounted" },
-                               describeFailure: { $0 },
-                               completion: completion)
-
-        DASessionSetDispatchQueue(session, DispatchQueue.main)
-        let context = Unmanaged.passRetained(box).toOpaque()
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.timeout) {
-            box.settle(.failed("no answer within \(Int(Self.timeout)) seconds"))
-        }
-
-        DADiskMount(disk, nil, DADiskMountOptions(kDADiskMountOptionDefault),
-                    operationCallback, context)
     }
 
     /// Mount every mountable volume of `device` (FR-SAFE-5).
     func mountAll(_ device: DiscoveredDevice,
                   completion: @escaping (VolumeMountOutcome) -> Void) {
 
-        perform(on: device, verb: "mount", completion: completion) { disk, callback, context in
+        // The one remaining whole-disk option, and it is correct here: the mount table cannot
+        // list the volumes that are NOT mounted, so this direction has nothing to enumerate and
+        // must let DiskArbitration work it out. See the file header for the asymmetry.
+        perform(on: device.bsdName.rawValue, verb: "mount", completion: completion) { disk, callback, context in
             DADiskMount(disk, nil, DADiskMountOptions(kDADiskMountOptionWhole),
                         callback, context)
         } describeSuccess: {
@@ -360,9 +474,13 @@ nonisolated final class VolumeMounter {
 
     // MARK: - Plumbing
 
-    /// Shared body of both directions: create a session, run the DiskArbitration call,
-    /// and settle exactly once — on the callback, or on the timeout.
-    private func perform(on device: DiscoveredDevice,
+    /// Shared body of every direction: create a session, run the DiskArbitration call, and settle
+    /// exactly once — on the callback, or on the timeout.
+    ///
+    /// Takes a **BSD name**, not a `DiscoveredDevice`, because three of its four callers now act
+    /// on a *volume* node rather than a whole disk. That is also what lets `mountOne` and
+    /// `unmountOne` inherit the logging instead of duplicating the plumbing without it.
+    private func perform(on bsdName: String,
                          verb: String,
                          completion: @escaping (VolumeMountOutcome) -> Void,
                          _ operation: (DADisk, @escaping DADiskUnmountCallback,
@@ -371,15 +489,14 @@ nonisolated final class VolumeMounter {
                          describeFailure: @escaping (String) -> String) {
 
         guard let session = DASessionCreate(kCFAllocatorDefault),
-              let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session,
-                                                 device.bsdName.rawValue) else {
+              let disk = DADiskCreateFromBSDName(kCFAllocatorDefault, session, bsdName) else {
             log.error("""
                       \(verb, privacy: .public) failed for \
-                      \(device.bsdName.rawValue, privacy: .public): no DiskArbitration session
+                      \(bsdName, privacy: .public): no DiskArbitration session
                       """)
             completion(.failed("""
                                Could not talk to the disk-management service, so \
-                               \(device.bsdName) was not changed.
+                               \(bsdName) was not changed.
                                """))
             return
         }
@@ -391,13 +508,13 @@ nonisolated final class VolumeMounter {
             case .succeeded(let message):
                 log.notice("""
                            \(verb, privacy: .public) succeeded on \
-                           \(device.bsdName.rawValue, privacy: .public): \
+                           \(bsdName, privacy: .public): \
                            \(message, privacy: .public)
                            """)
             case .failed(let message):
                 log.error("""
                           \(verb, privacy: .public) failed on \
-                          \(device.bsdName.rawValue, privacy: .public): \
+                          \(bsdName, privacy: .public): \
                           \(message, privacy: .public)
                           """)
             }
@@ -419,7 +536,7 @@ nonisolated final class VolumeMounter {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.timeout) {
             box.settle(.failed("""
-                               \(device.bsdName) did not respond to the \(verb) request \
+                               \(bsdName) did not respond to the \(verb) request \
                                within \(Int(Self.timeout)) seconds. The drive may be busy; \
                                try again, or use Disk Utility.
                                """))
