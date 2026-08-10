@@ -141,6 +141,90 @@ struct HonestFramingTests {
         }
     }
 
+    // MARK: - The dialogs' own wording (increment 3)
+
+    /// Decision 6: the confirmation that stands in for the suppressed warnings must identify the
+    /// drive by **model, capacity and USB serial**. A question whose subject is "disk4" is a
+    /// question about a name — and on this machine the scratch drive moved from `disk8` to `disk10`
+    /// inside three days.
+    @Test func theConfirmationQuestionNamesTheDriveByModelCapacityAndSerial() {
+        let question = PreRunWarningText.confirmationQuestion(for: Fixture.seagate())
+        #expect(question.contains("Seagate Expansion HDD"))
+        #expect(question.contains("00000000NT17XBRA"))
+        #expect(question.contains("22.00 TB"))
+        #expect(!question.contains("disk4"),
+                "the BSD name is a locator; it must not stand as the identity in the question")
+    }
+
+    /// The case where this dialog is the *only* identification the user gets. It must leave the
+    /// serial out rather than print a placeholder — a question naming "serial unknown" reads as an
+    /// identification, and this drive has none.
+    @Test func theConfirmationQuestionOmitsASerialItDoesNotHaveRatherThanInventingOne() {
+        let question = PreRunWarningText.confirmationQuestion(for: Fixture.seagate(serial: nil))
+        #expect(question.contains("Seagate Expansion HDD"))
+        #expect(!question.lowercased().contains("serial"),
+                "a drive with no serial must not have the word 'serial' in its question at all")
+        #expect(!question.contains("nil") && !question.contains("unknown"))
+    }
+
+    /// **The checkbox must not promise what it does not deliver.** Suppression removes the warning
+    /// text, never the confirmation (NFR-USE-4 as qualified 2026-08-09) — and this is the one
+    /// screen whose job is not overstating things.
+    @Test func theSuppressionCheckboxSaysAConfirmationStillHappens() {
+        let caveat = PreRunWarningText.suppressionCaveat.lowercased()
+        #expect(caveat.contains("still"))
+        #expect(caveat.contains("confirm"))
+        #expect(caveat.contains("each run"))
+    }
+
+    /// A confirmation that named the drive but not what is about to happen to it would be asking
+    /// the user to agree to something unstated. It has to say that it writes.
+    @Test func theConfirmationSaysWhatIsAboutToHappenToTheDrive() {
+        let consequence = PreRunWarningText.confirmationConsequence.lowercased()
+        #expect(consequence.contains("every block"))
+        #expect(consequence.contains("written"))
+        #expect(consequence.contains("verify"))
+    }
+
+    // MARK: - The standing advice on the device pane (2026-08-10)
+
+    /// It replaced *"Testing a drive you are using is not advisable"*, withdrawn by the user as
+    /// **not necessarily true**. The risk is not conditional on the drive being in use, so the
+    /// replacement must not reintroduce that framing — a warning that ties danger to "using" the
+    /// drive teaches the wrong thing about when to be careful.
+    @Test func theStandingAdviceDoesNotTieTheRiskToUsingTheDrive() {
+        let advice = PreRunWarningText.standingBackupAdvice.lowercased()
+        #expect(!advice.contains("advisable"))
+        #expect(!advice.contains("you are using"))
+    }
+
+    /// What it must actually say: that testing can lose data, and to back up first.
+    @Test func theStandingAdviceNamesTheRiskAndTheCorrectiveStep() {
+        let advice = PreRunWarningText.standingBackupAdvice
+        #expect(advice.contains("data loss"))
+        #expect(advice.lowercased().contains("backed up"))
+        #expect(advice.contains("test drive"))
+    }
+
+    /// It says the files **on the test drive** need backing up — not that they need backing up
+    /// *onto* it, which is the opposite instruction and the reading the first draft allowed.
+    /// Caught by the user before it shipped; pinned so a later edit cannot reintroduce it.
+    @Test func theStandingAdviceSaysWhichFilesRatherThanWhereToPutThem() {
+        #expect(PreRunWarningText.standingBackupAdvice
+                    .contains("files on the test drive are backed up"))
+        #expect(!PreRunWarningText.standingBackupAdvice.contains("backed up on the test drive"))
+    }
+
+    /// It is the product's **second** place for "back up first", beside FR-WARN-1. They may be
+    /// worded differently — one is a standing one-liner, the other a pre-run dialog — but they must
+    /// not disagree about what the risk is, which is why they live in one file.
+    @Test func theStandingAdviceAndTheMandatoryWarningAgreeAboutTheRisk() {
+        let mandatory = PreRunWarningText.backUpFirst.points.map(\.plain)
+            .joined(separator: " ").lowercased()
+        #expect(mandatory.contains("back up"))
+        #expect(PreRunWarningText.standingBackupAdvice.lowercased().contains("backed up"))
+    }
+
     // MARK: - Helpers
 
     private func allClaims() -> [HonestFramingClaim] {
@@ -158,6 +242,16 @@ struct HonestFramingTests {
                            usbSerialNumber: "12345686DAA9",
                            bsdNameAtRunTime: "disk10",
                            capacityBytes: 1_000_204_886_016,
+                           logicalBlockSize: 512)
+        }
+
+        /// The drive FR-DEV-3 default-selects on this machine, with a live Time Machine on it — the
+        /// one the confirmation exists to keep from being written to by accident.
+        static func seagate(serial: String? = "00000000NT17XBRA") -> ReportedDevice {
+            ReportedDevice(modelDescription: "Seagate Expansion HDD",
+                           usbSerialNumber: serial,
+                           bsdNameAtRunTime: "disk4",
+                           capacityBytes: 22_000_969_973_248,
                            logicalBlockSize: 512)
         }
 

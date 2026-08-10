@@ -5907,6 +5907,197 @@ untouched, hash still `737e6972…`.
 the refactor moved two shipped renderers onto new machinery without weakening the coverage that was
 already there.
 
+Committed as `6c686f6`.
+
+### Increment 3 — COMPLETE (2026-08-10) — the dialog, rendered before anything can present it
+
+`PreRunPromptSheet.swift`, four new `render-ui.sh` view cases (`warnings`, `warnings-ticked`,
+`warnings-confirm`, `warnings-unidentified`), and the dialogs' own wording added to
+`PreRunWarningText`. Nothing presents the sheet yet — that is increment 5.
+
+**The order is the point.** This surface can never be captured in place: a SwiftUI sheet gets its
+own window. So it is written as a **standalone `View` taking plain values**, and it was rendered and
+inspected *before* anything could present it. Step 10 spent two of its five rounds on a mechanism
+that was correct and unobservable; *build the instrument before the mechanism* is the rule that came
+out of that, and this is the first increment in the project to apply it in the right order rather
+than after the fact.
+
+**Which form is drawn comes from `PreRunPrompt`**, so increment 1's decision is what reaches the
+screen. There is no second decision in the view about whether to warn.
+
+#### Two defects the renders found that the source could not
+
+1. **The suppressed dialog said the same words twice.** Its heading was *"Start testing this
+   drive?"* and the line directly beneath it read *"Start testing the 22.00 TB Seagate Expansion
+   HDD, serial 00000000NT17XBRA?"*. The two strings live in different files and were written
+   minutes apart; they are only absurd when adjacent. Fixed by giving the suppressed form **no
+   separate heading** — the question *is* its heading — and `confirmationTitle` was deleted rather
+   than left unused.
+2. **It sized itself for the full dialog**, leaving a three-line confirmation two-thirds empty,
+   which reads as something having failed to load. Heights are now per form.
+
+Neither is the kind of thing a test would have found, and neither would have been found by reading.
+
+#### The layout property, and the mutation that proves the render can fail
+
+The scroll region is the **middle only**: the drive stays at the top and the checkbox and buttons
+stay at the bottom, outside the `ScrollView`. That is not styling — scoping this step found the main
+window clipping its own mount controls at its stated `minHeight`, which is the same defect that cost
+Step 10 two rounds, and a tall pile of warning text above a Proceed button is exactly how it would
+have reappeared here.
+
+**Shown capable of failing.** The footer was deliberately moved inside the `ScrollView` and the
+result measured:
+
+| | |
+|---|---|
+| the test suite | **777 tests, 0 failures — passed** |
+| `render-ui.sh warnings 460 320` | **no checkbox, no Cancel, no Proceed.** A dialog the user cannot act on |
+
+So the render is a working instrument rather than a picture, and it catches a whole class of defect
+the green suite cannot see. Reverted; the footer is outside the `ScrollView` and the buttons are
+present at the minimum height.
+
+#### Smaller decisions worth recording
+
+- **Neither button takes `.defaultAction`, so Return does not start a run.** Escape still cancels.
+  The precedent is Step 9's quit dialog, which made *Continue Testing* the default so that Return
+  and Escape both keep a run rather than end one; inverted, the same reasoning says Return must not
+  *begin* one. A dialog whose entire purpose is a deliberate act should not fall to the reflex that
+  dismisses every other dialog.
+- **The checkbox states what it does not do.** Beneath it: *"You will still be asked to confirm the
+  drive before each run."* A checkbox reading "Don't show this warning again" beside a mechanism
+  that still shows a dialog would be the product overstating itself on the one screen whose job is
+  not overstating things. Pinned by `theSuppressionCheckboxSaysAConfirmationStillHappens`.
+- **The header shows the BSD name beside the serial, labelled as a locator** — the live half of the
+  2026-08-06 rule. The *question* names model, capacity and serial only.
+- **A drive with no serial gets no invented one.** The question drops the serial clause entirely and
+  the caveat explains why, rather than printing "serial unknown", which would read as an
+  identification. Confirmed by render as well as by test.
+
+**Verified. 777 tests, 0 failures, 90 suites** — up from 773/90; **+4 is exactly the number of
+`@Test` functions added**. Zero source warnings from a Release build and a test compile with all
+three changed app/test files `touch`ed first. Helper untouched, hash still `737e6972…`.
+
+**Six text mutations, six catches** — plus the layout mutation above, which the suite could not
+catch and the render did:
+
+| defect introduced | caught by |
+|---|---|
+| the question drops the serial | `theConfirmationQuestionNamesTheDriveByModelCapacityAndSerial` |
+| the question uses the **BSD name** as the identity | as above |
+| the question drops the capacity | as above |
+| a drive with no serial gets a **fake** one | `theConfirmationQuestionOmitsASerialItDoesNotHaveRatherThanInventingOne` |
+| the checkbox promises no further dialogs | `theSuppressionCheckboxSaysAConfirmationStillHappens` |
+| the confirmation stops saying it writes | `theConfirmationSaysWhatIsAboutToHappenToTheDrive` |
+| **the footer moves inside the `ScrollView`** | **nothing in the suite — caught by `render-ui.sh`** |
+
+### The standing advice replaced, and an instrument defect found doing it (2026-08-10)
+
+A user request that ran ahead of increment 4, and it turned up more than the string.
+
+#### The wording
+
+> *"'Testing a drive you are using is not advisable.' That's not necessarily true."* — user,
+> 2026-08-10
+
+Replaced with **"Testing can cause data loss. Please make sure any important files on the test drive
+are backed up before starting a test."** The first draft read *"…any important files are backed up
+**on the test drive**"*, which says to back the files up **onto** the drive about to be tested — the
+opposite instruction. Caught by the user before it shipped; pinned by
+`theStandingAdviceSaysWhichFilesRatherThanWhereToPutThem` so an edit cannot reintroduce it.
+
+**Two consequences followed, both user decisions.**
+
+1. **It is no longer conditional.** The old sentence was *about using the drive*, so it was drawn
+   only when the drive had mounted volumes. The new one is about data loss, which a drive with
+   nothing mounted has exactly as much of. Leaving the condition would have shown the one sentence
+   telling a user to back up **only on the drives already in use**.
+2. **It moved into `PreRunWarningText.standingBackupAdvice`.** It is the product's second place for
+   "back up first" beside FR-WARN-1, which is the drift increment 2 exists to prevent, so the two
+   live in one file where a reader meets both at once.
+
+**Three occurrences existed; two were changed.** The third is in this file's 2026-08-06 entry,
+quoting what the panel said *on that date*. It stays — the same rule that section states about its
+own BSD names: rewriting it would falsify the audit trail.
+
+#### The change was unverifiable, so an instrument was built for it
+
+**Every USB drive on this machine has at least one mounted volume**, so nothing could show that
+dropping the condition had taken effect — and reinstating it would have looked identical from every
+render and every test. A behaviour nobody can observe is one nobody has checked.
+
+`ui-probe` gained `devices-unmounted`, a stub source reporting one drive with no mounted volumes —
+the same move as `EmptyDeviceSource`, and for the same reason. **Shown capable of failing**: with
+the condition put back, the advice **disappears** from that render while the suite still passes
+781/0.
+
+#### And `render-ui.sh` was silently under-reporting
+
+While verifying the string, `content` and `devices` came back as a device list and **nothing else**
+— no header, no selected-device pane, no metrics panel. Isolated rather than assumed: reverting the
+day's edits changed nothing, and it **reproduced at a clean `HEAD`**, on the commit that had
+rendered correctly that morning. The correlate was the machine switching to dark appearance
+mid-session.
+
+**The instrument's output depended on ambient machine state, and said nothing about it.** Two PNGs
+of the same view, hours apart, disagreed about how much of the window existed — and it produced a
+wrong conclusion before it was caught. That is *an empty result is not a finding*, arriving in the
+one tool whose entire job is being trustworthy about what is on screen.
+
+**Fixed** (user decision: deterministic, plus a dark case). Appearance is pinned — on **both**
+`NSApp` and the window, because pinning only the window still rendered the broken picture — defaults
+to `light`, is selectable as a fifth argument, refuses an unrecognised value rather than defaulting
+it, and is **printed in the probe's diagnostic line** so every render carries its provenance.
+
+#### The dark-mode question, and the answer that came from looking
+
+The fix left one thing open. In **dark** appearance the device views still drew the list and nothing
+else, with `NSApp.appearance`, `window.appearance` **and** the hosting view's appearance all pinned.
+Three probe-side causes ruled out by measurement, so the evidence pointed at a **real dark-mode
+defect in the shipped app** — a severe one, since it would mean dark-mode users seeing a device pane
+with invisible text.
+
+**It was the wrong answer, and one minute of looking settled it.**
+
+> *"Everything looks as it should in dark mode."* — user, 2026-08-10, from the installed Release
+> build with the system in dark appearance
+
+So the app is correct and **the dark render is a probe artefact**. Recorded at length because the
+reasoning was sound, the eliminations were real measurements, and the conclusion they pointed at was
+still wrong: **a plausible mechanism that would produce the observed symptom is not the cause of
+it.** This project learned that in Step 10, where a confident explanation for a missing error
+message — found by reading — was excluded by one log line. Here it was three eliminations rather
+than one reading, and it was excluded by a person running the real thing. The eliminations narrowed
+nothing about the app; they only narrowed the probe.
+
+**What is NOT tried**, recorded so the next person does not repeat the three attempts above: SwiftUI
+resolves `.primary` from its own `colorScheme` environment, and **every attempt so far was
+AppKit-side**. `.preferredColorScheme(.dark)` on the hosted root is the obvious untried remedy.
+
+The `dark` case is kept and **warns on every use** that it does not match the app. It is not
+trustworthy for the contrast half of NFR-USE-8, so **increment 6's dark-mode check needs a person on
+the real app** — which is now a known cost rather than a discovery waiting to happen. Every
+historical render was taken in light appearance, so no prior finding is affected.
+
+**Verified. 781 tests, 0 failures, 90 suites** — up from 777/90; **+4 is exactly the number of
+`@Test` functions added**. Zero source warnings from a Release build and a test compile with all
+three changed files `touch`ed first.
+
+**Four mutations, four catches** — three on the text, one on the condition:
+
+| defect introduced | caught by |
+|---|---|
+| the withdrawn wording comes back | `theStandingAdviceDoesNotTieTheRiskToUsingTheDrive`, +3 |
+| **the ambiguous first draft comes back** ("backed up *on* the test drive") | `theStandingAdviceSaysWhichFilesRatherThanWhereToPutThem` |
+| the risk is no longer named | `theStandingAdviceNamesTheRiskAndTheCorrectiveStep` |
+| **the mounted-volumes condition comes back** | **nothing in the suite — caught by `render-ui.sh devices-unmounted`** |
+
+**Not covered, and recorded as such:** `DeviceListView` drawing `standingBackupAdvice` rather than a
+literal of its own. No test reads SwiftUI text, and a re-inlined literal with identical wording
+would render identically — so this one is caught by neither the suite nor a render, only by the two
+strings living in one file. Same standing as `mountOne`'s option constant.
+
 ---
 
 ## Step 9 — pre-work planning snapshot — SUPERSEDED (kept for audit)

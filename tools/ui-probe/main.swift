@@ -41,6 +41,14 @@ let width = CommandLine.arguments.count > 2 ? (Double(CommandLine.arguments[2]) 
 let height = CommandLine.arguments.count > 3 ? (Double(CommandLine.arguments[3]) ?? 1000) : 1000
 let viewName = CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "content"
 
+/// `light` (the default) or `dark`. **Not** "whatever the machine is set to" — see the pinning
+/// note below the scene switch, which is where the reason lives.
+///
+/// An unrecognised value is refused rather than defaulted, for the same reason `FailureModeCode`
+/// refuses one: silently resolving an input nobody recognised to the default answers a question
+/// that was not asked, and here it would answer it in a render somebody then reasons from.
+let appearanceName = CommandLine.arguments.count > 5 ? CommandLine.arguments[5] : "light"
+
 // An opt-in "activate the app and put the window on screen" mode was written here on 2026-08-05,
 // on the theory that a parked `.accessory` window could never show emphasized selection. The
 // diagnostic line added alongside it refuted that in one run — the default mode already reports
@@ -350,6 +358,85 @@ private struct RunReportHost: View {
     }
 }
 
+/// A device source reporting one drive with **no mounted volumes**.
+///
+/// Added 2026-08-10, for the same reason `EmptyDeviceSource` exists: to render a state this machine
+/// cannot produce. Every USB drive attached here has at least one mounted volume, so when the
+/// standing backup advice stopped being conditional on `mountedVolumesDescription != nil` (user
+/// decision, same date) there was **no way to see the change had taken effect** — and a behaviour
+/// nobody can observe is one nobody has checked. Reintroducing the condition would have looked
+/// identical from every render and every test.
+private final class UnmountedDeviceSource: DeviceSource {
+    func enumerateDevices() -> [DiscoveredDevice] {
+        [DiscoveredDevice(registryEntryID: 4_294_967_296,
+                          bsdName: BSDDeviceName("disk4"),
+                          vendorName: "Seagate",
+                          productName: "Expansion HDD",
+                          mediumType: nil,
+                          sizeBytes: 22_000_969_973_248,
+                          logicalBlockSize: 512,
+                          mountedVolumeNames: [],
+                          mountedVolumeBSDNames: [],
+                          usbSerialNumber: "00000000NT17XBRA")]
+    }
+    func startObserving(onChange: @escaping () -> Void) {}
+    func stopObserving() {}
+}
+
+/// `DeviceListView` showing a drive with nothing mounted.
+private struct UnmountedDeviceListHost: View {
+    @State private var discovery = DeviceDiscovery(source: UnmountedDeviceSource())
+    var body: some View {
+        DeviceListView(discovery: discovery, helper: HelperConnection())
+            .environment(AppModel())
+            .onAppear { discovery.start() }
+    }
+}
+
+/// Step 14's pre-run dialog.
+///
+/// A sheet gets its own window, so `render-ui.sh` can never capture this one *in place* — which is
+/// exactly why it is a standalone `View` and gets rendered here on its own. What a person still has
+/// to confirm is that the sheet presents at all; everything about how it lays out is checkable from
+/// these renders, and they were taken before anything could present it.
+private struct PreRunPromptHost: View {
+
+    let prompt: PreRunPrompt
+
+    /// Real `@State`, not a constant binding — otherwise the checkbox renders permanently unticked
+    /// and the ticked state could never be looked at.
+    @State private var suppress: Bool
+
+    init(prompt: PreRunPrompt, suppress: Bool = false) {
+        self.prompt = prompt
+        _suppress = State(initialValue: suppress)
+    }
+
+    var body: some View {
+        PreRunPromptSheet(prompt: prompt,
+                          suppressFutureWarnings: $suppress,
+                          onProceed: {}, onCancel: {})
+    }
+
+    /// The drive FR-DEV-3 default-selects on this machine — 22 TB with a live Time Machine on it.
+    /// The renders are of the drive this step exists to keep from being written to by accident.
+    static let defaultSelectedDevice = ReportedDevice(
+        modelDescription: "Seagate Expansion HDD",
+        usbSerialNumber: "00000000NT17XBRA",
+        bsdNameAtRunTime: "disk4",
+        capacityBytes: 22_000_969_973_248,
+        logicalBlockSize: 512)
+
+    /// A drive that reported no usable serial: the confirmation is then the only identification the
+    /// user gets, and it has to admit it cannot tell this drive from an identical one.
+    static let unidentifiedDevice = ReportedDevice(
+        modelDescription: "Generic USB 3.0 Enclosure",
+        usbSerialNumber: nil,
+        bsdNameAtRunTime: "disk4",
+        capacityBytes: 500_107_862_016,
+        logicalBlockSize: 512)
+}
+
 // Not `@MainActor`: top-level code in main.swift is nonisolated even under
 // -default-isolation MainActor, so annotating this makes it uncallable from here.
 func makeRootView(_ name: String) -> NSView {
@@ -420,13 +507,37 @@ func makeRootView(_ name: String) -> NSView {
         // identical unless one of them says which it is.
         return NSHostingView(rootView: RunReportHost(report: nil))
 
+    case "devices-unmounted":
+        // The standing backup advice must appear on a drive with **nothing mounted** — it stopped
+        // being conditional on 2026-08-10 and no drive on this machine can show that.
+        return NSHostingView(rootView: UnmountedDeviceListHost())
+
+    // Step 14. The pre-run dialog, in each of its forms.
+    case "warnings":
+        return NSHostingView(rootView: PreRunPromptHost(
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice)))
+    case "warnings-ticked":
+        // The suppression checkbox in its ticked state, which is otherwise never rendered — and
+        // which is the state that changes what the *next* run shows.
+        return NSHostingView(rootView: PreRunPromptHost(
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice), suppress: true))
+    case "warnings-confirm":
+        // What a user sees after suppressing. This render is the one that matters most: it is the
+        // whole of what stands between a click and a write for anyone who ticked the box.
+        return NSHostingView(rootView: PreRunPromptHost(
+            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice)))
+    case "warnings-unidentified":
+        return NSHostingView(rootView: PreRunPromptHost(
+            prompt: .briefConfirmation(PreRunPromptHost.unidentifiedDevice)))
+
     default:
         FileHandle.standardError.write(Data("""
             ui-probe: unknown view '\(name)'; expected content, content-quitting, devices, \
             diagnostics, diagnostics-held, diagnostics-quitting, diagnostics-stop-on-error, \
             empty, metrics, metrics-finished, metrics-idle, \
-            report, report-empty, report-failures, report-qualified, report-stopped or \
-            report-unidentified\n
+            report, report-empty, report-failures, report-qualified, report-stopped, \
+            report-unidentified, devices-unmounted, warnings, warnings-ticked, warnings-confirm or \
+            warnings-unidentified\n
             """.utf8))
         exit(2)
     }
@@ -437,6 +548,69 @@ app.setActivationPolicy(.accessory)
 
 let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
                       styleMask: [.titled], backing: .buffered, defer: false)
+
+// **The appearance is pinned, and this is a bug fix, not a preference (2026-08-10).**
+//
+// Without it the window inherits whatever the machine is set to right now, and on 2026-08-10 that
+// changed mid-session from light to dark — after which `content` and `devices` rendered as a device
+// list and **nothing else**: no header, no selected-device pane, no metrics panel. The elements
+// were laid out and drawing; they were simply invisible against the ground. Isolated rather than
+// assumed: reverting the day's edits changed nothing and it reproduced identically at a clean
+// `HEAD`, on the commit that had rendered correctly the same morning. Forcing an appearance
+// restored the whole window.
+//
+// **That made the instrument report fewer elements than exist, silently, depending on ambient
+// machine state** — which is this project's own "an empty result is not a finding", arriving in the
+// one tool whose entire job is to be trustworthy about what is on screen. It cost a wrong
+// conclusion before it was caught. Every historical render was taken in light appearance, so no
+// prior finding is affected.
+//
+// Pinning also makes renders **comparable across sessions**, which matters for a tool used to
+// compare before and after. Dark is reachable on purpose via the argument rather than by accident
+// via the clock — NFR-USE-8 asks about contrast, so it is a surface worth being able to look at.
+// Set on **both** the application and the window, and that is not belt-and-braces. With only the
+// window pinned, `dark` still rendered the broken picture: the header drew on a light ground with
+// light text and the detail pane drew dark-on-dark, i.e. different parts of one view tree were
+// resolving different appearances. `NSApp.effectiveAppearance` is what the parts that ignored the
+// window were reading. Pinning one of the two produces a render that is wrong in a way that looks
+// like an app defect — which is precisely the wrong answer to hand a reader.
+switch appearanceName {
+case "light":
+    app.appearance = NSAppearance(named: .aqua)
+    window.appearance = NSAppearance(named: .aqua)
+case "dark":
+    app.appearance = NSAppearance(named: .darkAqua)
+    window.appearance = NSAppearance(named: .darkAqua)
+    // **A dark render is a KNOWN PROBE ARTEFACT. It does not show what the app shows.**
+    //
+    // In dark appearance the device views render the `List` and nothing else — no header, no
+    // selected-device pane, no mount controls. **The app itself is fine**: confirmed 2026-08-10 by
+    // the project's owner, looking at the installed Release build with the system in dark mode,
+    // where everything draws correctly.
+    //
+    // That observation is the whole finding. Three probe-side causes had been ruled out by
+    // measurement — pinning `window.appearance`, `NSApp.appearance`, and the hosting view's own
+    // appearance each changed nothing — and the evidence therefore pointed at a real dark-mode
+    // defect in the app. It pointed at the wrong answer. **A plausible mechanism that would produce
+    // the observed symptom is not the cause of it**, and the only thing that settled it was somebody
+    // running the real thing and looking, which is the same lesson Step 10 paid five rounds for.
+    //
+    // **What has NOT been tried**, recorded so whoever fixes this does not repeat the three attempts
+    // above: applying SwiftUI's own `.preferredColorScheme(.dark)` / `.environment(\.colorScheme,)`
+    // to the hosted root view. Every attempt so far was AppKit-side; SwiftUI resolves `.primary`
+    // from its own environment, and that environment is the one thing nobody has set.
+    FileHandle.standardError.write(Data("""
+        ui-probe: WARNING — dark renders are a KNOWN PROBE ARTEFACT and do not match the app. \
+        Device views draw the list only. The shipped app renders correctly in dark mode (confirmed \
+        2026-08-10). Never read a dark render as evidence about the app.\n
+        """.utf8))
+default:
+    FileHandle.standardError.write(Data("""
+        ui-probe: unknown appearance '\(appearanceName)'; expected light or dark\n
+        """.utf8))
+    exit(2)
+}
+
 window.contentView = makeRootView(viewName)
 
 // Ordered front so SwiftUI lays out and draws, but positioned far offscreen so it
@@ -467,9 +641,14 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
     // is not AppKit's first responder, and the whole point of asking is to find out whether
     // setting the former moved the latter onto the list's backing NSTableView.
     let responder = window.firstResponder.map { String(describing: type(of: $0)) } ?? "none"
+    // `appearance` is on this line because it is the render's provenance, and a render whose
+    // provenance is not recorded is exactly what went wrong on 2026-08-10: two PNGs of the same
+    // view, taken hours apart, disagreed about how much of the window existed, and nothing in
+    // either output said why. An instrument's report has to carry the conditions it was taken
+    // under, or comparing two of them compares more than the thing being measured.
     print("""
           ui-probe: appActive=\(app.isActive) windowKey=\(window.isKeyWindow) \
-          firstResponder=\(responder)
+          firstResponder=\(responder) appearance=\(appearanceName)
           """)
 
     do {

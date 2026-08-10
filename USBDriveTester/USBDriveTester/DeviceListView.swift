@@ -538,18 +538,27 @@ struct DeviceListView: View {
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                if device.mountedVolumesDescription != nil {
-                    // Advice, not a rule. The *rule* — that a run cannot start while volumes are
-                    // mounted — is the helper's to state, and it does so in `readinessBanner`
-                    // just below. This line used to say both, which meant the same refusal was
-                    // written in two places from two sources: one computed here from IOKit's
-                    // volume list, one answered by the process that actually enforces it
-                    // (NFR-REL-7). Two statements of one fact are two things that can drift.
-                    Label("Testing a drive you are using is not advisable.",
-                          systemImage: "exclamationmark.triangle.fill")
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+                // Advice, not a rule. The *rule* — that a run cannot start while volumes are
+                // mounted — is the helper's to state, and it does so in `readinessBanner` just
+                // below. This line used to say both, which meant the same refusal was written in
+                // two places from two sources: one computed here from IOKit's volume list, one
+                // answered by the process that actually enforces it (NFR-REL-7). Two statements of
+                // one fact are two things that can drift.
+                //
+                // **Unconditional since 2026-08-10** (user decision). It used to be drawn only when
+                // the drive had mounted volumes, which fitted the old wording — "testing a drive
+                // you are using is not advisable". That sentence was withdrawn as not necessarily
+                // true, and its replacement is about data loss, which a drive with nothing mounted
+                // has exactly as much of. Leaving the condition would have meant the one sentence
+                // that tells a user to back up appearing only on the drives already in use.
+                //
+                // The text is `PreRunWarningText.standingBackupAdvice`, not a literal here: it is
+                // the product's second place for "back up first" beside FR-WARN-1's full statement,
+                // and increment 2 exists because two copies of one message had already drifted.
+                Label(PreRunWarningText.standingBackupAdvice,
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 // Moved here from the "Mounting & exclusive access" section (2026-08-05, user
                 // decision): whether this drive is ready **is** part of the drive's state, and

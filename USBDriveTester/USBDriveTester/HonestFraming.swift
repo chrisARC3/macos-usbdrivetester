@@ -169,4 +169,73 @@ nonisolated enum PreRunWarningText {
     /// All three, in the order shown. FR-WARN-1 is first because it is the only one that asks the
     /// user to *do* something before continuing.
     static let mandatory: [PreRunWarning] = [backUpFirst, infrequentOnFlash, cleanPassIsNotHealth]
+
+    // MARK: The standing advice on the device pane
+
+    /// The short form of FR-WARN-1, shown beside the **selected device** at all times.
+    ///
+    /// ## Why it is here and not written in the view (2026-08-10, user decision)
+    ///
+    /// It replaced *"Testing a drive you are using is not advisable"*, which the user withdrew as
+    /// *"not necessarily true"* — the risk is not conditional on the drive being in use, and a
+    /// warning that says otherwise teaches the wrong thing about when to be careful.
+    ///
+    /// Two consequences followed, and both are the reason this constant exists rather than a
+    /// literal in `DeviceListView`:
+    ///
+    /// 1. **It is no longer conditional.** The old sentence was *about* using the drive, so it was
+    ///    drawn only when the drive had mounted volumes. This one is about data loss, which a drive
+    ///    with nothing mounted has exactly as much of — so the condition went with the wording.
+    /// 2. **It is the product's second place for "back up first"**, beside ``backUpFirst``. That is
+    ///    the drift this file exists to prevent, so the two live together where a reader meets both
+    ///    at once: this is the standing one-liner, ``backUpFirst`` is the pre-run dialog's full
+    ///    statement, and they must not start disagreeing about what the risk is.
+    static let standingBackupAdvice =
+        "Testing can cause data loss. Please make sure any important files on the test drive are "
+      + "backed up before starting a test."
+
+    // MARK: The dialogs' own wording
+
+    /// Heading of the full pre-run dialog.
+    ///
+    /// The suppressed dialog has **no separate heading**: ``confirmationQuestion(for:)`` is its
+    /// heading. It briefly had one reading "Start testing this drive?" above a question reading
+    /// "Start testing the 22.00 TB Seagate Expansion HDD, serial …?", which said the same words
+    /// twice — invisible in the source, because the two strings live in different files, and
+    /// obvious the moment `render-ui.sh warnings-confirm` put them next to each other.
+    static let fullDialogTitle = "Before you start"
+
+    /// The label on the suppression checkbox (decision 5, user wording).
+    static let suppressionCheckbox = "Don't show this warning again"
+
+    /// What the checkbox actually promises, said next to it.
+    ///
+    /// It does **not** promise no dialog — the deliberate act is not suppressible (NFR-USE-4 as
+    /// qualified 2026-08-09). A checkbox that implied otherwise would be the product overstating
+    /// what it is about to do, on the one screen whose job is not overstating things.
+    static let suppressionCaveat =
+        "You will still be asked to confirm the drive before each run. This can be turned back on "
+      + "in the Privileged Helper & Diagnostics window."
+
+    /// Names the drive a confirmation is about (decision 6).
+    ///
+    /// **Model, capacity and USB serial**, because the acknowledgement has to survive a
+    /// renumbering: on this machine the scratch drive moved from `disk8` to `disk10` inside three
+    /// days, and FR-DEV-3's default lands on whichever drive sorts first. A question whose subject
+    /// is "disk4" is a question about a name, not about a drive.
+    static func confirmationQuestion(for device: ReportedDevice) -> String {
+        let capacity = CapacityFormatting.humanReadable(device.capacityBytes)
+        guard let serial = device.usbSerialNumber else {
+            return "Start testing the \(capacity) \(device.modelDescription)?"
+        }
+        return "Start testing the \(capacity) \(device.modelDescription), serial \(serial)?"
+    }
+
+    /// The one line of consequence that goes with the question.
+    ///
+    /// A confirmation that named the drive but not what is about to happen to it would be asking
+    /// the user to agree to something unstated. This is the shortest honest form: what it does, and
+    /// that it writes.
+    static let confirmationConsequence =
+        "Every block on it will be read, written back unchanged, and read again to verify."
 }

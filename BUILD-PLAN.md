@@ -1440,7 +1440,8 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 > the real device list (`scripts/render-ui.sh devices`), not reasoned about.
 >
 > Harmless today: nothing happens without an explicit unmount and acquire, and the panel already
-> says "Testing a drive you are using is not advisable." **It stops being harmless at Step 11**,
+> says "Testing can cause data loss. Please make sure any important files on the test drive are
+> backed up before starting a test." **It stops being harmless at Step 11**,
 > where Start owns unmount → acquire → run: the default selection then sits one deliberate click
 > away from a write, on whichever drive happened to sort first. FR-WARN-1/2/3's acknowledgement is
 > what stands in that gap, which is why Step 11's removal of the explicit unmount is gated on this
