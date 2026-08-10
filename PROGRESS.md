@@ -4263,8 +4263,13 @@ judgement the tool is not entitled to make, dressed as a capability.
 
 ## Step 10 — COMPLETE AND COMMITTED (2026-08-09) — READ THIS FIRST FOR A COLD START
 
-**Step 10 is done, verified on hardware, and committed in two commits. Step 11 is next and has
-not been started.**
+**Step 10 is done, verified on hardware, and committed in two commits.**
+
+> **The order changed on 2026-08-09: STEP 14 IS NEXT, NOT STEP 11** (user decision). Step 11's
+> deletion of the `Unmount All` / `Acquire` / `Release` controls was always *gated* on Step 14's
+> warnings existing, and the gate was settled by building Step 14 first rather than by splitting
+> Step 11 or landing both together. Neither step has been started. See "Step 14 — scoping and
+> authoring log (started 2026-08-09)" below for the seven decisions and the increment plan.
 
 | | |
 |---|---|
@@ -5578,6 +5583,238 @@ source warnings from all three clean builds. Helper source hash unchanged at `73
 | every success is silenced (over-applied) | `aSuccessfulMountIsStillReported`, +2 |
 | **silencing leaks into the failure branch** | `aFailedUnmountIsNeverSilent`, +8 |
 | a silent outcome logs the same as inline | `aSilentOutcomeIsStillDistinguishableInTheLog` |
+
+---
+
+## Step 14 — scoping and authoring log (started 2026-08-09)
+
+**IN PROGRESS — scoping complete, no code written yet.** Mandatory pre-run warnings and honest
+framing (FR-WARN-1/2/3/4, NFR-USE-4/6/8). Starts from a clean tree at `c1be1ed`, **744 tests /
+88 suites**, protocol v9, helper source hash `737e6972…`.
+
+### Why this step is being built before Step 11
+
+Step 11 deletes the `Unmount All` / `Acquire exclusive access` / `Release` controls and gives Start
+ownership of unmount → acquire → run → release. That deletion has been **gated on Step 14's warnings
+existing** since 2026-08-05, recorded in three places, and the reason is FR-DEV-3: it default-selects
+the first usable device in FR-DEV-2's BSD-name order, and after Step 11 that selection sits one
+deliberate click from a write. The explicit unmount click is currently the only deliberate act
+between selecting a drive and writing to it.
+
+**Re-measured on 2026-08-09 rather than taken from the 2026-08-06 note**, by rendering the real
+device list through the app's own enumerator (`scripts/render-ui.sh devices`):
+
+```
+disk4  — Seagate Expansion HDD      22.00 TB · S/N 00000000NT17XBRA · Backup, Time Machine   ← SELECTED
+disk6  — Samsung SSD 990 EVO Plus    1.00 TB · S/N 013117100578      · 1TB_Samsung
+disk8  — Samsung PSSD T5 EVO         4.00 TB · S/N 00000S7CLNJ0WC02266P · Vol_ExFAT, Vol_HFS, Vol_APFS
+disk10 — Samsung Portable SSD T5     1.00 TB · S/N 12345686DAA9      · Test_Drive
+```
+
+The default still lands on the backup drive. **And the scratch device has renumbered again** — it
+was `disk8` on 2026-08-06 and is now `disk10`, while `disk8` is the unmount fixture. That is the
+fifth time an assigned identifier has moved in this project, and it is the argument for
+re-measuring the premise of a decision instead of citing the note that recorded it. The unmount
+fixture is intact in the same render: three mounted volumes, EFI down.
+
+**Three options were put to the user** — build Step 14 first, land both steps together, or split
+Step 11 so the deletion is its last increment — with one wrinkle raised against the first, below.
+The user chose **Step 14 first**.
+
+### The wrinkle, and what it forced
+
+Step 14's own gate said *"Start is **disabled** until all three mandatory warnings are
+acknowledged"* — and **there is no Start control until Step 11 builds it.** Building the
+acknowledgement first therefore risked a mechanism with no trigger, which is precisely what Step
+10's decision 2 refused when it deferred the "stopped by user" outcome: *a sound mechanism behind a
+trigger that never fires looks exactly like a broken mechanism.*
+
+Resolved by decision 2 below: the gate goes on `Run one bounded cycle`, which is **the only control
+in the product that currently writes to a drive**. FR-WARN's "before a run" is then satisfied
+literally rather than by analogy. The failure-mode picker sits directly above that button under a
+comment reading *"Step 11 moves this to the main window's pre-run controls … where FR-CTRL-7
+requires the choice before Start is enabled"* — so the warnings gate takes an identical, already
+documented relocation.
+
+### Decisions (all user decisions, 2026-08-09, taken before a line was written)
+
+1. **Step 14 lands before Step 11.**
+2. **The gate sits on `Run one bounded cycle`** until Start exists. Considered against gating
+   `Acquire exclusive access` — closer to the end state, where one acknowledgement covers
+   unmount → acquire → run — and against gating both. Rejected because the warnings would then be
+   spent at a moment when no write is imminent, which is the argument that removed Step 10's
+   success modal; and gating the acquire *alone* would leave the one control that actually writes
+   ungated for a whole step.
+3. **A modal sheet raised by pressing Start**, Proceed / Cancel — not an inline panel.
+   > *"There is no real reason to take up precious pixels in the main window for a message that
+   > only needs to be shown at the beginning of every run."* — user, 2026-08-09
+
+   **It must be a sheet and not an `alert`**, forced by decision 5: a SwiftUI alert takes buttons
+   and message text only, and a `Toggle` cannot go in one.
+4. **One acknowledgement, and Proceed is it.** No per-warning checkboxes. FR-WARN-1/2/3 require
+   *warning*, not three acknowledgements — "all three … acknowledged" was BUILD-PLAN's **gate
+   wording**, not requirement text, so this is a gate amendment and not an FR amendment.
+5. **"Don't show this warning again", recorded per logged-in user.**
+   > *"This tool may be utilized by people who test drives professionally and the warning could
+   > really get annoying."* — user, 2026-08-09
+
+   The app's `UserDefaults` (`~/Library/Preferences/<bundle-id>.plist`; the sandbox is off).
+   **Never the helper's** — it runs as root, so anything it persisted would be system-wide and would
+   silently apply to every account on the machine, which is the opposite of what was asked for.
+   Global across drives rather than per-serial: the stated case is somebody who tests *many* drives,
+   so a per-drive flag would leave the dialog appearing on exactly the runs they want it gone for.
+6. **Suppressing the text does not suppress the deliberate act.** Start then raises a one-line
+   confirmation naming the drive by **model and USB serial** — *"Start testing 22.00 TB Seagate
+   Expansion HDD, S/N 00000000NT17XBRA?"* — Proceed / Cancel.
+
+   **This is the decision that keeps NFR-USE-4 qualified rather than weakened**, and it is the one
+   the FR-DEV-3 argument actually rests on. The FR document's 2026-08-06 entry concludes that *"the
+   entire mitigation sits in Step 14's warnings"*; a warning switchable off to *nothing* would hand
+   that hazard straight back, one launch and one click from a write to whichever drive sorted first.
+   A warning switchable down to a drive-naming confirmation does not — and it identifies the drive
+   by the axis that survives a renumbering, which the three paragraphs never did.
+7. **A "Show pre-run warnings again" control in the diagnostics window.** A setting with no way back
+   is one the user cannot undo without editing a plist.
+
+### Two things settled by reading the code, not by reasoning
+
+- **Step 10 already discharged half of this step's detailed steps 3 and 4.** The honest framing is
+  in `RunReportMarkdown.whatThisDoesNotProve` — headed *"BUILD-PLAN 10.5, FR-WARN-3/4, NFR-USE-6"* —
+  in `RunReport.headline` (*"Completed — no currently-unreadable blocks were found"*) and on the
+  result screen at `RunReportView`. Every status surface in the app is already a `Label` carrying a
+  symbol **and** words, with NFR-USE-8's rule stated at `RunMetricsView.failures`. So what is
+  genuinely new is detailed step 1, the *pre-run* half of step 2, and step 4's **audit**, which has
+  never been run on any surface.
+- **None of that post-run copy is suppressible, and that is why decision 5 costs less than it
+  looks.** NFR-USE-6, FR-WARN-3 and FR-WARN-4 are discharged by an artefact the user cannot switch
+  off — the exported report, the copy that gets forwarded and re-read months later. Only **FR-WARN-1**
+  carries an explicit *"Before a run"* timing clause, so it is the only one of the four qualified.
+  Recorded that way in the FR document rather than blanket-annotating all four, which would have
+  misrepresented the product's actual guarantees in the document that exists to record them.
+
+### A defect found while scoping, which this step does NOT fix
+
+The inline-panel design was to be pre-flighted before being committed to — *a pre-flight before a
+design is committed to is almost free*. It was, and it killed the design and found a live defect on
+the way.
+
+| window height | `Mounting & exclusive access` controls |
+|---|---|
+| **700** — the app's own `minHeight` | **absent — clipped** |
+| 900 | present, with ~170 pt to spare |
+
+`ContentView`'s comment reads *"700 is where the idle window's content stops being clipped —
+measured with `scripts/render-ui.sh`, not guessed: at 620 the mount controls fall below the fold."*
+That measurement was taken in **Step 9**; Step 10 then added the **Mounted volumes** row and the
+helper-readiness explanation to the selected-device detail, and the constant was never re-measured.
+Idle content now needs roughly **730 pt**.
+
+Two things about it are worth the space. It is **a measured constant whose premise expired
+silently** — the same shape as `metrics-check.sh`'s `disk4` guard, which a renumbering turned exactly
+inside out. And it is **the same below-the-fold-in-an-unadvertised-scroll-region defect, in the same
+pane**, that cost Step 10 two of its five rounds on the unmount control; it came back not because
+anyone moved the fold but because the pane grew underneath it.
+
+Decision 3 means Step 14 no longer depends on the vertical budget, so this is **decoupled, not
+fixed**. Recorded here and in BUILD-PLAN Step 14 so it does not evaporate along with the design that
+found it.
+
+### The increment plan
+
+**No hardware gate and no Xcode GUI step.** App-target and test-target only — both join
+file-system synchronized groups automatically — and the helper is untouched, so the hash stays
+`737e6972…` and Step 10's three hardware gates continue to apply.
+
+| | | writes to a drive |
+|---|---|---|
+| **1** | The pure decision type: given the suppression flag and the selected drive, which dialog to raise and whether a run may be issued. Suppression store behind a protocol with an in-memory double. Nothing calls it yet. | no |
+| **2** | The warning text and FR-WARN-4's pre-run framing as a pure source of strings, asserted against the report's existing copy so the two cannot drift apart. | no |
+| **3** | Both dialogs as **standalone `View` structs** with their own `render-ui.sh` cases, rendered and inspected **before anything can present them**. | no |
+| **4** | `UserDefaults`-backed persistence, app-side, plus the "Show pre-run warnings again" control. | no |
+| **5** | Wire it: the bounded-cycle button raises the sheet instead of running; Proceed issues the run, Cancel issues nothing. `os_log` which dialog was raised and which button was pressed. | no |
+| **6** | The accessibility audit — greyscale, VoiceOver, Dynamic Type across every status surface. | no |
+| **7** | Three clean builds, docs, and human confirmation that both sheet variants actually present. | no |
+
+> **Increment 3 comes before increment 5 deliberately.** A SwiftUI sheet gets its own window, so
+> `scripts/render-ui.sh` can never capture it in place — this surface needs a person permanently,
+> like the unmount alert. That cost was accepted knowingly, and the mitigation is the one Step 10
+> arrived at after five rounds: **build the instrument before the mechanism.** Each dialog gets a
+> standalone renderable `View` so its layout is checkable headlessly, the *decision* lives in a pure
+> type where a mutation can reach it, and the route taken is logged — so the only thing left to a
+> human is *"did a dialog appear"* rather than *"was the right thing decided"*.
+
+### Increment 1 — COMPLETE (2026-08-09) — the decision, with nothing calling it
+
+`USBDriveTester/PreRunWarnings.swift` and `USBDriveTesterTests/PreRunWarningsTests.swift`. No view,
+no store, no wiring: a defect introduced here cannot reach a drive, and nothing in the shipped app
+behaves differently.
+
+**`PreRunPrompt` has two cases and no third, and that is the increment's one real design choice.**
+There is deliberately no `.none`: *a run that begins with no dialog at all is not a state this type
+can express.* Same move as `FailureMode` having no unrecognised member and `LoadedChunk` being
+unrepresentable when invalid — prevent, don't detect. It matters here because the suppression
+checkbox is exactly the edit that would otherwise introduce that path, and because BUILD-PLAN Step
+11's control deletion is gated on this step: after it, FR-DEV-3's default sits one click from a
+write, and on 2026-08-09 that default is the 22 TB Seagate with live Time Machine.
+
+**And that produced the most useful result of the increment, which is a mutation that could not be
+written.** The defect this whole design exists to prevent — *suppression skips the dialog entirely*
+— **cannot be expressed as a mutation to this file**, because expressing it requires adding an enum
+case, which appears in every `switch` that handles one. That is a stronger result than a caught
+mutation and it is recorded as such rather than counted as a pass. **The equivalent mutation belongs
+to increment 5**, where the call site can simply not raise a sheet, and it is written down here so
+that increment's gate does not forget to introduce it.
+
+**Two rules that are not obvious, both stated at the site.**
+
+- **The preference is recorded only by a run that actually starts** (`persistsSuppression =
+  suppressionRequested && issuesRun`). So ticking "Don't show this warning again" and then pressing
+  **Cancel** records nothing. Cancel is what a user presses when something is wrong, and on this
+  screen the most plausible something is *that is not the drive I meant* — persisting "never warn me
+  again" out of a dialog they backed away from would reduce future warnings at the moment the
+  warnings just did their job. The alternative (a setting is a setting, independent of the
+  surrounding action) is reasonable and is recorded as considered; it was rejected because the two
+  readings differ only in an edge case, and there they differ in the direction of fewer warnings,
+  which is not a symmetric choice in this product.
+- **`mayIssueNewWork` is re-checked at the moment Proceed is pressed**, not at the moment the sheet
+  was raised — the only precondition of the several that gate the run control which can *change
+  while the sheet is up*, because Step 9 measured that the quit confirmation is window-modal on the
+  main window and leaves the diagnostics window clickable underneath. Step 11's inherited note calls
+  it "a precondition, not a hint" to be checked before every call issued; checking it when the sheet
+  opened is not that. The other preconditions are deliberately **not** duplicated here — a second
+  source of truth for one fact is the `helperHoldsDevice` per-device/any-device defect Step 11 is
+  documented as deleting.
+
+**`ReportedDevice` is reused rather than a parallel identity type introduced.** It already carries
+`identification` (model + serial), `identificationCaveat` for a drive that reported no usable
+serial, and `bsdNameAtRunTime` labelled as a locator. Reusing it means the confirmation dialog and
+the exported report identify a drive **the same way by construction**, not by two authors happening
+to agree.
+
+**Verified. 761 tests, 0 failures, 89 suites** — up from 744/88, count taken from the xcresult's
+top-level `totalTestCount`. **+17 is exactly the number of `@Test` functions written**, which is the
+check that both files landed in a directory something compiles. Zero source warnings from a Release
+build **and** from a test compile, both with the two new files `touch`ed first so they were genuinely
+recompiled rather than skipped. The helper is untouched — hash still `737e6972…`.
+
+**Nine mutations, nine catches:**
+
+| defect introduced | caught by |
+|---|---|
+| `forRun` inverted — suppression shows *more* text | `suppressionDowngradesTheDialogRatherThanRemovingIt`, `theWarningsAreShownInFullUntilTheUserSuppressesThem` |
+| `forRun` always full warnings — **the checkbox is a no-op** | `suppressionDowngradesTheDialogRatherThanRemovingIt` |
+| `forRun` always brief — **the warnings are never shown** | `theWarningsAreShownInFullUntilTheUserSuppressesThem` |
+| suppression persists even from **Cancel** | `cancelWithTheBoxTickedRecordsNothing`, +1 |
+| `mayIssueNewWork` dropped from `issuesRun` | `proceedWhileAQuitIsPendingIssuesNothing`, +2 |
+| every button issues a run | `cancelIssuesNothing`, +4 |
+| both prompts log the same name (Step 10's **S4** shape) | `theTwoPromptsAreDistinguishableInTheLog` |
+| the store defaults to **suppressed** | `warningsAreNotSuppressedByDefault` |
+| `identification` leaks the BSD name in as identity | `theDriveIsIdentifiedByModelAndSerialNotByItsBSDName` |
+
+The last one mutates **Step 10's `ReportedDevice`**, not this increment's code. It is here because
+this increment newly *depends* on that type's identification being serial-based — the suppressed
+dialog's one line is the only identification the user gets — and a dependency nobody has tried to
+break is a dependency nobody has checked.
 
 ---
 

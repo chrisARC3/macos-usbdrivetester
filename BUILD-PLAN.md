@@ -1471,6 +1471,55 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 > FR-WARN-1/2/3's acknowledgement is the only thing between them, which is why Step 11's removal of
 > the explicit unmount is gated on this step and not merely sequenced after it.
 
+> **SCOPED 2026-08-09 — seven user decisions, taken before a line was written, and one of them
+> changes this step's own gate.** Full account in `PROGRESS.md`, "Step 14 — scoping and authoring
+> log"; the requirement change is in the NFR document's 2026-08-09 entry (NFR-USE-4 qualified) and
+> the FR document's (FR-WARN-1 qualified; FR-WARN-2/3/4 examined and unaffected).
+>
+> 1. **This step lands BEFORE Step 11**, which is what its gating relationship always required.
+> 2. **Until Step 11 builds Start, the gate sits on `Run one bounded cycle`** in the diagnostics
+>    window — the only control in the product that currently writes to a drive. So the mechanism
+>    ships with a real trigger rather than waiting for one, and Step 11 relocates it along the same
+>    path the failure-mode picker beside it is already documented to take.
+> 3. **A modal sheet raised by pressing Start**, Proceed / Cancel — not an inline panel. It must be
+>    a **sheet, not an `alert`**: a SwiftUI alert takes buttons and message text only, and decision
+>    5 puts a `Toggle` in it.
+> 4. **One acknowledgement, and Proceed is it.** No per-warning checkboxes. This replaces this
+>    step's original gate wording, "*until all three mandatory warnings are acknowledged*".
+> 5. **A "Don't show this warning again" checkbox, recorded per logged-in user** — the app's
+>    `UserDefaults`, **never the helper's**: the helper runs as root, so anything it persisted
+>    would be system-wide and would silently apply to every account on the machine.
+> 6. **Suppressing the text does not suppress the deliberate act.** Start then raises a one-line
+>    confirmation naming the drive by **model and USB serial**. This is what keeps NFR-USE-4
+>    *qualified* rather than weakened, and it is the half FR-DEV-3's mitigation actually rests on.
+> 7. **A "Show pre-run warnings again" control in the diagnostics window** — a setting with no way
+>    back is one the user cannot undo without editing a plist.
+>
+> **What Step 10 already discharged, checked in the code rather than assumed.** Detailed step 3's
+> report and result-screen halves are **built**: `RunReportMarkdown.whatThisDoesNotProve` (headed
+> *"BUILD-PLAN 10.5, FR-WARN-3/4, NFR-USE-6"*) and `RunReport.headline`. Detailed step 4's
+> colour rule is largely honoured already — every status in the app is a `Label` carrying a symbol
+> **and** words, with the rule stated at `RunMetricsView.failures`. **None of it is suppressible**,
+> which is why decision 5 leaves NFR-USE-6, FR-WARN-3 and FR-WARN-4 untouched. What is genuinely
+> new here is detailed step 1, the pre-run half of step 2, and step 4's **audit**, which has never
+> been run on any surface.
+>
+> **This step needs no hardware gate and no Xcode GUI step.** It is app-target and test-target only
+> — both join file-system synchronized groups automatically — and it does not touch the helper, so
+> the helper source hash stays `737e6972…` and Step 10's three hardware gates continue to apply.
+>
+> **One defect found while scoping this step, and it is NOT this step's to fix.** At the app's own
+> `minHeight: 700`, the `Mounting & exclusive access` controls are **clipped**: rendered at 640×700
+> they are absent, and at 640×900 they draw with ~170 pt to spare. `ContentView`'s comment says
+> *"700 is where the idle window's content stops being clipped — measured … not guessed"*, and that
+> measurement was taken in Step 9, before Step 10 added the **Mounted volumes** row and the
+> helper-readiness explanation to the selected-device detail. Idle content now needs roughly
+> **730 pt**. A measured constant whose premise expired silently — the same shape as
+> `metrics-check.sh`'s inverted `disk4` guard, and the same below-the-fold-in-an-unadvertised-scroll-region
+> defect that cost Step 10 two of its five rounds on the unmount control, in the same pane. Decision
+> 3 means this step no longer depends on it; it is recorded here so it does not evaporate along with
+> the design that found it.
+
 **Original action item:** AI-11
 **Satisfies:** FR-WARN-1/2/3/4; NFR-USE-4/6/8
 **Trust boundary:** **GUI-side**.
@@ -1479,7 +1528,7 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 Before any run, prominently present the three mandatory warnings and the honest-framing message, requiring acknowledgment so a clean pass is never mistaken for a clean bill of health.
 
 ### Detailed steps
-1. **Three mandatory warnings, shown prominently before a run starts (NFR-USE-4), and acknowledged before Start is enabled:**
+1. **Three mandatory warnings, shown in a modal raised by pressing Start (NFR-USE-4), acknowledged by a single Proceed before any run is issued (decisions 3 and 4 above):**
    - **Back up first (FR-WARN-1):** non-destructive *by design*, but data loss/corruption remains possible; back up the device first.
    - **Infrequent on NAND (FR-WARN-2):** this testing should be run only infrequently on NAND devices.
    - **Clean pass ≠ healthy (FR-WARN-3):** a clean pass means "no currently-unreadable blocks were found," **not** that the drive is healthy.
@@ -1488,13 +1537,32 @@ Before any run, prominently present the three mandatory warnings and the honest-
 4. **Accessibility, best-effort (NFR-USE-8):** use SwiftUI's built-in accessibility (VoiceOver labels, Dynamic Type, contrast); **never convey pass/fail by color alone** — pair color with text/icon. Full audit is not a v1 gate.
 
 ### Verification Gate (must pass before Step 15)
-- [ ] Start is **disabled** until all three mandatory warnings are acknowledged; they appear prominently every run.
-- [ ] The honest-framing message appears pre-run and on the result/report so a clean pass can't be mistaken for "healthy."
+- [ ] Pressing Start issues **no run** until Proceed is pressed; Cancel issues none at all. The three warnings appear in that modal on every run **unless the user has suppressed them**.
+- [ ] With the warnings suppressed, Start still raises a confirmation naming the device by **model and USB serial**, and still issues no run until Proceed. **The deliberate act is not suppressible** — shown refusing, not merely shown passing.
+- [ ] Suppression is **per logged-in user** (the app's `UserDefaults`, not the helper's), survives a relaunch, and is reversible from the diagnostics window.
+- [ ] The honest-framing message appears pre-run and on the result/report so a clean pass can't be mistaken for "healthy." **Suppressing the pre-run warnings does not suppress the report's copy.**
 - [ ] Pass/fail is conveyed by text/icon, not color alone (toggle to grayscale and confirm meaning survives).
 - [ ] VoiceOver reads the warnings and result; Dynamic Type scales them.
+- [ ] Both dialog variants are confirmed **by a person** to actually present in the shipped app — a sheet cannot be captured by `scripts/render-ui.sh`. Their layout is verified headlessly beforehand via their own `render-ui.sh` view cases; only *presentation* needs the keyboard.
 
 ### Risks / gotchas
-- Don't bury the warnings in a settings pane; they must gate the Start action each run (the spec says "before a run starts," not "once").
+- **The warnings are suppressible but the deliberate act is not, and that asymmetry is the whole
+  requirement** (user decision 2026-08-09; NFR-USE-4 qualified). The original wording of this note
+  read *"they must gate the Start action each run (the spec says 'before a run starts,' not
+  'once')"* — rewritten rather than left standing beside code that contradicts it. What must gate
+  Start each run is a **deliberate act naming the device**; what may be shown once is the *text*.
+  Suppressing the act would hand back exactly the hazard this step exists to mitigate: FR-DEV-3
+  default-selects the first device in BSD-name order, which on the development machine on
+  2026-08-09 was the **22 TB Seagate with Backup and Time Machine mounted** (serial
+  `00000000NT17XBRA`), re-measured through the app's own enumerator.
+- **Do not put the suppression flag in the helper.** It runs as root; the setting would become
+  system-wide and apply to every account on the machine, which is the opposite of what was asked
+  for.
+- A SwiftUI **sheet gets its own window and `render-ui.sh` cannot capture it** — the same permanent
+  human-verification cost Step 10 accepted for the unmount alert, and accepted here knowingly. The
+  mitigation is Step 10's: put the *decision* in a pure type a mutation can reach, give each dialog
+  a standalone renderable `View`, and log which route was taken, so the only thing left to a person
+  is "did a dialog appear" rather than "was the right thing decided".
 
 ---
 

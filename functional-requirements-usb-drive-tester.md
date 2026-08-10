@@ -137,7 +137,7 @@ This document specifies the **functional requirements** — the observable behav
 
 | ID | Requirement | Priority | Source |
 |----|-------------|----------|--------|
-| FR-WARN-1 | Before a run, the system shall warn the user that although the test is intended to be non-destructive, data loss or corruption remains possible, and the device should be backed up before testing. | M | PB Features; Action Item 10 |
+| FR-WARN-1 | Before a run, the system shall warn the user that although the test is intended to be non-destructive, data loss or corruption remains possible, and the device should be backed up before testing. **Qualified 2026-08-09** — the user may suppress this text for subsequent runs; a confirmation identifying the device by model and USB serial then stands in its place, and the text remains available on demand. See Amendments. | M | PB Features; Action Item 10; **qualified 2026-08-09** |
 | FR-WARN-2 | The system shall warn the user that this type of testing should be performed only infrequently on NAND devices. | M | PB Features; Action Item 10 |
 | FR-WARN-3 | The system shall clearly communicate that a clean pass means "no currently-unreadable blocks were found," not that the drive is healthy. | M | PB What the Test Does and Does Not Prove; Action Item 10 |
 | FR-WARN-4 | The system should communicate that the tool acts as both a retention refresher and a hard-fault detector, and that degrading-but-still-correctable blocks cannot be detected at the USB block level. | S | PB What the Test Does and Does Not Prove |
@@ -584,8 +584,35 @@ request is not the request having had its intended effect.**
 > `DeviceAccessPrecondition` independently on the acquire path and refuses with `volumesMounted`,
 > which is what kept this a wrong message rather than an incident. **Keep that independence.**
 
+### 2026-08-09 — FR-WARN-1 qualified; FR-WARN-2/3/4 examined and unaffected
+
+**Trigger.** User decision during Step 14's scoping, taken before a line was written. The
+substance, the reasoning and the safety argument are recorded in the **NFR document's 2026-08-09
+entry** (NFR-USE-4 qualified); this entry exists so a reader of FR-WARN is not left to discover the
+change somewhere else, and to state which of the four requirements it actually touches — because it
+is one of them, not all four.
+
+**The change in one line.** The three warnings move into a **modal raised by pressing Start**
+(Proceed / Cancel) carrying a **"Don't show this warning again"** checkbox, recorded per logged-in
+user. Where the text is suppressed, Start raises a one-line confirmation naming the drive by model
+and USB serial instead. **The text becomes suppressible; the deliberate act does not.**
+
+| | |
+|---|---|
+| **FR-WARN-1** | **Qualified.** It is the one of the four with an explicit *"Before a run"* timing clause, so suppression genuinely alters what it requires. Annotated in the table above. |
+| **FR-WARN-2** | **Unaffected.** *"shall warn the user that this type of testing should be performed only infrequently on NAND devices"* carries no per-run timing clause. A user who has been warned has been warned; the text stays available on demand. |
+| **FR-WARN-3** | **Unaffected, and demonstrably so.** *"shall clearly communicate that a clean pass means…"* is discharged **after** the run as well as before it: Step 10 put it in `RunReport.headline` (*"Completed — no currently-unreadable blocks were found"*), in `RunReportMarkdown.whatThisDoesNotProve` and on the result screen. None of those is suppressible. |
+| **FR-WARN-4** | **Unaffected**, same reason as FR-WARN-3 — the dual-role framing is in the exported report, which is the copy that gets forwarded and re-read months later. |
+
+**Why the distinction is worth the space.** The instinct on reading "the warnings become
+suppressible" is to annotate all four and move on. Three of them are already satisfied by an
+artefact the user cannot switch off, and marking them as weakened would misrepresent the product's
+actual guarantees in the document that is supposed to be the record of them. It is the same care as
+the 2026-08-06 BSD-name entry: the rule has two halves and stating only one of them would license a
+regression.
+
 ## Open Questions
 
 None outstanding — all questions from iterations 1–2 have been resolved (see *user
 decision 2026-06-25* annotations throughout), and the 2026-07-30, 2026-08-02, 2026-08-04,
-2026-08-05 and 2026-08-06 amendments above are recorded rather than open.
+2026-08-05, 2026-08-06 and 2026-08-09 amendments above are recorded rather than open.

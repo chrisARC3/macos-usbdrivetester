@@ -79,7 +79,7 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-USE-1 | Throughput and latency shall be presented in an easily readable form, with clear units (e.g., MB/s, ms) and human-friendly formatting. | M | PB Features ("easily readable"); deferred from FR-METR (user decision 2026-06-25) |
 | NFR-USE-2 | Progress shall be conveyed clearly during a run, including percent complete, current position, and the live ETA. | M | FR-METR-5/6 |
 | NFR-USE-3 | The currently selected device shall be unambiguously identified (e.g., BSD name, model, capacity) so the user cannot accidentally test the wrong device. | M | PB Upon launch; FR-DEV-6 |
-| NFR-USE-4 | Pre-run warnings (back up first; infrequent on NAND; clean pass ≠ healthy drive) shall be presented prominently before a run starts. | M | PB Features; FR-WARN-1/2/3 |
+| NFR-USE-4 | Pre-run warnings (back up first; infrequent on NAND; clean pass ≠ healthy drive) shall be presented prominently before a run starts, and the user shall be required to act deliberately before any run begins. The user may suppress the **warning text** for subsequent runs; the **deliberate act may not be suppressed** — where the text is suppressed, a confirmation identifying the device by model and USB serial number shall stand in its place. Suppression shall be recorded per logged-in user and shall be reversible from within the application. | M | PB Features; FR-WARN-1/2/3; **qualified 2026-08-09** |
 | NFR-USE-5 | Error messages shall be specific and actionable, naming the actual cause and the corrective step (e.g., which volume to unmount, or that the device node is claimed). | M | FR-SAFE-4; FR-DEV-8 |
 | NFR-USE-6 | The honest-framing messaging shall be presented such that a clean pass cannot reasonably be mistaken for a health certificate. | M | PB What the Test Does and Does Not Prove; FR-WARN-3/4 |
 | NFR-USE-7 | The exported Markdown report shall be well-structured and human-readable (headings, a clear pass/fail outcome, and tabulated bad-block ranges and statistics). | S | FR-RPT-5 |
@@ -202,6 +202,53 @@ equal device time near 18.4 GB/s; the daemon would saturate one core near 11.1 G
 reachable over USB mass storage today. This is carried as a **release-note item** for Step 16 —
 BUILD-PLAN Step 16, detailed step 7 — because "device-bound" is a claim that weakens with faster
 hardware and the notes should say so rather than imply it is unconditional.
+
+---
+
+### 2026-08-09 — NFR-USE-4 qualified: the warning text becomes suppressible, the deliberate act does not
+
+**Trigger.** User decision during Step 14's scoping, taken before a line was written.
+
+> *"This tool may be utilized by people who test drives professionally and the warning could really
+> get annoying."* — user, 2026-08-09
+
+**What changed.** The three mandatory warnings are now shown in a **modal raised by pressing Start**
+(Proceed / Cancel) rather than occupying the main window, and that modal carries a **"Don't show
+this warning again"** checkbox recorded **per logged-in user**. NFR-USE-4 previously required the
+warnings before every run with no exception, and BUILD-PLAN Step 14 said so twice — once in its
+gate and once in a risks note reading *"they must gate the Start action each run (the spec says
+'before a run starts,' not 'once')."* Both are rewritten rather than left standing beside code that
+contradicts them.
+
+**What did NOT change, and it is the half that carries the safety property.** Suppressing the text
+does not suppress the act: Start then raises a one-line confirmation naming the drive by **model and
+USB serial** (Proceed / Cancel). This is deliberate and it is the reason the requirement is
+*qualified* rather than *weakened*.
+
+**Why that distinction is load-bearing here of all places.** FR-DEV-3 selects the first usable
+device in FR-DEV-2's BSD-name order, confirmed under challenge on 2026-08-06 and unchanged. The FR
+document's entry for that decision concludes that **"the entire mitigation sits in Step 14's
+warnings"**, and BUILD-PLAN Step 11's removal of the explicit `Unmount All` / `Acquire` controls is
+gated on this step for the same reason: after it, the default selection is one deliberate click from
+a write. **Re-measured on 2026-08-09, that default is the 22 TB Seagate with Backup and Time Machine
+mounted** (serial `00000000NT17XBRA`), rendered through the app's own enumerator rather than
+reasoned about. A warning that could be switched off to nothing would hand that hazard back. A
+warning that can be switched down to *"Start testing 22.00 TB Seagate Expansion HDD, S/N
+00000000NT17XBRA?"* does not — and identifies the drive by the axis that survives a renumbering,
+which the paragraphs themselves did not.
+
+**NFR-USE-6 is untouched by the suppression, and that is checkable rather than asserted.** Step 10
+already put the honest framing in the report (`RunReportMarkdown.whatThisDoesNotProve`) and on the
+result screen (`RunReportView`), and those are not suppressible. A user who never sees a pre-run
+warning again still cannot read a clean pass as a health certificate, because the copy that outlives
+the session is the one that carries it.
+
+**Scope of the suppression.** Per logged-in user, global across drives — the stated case is somebody
+who tests many drives, so a per-drive flag would leave the dialog appearing on exactly the runs they
+want it gone for. It lives in the **app's** `UserDefaults`, never the helper's: the helper runs as
+root, so anything it persisted would be system-wide and would silently apply to every account on the
+machine. Reversible from the Privileged Helper & Diagnostics window — a setting with no way back is
+one the user cannot undo without editing a plist.
 
 ## Assumptions
 
