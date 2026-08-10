@@ -257,24 +257,22 @@ nonisolated enum RunReportMarkdown {
     /// and Step 14's detailed step 3 asks for this framing on the result *and* in the report's
     /// wording. The report is the copy that gets forwarded, filed and re-read months later,
     /// detached from whatever was on screen at the time.
+    ///
+    /// - Note: the wording is **not** written here. It comes from `HonestFraming`, which is the
+    ///   single definition shared with the result screen and Step 14's pre-run dialog. Until
+    ///   2026-08-10 this function held its own literals and the result screen held a second set —
+    ///   and they had already drifted, the screen having lost the clause explaining why a matching
+    ///   verify does not prove retention. Re-inlining a sentence here re-creates that.
     private static func whatThisDoesNotProve(_ report: RunReport) -> [String] {
         var lines = ["## What this test does and does not prove", ""]
 
-        lines.append("This tool does two things: it **refreshes charge retention** by reading "
-                   + "each block and writing the same bytes back, and it **detects hard faults** "
-                   + "by reading back what it wrote and comparing.")
+        lines.append(HonestFraming.summary.markdown)
         lines.append("")
-        lines.append("- A clean result means **no currently-unreadable blocks were found** in "
-                   + "the range tested, at the time it was tested.")
-        lines.append("- Blocks that are **degrading but still correctable** by the drive's own "
-                   + "error correction cannot be detected at the USB block level. This test "
-                   + "cannot see them, and a drive close to failing can pass it.")
-        lines.append("- A verify that matches proves the data **round-tripped through the "
-                   + "drive's I/O path**. It does not prove the medium retained it: the drive's "
-                   + "own cache sits below every check a host can make.")
+        for claim in HonestFraming.claims {
+            lines.append("- \(claim.markdown)")
+        }
         if report.outcome == .stoppedOnError {
-            lines.append("- **The range beyond the failure above was not tested.** Untested is "
-                       + "not the same as passed.")
+            lines.append("- \(HonestFraming.rangeBeyondTheFailureWasNotTested.markdown)")
         }
         lines.append("")
 

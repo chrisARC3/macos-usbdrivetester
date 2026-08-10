@@ -5816,6 +5816,97 @@ this increment newly *depends* on that type's identification being serial-based 
 dialog's one line is the only identification the user gets — and a dependency nobody has tried to
 break is a dependency nobody has checked.
 
+Committed as `98570d9`, together with the scoping and the requirement amendments.
+
+### Increment 2 — COMPLETE (2026-08-10) — one wording, and the drift it caught on the way in
+
+`HonestFraming.swift` and `HonestFramingTests.swift`, plus `RunReportMarkdown` and `RunReportView`
+moved onto the shared source.
+
+#### The two existing copies had already drifted, and nothing was in a position to notice
+
+The increment was planned as *"the warning text as a pure source of strings, asserted against the
+report's existing copy so the two cannot drift apart."* Reading the report's copy before writing a
+third revealed that the **two that already existed had diverged**:
+
+| surface | the verify claim |
+|---|---|
+| exported report | "…It does not prove the medium retained it**: the drive's own cache sits below every check a host can make.**" |
+| result screen | "…It does not prove the medium retained it." |
+
+The screen had lost the clause that explains *why*, and the dual-role opener was reworded too
+("This tool does two things: it **refreshes**…" against "This tool refreshes…"). Both were written
+in Step 10, in the same increment. **Nothing failed**, because `RunReportTests` asserts the Markdown
+contains "degrading but still correctable" and never looks at the view — there was no test in a
+position to compare them.
+
+This is the product's central honesty claim: the thing standing between *the test passed* and *the
+drive is fine*, and NFR-USE-6 makes it **M**. A version of it that is quietly weaker on one surface
+than another is the same class of defect as a percentile printed without its bound — not false,
+just no longer saying what it was written to say. And Step 14 was about to add a **third** copy.
+
+So the increment changed shape: build the single source, and **move the two existing renderers onto
+it** rather than write a third copy and test that all three agree. *Prevent, don't detect* — a test
+that two strings match is detection; one definition is prevention.
+
+#### How it is built
+
+Each claim is authored **once, in Markdown**, and `plain` is derived by removing the emphasis
+markers. The richer form is the source, so a renderer can only ever lose decoration, never meaning.
+The three mandatory warnings (FR-WARN-1/2/3) live in the same file, because **FR-WARN-3 *is* one of
+the framing claims** — "a clean pass means no currently-unreadable blocks were found, not that the
+drive is healthy" is simultaneously a mandatory pre-run warning and the sentence echoed into the
+report. Separating them would have meant writing it twice on day one.
+
+`PreRunWarning` carries its **requirement ID**, so the set can be asserted by requirement rather
+than by counting three of something — mutation M8 replaces FR-WARN-3 with a second copy of
+FR-WARN-1, keeps the count at three, and is caught.
+
+#### The exported report's wording is unchanged, and that was checked rather than reasoned about
+
+The canonical text is the Markdown that was already shipping, so the export should be byte-identical
+— which is exactly the kind of "by construction" claim this project has been burned by. Verified by
+extracting the six sentences the **committed** renderer emitted and locating each in the new source:
+all six identical, the four bullet prefixes now added at render time. **The screen is the only
+surface whose text changed, and it changed by regaining what it had lost.** Confirmed by rendering
+`report`: the cache clause is on screen, the fuller opener with it, and no emphasis markers leaked.
+
+#### The gap, and how it was closed
+
+**No test reads SwiftUI text**, so nothing asserts that `RunReportView` draws from the shared source
+— and the view is precisely where the drift happened. Mutation M3 covers the *Markdown* renderer
+re-inlining a literal; the equivalent mutation in the view is caught by nothing in the suite. This
+is the same shape as `mountOne`'s option constant: a real hole, recorded rather than glossed.
+
+What closes it is that this surface **is renderable** — `render-ui.sh report` — unlike the alert and
+sheet surfaces. So the check exists, it is just a render rather than an assertion, and it was run.
+
+**Verified. 773 tests, 0 failures, 90 suites** — up from 761/89, count from the xcresult's
+`totalTestCount`; **+12 is exactly the number of `@Test` functions written**. Zero source warnings
+from a Release build and a test compile, both with all four changed files `touch`ed first. Helper
+untouched, hash still `737e6972…`.
+
+**Twelve mutations, twelve catches:**
+
+| defect introduced | caught by |
+|---|---|
+| `plain` leaves the emphasis markers in | `plainDiffersFromMarkdownOnlyByTheEmphasisMarkers`, +1 |
+| `plain` silently drops the tail of a sentence (**the historical defect's shape**) | `theVerifyClaimStillExplainsWhyARoundTripIsNotRetention`, +3 |
+| the report **re-inlines** its own shortened verify sentence | `theReportRendersTheSharedClaimsRatherThanItsOwnLiterals` |
+| `claims` loses the verify claim entirely | `theHonestFramingIsInTheDocumentAndNotOnlyOnScreen` *(Step 10's own test)* |
+| the report-only stopped-run claim leaks onto every surface | `theStoppedRunClaimIsNotShownOnEverySurface`, +1 |
+| FR-WARN-3 restates its own literal instead of sharing | `theCleanPassWarningIsBuiltFromTheSharedClaims` |
+| the mandatory set drops FR-WARN-2 | `allThreeMandatoryWarningsArePresent` |
+| **FR-WARN-3 replaced by a duplicate FR-WARN-1, count still three** | `allThreeMandatoryWarningsArePresent` |
+| FR-WARN-1 drops "Design is not a guarantee" | `theBackupWarningSaysBothThatItIsSafeByDesignAndThatDesignIsNotAGuarantee` |
+| unbalanced `**` in a shipped claim | `everyClaimHasBalancedEmphasis` |
+| the stopped-run claim never reaches the report | `aStoppedRunRepeatsThatTheRestIsUntested` *(Step 10's own test)*, +1 |
+| FR-WARN-2 stops saying what the cost is | `theFlashWarningSaysWhatTheCostActuallyIs`, +1 |
+
+**Two of the twelve were caught by tests Step 10 wrote**, which is the useful part of running them:
+the refactor moved two shipped renderers onto new machinery without weakening the coverage that was
+already there.
+
 ---
 
 ## Step 9 — pre-work planning snapshot — SUPERSEDED (kept for audit)

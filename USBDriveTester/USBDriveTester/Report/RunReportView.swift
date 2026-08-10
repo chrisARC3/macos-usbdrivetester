@@ -301,22 +301,21 @@ struct RunReportView: View {
     }
 
     /// FR-WARN-3/4 and NFR-USE-6, echoed on the result surface as well as into the file.
+    ///
+    /// - Note: the wording comes from `HonestFraming`, shared with the exported report and Step
+    ///   14's pre-run dialog. It used to be written here as a second set of literals, and on
+    ///   2026-08-10 those were found to have drifted from the report's: this surface had lost the
+    ///   clause explaining *why* a matching verify does not prove retention, and had reworded the
+    ///   dual-role opener. Nothing failed, because no test compared them.
     private func honestFraming(_ report: RunReport) -> some View {
         section("What this test does and does not prove") {
             VStack(alignment: .leading, spacing: 6) {
-                prose("This tool refreshes charge retention by reading each block and writing "
-                    + "the same bytes back, and detects hard faults by reading back what it "
-                    + "wrote and comparing.")
-                bullet("A clean result means no currently-unreadable blocks were found in the "
-                     + "range tested, at the time it was tested.")
-                bullet("Blocks that are degrading but still correctable by the drive's own error "
-                     + "correction cannot be detected at the USB block level. This test cannot "
-                     + "see them, and a drive close to failing can pass it.")
-                bullet("A verify that matches proves the data round-tripped through the drive's "
-                     + "I/O path. It does not prove the medium retained it.")
+                prose(HonestFraming.summary.plain)
+                ForEach(HonestFraming.claims) { claim in
+                    bullet(claim.plain)
+                }
                 if report.outcome == .stoppedOnError {
-                    bullet("The range beyond the failure above was not tested. Untested is not "
-                         + "the same as passed.")
+                    bullet(HonestFraming.rangeBeyondTheFailureWasNotTested.plain)
                 }
             }
         }
