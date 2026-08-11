@@ -224,6 +224,26 @@ Every defect this project has produced came from trusting a substitute for the r
   that fails to rise is how files written to the wrong directory get caught.
 - **SwiftUI modifiers fail silently.** `.defaultFocus`, `.selectionDisabled` on the wrong element,
   `.id()` to force a re-assert: all compiled, rendered, and did nothing.
+- **A SwiftUI `View` is a STRUCT, and a stored property on it is a SNAPSHOT.** An escaping closure
+  created inside one of its methods captures the value the view was *built* with — not whatever the
+  model holds when the closure finally runs. The run report read its drive from a property fed by
+  `AppModel.lastRunDevice`, which is not written until the run is already under way, so on the first
+  run after every launch the closure captured `nil` and **the exported report named "Unidentified
+  drive", 0 bytes, no serial** — the one thing a report about a drive must never fail to say. The
+  pre-run dialog, reading a property set *before* the press, named the drive correctly at the same
+  moment. **Two properties naming the same drive at two different instants is the defect; one
+  source, captured once, at the point of decision is the fix.** Found by a person reading an
+  exported file, and settled by two log lines 93 seconds apart rather than by reading the code —
+  which had two equally plausible explanations for it. *Full account: `git show` the Step 14
+  increment 6 follow-up.*
+- **A control below the fold in an unadvertised scroll region has now cost this project three
+  times.** Step 10 lost two of five rounds to it; `OutcomePresentation` exists because an error
+  message did it; and on 2026-08-11 `Acquire exclusive access` was **entirely off-screen at the
+  app's own `minHeight`**, which presented as *"Run one bounded cycle stays disabled no matter what
+  I do."* **Raising the constant is not the fix** — the block above these controls grows with the
+  selected drive's mounted-volume count, so any fixed height is a threshold some drive crosses.
+  Pin the controls outside the `ScrollView`. A measured constant is only true until the content
+  above it changes, and nothing announces the expiry.
 - **An identifier that is assigned rather than intrinsic will eventually name something else, and
   nothing will announce it.**
 - **When reasoning and the logs disagree, the logs are right.**

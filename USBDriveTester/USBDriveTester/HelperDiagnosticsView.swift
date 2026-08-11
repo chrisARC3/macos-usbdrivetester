@@ -106,14 +106,17 @@ struct HelperDiagnosticsView: View {
     /// behind it and so the assembly stays visible at the one call site that has all the pieces.
     var reportProduced: (RunReport?) -> Void = { _ in }
 
-    /// The drive the run is on, captured when the claim was taken (`AppModel.lastRunDevice`).
-    var reportedDevice: ReportedDevice?
-
-    /// The drive the helper holds **now** (`AppModel.heldDevice`) — the one a run would be on.
+    /// The drive the helper holds **now** (`AppModel.heldDevice`) — the one a run would be on, and
+    /// the single source for **both** the pre-run dialog's identification and the report's.
     ///
-    /// Distinct from ``reportedDevice``, which is the *previous* run's and is what the report is
-    /// about. The pre-run dialog names the drive that is about to be written to, so it must not use
-    /// the one that already was.
+    /// There was a second property here until 2026-08-11, `reportedDevice`, fed from
+    /// `AppModel.lastRunDevice` and used only by the report. It was removed rather than fixed in
+    /// place: `lastRunDevice` is not written until the run is already under way, so a view struct
+    /// built before the press captured `nil`, and every report from a fresh launch was headed
+    /// "Unidentified drive". Two properties naming the same drive at two different instants is the
+    /// shape of defect `AppModel.heldDevice`'s own note warns about — *four parallel optionals that
+    /// must all be set and cleared together are four things that can disagree.* One property cannot
+    /// disagree with itself, and this one is already proven correct by the dialog.
     var heldDevice: ReportedDevice?
 
     @State private var cycleResult: ActionResult?
@@ -358,21 +361,57 @@ struct HelperDiagnosticsView: View {
 
     /// The drive the report is about, as it was when the claim was taken.
     ///
-    /// `AppModel.lastRunDevice` and not the current selection: the report is about the drive the
-    /// run touched, and by the time it is written the list may have been rebuilt or the drive
-    /// unplugged. `nil` only if a run somehow began with nothing held, which the disabled Start
-    /// makes unreachable — reported as an unidentified drive rather than guessed at, because a
-    /// report that invented an identity would be worse than one that admits it has none.
+    /// The drive is **passed in**, captured by `runBoundedCycle` at the moment the run was
+    /// authorised. It is not read from a stored property here, and that is a bug fix (2026-08-11).
+    ///
+    /// ## What went wrong, and why nothing caught it
+    ///
+    /// This used to read `reportedDevice`, which the window supplied from `AppModel.lastRunDevice`.
+    /// But `lastRunDevice` is written by `AppModel.cycleIsRunning`'s `didSet` — that is, *during*
+    /// `runBoundedCycle`, after the button was pressed. A SwiftUI `View` is a **struct**, and the
+    /// escaping completion handler below captured `self` by value, so it read the `reportedDevice`
+    /// this view instance was built with. On the first run after launch that value is `nil`, and
+    /// every report from a fresh launch named "Unidentified drive", 0 bytes, no serial.
+    ///
+    /// Reported in real use, and settled by the log rather than by reasoning — two lines, same
+    /// process, 93 seconds apart:
+    ///
+    ///     11:27:59  pre-run prompt raised: full warnings; drive serial 12345686DAA9
+    ///     11:29:32  run report: ... drive serial none
+    ///
+    /// The identity existed when the dialog named it and was gone when the report was written, which
+    /// excluded the other candidate (`helperHoldsDevice` true while `heldDevice` was never set —
+    /// that one would have logged `promptRaisedForAnUnnamedDrive`, and did not).
+    ///
+    /// **This is the worst class of defect this tool can have.** The exported report outlives the
+    /// session and is the artefact a drive's history is kept in; one that cannot say which drive it
+    /// is about is, in its own words, indistinguishable from a report about a different drive.
+    ///
+    /// The fix is to take the identity from the **same source the pre-run dialog uses**,
+    /// `heldDevice`, which is set by `acquire` *before* the button is even enabled. The dialog was
+    /// always right; the report was reading a different property that had not been written yet.
+    /// One source, captured once, at the point the run is authorised.
+    ///
+    /// - Parameter device: The drive the run was authorised against. `nil` should be unreachable —
+    ///   the button's precondition is a held device — so it is **logged as an error** rather than
+    ///   quietly becoming an unidentified report, which is how this defect stayed invisible.
     private func makeReport(_ outcome: RunCycleOutcome,
                             blockCount: UInt64,
                             ioSize: Int,
                             startedAt: Date,
-                            linkSpeedCode: Int) -> RunReport? {
-        let device = reportedDevice ?? ReportedDevice(modelDescription: "Unidentified drive",
-                                                      usbSerialNumber: nil,
-                                                      bsdNameAtRunTime: nil,
-                                                      capacityBytes: 0,
-                                                      logicalBlockSize: 512)
+                            linkSpeedCode: Int,
+                            device runDevice: ReportedDevice?) -> RunReport? {
+        let device: ReportedDevice
+        if let runDevice {
+            device = runDevice
+        } else {
+            RunReportLog.reportBuiltWithNoHeldDevice()
+            device = ReportedDevice(modelDescription: "Unidentified drive",
+                                    usbSerialNumber: nil,
+                                    bsdNameAtRunTime: nil,
+                                    capacityBytes: 0,
+                                    logicalBlockSize: 512)
+        }
         return RunReport(reply: outcome,
                          startBlock: 0,
                          blockCount: blockCount,
@@ -463,6 +502,12 @@ struct HelperDiagnosticsView: View {
         let startedAt = Date()
         let ioSize = TesterProtocol.defaultIOSizeBytes
         let mode = failureMode
+        // Captured HERE, with `startedAt` and `mode`, for the same reason they are: everything the
+        // report needs is taken at the moment the run is authorised, from a value that is already
+        // correct by then. `heldDevice` is set by `acquire` before this button is even enabled —
+        // it is what the pre-run dialog just named. Reading it later, or through the model, is what
+        // produced reports headed "Unidentified drive"; see `makeReport`.
+        let runDevice = heldDevice
 
         helper.deviceProfile { profileResult in
             guard case .success(let profile) = profileResult, profile.isAvailable,
@@ -494,7 +539,8 @@ struct HelperDiagnosticsView: View {
                                               blockCount: blockCount,
                                               ioSize: ioSize,
                                               startedAt: startedAt,
-                                              linkSpeedCode: profile.usbLinkSpeedCode))
+                                              linkSpeedCode: profile.usbLinkSpeedCode,
+                                              device: runDevice))
                 } else {
                     reportProduced(nil)
                 }

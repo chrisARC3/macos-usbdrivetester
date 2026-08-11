@@ -517,4 +517,23 @@ enum RunReportLog {
                          \(message, privacy: .public)
                          """)
     }
+
+    /// A run produced a report with **no drive record behind it**, so the report cannot say which
+    /// drive it is about.
+    ///
+    /// Should be unreachable: the run control's precondition is a held device, and the held device
+    /// is what the pre-run dialog just named. Logged at `error` rather than absorbed because the
+    /// silent version of this is what shipped — until 2026-08-11 an unidentified report was produced
+    /// by a `??` with nothing to say it had happened, and the only reason it was caught is that a
+    /// person read an exported file and noticed the model, serial and capacity were missing.
+    ///
+    /// The same reasoning as `PreRunWarningLog.promptRaisedForAnUnnamedDrive`, at the other end of
+    /// the same run: an inconsistency the code cannot resolve is logged, never quietly rendered.
+    static func reportBuiltWithNoHeldDevice() {
+        reportLog.error("""
+                        run report built with NO held device — the report cannot identify its \
+                        drive. The run control requires a held device, so this state should be \
+                        unreachable; treat any report from this run as unattributable.
+                        """)
+    }
 }

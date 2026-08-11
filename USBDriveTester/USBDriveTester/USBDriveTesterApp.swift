@@ -197,10 +197,12 @@ private struct HelperDiagnosticsWindow: View {
                                   RunReportLog.reportProduced(report)
                                   openWindow(id: WindowID.report)
                               },
-                              reportedDevice: model.lastRunDevice,
-                              // The drive a run would be on, for Step 14's pre-run dialog.
-                              // Not `lastRunDevice`: that is the previous run's, and the
-                              // warning must name the drive about to be written to.
+                              // The drive a run would be on — for Step 14's pre-run dialog AND for
+                              // the report the run produces. A second `reportedDevice:` argument
+                              // fed from `model.lastRunDevice` was removed on 2026-08-11: that
+                              // property is not written until the run is already under way, so the
+                              // report captured `nil` and named an unidentified drive. See
+                              // `HelperDiagnosticsView.makeReport`.
                               heldDevice: model.heldDevice)
             .frame(minWidth: 560, minHeight: 480)
     }

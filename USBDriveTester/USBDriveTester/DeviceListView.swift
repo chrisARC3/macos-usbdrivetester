@@ -487,25 +487,51 @@ struct DeviceListView: View {
     /// disabled. Showing it greyed out with a reason also answers the question a missing
     /// button raises ("can this app even do that?") without the user having to select a
     /// drive to find out.
+    /// ## The controls are PINNED OUTSIDE the scroll region, and that is a bug fix (2026-08-11)
+    ///
+    /// They used to sit inside it, below the device-identity block. Reported in real use: **"Run one
+    /// bounded cycle" stays disabled no matter what I do** — because its precondition is a held
+    /// device, holding one needs `Acquire exclusive access`, and at the window's own
+    /// `minHeight: 700` that button was **not on screen at all**. Measured, not inferred: rendered
+    /// at 640×700 the whole `Mounting & exclusive access` section is absent, and it appears at 760.
+    ///
+    /// **Raising `minHeight` would not have fixed it**, which is why this is a structural change
+    /// rather than a bigger constant. The identity block above grows with the drive — the number of
+    /// mounted volumes is unbounded, and the 4 TB T5 EVO carries three where the drive this was
+    /// measured against carries two. Any fixed height is a threshold some drive crosses, and the
+    /// constant that was already here (`minHeight: 700`, "measured … not guessed" in Step 9) is
+    /// itself an example: it was true when written and expired silently when Step 10 added the
+    /// mounted-volumes row and the readiness explanation to the pane above.
+    ///
+    /// This is the third time this project has paid for the same defect — a control below the fold
+    /// in a scroll region that does not advertise itself as scrollable. It cost Step 10 two of its
+    /// five rounds on this very pane, and `OutcomePresentation` exists because an error message did
+    /// the same thing. Increment 3 pinned the pre-run dialog's footer outside its `ScrollView` for
+    /// exactly this reason; this is that move, applied to the control the dialog gates.
     private var detail: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 10) {
-                if let device = discovery.selectedDevice {
-                    selectedDeviceIdentity(for: device)
-                } else {
-                    Text(discovery.devices.isEmpty
-                         ? "Connect a drive to see its details here."
-                         : "No device is selected.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(alignment: .leading, spacing: 0) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let device = discovery.selectedDevice {
+                        selectedDeviceIdentity(for: device)
+                    } else {
+                        Text(discovery.devices.isEmpty
+                             ? "Connect a drive to see its details here."
+                             : "No device is selected.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
-
-                Divider()
-                safetySection(for: discovery.selectedDevice)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Divider()
+
+            safetySection(for: discovery.selectedDevice)
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
