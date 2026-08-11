@@ -290,19 +290,20 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-08-07: Steps 1–9 are complete and committed. Step 10 is BUILT AND GATED BUT NOT
-> COMMITTED.** Step 9 is `c6ec234`, with `4be5766` recording two decisions that followed it; the
-> last commit on `main` is `8567e88` and **the whole of Step 10 is in the working tree**.
+> **Status, 2026-08-11: Steps 1–10 and Step 14 are complete and committed. STEP 11 IS NEXT and has
+> not been started.** The suite stands at **801 tests / 93 suites / 0 failures**, protocol **v9**,
+> zero source warnings from three clean builds. The helper's source hash is
+> `737e6972…`, unchanged since Step 10's gates, so all three continue to apply.
 >
-> All three hardware gates passed on 2026-08-07 and the suite stands at **722 tests / 86 suites /
-> 0 failures**, protocol **v9**. **One fix — the unmount rollback — is installed but has not been
-> verified by the user, and nothing should be committed before it is.**
+> **The order is deliberate and is not the numbering.** Step 14 was built before Step 11 because
+> Step 11's deletion of the `Unmount All` / `Acquire` / `Release` controls was gated on Step 14's
+> warnings existing — after that deletion, FR-DEV-3's default selection is one deliberate click from
+> a write, and on this machine that default is the 22 TB Seagate carrying Backup and Time Machine.
+> **That gate is now discharged**, so Step 11 may proceed.
 >
-> **Read `progress/step-10.md` first.** It is written for a cold start
-> and says what is done, what is unverified, and what to do next. Step 10's scoping decisions are
-> also summarised at the head of Step 10 below. The authoritative state — including what each gate
-> actually discharged and what it deliberately did not — is `progress/step-10.md`; this table is the map,
-> not the tracker.
+> **Read [PROGRESS.md](PROGRESS.md) first** — it holds what Step 11 inherits. For *why* something was
+> done the way it was, `progress/step-NN.md` has the archived history of that step; this table is the
+> map, not the tracker.
 
 | Step | AI | Title | Primarily on | Gate in one line |
 |------|----|-------|--------------|------------------|
@@ -1554,15 +1555,32 @@ Before any run, prominently present the three mandatory warnings and the honest-
 3. **Presentation (NFR-USE-6):** the honest-framing must be positioned so a clean pass cannot reasonably be read as a health certificate — echo it on the result screen and in the report's outcome wording (Step 10).
 4. **Accessibility, best-effort (NFR-USE-8):** use SwiftUI's built-in accessibility (Dynamic Type, contrast); **never convey pass/fail by color alone** — pair color with text/icon. Full audit is not a v1 gate. **Screen-reader support is out of scope** — user decision 2026-08-11, see the NFR document's amendment of that date; the colour rule and Dynamic Type are unaffected.
 
-### Verification Gate (must pass before Step 15)
-- [ ] Pressing Start issues **no run** until Proceed is pressed; Cancel issues none at all. The three warnings appear in that modal on every run **unless the user has suppressed them**.
-- [ ] With the warnings suppressed, Start still raises a confirmation naming the device by **model and USB serial**, and still issues no run until Proceed. **The deliberate act is not suppressible** — shown refusing, not merely shown passing.
-- [ ] Suppression is **per logged-in user** (the app's `UserDefaults`, not the helper's), survives a relaunch, and is reversible from the diagnostics window.
-- [ ] The honest-framing message appears pre-run and on the result/report so a clean pass can't be mistaken for "healthy." **Suppressing the pre-run warnings does not suppress the report's copy.**
+### Verification Gate — PASSED 2026-08-11 (all items; Step 14 is complete)
+
+> **Gate note.** The seven-item human checklist that discharges the first three boxes is in
+> `progress/step-14.md`, kept rather than deleted: the three increment-5 mutations it covers are
+> **not catchable by the suite**, so it is what any future change to this area has to pass again.
+> The gate sits on `Run one bounded cycle` rather than Start, per scoping decision 2 — there is no
+> Start control until Step 11, which relocates the gate along with it.
+
+- [x] Pressing Start issues **no run** until Proceed is pressed; Cancel issues none at all. The three warnings appear in that modal on every run **unless the user has suppressed them**. *(Checklist items 1–3, passed by a person 2026-08-11; the log's `pre-run prompt raised` line is the durable record.)*
+- [x] With the warnings suppressed, Start still raises a confirmation naming the device by **model and USB serial**, and still issues no run until Proceed. **The deliberate act is not suppressible** — shown refusing, not merely shown passing. *(Checklist item 5.)*
+- [x] Suppression is **per logged-in user** (the app's `UserDefaults`, not the helper's), survives a relaunch, and is reversible from the diagnostics window. *(Checklist items 4 and 6 — item 4 is the tick-then-Cancel case, which must record nothing.)*
+- [x] The honest-framing message appears pre-run and on the result/report so a clean pass can't be mistaken for "healthy." **Suppressing the pre-run warnings does not suppress the report's copy.** *(Increment 2 put both renderers on one wording and found they had already drifted; the report's copy is not reachable by the suppression flag.)*
 - [x] Pass/fail is conveyed by text/icon, not color alone (toggle to grayscale and confirm meaning survives). **Done 2026-08-11**, increment 6: every status-bearing view case rendered in both appearances and converted to greyscale. Four report outcomes carry four distinct glyphs *and* four distinct headlines; the pre-run dialog contains no saturated pixels at all. Contrast measured off the rendered pixels with a calibrated sampler — headline 13.97:1 light / 12.63:1 dark, against status tints at 2.22–2.31:1 light, which is why the words and the symbol are the carriers and the tint is decoration.
-- [ ] Dynamic Type: every string uses a semantic text style rather than a fixed point size — **verified 2026-08-11** (81 semantic sites; the only two fixed sizes are decorative SF Symbols). What remains is a person confirming behaviour against System Settings ▸ Accessibility ▸ Display ▸ Text size: **macOS does not honour `DynamicTypeSize` programmatically** (measured and discriminated 2026-08-11, see `scripts/render-ui.sh`'s header), so the system setting is the only lever and this cannot be checked headlessly.
+- [x] Dynamic Type: every string uses a semantic text style rather than a fixed point size — **verified 2026-08-11** (81 semantic sites; the only two fixed sizes are decorative SF Symbols). **Satisfied as far as the platform permits, confirmed twice independently:** the probe measured `DynamicTypeSize` inert inside an `NSHostingView` (discriminated with two controls, see `scripts/render-ui.sh`'s header), and at the keyboard, changing System Settings ▸ Accessibility ▸ Display ▸ Text size changed no font in any window. macOS does not scale these; there is no third lever.
 - **VoiceOver is out of scope** — user decision 2026-08-11. Removed from this gate rather than left unticked, because an unticked box reads as work outstanding. See the NFR document's amendment of that date.
-- [ ] Both dialog variants are confirmed **by a person** to actually present in the shipped app — a sheet cannot be captured by `scripts/render-ui.sh`. Their layout is verified headlessly beforehand via their own `render-ui.sh` view cases; only *presentation* needs the keyboard.
+- [x] Both dialog variants are confirmed **by a person** to actually present in the shipped app — a sheet cannot be captured by `scripts/render-ui.sh`. Their layout is verified headlessly beforehand via their own `render-ui.sh` view cases; only *presentation* needs the keyboard. *(Both forms presented; checklist items 1–6.)*
+- [x] **Three clean builds, DerivedData wiped before each: `build.sh Debug`, `build.sh Release`, `test.sh`.** Zero source warnings from all three, 2026-08-11. Confirmed genuinely clean rather than assumed — Debug ran 76 per-file `SwiftCompile` tasks, Release two `-whole-module-optimization` invocations covering both modules, the test target 148. **801 tests, 0 failures, 93 suites**, read from the xcresult's top-level `totalTestCount`.
+
+> **Two defects were found by this step's keyboard session, and both are recorded because they say
+> something about the method.** The exported report could not identify its drive (model, serial and
+> capacity missing on the first run after every launch), and `Acquire exclusive access` was
+> off-screen at the app's own `minHeight`, which presented as *"Run one bounded cycle stays disabled
+> no matter what I do."* Both were Step 9/10 wiring, both fixed in `e61c4f0`, both re-tested by hand.
+> **Increment 6's headless half — 36 renders, a calibrated contrast sampler, six mutations — found no
+> defects in the app at all.** A person using the product remains the only instrument that has found
+> this class of defect here, which is the argument for the human checklist surviving the tick.
 
 ### Risks / gotchas
 - **The warnings are suppressible but the deliberate act is not, and that asymmetry is the whole
