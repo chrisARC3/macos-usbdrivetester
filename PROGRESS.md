@@ -27,10 +27,10 @@ FR-WARN-1/2/3/4, NFR-USE-4/6/8. Started 2026-08-09 from a clean tree at `c1be1ed
 
 | | |
 |---|---|
-| **Increments 1–5** | complete and committed |
-| **Increment 6** | not started — the accessibility audit |
+| **Increments 1–6** | complete and committed |
+| **Increment 6** | headless half done; **Dynamic Type is the only keyboard item left**, and it shares increment 7's setup |
 | **Increment 7** | not started — three clean builds, docs, human confirmation |
-| **Verified** | **794 tests, 0 failures, 92 suites.** Zero source warnings from `build.sh Release` and `test.sh` |
+| **Verified** | **801 tests, 0 failures, 93 suites.** Zero source warnings from `build.sh Release` and `test.sh` |
 | **Helper** | **untouched all step.** Source hash still `737e6972bfdec1c5c1901a27bd5a00da2fed413166c909fc6639666c38e8907e`, so Step 10's three hardware gates continue to apply |
 | **This step needs** | no hardware gate, and **no Xcode GUI work** — app target and test target only, both file-system synchronized |
 
@@ -83,12 +83,26 @@ contradicting the code.
 | **3** | `PreRunPromptSheet` + four render cases, built and inspected **before anything could present it**. Renders caught two defects the source could not (a heading that repeated the question verbatim; a confirmation sized for the full dialog). Footer pinned outside the `ScrollView`. Also: the standing device-pane advice reworded and made unconditional, and the probe's appearance pinned. 6 text mutations + 1 layout mutation the suite could not see. | `b7b67ef` |
 | **4** | `UserDefaults` persistence, per logged-in user, plus the diagnostics "Show pre-run warnings again" control. A key-name test was **agreeing with the rename it was written to prevent** and was fixed. Also fixed the probe's dark mode. 6 mutations, 6 catches — one only by a render. | `2403c80` |
 | **5** | The gate wired: Start raises the dialog, `runBoundedCycle(authorisedBy:)` requires proof it ran. `PreRunWarningLog` — the only durable record that the gate ran, since the sheet cannot be rendered. **Three mutations survive**, all SwiftUI wiring; see below. | `0f5abb2` |
+| **6** | The accessibility audit (NFR-USE-8), never run before on any surface. **Greyscale passes on every status-bearing case in both appearances** — meaning is carried by symbol shape and words, never by tint. Contrast **measured** off rendered pixels with a calibrated sampler, not estimated: headline 13.97:1 light / 12.63:1 dark against status tints at 2.22–2.31:1 light, so the tint is provably decoration. `RunReportPresentation` hoisted out of the view — the colour-alone rule had been held up by a comment no test could reach. 6 mutations, 6 caught. New `devices-unusable` render case for a row that had never been renderable. **Two user decisions taken during it: the seven decorative glyphs hidden, and VoiceOver removed from scope.** | *pending* |
 
-### Open — what increments 6 and 7 must do
+### Increment 6's three findings, kept because they outlive the increment
 
-**Increment 6 — the accessibility audit (NFR-USE-8).** Never run on any surface. Greyscale and
-contrast are now doable headlessly in **both appearances** since the probe fix; **VoiceOver and
-Dynamic Type need a person at the keyboard.**
+1. **Dynamic Type is inert on macOS.** A `dynamicTypeSize` axis was built for the probe and
+   **removed after measuring**: `warnings` at `large` and at `accessibility5` produced byte-identical
+   PNGs. Discriminated before it was believed — a bogus value made the probe refuse (so the argument
+   reached the parse) and a temporary `.opacity()` keyed on the parsed value made the renders diverge
+   (so the modifier reached the hierarchy). The axis was deleted rather than kept, because a lever
+   that looks live and does nothing would let somebody render at `accessibility5`, see no clipping,
+   and conclude the layout is safe. Recorded in `scripts/render-ui.sh`'s header.
+2. **`render-ui.sh`'s height argument is a floor, not a ceiling** — the header had claimed it was
+   simply "the lever". The `metrics*` family returned **2,876 pt** when asked for 460. Centre-crop
+   with `sips -c` instead.
+3. **Light appearance is where contrast is marginal, and it is all system semantic colour.** Faint
+   body text 3.41:1 and status tints 2.22–2.31:1, both under WCAG AA; dark measures 6.61:1 and
+   7.47–8.25:1. **Recorded, not changed** (user decision): the app leverages SwiftUI's built-in
+   styles, which is exactly why it inherits macOS's own "Increase contrast" setting for free, and
+   overriding Apple's palette would break that adaptation to chase a threshold on decoration that
+   carries no meaning.
 
 **Increment 7 — three clean builds, docs, and human confirmation.** Three mutations from increment 5
 are **not caught by the suite** — the authorisation guard, Start wired straight to a run, and the
@@ -102,7 +116,11 @@ changes nothing observable** — with correct wiring nothing reaches it — so i
 *second* defect and is not independently caught.
 
 **The human checklist, written now rather than recalled later.** Needs the app installed and the
-helper re-registered, since any rebuild replaces the embedded helper binary:
+helper re-registered, since any rebuild replaces the embedded helper binary. **Increment 6's one
+remaining keyboard item shares this setup and belongs in the same sitting: Dynamic Type**, checked
+against System Settings ▸ Accessibility ▸ Display ▸ Text size — the pre-run dialog is raised by
+`Run one bounded cycle`, which is disabled until the device is held, so it cannot be reached
+without the helper.
 
 1. **Run one bounded cycle** raises the dialog, and the log shows `pre-run prompt raised`.
 2. **Cancel** issues no run (`run issued: false`).

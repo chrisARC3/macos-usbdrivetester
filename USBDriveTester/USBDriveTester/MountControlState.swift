@@ -64,8 +64,12 @@ nonisolated enum MountControlDirection: Equatable {
         }
     }
 
-    /// Spoken description for VoiceOver, which needs the object as well as the verb
-    /// (NFR-USE-8).
+    /// Spoken description for assistive technology, which needs the object as well as the verb.
+    ///
+    /// **No longer requirement-driven.** This cited NFR-USE-8 until 2026-08-11, when screen-reader
+    /// support was removed from scope (user decision; see that document's amendment). Kept because
+    /// removing a requirement is not a reason to make the product worse at something it already
+    /// does — but nothing verifies it, and no step inherits an obligation to.
     var accessibilityLabel: String {
         switch self {
         case .unmountAll: return "Unmount all volumes on the selected drive"

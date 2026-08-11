@@ -125,7 +125,11 @@ nonisolated struct ReportedDevice: Equatable {
 /// installed artefact, and a run that did not cover its range while recording no failure is not
 /// something the app can classify as either "completed" or "stopped on error". Naming it costs
 /// one case and keeps a wrong claim out of a persisted file.
-nonisolated enum RunReportOutcome: Equatable {
+// `CaseIterable` so a test can assert a property over EVERY outcome rather than over the four
+// somebody remembered to list — added 2026-08-11 for `RunReportPresentationTests`, which checks
+// that no two results are told apart by their tint alone (NFR-USE-8). A hand-written list is how a
+// fifth outcome would arrive uncovered.
+nonisolated enum RunReportOutcome: Equatable, CaseIterable {
 
     /// Every planned chunk was processed and nothing failed.
     ///

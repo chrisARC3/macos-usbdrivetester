@@ -1552,15 +1552,16 @@ Before any run, prominently present the three mandatory warnings and the honest-
    - **Clean pass ≠ healthy (FR-WARN-3):** a clean pass means "no currently-unreadable blocks were found," **not** that the drive is healthy.
 2. **Honest dual-role framing (FR-WARN-4, priority S):** explain that the tool is both a retention refresher and a hard-fault detector, and that degrading-but-still-correctable blocks cannot be detected at the USB block level.
 3. **Presentation (NFR-USE-6):** the honest-framing must be positioned so a clean pass cannot reasonably be read as a health certificate — echo it on the result screen and in the report's outcome wording (Step 10).
-4. **Accessibility, best-effort (NFR-USE-8):** use SwiftUI's built-in accessibility (VoiceOver labels, Dynamic Type, contrast); **never convey pass/fail by color alone** — pair color with text/icon. Full audit is not a v1 gate.
+4. **Accessibility, best-effort (NFR-USE-8):** use SwiftUI's built-in accessibility (Dynamic Type, contrast); **never convey pass/fail by color alone** — pair color with text/icon. Full audit is not a v1 gate. **Screen-reader support is out of scope** — user decision 2026-08-11, see the NFR document's amendment of that date; the colour rule and Dynamic Type are unaffected.
 
 ### Verification Gate (must pass before Step 15)
 - [ ] Pressing Start issues **no run** until Proceed is pressed; Cancel issues none at all. The three warnings appear in that modal on every run **unless the user has suppressed them**.
 - [ ] With the warnings suppressed, Start still raises a confirmation naming the device by **model and USB serial**, and still issues no run until Proceed. **The deliberate act is not suppressible** — shown refusing, not merely shown passing.
 - [ ] Suppression is **per logged-in user** (the app's `UserDefaults`, not the helper's), survives a relaunch, and is reversible from the diagnostics window.
 - [ ] The honest-framing message appears pre-run and on the result/report so a clean pass can't be mistaken for "healthy." **Suppressing the pre-run warnings does not suppress the report's copy.**
-- [ ] Pass/fail is conveyed by text/icon, not color alone (toggle to grayscale and confirm meaning survives).
-- [ ] VoiceOver reads the warnings and result; Dynamic Type scales them.
+- [x] Pass/fail is conveyed by text/icon, not color alone (toggle to grayscale and confirm meaning survives). **Done 2026-08-11**, increment 6: every status-bearing view case rendered in both appearances and converted to greyscale. Four report outcomes carry four distinct glyphs *and* four distinct headlines; the pre-run dialog contains no saturated pixels at all. Contrast measured off the rendered pixels with a calibrated sampler — headline 13.97:1 light / 12.63:1 dark, against status tints at 2.22–2.31:1 light, which is why the words and the symbol are the carriers and the tint is decoration.
+- [ ] Dynamic Type: every string uses a semantic text style rather than a fixed point size — **verified 2026-08-11** (81 semantic sites; the only two fixed sizes are decorative SF Symbols). What remains is a person confirming behaviour against System Settings ▸ Accessibility ▸ Display ▸ Text size: **macOS does not honour `DynamicTypeSize` programmatically** (measured and discriminated 2026-08-11, see `scripts/render-ui.sh`'s header), so the system setting is the only lever and this cannot be checked headlessly.
+- **VoiceOver is out of scope** — user decision 2026-08-11. Removed from this gate rather than left unticked, because an unticked box reads as work outstanding. See the NFR document's amendment of that date.
 - [ ] Both dialog variants are confirmed **by a person** to actually present in the shipped app — a sheet cannot be captured by `scripts/render-ui.sh`. Their layout is verified headlessly beforehand via their own `render-ui.sh` view cases; only *presentation* needs the keyboard.
 
 ### Risks / gotchas

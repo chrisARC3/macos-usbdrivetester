@@ -408,6 +408,86 @@ private final class UnmountedDeviceSource: DeviceSource {
     func stopObserving() {}
 }
 
+/// A device source reporting one usable drive and **one per geometry problem**.
+///
+/// Added 2026-08-11 by Step 14's accessibility audit, which could not otherwise look at the row a
+/// user meets exactly when something is already wrong with their hardware. `isSelectable` is false
+/// only when `geometryProblem != nil`, and no drive on this machine has one — so the unusable row's
+/// distinct icon, its dimmed tint and its "Unusable" badge had **never been rendered in either
+/// appearance**, and could not be. The same argument as `EmptyDeviceSource` and
+/// `UnmountedDeviceSource`: a state this machine cannot produce is still a state that ships.
+///
+/// A usable drive is listed **first**, deliberately, for two reasons. FR-DEV-3 default-selects the
+/// first usable device, so this keeps the selection where a real machine would put it rather than
+/// rendering an edge case of the selection policy at the same time. And the audit's actual question
+/// is comparative — *can these two rows be told apart with no colour at all* — which needs both
+/// rows in one image.
+///
+/// All three causes are present because they take different paths through `geometryProblem` and
+/// each produces its own description; one of them would leave the other two unrendered.
+private final class UnusableDeviceSource: DeviceSource {
+    func enumerateDevices() -> [DiscoveredDevice] {
+        [
+            // Usable, for contrast. The scratch device's real shape.
+            DiscoveredDevice(registryEntryID: 4_294_967_301,
+                             bsdName: BSDDeviceName("disk10"),
+                             vendorName: "Samsung",
+                             productName: "Portable SSD T5",
+                             mediumType: "Solid State",
+                             sizeBytes: 1_000_204_886_016,
+                             logicalBlockSize: 512,
+                             mountedVolumeNames: ["Test_Drive"],
+                             mountedVolumeBSDNames: ["disk10s1"],
+                             usbSerialNumber: "12345686DAA9"),
+            // `.unsupportedBlockSize` — 520-byte sectors, which some enclosures still report.
+            DiscoveredDevice(registryEntryID: 4_294_967_302,
+                             bsdName: BSDDeviceName("disk11"),
+                             vendorName: "Generic",
+                             productName: "USB Bridge",
+                             mediumType: "Rotational",
+                             sizeBytes: 500_107_862_016,
+                             logicalBlockSize: 520,
+                             mountedVolumeNames: [],
+                             mountedVolumeBSDNames: [],
+                             usbSerialNumber: "FIXTURE-BLOCKSIZE"),
+            // `.noCapacity` — a bridge that enumerates with no medium behind it.
+            DiscoveredDevice(registryEntryID: 4_294_967_303,
+                             bsdName: BSDDeviceName("disk12"),
+                             vendorName: "Generic",
+                             productName: "Card Reader",
+                             mediumType: nil,
+                             sizeBytes: 0,
+                             logicalBlockSize: 512,
+                             mountedVolumeNames: [],
+                             mountedVolumeBSDNames: [],
+                             usbSerialNumber: "FIXTURE-NOCAPACITY"),
+            // `.sizeNotBlockAligned` — a capacity that is not a whole number of blocks.
+            DiscoveredDevice(registryEntryID: 4_294_967_304,
+                             bsdName: BSDDeviceName("disk13"),
+                             vendorName: "Generic",
+                             productName: "Flash Drive",
+                             mediumType: "Solid State",
+                             sizeBytes: 64_000_000_001,
+                             logicalBlockSize: 512,
+                             mountedVolumeNames: [],
+                             mountedVolumeBSDNames: [],
+                             usbSerialNumber: "FIXTURE-UNALIGNED"),
+        ]
+    }
+    func startObserving(onChange: @escaping () -> Void) {}
+    func stopObserving() {}
+}
+
+/// `DeviceListView` showing usable and unusable drives together (NFR-USE-8).
+private struct UnusableDeviceListHost: View {
+    @State private var discovery = DeviceDiscovery(source: UnusableDeviceSource())
+    var body: some View {
+        DeviceListView(discovery: discovery, helper: HelperConnection())
+            .environment(AppModel())
+            .onAppear { discovery.start() }
+    }
+}
+
 /// `DeviceListView` showing a drive with nothing mounted.
 private struct UnmountedDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: UnmountedDeviceSource())
@@ -542,6 +622,8 @@ func makeRootView(_ name: String) -> NSView {
         // The standing backup advice must appear on a drive with **nothing mounted** — it stopped
         // being conditional on 2026-08-10 and no drive on this machine can show that.
         return NSHostingView(rootView: UnmountedDeviceListHost())
+    case "devices-unusable":
+        return NSHostingView(rootView: UnusableDeviceListHost())
 
     // Step 14. The pre-run dialog, in each of its forms.
     case "warnings":

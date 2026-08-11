@@ -159,7 +159,12 @@ struct HelperDiagnosticsView: View {
         Section("Helper registration") {
             LabeledContent("Status") {
                 HStack(spacing: 6) {
+                    // Decorative. `statusName` beside it states the same thing in words, so
+                    // leaving the glyph in the accessibility tree announces the status twice —
+                    // once as a symbol name nobody asked for. Marked hidden across all seven such
+                    // sites on 2026-08-11; the words are the content, the symbol is reinforcement.
                     Image(systemName: registration.statusSymbolName)
+                        .accessibilityHidden(true)
                     Text(registration.statusName).bold()
                 }
             }
@@ -683,7 +688,9 @@ struct HelperDiagnosticsView: View {
     private func resultRow(_ result: ActionResult?) -> some View {
         if let result {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
+                // Decorative — `result.message` carries the outcome in words.
                 Image(systemName: result.ok ? "checkmark.circle.fill" : "xmark.octagon.fill")
+                    .accessibilityHidden(true)
                 Text(result.message)
                     .font(.callout)
                     .textSelection(.enabled)

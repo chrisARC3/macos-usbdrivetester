@@ -83,7 +83,7 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-USE-5 | Error messages shall be specific and actionable, naming the actual cause and the corrective step (e.g., which volume to unmount, or that the device node is claimed). | M | FR-SAFE-4; FR-DEV-8 |
 | NFR-USE-6 | The honest-framing messaging shall be presented such that a clean pass cannot reasonably be mistaken for a health certificate. | M | PB What the Test Does and Does Not Prove; FR-WARN-3/4 |
 | NFR-USE-7 | The exported Markdown report shall be well-structured and human-readable (headings, a clear pass/fail outcome, and tabulated bad-block ranges and statistics). | S | FR-RPT-5 |
-| NFR-USE-8 | The GUI should follow macOS accessibility expectations on a best-effort basis — leveraging SwiftUI's built-in accessibility (VoiceOver labels, Dynamic Type, sufficient color contrast) and, in particular, never conveying pass/fail status by color alone. A full accessibility audit is not a v1 release gate. | S | Derived (macOS HIG); user decision 2026-06-25 |
+| NFR-USE-8 | The GUI should follow macOS accessibility expectations on a best-effort basis — leveraging SwiftUI's built-in accessibility (Dynamic Type, sufficient color contrast) and, in particular, never conveying pass/fail status by color alone. A full accessibility audit is not a v1 release gate. **Screen-reader (VoiceOver) support is out of scope — removed 2026-08-11; see Amendments.** | S | Derived (macOS HIG); user decision 2026-06-25; **VoiceOver removed 2026-08-11** |
 
 ## NFR-COMPAT — Platform & Device Compatibility
 
@@ -250,6 +250,45 @@ root, so anything it persisted would be system-wide and would silently apply to 
 machine. Reversible from the Privileged Helper & Diagnostics window — a setting with no way back is
 one the user cannot undo without editing a plist.
 
+---
+
+### 2026-08-11 — NFR-USE-8: screen-reader (VoiceOver) support removed from scope
+
+**Trigger.** User decision, 2026-08-11, given during Step 14's accessibility audit (increment 6) and
+before that increment's keyboard session was run. **The instruction was to remove the requirement;
+no rationale was given, and none is invented here.** What follows records the effect.
+
+**What changed.** NFR-USE-8 no longer asks for VoiceOver labels, and the product makes **no claim to
+work with a screen reader**. Nothing about VoiceOver is verified, and no gate depends on it.
+BUILD-PLAN Step 14's detailed step 4 and its Verification Gate both named VoiceOver; both are
+rewritten rather than left standing beside a requirement that no longer says it — the same treatment
+the 2026-08-09 entry gave the two places that contradicted the suppression decision.
+
+**What did NOT change, and it is most of the requirement.** NFR-USE-8's absolute — *never convey
+pass/fail status by colour alone* — is untouched, and so is Dynamic Type and colour contrast. That
+absolute is the half with a v1 gate behind it, and it was **audited and passed on 2026-08-11**
+across every status-bearing surface in both appearances, by rendering each one and converting it to
+greyscale. It is also now the only part of NFR-USE-8 with a test behind it
+(`RunReportPresentationTests`, six mutations, six caught).
+
+**Accessibility code already in the app is kept, and that is deliberate.** Removing a requirement is
+not a reason to make the product worse at something it already does. What remains:
+
+- Seven decorative glyphs marked `.accessibilityHidden(true)` (2026-08-11) — they duplicate adjacent
+  text, so exposing them was noise either way.
+- The device row's combined element and spoken label, and `MountControlState.accessibilityLabel`.
+- `DeviceListView`'s use of a real `List` rather than a hand-drawn one, which keeps ↑/↓ keyboard
+  navigation as well as screen-reader semantics. **Keyboard navigation is not affected by this
+  amendment** and remains a reason that choice stands.
+
+These are retained voluntarily and are no longer requirement-driven, so nothing needs to verify
+them and no future step inherits an obligation to.
+
+**What this costs, stated rather than discovered later.** A blind or low-vision user cannot be told
+this tool works for them, and if that is ever revisited the work is larger than re-adding a line to
+this table: it would need the audit this amendment cancels, on every surface, with a person at the
+keyboard each time.
+
 ## Assumptions
 
 - This is a **single-user, single-host desktop tool**; multi-user concurrency, networked operation, and high-availability/service-uptime requirements are not applicable.
@@ -261,6 +300,7 @@ one the user cannot undo without editing a plist.
 - **SMART/NVMe-derived health metrics** as a quality signal — excluded with the functional feature (USB-to-SATA SAT pass-through unreliability). — *ADR Telemetry sub-decision*
 - **Throughput-optimizing pipelined I/O** — the first release accepts serialized-I/O runtimes; pipelining is a later optimization. — *ADR Trade-off Analysis*
 - **Localization / internationalization** — English-only for v1; no translation infrastructure. — *user decision 2026-06-25*
+- **Screen-reader (VoiceOver) support** — the GUI is not required to work with a screen reader, and no VoiceOver behaviour is verified. The rest of NFR-USE-8 (never pass/fail by colour alone, Dynamic Type, contrast) is unaffected. — *user decision 2026-08-11; see Amendments*
 
 ## Open Questions (to resolve during iteration)
 

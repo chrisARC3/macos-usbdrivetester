@@ -32,12 +32,26 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of: content (default, the whole window), content-quitting, devices,
-#   diagnostics, diagnostics-held, diagnostics-quitting, empty, metrics, metrics-idle,
-#   report, report-empty, report-failures, report-qualified, report-stopped,
-#   report-unidentified, devices-unmounted, diagnostics-warnings-suppressed, warnings,
-#   warnings-ticked, warnings-confirm,
-#   warnings-unidentified.
+# `view` is one of the 24 cases below, grouped by family so the list can be counted against
+#   `makeRootView` in tools/ui-probe/main.swift. `diagnostics-stop-on-error` and `metrics-finished`
+#   were missing here until 2026-08-11 — the probe had them, this list did not.
+#     content              content-quitting
+#     devices              devices-unmounted    devices-unusable           empty
+#     diagnostics          diagnostics-held     diagnostics-stop-on-error
+#                          diagnostics-warnings-suppressed                 diagnostics-quitting
+#     metrics              metrics-finished     metrics-idle
+#     report               report-empty         report-failures
+#                          report-qualified     report-stopped             report-unidentified
+#     warnings             warnings-ticked      warnings-confirm           warnings-unidentified
+#
+#   THREE OF THESE RENDER A STATE THIS MACHINE CANNOT PRODUCE, and each exists because a state
+#   nobody can observe is a state nobody has checked:
+#     * `empty`            — no drives attached (one of them holds the source tree)
+#     * `devices-unmounted`— a drive with no mounted volumes
+#     * `devices-unusable` — added 2026-08-11 by Step 14's accessibility audit. `isSelectable` is
+#       false only when `geometryProblem != nil`, so the unusable row's icon, dimming and
+#       "Unusable" badge had never been rendered at all. Lists a usable drive first (FR-DEV-3
+#       selects it, as on a real machine) then one drive per geometry problem.
 # The `warnings*` views are Step 14's pre-run dialog. It ships as a SwiftUI **sheet**, which
 #   gets its own window and can therefore never be captured *in place* — so it is written as a
 #   standalone view precisely so these renders can exist. They check its layout; a person still
@@ -52,6 +66,16 @@
 #   repeatedly during Step 14 — is waste with no upside. The height argument is the lever: find the
 #   section once with a tall render, then iterate at the smallest height that still contains it.
 #
+#   BUT THE HEIGHT ARGUMENT IS A FLOOR, NOT A CEILING (measured 2026-08-11, correcting the
+#   paragraph above, which had claimed it was simply "the lever"). The capture is of the hosting
+#   view's own bounds, and `NSHostingView` sizes itself to its content — so a view with no
+#   intrinsic height cap ignores the number entirely and renders as tall as it wants. Asking the
+#   `metrics*` family for 460 pt returned **2,876 pt**, with the content in a narrow band and
+#   emptiness above and below; `report-empty` asked for 400 and got 560. The `report*`,
+#   `warnings*`, `devices*` and `diagnostics*` families do honour it.
+#   When a family ignores the height, centre-crop with `sips -c <h> <w>` (see below) rather than
+#   re-rendering at a smaller number that will be ignored again.
+#
 #   Renders are 1x, so pixel coordinates equal point coordinates.
 #
 #   ON CROPPING WITH `sips`, MEASURED 2026-08-11 rather than assumed, because the first version of
@@ -61,6 +85,33 @@
 #       the source, and in one invocation it returned the SOURCE IMAGE UNCHANGED at full size.
 #       **Neither failure reports an error** — you get a plausible-looking PNG of the wrong thing,
 #       which is the one output an instrument must never produce. Do not build a check on it.
+#
+# NFR-USE-8's DYNAMIC TYPE HALF IS NOT CHECKABLE HERE. MEASURED 2026-08-11, NOT ASSUMED.
+#   A sixth `dynamicTypeSize` argument was built for exactly this, and then removed. Rendering
+#   `warnings` at `large` and at `accessibility5` produced BYTE-IDENTICAL PNGs — same MD5.
+#
+#   That result was discriminated before it was believed, because an identical render has at least
+#   three causes and only one of them is "macOS ignores it":
+#     * Passing a bogus size made the probe REFUSE with exit 2 → the argument reaches the parse.
+#     * A temporary `.opacity()` keyed on the parsed value made the two renders DIVERGE, and the
+#       `large` render stayed byte-identical to the pre-mutation one → the modifier reaches the
+#       hierarchy, the two runs genuinely hold different values, and the harness is stable.
+#   So macOS 26 does not resolve SwiftUI system fonts through `DynamicTypeSize` inside an
+#   `NSHostingView`. The modifier compiles, applies, and changes nothing.
+#
+#   THE AXIS WAS REMOVED RATHER THAN KEPT. A lever that looks live and does nothing would let
+#   somebody render at `accessibility5`, see no clipping, and conclude the layout is safe under
+#   large text — the same wrong conclusion, from the same instrument, as the 2026-08-10 appearance
+#   bug. Do not rebuild it without re-measuring first.
+#
+#   What IS established without a keyboard: every string in the app uses a SEMANTIC text style, so
+#   there is no hard-coded text size to fail to scale. Re-derive with
+#     grep -rn --include='*.swift' 'system(size:' USBDriveTester/USBDriveTester
+#   which on 2026-08-11 returned two hits, both DECORATIVE SF Symbols (the empty-state drive glyph
+#   and the report window's header icon), and no text.
+#
+#   macOS's actual user-facing control is System Settings > Accessibility > Display > Text size,
+#   which is system-wide. Confirming the app responds to it needs a person, and always will.
 #
 # Defaults to /tmp so renders never land in the repo.
 #

@@ -282,7 +282,9 @@ struct RunMetricsView: View {
     /// "nothing is under way" would read as the result having been lost.
     private var idlePlaceholder: some View {
         HStack(spacing: 6) {
+            // Decorative — the paragraph beside it is the whole content.
             Image(systemName: "info.circle")
+                .accessibilityHidden(true)
             Text("Measurements appear here while a run is under way. When one finishes, its "
                + "results — including the bad-block list — open in the Run Report window, "
                + "where they can be exported.")

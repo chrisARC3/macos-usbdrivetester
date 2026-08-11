@@ -391,9 +391,11 @@ struct DeviceListView: View {
 
     private var emptyState: some View {
         VStack(spacing: 8) {
+            // Decorative — "No USB drives connected" below says it.
             Image(systemName: "externaldrive.badge.questionmark")
                 .font(.system(size: 28))
                 .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
             Text("No USB drives connected")
                 .font(.headline)
             Text("""
@@ -456,8 +458,13 @@ struct DeviceListView: View {
         return parts.joined(separator: " · ")
     }
 
-    /// Spoken as one phrase rather than as five separate fragments, and it says
-    /// "unusable" in words rather than relying on the badge (NFR-USE-8).
+    /// Spoken as one phrase rather than as five separate fragments, and it says "unusable" in words
+    /// rather than relying on the badge.
+    ///
+    /// Screen-reader support left scope on 2026-08-11 (user decision; NFR document, amendment of
+    /// that date), so this is retained voluntarily rather than required. The *visual* half of the
+    /// same idea — the badge saying "Unusable" in words beside a distinct icon — is still
+    /// NFR-USE-8's colour rule, and is rendered by the `devices-unusable` probe case.
     private func accessibilityLabel(for device: DiscoveredDevice) -> String {
         var label = "\(device.bsdName), \(device.modelDescription), "
                   + "\(device.capacityDescription)"
@@ -508,7 +515,9 @@ struct DeviceListView: View {
                 // The selected device has to be unmistakable — this is the line that
                 // stands between the user and testing the wrong drive (NFR-USE-3).
                 HStack(spacing: 6) {
+                    // Decorative section marker, not a status — hidden so it is not read as one.
                     Image(systemName: "checkmark.circle.fill")
+                        .accessibilityHidden(true)
                     Text("Selected device")
                         .font(.headline)
                 }
@@ -590,7 +599,9 @@ struct DeviceListView: View {
     private func safetySection(for device: DiscoveredDevice?) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
+                // Decorative section marker.
                 Image(systemName: "lock.shield")
+                    .accessibilityHidden(true)
                 Text("Mounting & exclusive access")
                     .font(.headline)
             }

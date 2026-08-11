@@ -86,9 +86,11 @@ struct RunReportView: View {
     /// is. The same lesson as the metrics panel's idle placeholder in Step 9.
     private var emptyState: some View {
         VStack(spacing: 12) {
+            // Decorative — "No run has finished yet" below says it.
             Image(systemName: "doc.text")
                 .font(.system(size: 40))
                 .foregroundStyle(.tertiary)
+                .accessibilityHidden(true)
             Text("No run has finished yet")
                 .font(.headline)
             Text("""
@@ -390,19 +392,22 @@ struct RunReportView: View {
     /// Pass/fail conveyed by **icon and text**, never by colour alone (NFR-USE-8). The tint is an
     /// addition to a distinguishable symbol, not the carrier of the meaning — the headline above
     /// says it in words regardless.
-    private func iconName(_ report: RunReport) -> String {
-        if report.verifyResultIsQualified { return "questionmark.circle.fill" }
-        switch report.outcome {
-        case .completedClean:        return "checkmark.circle.fill"
-        case .completedWithFailures: return "exclamationmark.triangle.fill"
-        case .stoppedOnError:        return "stop.circle.fill"
-        case .incomplete:            return "exclamationmark.circle.fill"
-        }
+    ///
+    /// The decision itself moved to `RunReportPresentation` on 2026-08-11 so a test could reach it;
+    /// see that file for why. What is left here is the one thing that genuinely needs SwiftUI:
+    /// turning a meaning into a colour.
+    private func presentation(_ report: RunReport) -> RunReportPresentation {
+        RunReportPresentation.forResult(outcome: report.outcome,
+                                        verifyResultIsQualified: report.verifyResultIsQualified)
     }
 
+    private func iconName(_ report: RunReport) -> String { presentation(report).symbolName }
+
     private func iconTint(_ report: RunReport) -> Color {
-        if report.verifyResultIsQualified { return .orange }
-        return report.outcome.foundFailures || report.outcome == .incomplete ? .orange : .green
+        switch presentation(report).tint {
+        case .affirmative: return .green
+        case .cautionary:  return .orange
+        }
     }
 
 }
