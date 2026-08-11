@@ -203,5 +203,5 @@ Fixture built. EFI is partition 1 and should be UNMOUNTED — that is the trap t
 rollback must not spring.
 
 Next: launch /Applications/USBDriveTester.app, select this drive (serial $SERIAL),
-and run the three cases in PROGRESS.md, "Step 10 — the unmount rollback, verified".
+and run the three cases in progress/step-10.md, "the unmount rollback, verified".
 EOF

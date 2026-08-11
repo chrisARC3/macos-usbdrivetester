@@ -579,7 +579,7 @@ request is not the request having had its intended effect.**
 >
 > Recorded here because the broad statement above is what a reader would otherwise act on, and it
 > would lead them to build the re-read loop and stop — which is precisely what happened. Full
-> account in `PROGRESS.md`, "Step 10 — the unmount rollback, verified (2026-08-09)"; the fix is
+> account in `progress/step-10.md`, "the unmount rollback, verified (2026-08-09)"; the fix is
 > commit `9d1f3d3`. FR-SAFE-1/2/3 and NFR-REL-3 were never at risk: the helper evaluates
 > `DeviceAccessPrecondition` independently on the acquire path and refuses with `volumesMounted`,
 > which is what kept this a wrong message rather than an incident. **Keep that independence.**

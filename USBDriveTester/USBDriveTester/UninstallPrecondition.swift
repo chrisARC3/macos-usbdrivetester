@@ -23,7 +23,7 @@
 //  — never as a refusal. A privileged root daemon that cannot be uninstalled is a
 //  worse place to leave the user than the risk of tearing down an idle helper we
 //  could not reach. This asymmetry is deliberate; see the decision record in
-//  PROGRESS.md, Step 4.
+//  progress/step-04.md.
 //
 
 import Foundation

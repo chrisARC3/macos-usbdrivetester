@@ -47,6 +47,21 @@
 # Rendering a sub-view matters once one is behind a disclosure — the composition root
 # cannot show it, and compiling is not evidence that it lays out.
 #
+# RENDER ONLY AS TALL AS YOU NEED (2026-08-11). A render is read by a person or by an agent and
+#   both pay for the whole image. Rendering 1800 pt to inspect a 200 pt section — which happened
+#   repeatedly during Step 14 — is waste with no upside. The height argument is the lever: find the
+#   section once with a tall render, then iterate at the smallest height that still contains it.
+#
+#   Renders are 1x, so pixel coordinates equal point coordinates.
+#
+#   ON CROPPING WITH `sips`, MEASURED 2026-08-11 rather than assumed, because the first version of
+#   this note shipped a recipe that did not work:
+#     * `sips -c <height> <width>` CENTRE-crops and is reliable. Use it when the region is central.
+#     * `--cropOffset <y> <x>` IS NOT RELIABLE. It was observed ignored when the crop fits inside
+#       the source, and in one invocation it returned the SOURCE IMAGE UNCHANGED at full size.
+#       **Neither failure reports an error** — you get a plausible-looking PNG of the wrong thing,
+#       which is the one output an instrument must never produce. Do not build a check on it.
+#
 # Defaults to /tmp so renders never land in the repo.
 #
 set -euo pipefail

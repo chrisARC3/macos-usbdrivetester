@@ -14,6 +14,23 @@ test target fixed to the designated scratch device with disk images removed as a
 - [Functional Requirements](functional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 - [Non-Functional Requirements](nonfunctional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
+### Where everything lives (documentation split 2026-08-11)
+
+`PROGRESS.md` had reached 7,156 lines — a log a cold start was explicitly told not to read, which
+meant the facts that still bind the work were buried in narratives nobody could safely open. Split
+into four:
+
+| file | what it is | read it |
+|---|---|---|
+| **[CONSTRAINTS.md](CONSTRAINTS.md)** | what binds future work — measured behaviour, settled decisions, the lessons | **in full, every session** |
+| **BUILD-PLAN.md** (this file) | the plan, the per-step gates, the process gotchas, the test hardware | the current step, plus "Working on this project" |
+| **[PROGRESS.md](PROGRESS.md)** | the step in progress, and only that | at the start of a step |
+| `progress/step-NN.md` | archived per-step history | only for *"why was it done that way?"* |
+
+**The full account of an increment now goes in its commit message**, with `PROGRESS.md` carrying a
+summary and the hash. Writing it twice at length produced two long prose accounts of one increment
+that could drift; the commit is the immutable, greppable one.
+
 ---
 
 ## How to use this plan
@@ -35,7 +52,7 @@ The ADR lists action items by topic, not by dependency. Three deliberate re-orde
 
 ### Working on this project: the things that have cost time (consolidated 2026-08-06)
 
-Each of these was learned the expensive way and, until now, lived only in a `PROGRESS.md` entry
+Each of these was learned the expensive way and, until 2026-08-06, lived only in a step-log entry
 that a cold start is explicitly told not to read end to end. They are collected here because they
 are **process**, not history.
 
@@ -119,7 +136,7 @@ Before a step's gate is considered passed:
 - Any logic added in this step that *can* be unit-tested **is** unit-tested (NFR-MAINT-2).
 - The privileged/unprivileged trust boundary is respected: no raw I/O outside the helper (FR-ARCH-6, NFR-SEC-1).
 - New significant events are emitted via `os_log` (NFR-OBS-1) — see Step 15.
-- A one-paragraph note is recorded (commit message or a `PROGRESS.md`) describing what was verified and how.
+- A one-paragraph note is recorded describing what was verified and how. **Since 2026-08-11 the full account goes in the commit message**, and `PROGRESS.md` carries a summary plus the hash — two long prose accounts of one increment are two things that can drift.
 
 ### Version control convention (recorded 2026-08-02, user decision)
 
@@ -281,10 +298,10 @@ simulation-first still applies wherever the plan calls for it.
 > 0 failures**, protocol **v9**. **One fix — the unmount rollback — is installed but has not been
 > verified by the user, and nothing should be committed before it is.**
 >
-> **Read `PROGRESS.md`, "Step 10 — STATE AT SESSION END", first.** It is written for a cold start
+> **Read `progress/step-10.md` first.** It is written for a cold start
 > and says what is done, what is unverified, and what to do next. Step 10's scoping decisions are
 > also summarised at the head of Step 10 below. The authoritative state — including what each gate
-> actually discharged and what it deliberately did not — is `PROGRESS.md`; this table is the map,
+> actually discharged and what it deliberately did not — is `progress/step-10.md`; this table is the map,
 > not the tracker.
 
 | Step | AI | Title | Primarily on | Gate in one line |
@@ -339,7 +356,7 @@ Create the Xcode project containing two products — an unprivileged SwiftUI app
 - [ ] The built `.app` bundle contains the helper executable **and** `Contents/Library/LaunchDaemons/<helper-id>.plist`, and the plist's `Label`, `BundleProgram`, and `MachServices` are internally consistent and match the helper id.
 - [ ] The GUI launches and shows its window.
 - [ ] The "Ping helper" round-trip returns `"pong"` (helper may be launched manually for this step).
-- [ ] `git` repo initialized/committed; a `PROGRESS.md` note records the verification.
+- [ ] `git` repo initialized/committed; a progress note records the verification.
 
 ### Risks / gotchas
 - The Mach service name, plist `Label`, and `SMAppService.daemon(plistName:)` argument must be **identical**. Decide the string now and never change it casually.
@@ -928,7 +945,7 @@ Also discharged, and not asked for by the wording above:
 With the gate passed, the user reviewed the running app and raised a series of UI defects and one
 product-design change. Asked whether to commit Step 9 first or fold the work in, the user chose
 **fold in** — so Step 9's commit covers the metrics work *and* this. The full record is in
-PROGRESS.md, "Step 9 — UI work folded in after the gate"; what follows is what the plan needs.
+`progress/step-09.md`, "the UI work folded in after the gate"; what follows is what the plan needs.
 
 **Delivered, in five increments.** A `ui-probe` view that had silently rendered the wrong state
 since it was written; the device list focused on launch, with its Refresh button removed; merged
@@ -989,7 +1006,7 @@ Recorded rather than silently edited, so the delta from the plan as written is a
 ## Step 10 — Failure modes + end-of-run bad-block report + Markdown export
 
 > **Scoping decisions, 2026-08-06 (user), taken before any code was written.** Full record in
-> `PROGRESS.md`, "Step 10 — scoping and authoring log".
+> `progress/step-10.md`.
 >
 > 1. **The final figures come back in `runRetentionCycle`'s own reply — protocol v9.** They are
 >    not there today (see the correction below), and the alternative was to poll `runProgress`
@@ -1328,7 +1345,7 @@ Implement the explicit run-control state machine with legal-transition enforceme
 > **A REAL DEVICE LOSS HAPPENED DURING STEP 10'S HARDWARE GATE (2026-08-06), AND IT SHOWS WHAT
 > THIS STEP IS ACTUALLY FOR.** Not a simulation, not a fault hook — the scratch device
 > de-enumerated part-way through `retention-cycle-check.sh`'s pre-run fingerprint. Full log in
-> `PROGRESS.md`, increment 6.
+> `progress/step-10.md`, increment 6.
 >
 > **What the helper saw:** `errno 6` — `ENXIO`, *"Device not configured"* — on every read from
 > that moment, **including offset 0**. That is the exact signal detailed step 1 names. A bad block
@@ -1473,7 +1490,7 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 > the explicit unmount is gated on this step and not merely sequenced after it.
 
 > **SCOPED 2026-08-09 — seven user decisions, taken before a line was written, and one of them
-> changes this step's own gate.** Full account in `PROGRESS.md`, "Step 14 — scoping and authoring
+> changes this step's own gate.** Full account in `PROGRESS.md` (this step is the one in progress; see "Step 14 — scoping and authoring
 > log"; the requirement change is in the NFR document's 2026-08-09 entry (NFR-USE-4 qualified) and
 > the FR document's (FR-WARN-1 qualified; FR-WARN-2/3/4 examined and unaffected).
 >
@@ -1729,4 +1746,4 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 2. **Simulate before you touch hardware.** Steps 2, 7, 8, 9, 10, 12 all have an in-memory verification *before* the real-device verification. Never debug the algorithm on a drive you can't afford to lose.
 3. **Always test on the designated scratch device** (serial `12345686DAA9`) for any real-hardware step. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise. Disk images are **not** an alternative — discovery excludes them by design, and they lack the USB bridge, block device and NAND this tool exists to exercise (amended 2026-08-01).
 4. **The trust boundary is sacred.** Raw I/O only ever happens in the helper; the GUI never elevates. Re-confirm this at every step that adds helper code.
-5. **Record what you verified.** A one-paragraph note per step (in `PROGRESS.md` or the commit) keeps the deliberate pace auditable.
+5. **Record what you verified.** The full account goes in the commit message; `PROGRESS.md` keeps a summary and the hash. That keeps the deliberate pace auditable without writing it twice.
