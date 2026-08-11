@@ -56,12 +56,13 @@
 //
 
 import Foundation
+import os
 
 /// Which dialog a Start press must put in front of the user.
 ///
 /// Both cases carry the drive, because both must name it. The suppressed case has nothing else to
 /// say, so if it did not name the drive it would say nothing at all.
-nonisolated enum PreRunPrompt: Equatable {
+nonisolated enum PreRunPrompt: Equatable, Identifiable {
 
     /// FR-WARN-1/2/3 in full, plus FR-WARN-4's framing, plus the "Don't show this warning again"
     /// checkbox. Proceed / Cancel.
@@ -77,6 +78,14 @@ nonisolated enum PreRunPrompt: Equatable {
         switch self {
         case .fullWarnings(let device), .briefConfirmation(let device): return device
         }
+    }
+
+    /// For `sheet(item:)`, which needs an identity to decide when a *different* prompt is being
+    /// presented. Both halves matter: the form, so suppressing the text mid-session re-presents the
+    /// right dialog, and the drive, so a prompt raised for one drive is never reused for another —
+    /// the identity the whole acknowledgement is about.
+    var id: String {
+        "\(logName)|\(device.usbSerialNumber ?? device.modelDescription)"
     }
 
     /// For the log, so which dialog the user was shown is recoverable after the fact.
@@ -145,6 +154,63 @@ nonisolated enum PreRunWarningPolicy {
         let issuesRun = button == .proceed && mayIssueNewWork
         return PreRunOutcome(issuesRun: issuesRun,
                              persistsSuppression: suppressionRequested && issuesRun)
+    }
+}
+
+// MARK: - The log
+
+private nonisolated let warningLog = Logger(subsystem: HelperIdentity.loggingSubsystem,
+                                            category: "safety")
+
+/// What happened at the gate between pressing Start and a write (NFR-OBS-1).
+///
+/// ## Why this exists at all, and why it is not optional politeness
+///
+/// This surface **cannot be captured by `scripts/render-ui.sh`** — a SwiftUI sheet gets its own
+/// window — so "did a dialog appear" is a question only a person can answer. That makes the log the
+/// only durable record that the gate ran. Step 10 spent two of five rounds on a control whose
+/// message was correct and whose route was invisible, and the thing that finally separated *never
+/// produced* from *produced and never seen* was a log line.
+///
+/// It is also what catches the one defect this step's design cannot make unrepresentable: a Start
+/// control wired **straight to the run**, skipping the dialog. `PreRunPrompt` has no "no dialog"
+/// case, so that state cannot be expressed inside the decision — but a call site can always just
+/// not ask. If it does, **no line is emitted here**, and the absence is the signal.
+nonisolated enum PreRunWarningLog {
+
+    /// A run was requested and the gate raised a dialog.
+    static func promptRaised(_ prompt: PreRunPrompt) {
+        warningLog.notice("""
+                          pre-run prompt raised: \(prompt.logName, privacy: .public); \
+                          drive serial \(prompt.device.usbSerialNumber ?? "none", privacy: .public)
+                          """)
+    }
+
+    /// The dialog was dismissed, and what that decided.
+    ///
+    /// Both consequences are logged rather than only the run, because "the user proceeded" and "a
+    /// run was issued" are **different facts** — a quit pending between the two makes them differ,
+    /// and a log that conflated them would answer the wrong question afterwards.
+    static func dismissed(_ button: PreRunButton, outcome: PreRunOutcome) {
+        warningLog.notice("""
+                          pre-run prompt dismissed: \(String(describing: button), privacy: .public); \
+                          run issued: \(outcome.issuesRun, privacy: .public); \
+                          suppression recorded: \(outcome.persistsSuppression, privacy: .public)
+                          """)
+    }
+
+    /// The gate could not name the drive it was about to warn for.
+    ///
+    /// Reachable only if the app believes a device is held while holding no record of which — the
+    /// `helperHoldsDevice` per-device/any-device ambiguity BUILD-PLAN Step 11 is documented as
+    /// deleting. The dialog still appears, naming what it can and admitting what it cannot, because
+    /// refusing silently would be a button that does nothing. Logged so the inconsistency is
+    /// visible rather than absorbed by a fallback that reads as normal.
+    static func promptRaisedForAnUnnamedDrive() {
+        warningLog.error("""
+                         pre-run prompt raised with no held-device record — the app believes a \
+                         device is held but cannot say which
+                         """)
     }
 }
 

@@ -109,7 +109,26 @@ struct HelperDiagnosticsView: View {
     /// The drive the run is on, captured when the claim was taken (`AppModel.lastRunDevice`).
     var reportedDevice: ReportedDevice?
 
+    /// The drive the helper holds **now** (`AppModel.heldDevice`) — the one a run would be on.
+    ///
+    /// Distinct from ``reportedDevice``, which is the *previous* run's and is what the report is
+    /// about. The pre-run dialog names the drive that is about to be written to, so it must not use
+    /// the one that already was.
+    var heldDevice: ReportedDevice?
+
     @State private var cycleResult: ActionResult?
+
+    /// The dialog Start raised, or `nil` when none is up (Step 14, increment 5).
+    @State private var pendingPrompt: PreRunPrompt?
+
+    /// The suppression checkbox's state **while the dialog is open**.
+    ///
+    /// Deliberately *not* bound to `warningsSuppressed`. Binding the checkbox straight to the
+    /// persisted value would record the preference the instant it was ticked — including for a user
+    /// who then presses **Cancel**, which `PreRunWarningPolicy.outcome` exists to prevent: the
+    /// preference is recorded only by a run that actually starts. Reset every time the dialog is
+    /// raised.
+    @State private var suppressionRequested = false
 
     var body: some View {
         Form {
@@ -122,6 +141,16 @@ struct HelperDiagnosticsView: View {
         }
         .formStyle(.grouped)
         .onAppear { registration.refresh() }
+        // FR-WARN-1/2/3 and NFR-USE-4. A sheet rather than an `alert` because decision 5 puts a
+        // `Toggle` in it, which an alert cannot hold. `item:` rather than `isPresented:` so the
+        // prompt and its presentation are one value — two would be a state pair that can disagree,
+        // which is what `OutcomeAlert` was deliberately kept separate from `lastOutcome` to avoid.
+        .sheet(item: $pendingPrompt) { prompt in
+            PreRunPromptSheet(prompt: prompt,
+                              suppressFutureWarnings: $suppressionRequested,
+                              onProceed: { preRunPromptDismissed(.proceed) },
+                              onCancel: { preRunPromptDismissed(.cancel) })
+        }
     }
 
     // MARK: - Registration & removal
@@ -284,7 +313,10 @@ struct HelperDiagnosticsView: View {
                 // Every other control here disables itself and names the corrective step
                 // (FR-SAFE-4, NFR-USE-5); this one stated its precondition in prose and then
                 // looked live. **Prose is not a precondition.**
-                Button("Run one bounded cycle") { runBoundedCycle() }
+                // Raises the pre-run gate (FR-WARN-1/2/3, NFR-USE-4). It does **not** start a run:
+                // `runBoundedCycle(authorisedBy:)` needs a `PreRunOutcome`, which only the dialog's
+                // dismissal produces.
+                Button("Run one bounded cycle") { presentPreRunPrompt() }
                     .disabled(isCalling || cycleIsRunning || !deviceIsHeld || !mayIssueNewWork)
                 if cycleIsRunning {
                     ProgressView().controlSize(.small)
@@ -356,7 +388,68 @@ struct HelperDiagnosticsView: View {
     /// intended range — which the helper would then refuse as over the per-call cap, reporting a
     /// size error for what was really an assumption. The same call yields the negotiated link
     /// speed the metrics panel shows beside measured throughput.
-    private func runBoundedCycle() {
+    // MARK: - The pre-run gate (Step 14, increment 5)
+
+    /// Raise the dialog. **This is the only thing pressing Start does.**
+    private func presentPreRunPrompt() {
+        // Reset before every raise: a checkbox that remembered a previous dialog's tick would
+        // record a preference the user expressed about a run they then cancelled.
+        suppressionRequested = false
+
+        // The button's precondition is `deviceIsHeld`, so a missing record here means the app
+        // believes a device is held without knowing which. The dialog still appears — naming what
+        // it can and admitting what it cannot, which `ReportedDevice.identificationCaveat` already
+        // words — because a button that silently does nothing is the defect this panel was reported
+        // for in Step 9. The inconsistency is logged rather than absorbed.
+        let device: ReportedDevice
+        if let heldDevice {
+            device = heldDevice
+        } else {
+            PreRunWarningLog.promptRaisedForAnUnnamedDrive()
+            device = ReportedDevice(modelDescription: "Unidentified drive",
+                                    usbSerialNumber: nil,
+                                    bsdNameAtRunTime: nil,
+                                    capacityBytes: 0,
+                                    logicalBlockSize: 512)
+        }
+
+        let prompt = PreRunPrompt.forRun(warningsSuppressed: warningsSuppressed, device: device)
+        PreRunWarningLog.promptRaised(prompt)
+        pendingPrompt = prompt
+    }
+
+    /// The dialog was dismissed. Everything that follows from it is decided by
+    /// `PreRunWarningPolicy`, not here — this applies the decision and records it.
+    private func preRunPromptDismissed(_ button: PreRunButton) {
+        let outcome = PreRunWarningPolicy.outcome(button: button,
+                                                  suppressionRequested: suppressionRequested,
+                                                  mayIssueNewWork: mayIssueNewWork)
+        PreRunWarningLog.dismissed(button, outcome: outcome)
+
+        if outcome.persistsSuppression { warningsSuppressed = true }
+        pendingPrompt = nil
+        if outcome.issuesRun { runBoundedCycle(authorisedBy: outcome) }
+    }
+
+    /// Ask for the device's geometry, then run one bounded pass over its first gibibyte.
+    ///
+    /// - Parameter outcome: proof that the pre-run gate ran and the user proceeded.
+    ///
+    /// ## Why it takes an argument it barely uses
+    ///
+    /// `PreRunPrompt` has no "no dialog" case, so *the decision* cannot express skipping the
+    /// warnings. **A call site can always just not ask**, though, and increment 1 recorded that the
+    /// equivalent mutation therefore belongs here. This parameter is what makes that mutation
+    /// conspicuous rather than a one-word edit: wiring Start straight to a run now means
+    /// fabricating a `PreRunOutcome` that claims an acknowledgement which never happened, which is
+    /// a deliberate act visible in a diff instead of a slip. *Prevent, don't detect* — and where
+    /// prevention is not available, at least make the defect expensive to write by accident.
+    ///
+    /// The `guard` is not ceremony either: it is the second half of the same promise, so a
+    /// fabricated outcome that says `issuesRun == false` still issues nothing.
+    private func runBoundedCycle(authorisedBy outcome: PreRunOutcome) {
+        guard outcome.issuesRun else { return }
+
         cycleResult = nil
         cycleIsRunning = true
 

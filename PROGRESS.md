@@ -6206,6 +6206,82 @@ it. Same standing as `DeviceListView.present`'s hand-off to `@State`. The **deci
 of it is covered — the store by the suite, the enabled state by a render — so what is uncovered is
 the wiring between two checked things.
 
+Committed as `2403c80`, together with the probe's dark-mode fix.
+
+### Increment 5 — COMPLETE (2026-08-10) — the gate is wired, and three mutations survive it
+
+`Run one bounded cycle` now raises the dialog instead of starting a run. `PreRunWarningLog`,
+`PreRunPrompt.id`, `HelperDiagnosticsView`'s sheet and its two handlers, and `heldDevice` threaded
+from `AppModel`.
+
+**The dialog names the drive a run would be on, not the one already run.** `reportedDevice` is
+`AppModel.lastRunDevice` — the *previous* run's, which is what the report is about. A pre-run
+warning must name the drive about to be written to, so `heldDevice` was added rather than the
+existing input reused. Two inputs that look interchangeable and are not, which is why the difference
+is stated at both declarations.
+
+#### `runBoundedCycle(authorisedBy:)` — making the one unpreventable defect expensive to write
+
+Increment 1's most useful result was a mutation that **could not be written**: `PreRunPrompt` has no
+"no dialog" case, so skipping the warnings is not expressible in the decision. It recorded that the
+equivalent mutation belongs here, because **a call site can always just not ask** — and that gate
+item is now discharged.
+
+The run-issuing function takes a `PreRunOutcome`. Wiring Start straight to a run therefore means
+**fabricating an acknowledgement that never happened** — a deliberate act, visible in a diff —
+rather than deleting one word. It also `guard`s on `issuesRun`, so a fabricated outcome claiming
+otherwise still issues nothing. Prevention was not available here; making the defect conspicuous was.
+
+**The suppression checkbox is bound to transient `@State`, not to the persisted value.** Binding it
+to `warningsSuppressed` would record the preference the instant it was ticked — including for a user
+who then presses **Cancel**, which is exactly the rule increment 1 built (`persistsSuppression =
+suppressionRequested && issuesRun`). It is reset on every raise.
+
+#### Three mutations survive, and that is the finding
+
+| defect introduced | caught by |
+|---|---|
+| the prompt identity ignores the drive | `promptsForDifferentDrivesHaveDifferentIdentities`, +1 |
+| the identity ignores the form | `theTwoFormsHaveDifferentIdentitiesForTheSameDrive` |
+| the identity is constant | all three identity tests |
+| **the authorisation guard is removed** | **NOT CAUGHT** |
+| **Start is wired straight to a run, skipping the gate** | **NOT CAUGHT** |
+| **the checkbox is bound to the persisted value** | **NOT CAUGHT** |
+
+All three survivors are **SwiftUI wiring**, and no test in this project reads SwiftUI, while a
+render is static and cannot press a button. This was predicted when the surface was chosen — *a
+sheet gets its own window, so this surface will always need a person* — and it is recorded as a
+result rather than a formality, because the alternative is a green suite standing in for a check
+nobody ran.
+
+What partially covers them, and honestly:
+
+- **Start skipping the gate is visible in the log by its absence.** No `pre-run prompt raised` line
+  is emitted. That is what `PreRunWarningLog` is for, and it is the same instrument Step 10 arrived
+  at after spending two rounds unable to tell *never produced* from *produced and never seen*.
+- **The checkbox binding is visible by behaviour**: tick, Cancel, reopen — a wrongly-bound checkbox
+  shows the brief confirmation instead of the full warnings.
+- **The guard alone changes nothing observable.** With correct wiring, nothing ever calls the run
+  with `issuesRun == false`. It is defence in depth against a *second* defect, and saying it is
+  independently caught would be untrue.
+
+#### What increment 7's human confirmation must cover, written now rather than recalled later
+
+1. Pressing **Run one bounded cycle** raises the dialog — and the log shows `pre-run prompt raised`.
+2. **Cancel** issues no run (`run issued: false`).
+3. **Proceed** issues one.
+4. **Tick + Cancel**, then reopen: still the **full warnings**. The preference of a declined run is
+   not carried.
+5. **Tick + Proceed**: the run starts, and the *next* one shows the brief confirmation naming the
+   drive by model and serial.
+6. Diagnostics ▸ **Show pre-run warnings again**: the next run shows the full warnings, and the
+   setting survives a relaunch.
+7. A **quit pending** while the dialog is open: Proceed issues nothing (`run issued: false`).
+
+**Verified. 794 tests, 0 failures, 92 suites** — up from 790/92; **+4 is exactly the number of
+`@Test` functions added**. Zero source warnings from a Release build and a test compile with all
+four changed files `touch`ed first. Helper untouched, hash still `737e6972…`.
+
 ---
 
 ## Step 9 — pre-work planning snapshot — SUPERSEDED (kept for audit)

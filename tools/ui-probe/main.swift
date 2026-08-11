@@ -100,10 +100,20 @@ private struct DiagnosticsHost: View {
                               failureMode: $failureMode,
                               warningsSuppressed: $warningsSuppressed,
                               deviceIsHeld: deviceIsHeld,
-                              mayIssueNewWork: mayIssueNewWork)
+                              mayIssueNewWork: mayIssueNewWork,
+                              // So the pre-run dialog this panel raises has a drive to name.
+                              heldDevice: deviceIsHeld ? DiagnosticsHost.heldDevice : nil)
             .frame(minWidth: 560, minHeight: 480)
             .onAppear { failureMode = initialFailureMode }
     }
+
+    /// The drive the pre-run dialog would name. The scratch device, so a render shows the figures a
+    /// real run produces rather than placeholders.
+    static let heldDevice = ReportedDevice(modelDescription: "Samsung Portable SSD T5",
+                                           usbSerialNumber: "12345686DAA9",
+                                           bsdNameAtRunTime: "disk10",
+                                           capacityBytes: 1_000_204_886_016,
+                                           logicalBlockSize: 512)
 }
 
 /// `ContentView` with the app winding down toward a quit (user decision 2026-08-05).

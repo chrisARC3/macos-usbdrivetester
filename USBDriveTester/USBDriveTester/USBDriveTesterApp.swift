@@ -197,7 +197,11 @@ private struct HelperDiagnosticsWindow: View {
                                   RunReportLog.reportProduced(report)
                                   openWindow(id: WindowID.report)
                               },
-                              reportedDevice: model.lastRunDevice)
+                              reportedDevice: model.lastRunDevice,
+                              // The drive a run would be on, for Step 14's pre-run dialog.
+                              // Not `lastRunDevice`: that is the previous run's, and the
+                              // warning must name the drive about to be written to.
+                              heldDevice: model.heldDevice)
             .frame(minWidth: 560, minHeight: 480)
     }
 }

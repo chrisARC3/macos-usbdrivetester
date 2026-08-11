@@ -109,6 +109,52 @@ struct PreRunWarningPolicyTests {
                 != PreRunPrompt.briefConfirmation(device).logName)
     }
 
+    // MARK: - The presentation identity (increment 5)
+
+    /// `sheet(item:)` decides whether a *different* dialog is being presented by comparing ids.
+    /// **A prompt raised for one drive must never be reused for another** — the drive is what the
+    /// acknowledgement is about, and on this machine `disk8` named two different drives in three
+    /// days. An id that ignored the device would let a dialog raised for the scratch drive stand as
+    /// the acknowledgement for the 22 TB backup drive.
+    @Test func promptsForDifferentDrivesHaveDifferentIdentities() {
+        let seagate = PreRunPrompt.fullWarnings(Fixture.seagate())
+        let other = PreRunPrompt.fullWarnings(
+            ReportedDevice(modelDescription: "Samsung Portable SSD T5",
+                           usbSerialNumber: "12345686DAA9",
+                           bsdNameAtRunTime: "disk10",
+                           capacityBytes: 1_000_204_886_016,
+                           logicalBlockSize: 512))
+        #expect(seagate.id != other.id)
+    }
+
+    /// The other half: suppressing the text mid-session changes which dialog should be on screen,
+    /// so the two forms must not share an identity either.
+    @Test func theTwoFormsHaveDifferentIdentitiesForTheSameDrive() {
+        let device = Fixture.seagate()
+        #expect(PreRunPrompt.fullWarnings(device).id != PreRunPrompt.briefConfirmation(device).id)
+    }
+
+    /// And the same prompt is the same dialog — otherwise a redraw could re-present it, which for a
+    /// dialog gating a write means asking twice for one decision.
+    @Test func theSamePromptKeepsOneIdentity() {
+        #expect(PreRunPrompt.fullWarnings(Fixture.seagate()).id
+                == PreRunPrompt.fullWarnings(Fixture.seagate()).id)
+    }
+
+    /// A drive with no serial still needs to be told apart from a different drive with no serial.
+    /// The model name is the only axis left, and using it is the honest best available — not an
+    /// identification, which `identificationCaveat` says plainly on the dialog itself.
+    @Test func drivesWithNoSerialAreStillDistinguishedAsFarAsPossible() {
+        let anonymous = PreRunPrompt.briefConfirmation(Fixture.seagate(serial: nil))
+        let otherAnonymous = PreRunPrompt.briefConfirmation(
+            ReportedDevice(modelDescription: "Generic USB 3.0 Enclosure",
+                           usbSerialNumber: nil,
+                           bsdNameAtRunTime: "disk4",
+                           capacityBytes: 500_107_862_016,
+                           logicalBlockSize: 512))
+        #expect(anonymous.id != otherAnonymous.id)
+    }
+
     // MARK: - What dismissing the dialog does
 
     @Test func proceedIssuesTheRun() {
