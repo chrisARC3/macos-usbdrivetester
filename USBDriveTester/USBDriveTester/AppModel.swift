@@ -60,8 +60,32 @@ final class AppModel {
     /// installs it would leave the window with no delegate at all the moment that view went away.
     let mainWindowCloseGuard = MainWindowCloseGuard()
 
-    init() {
+    /// Where the suppression preference is kept. See ``warningsSuppressed``.
+    private let suppressionStore: PreRunWarningSuppressionStore
+
+    /// - Parameter suppressionStore: injected by tests and by `tools/ui-probe` so neither touches
+    ///   the real user's preferences. The default is the only one the app ever uses.
+    init(suppressionStore: PreRunWarningSuppressionStore = UserDefaultsPreRunWarningSuppression()) {
+        self.suppressionStore = suppressionStore
+        self.warningsSuppressed = suppressionStore.warningsSuppressed
         mainWindowCloseGuard.model = self
+    }
+
+    /// Whether the user has asked not to see the pre-run **warning text** again (decision 5).
+    ///
+    /// **Stored here and written through to the store, rather than computed from it**, and that is
+    /// a deliberate choice with one reason: `@Observable` tracks stored properties. A computed
+    /// property reading a plain object would leave SwiftUI with nothing to observe, so the
+    /// diagnostics window's "Show pre-run warnings again" control would not update when it changed
+    /// — a correct value nobody can see, which is the defect this step has already paid for twice.
+    ///
+    /// The two cannot drift: this is the only writer, and it writes through on every set. The store
+    /// is the persistence, this is the value.
+    ///
+    /// **Suppressing the text never suppresses the deliberate act** (NFR-USE-4 as qualified
+    /// 2026-08-09). `PreRunPrompt.forRun` still raises a dialog; only its content changes.
+    var warningsSuppressed: Bool {
+        didSet { suppressionStore.warningsSuppressed = warningsSuppressed }
     }
 
     /// Step 4/5's stand-in toggle: blocks uninstall (NFR-REL-5) and freezes discovery (FR-DEV-7).

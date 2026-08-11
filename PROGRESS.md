@@ -6071,14 +6071,43 @@ message — found by reading — was excluded by one log line. Here it was three
 than one reading, and it was excluded by a person running the real thing. The eliminations narrowed
 nothing about the app; they only narrowed the probe.
 
-**What is NOT tried**, recorded so the next person does not repeat the three attempts above: SwiftUI
-resolves `.primary` from its own `colorScheme` environment, and **every attempt so far was
-AppKit-side**. `.preferredColorScheme(.dark)` on the hosted root is the obvious untried remedy.
+#### And then the cause turned out to be neither of the things anyone had been reasoning about
 
-The `dark` case is kept and **warns on every use** that it does not match the app. It is not
-trustworthy for the contrast half of NFR-USE-8, so **increment 6's dark-mode check needs a person on
-the real app** — which is now a known cost rather than a discovery waiting to happen. Every
-historical render was taken in light appearance, so no prior finding is affected.
+Fixed the same day, at the user's direction. **It was never about colour resolution.**
+
+`cacheDisplay(in:to:)` renders the **content view's** drawing. The window's background belongs to
+the window, which is not in the capture — so every region where SwiftUI draws no background of its
+own landed in the PNG **transparent**.
+
+| appearance | text | transparent regions | result |
+|---|---|---|---|
+| light | black | composite pale in any viewer | **looked correct by luck** |
+| dark | white | composite pale in any viewer | **white on white — gone** |
+
+The `List` survived in both because it draws its own opaque background. That is why the missing
+regions were *exactly* the ones with no background — the header, the selected-device detail, the
+mount controls — and why pinning `NSApp.appearance`, `window.appearance` and the hosting view's
+appearance changed nothing. **The appearance was correct the whole time. The background was missing
+from the bitmap.**
+
+Fixed by giving the captured view an opaque `windowBackgroundColor` layer, resolved **inside** the
+pinned appearance via `performAsCurrentDrawingAppearance` — reading a dynamic colour's `cgColor`
+outside a drawing context resolves it against whatever happens to be current, which is the same
+ambient-state mistake this whole entry is about.
+
+**Verified in both appearances**: dark now renders the full window and matches what the user
+confirmed on the shipped app; light is unchanged, so the fix corrected a render that had been
+accidentally right rather than changing one that was right. The warning is removed, and the `dark`
+case is now usable — including for the contrast half of NFR-USE-8, which increment 6 was about to
+have to do by hand.
+
+**This defect was diagnosed wrongly twice, from sound reasoning both times.** First the eliminations
+pointed at an app defect; the user looking at the real app refuted that. Then the recorded
+"obvious untried remedy" was `.preferredColorScheme` on the hosted root — a second plausible
+mechanism, written down as the way forward, and also wrong. What finally worked came from reading
+**how the capture is performed** rather than reasoning further about how colours resolve. Three
+rounds, and the thing that ended it was looking at the mechanism instead of theorising about it —
+which is the same shape as Step 10's five rounds, arriving in a tool rather than a control.
 
 **Verified. 781 tests, 0 failures, 90 suites** — up from 777/90; **+4 is exactly the number of
 `@Test` functions added**. Zero source warnings from a Release build and a test compile with all
@@ -6097,6 +6126,85 @@ three changed files `touch`ed first.
 literal of its own. No test reads SwiftUI text, and a re-inlined literal with identical wording
 would render identically — so this one is caught by neither the suite nor a render, only by the two
 strings living in one file. Same standing as `mountOne`'s option constant.
+
+Committed as `b7b67ef`, together with increment 3.
+
+### Increment 4 — COMPLETE (2026-08-10) — where the preference lives, and the way back
+
+`UserDefaultsPreRunWarningSuppression`, `AppModel.warningsSuppressed`, the diagnostics window's
+**Pre-run warnings** section, and `PreRunWarningSuppressionTests`. The sheet still presents nothing
+— that is increment 5.
+
+**Per logged-in user, without implementing per-user scoping.** `UserDefaults.standard` in the app
+writes to `~/Library/Preferences/<bundle-id>.plist`, inside the home directory of whoever is logged
+in; the sandbox is off, so that is the literal path. Nothing had to *make* it per-user. What it had
+to do is **not be somewhere else**, and the somewhere else is real — the helper runs as root, so a
+setting it persisted would be system-wide and apply to every account on the machine without any of
+them being told. `oneDomainsSettingIsInvisibleToAnother` is the test for the property that would
+break if it ever moved.
+
+**Absence means "warn", by construction.** `bool(forKey:)` returns `false` for a key never written,
+and `false` is *not suppressed* — so a fresh install, a new account and a deleted plist all warn,
+with no registered default. Registering one would add a second place the answer lives; the safe
+answer is the one absence already gives.
+
+**`AppModel.warningsSuppressed` is stored and written through, not computed from the store**, and
+the reason is observation rather than style: `@Observable` tracks stored properties, so a computed
+property reading a plain object would leave SwiftUI nothing to observe and the diagnostics control
+would not update when the value changed — *a correct value nobody can see*, which is the defect this
+step has already paid for twice. The two cannot drift: this is the only writer and it writes through
+on every set.
+
+**The way back (decision 7).** A "Pre-run warnings" section states the current setting **in words**
+— the two states are otherwise indistinguishable from that window, and a user who does not remember
+ticking the box has no way to find out what the next run will do. The button disables when there is
+nothing to undo **and says so**, rather than leaving the user to infer it from dimming: *prose is
+not a precondition*, so the precondition is the disable and the prose is the explanation.
+`diagnostics-warnings-suppressed` renders the enabled half, which is otherwise reachable only by
+ticking a box in a sheet the probe cannot present.
+
+#### A test that agreed with the defect it was written to catch
+
+`theSettingIsStoredUnderTheAdvertisedKey` originally read the key from
+`UserDefaultsPreRunWarningSuppression.key` on both sides — so it would have agreed with **any**
+rename, which is exactly the change its own doc comment claimed it prevented. Renaming a stored key
+silently un-suppresses every user who had set the preference: their value is still on disk under the
+old name and the app stops looking at it, and nothing else in the product notices.
+
+Rewritten to assert the literal `"preRunWarningsSuppressed"` independently. **Mutation M3 is caught
+only because of that change** — before it, the rename passed. A test that cannot fail is not a
+check, and this one had been written with a comment asserting it was one.
+
+**Verified. 790 tests, 0 failures, 92 suites** — up from 781/90; **+9 is exactly the number of
+`@Test` functions added**. Zero source warnings from a Release build and a test compile with all
+five changed files `touch`ed first. Helper untouched, hash still `737e6972…`.
+
+**No test writes to the real `UserDefaults`.** Every one uses a throwaway suite, removed afterwards,
+which is why the store takes its `defaults` by injection. A unit suite that altered the preferences
+of whoever ran it would be a side effect on a real machine from a hardware-independent test.
+
+**Six mutations, six catches — five by the suite, one only by a render:**
+
+| defect introduced | caught by |
+|---|---|
+| the store never reads back what was written | `theStoreRoundTripsBothWays`, +1 |
+| the store never persists (setter a no-op) | `theSettingSurvivesTheObjectThatWroteIt`, +2 |
+| **the key is renamed** — installed base silently un-suppressed | `theSettingIsStoredUnderTheAdvertisedKeyAndTheKeyDoesNotMoveQuietly` |
+| the model ignores what was stored at launch | `theModelStartsFromWhateverWasStored`, +1 |
+| the model never writes through | `settingItOnTheModelPersistsIt`, +1 |
+| **the restore button's precondition is inverted** | **nothing in the suite — caught by `render-ui.sh diagnostics-warnings-suppressed`** |
+
+The last one is worth its own line: with it applied, a suppressed user sees *"The warning text is
+currently suppressed"* above a **greyed-out** "Show pre-run warnings again" — a setting with no way
+back, which is the precise thing decision 7 exists to prevent — and the suite passes 790/0. That is
+the second time in two increments that the render has caught a defect the suite structurally cannot
+see, which is the argument for the probe having been fixed rather than worked around.
+
+**Not covered, and recorded as such:** the button's *action* (`warningsSuppressed = false`). One
+line in a view, reachable by neither a test nor a render, since a render is static and cannot press
+it. Same standing as `DeviceListView.present`'s hand-off to `@State`. The **decision** either side
+of it is covered — the store by the suite, the enabled state by a render — so what is uncovered is
+the wiring between two checked things.
 
 ---
 

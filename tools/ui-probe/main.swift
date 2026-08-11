@@ -78,12 +78,27 @@ private struct DiagnosticsHost: View {
     @State private var failureMode: FailureModeCode = .standard
     /// Applied on appear, because `@State` cannot be initialised from another stored property.
     var initialFailureMode: FailureModeCode = .standard
+    /// Step 14's suppression flag. **Local `@State`, never the real store** — a render must not
+    /// read or write the machine's actual preferences, and `diagnostics-warnings-suppressed`
+    /// renders the restored-state control, which is otherwise reachable only by ticking a box in a
+    /// sheet this probe cannot present.
+    @State private var warningsSuppressed: Bool
+    init(deviceIsHeld: Bool,
+         mayIssueNewWork: Bool = true,
+         initialFailureMode: FailureModeCode = .standard,
+         warningsSuppressed: Bool = false) {
+        self.deviceIsHeld = deviceIsHeld
+        self.mayIssueNewWork = mayIssueNewWork
+        self.initialFailureMode = initialFailureMode
+        _warningsSuppressed = State(initialValue: warningsSuppressed)
+    }
     var body: some View {
         HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive,
                               helper: HelperConnection(),
                               cycleIsRunning: $cycleIsRunning,
                               linkSpeedCode: $linkSpeedCode,
                               failureMode: $failureMode,
+                              warningsSuppressed: $warningsSuppressed,
                               deviceIsHeld: deviceIsHeld,
                               mayIssueNewWork: mayIssueNewWork)
             .frame(minWidth: 560, minHeight: 480)
@@ -452,6 +467,12 @@ func makeRootView(_ name: String) -> NSView {
         // whose only visible difference is which radio is filled would not need one.
         return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true,
                                                        initialFailureMode: .stopOnFirstError))
+    case "diagnostics-warnings-suppressed":
+        // The "Show pre-run warnings again" control with something to restore. Reaching this state
+        // through the UI means ticking a checkbox in a sheet, and a sheet cannot be rendered — so
+        // without this case the enabled half of the control could never be looked at.
+        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true,
+                                                       warningsSuppressed: true))
     case "diagnostics-quitting":
         // A device is held, so nothing else would disable the control: what this render checks is
         // that the quit-pending refusal is the reason shown, and that it reads as one.
@@ -536,7 +557,8 @@ func makeRootView(_ name: String) -> NSView {
             diagnostics, diagnostics-held, diagnostics-quitting, diagnostics-stop-on-error, \
             empty, metrics, metrics-finished, metrics-idle, \
             report, report-empty, report-failures, report-qualified, report-stopped, \
-            report-unidentified, devices-unmounted, warnings, warnings-ticked, warnings-confirm or \
+            report-unidentified, devices-unmounted, diagnostics-warnings-suppressed, warnings, \
+            warnings-ticked, warnings-confirm or \
             warnings-unidentified\n
             """.utf8))
         exit(2)
@@ -568,12 +590,11 @@ let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: heig
 // Pinning also makes renders **comparable across sessions**, which matters for a tool used to
 // compare before and after. Dark is reachable on purpose via the argument rather than by accident
 // via the clock — NFR-USE-8 asks about contrast, so it is a surface worth being able to look at.
-// Set on **both** the application and the window, and that is not belt-and-braces. With only the
-// window pinned, `dark` still rendered the broken picture: the header drew on a light ground with
-// light text and the detail pane drew dark-on-dark, i.e. different parts of one view tree were
-// resolving different appearances. `NSApp.effectiveAppearance` is what the parts that ignored the
-// window were reading. Pinning one of the two produces a render that is wrong in a way that looks
-// like an app defect — which is precisely the wrong answer to hand a reader.
+// Set on **both** the application and the window. Whether pinning both is strictly required was
+// never isolated — the dark render stayed broken through this change for a reason that turned out
+// to be elsewhere entirely (the missing bitmap background, below), so this pair was never the
+// variable it was thought to be. Both are set because both should be: an instrument that leaves
+// half its appearance to the ambient machine is the defect this whole block exists to remove.
 switch appearanceName {
 case "light":
     app.appearance = NSAppearance(named: .aqua)
@@ -581,29 +602,6 @@ case "light":
 case "dark":
     app.appearance = NSAppearance(named: .darkAqua)
     window.appearance = NSAppearance(named: .darkAqua)
-    // **A dark render is a KNOWN PROBE ARTEFACT. It does not show what the app shows.**
-    //
-    // In dark appearance the device views render the `List` and nothing else — no header, no
-    // selected-device pane, no mount controls. **The app itself is fine**: confirmed 2026-08-10 by
-    // the project's owner, looking at the installed Release build with the system in dark mode,
-    // where everything draws correctly.
-    //
-    // That observation is the whole finding. Three probe-side causes had been ruled out by
-    // measurement — pinning `window.appearance`, `NSApp.appearance`, and the hosting view's own
-    // appearance each changed nothing — and the evidence therefore pointed at a real dark-mode
-    // defect in the app. It pointed at the wrong answer. **A plausible mechanism that would produce
-    // the observed symptom is not the cause of it**, and the only thing that settled it was somebody
-    // running the real thing and looking, which is the same lesson Step 10 paid five rounds for.
-    //
-    // **What has NOT been tried**, recorded so whoever fixes this does not repeat the three attempts
-    // above: applying SwiftUI's own `.preferredColorScheme(.dark)` / `.environment(\.colorScheme,)`
-    // to the hosted root view. Every attempt so far was AppKit-side; SwiftUI resolves `.primary`
-    // from its own environment, and that environment is the one thing nobody has set.
-    FileHandle.standardError.write(Data("""
-        ui-probe: WARNING — dark renders are a KNOWN PROBE ARTEFACT and do not match the app. \
-        Device views draw the list only. The shipped app renders correctly in dark mode (confirmed \
-        2026-08-10). Never read a dark render as evidence about the app.\n
-        """.utf8))
 default:
     FileHandle.standardError.write(Data("""
         ui-probe: unknown appearance '\(appearanceName)'; expected light or dark\n
@@ -611,7 +609,35 @@ default:
     exit(2)
 }
 
-window.contentView = makeRootView(viewName)
+let rootView = makeRootView(viewName)
+
+// **The capture needs an opaque background of its own, and that is the dark-mode bug.**
+//
+// `cacheDisplay(in:to:)` below renders the **content view's** drawing. It does not draw the
+// window's background — that belongs to the window, which is not in the capture. So every region
+// where SwiftUI draws no background lands in the PNG **transparent**.
+//
+// In light appearance that was invisible luck: the text is black, transparency composites pale in
+// every viewer, and the render looked right. In dark appearance the text is white, so the header,
+// the selected-device detail and the mount controls became white-on-nothing and **disappeared** —
+// while the `List`, which draws its own opaque background, kept rendering. That is why the missing
+// regions were exactly the ones with no background of their own, and why pinning
+// `NSApp.appearance`, `window.appearance` and this view's `appearance` all changed nothing: the
+// appearance was already correct. **Nothing was ever wrong with the colours. The background was
+// missing from the bitmap.**
+//
+// Resolved inside the pinned appearance rather than read straight off: `windowBackgroundColor` is
+// dynamic, and reading its `cgColor` outside a drawing context resolves it against whatever is
+// current instead of what this render asked for — which is the same class of mistake as the
+// ambient-appearance bug this is fixing.
+rootView.wantsLayer = true
+if let appearance = window.appearance {
+    appearance.performAsCurrentDrawingAppearance {
+        rootView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+    }
+}
+
+window.contentView = rootView
 
 // Ordered front so SwiftUI lays out and draws, but positioned far offscreen so it
 // never appears in front of whatever the user is doing.

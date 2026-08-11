@@ -180,3 +180,41 @@ nonisolated final class InMemoryPreRunWarningSuppression: PreRunWarningSuppressi
         self.warningsSuppressed = warningsSuppressed
     }
 }
+
+/// The real store: the **app's** `UserDefaults`, which is per logged-in user by construction.
+///
+/// ## Why this is per-user without doing anything to make it so
+///
+/// `UserDefaults.standard` in the app writes to `~/Library/Preferences/<bundle-id>.plist` — inside
+/// the home directory of whoever is logged in. The App Sandbox is off (and must stay off), so that
+/// is the literal path. Nothing here has to *implement* per-user scoping; what it has to do is
+/// **not be somewhere else**, and the somewhere else is real: the helper runs as root, so a setting
+/// it persisted would be system-wide and would silently apply to every account on the machine. That
+/// is the opposite of what was asked for and would be invisible to the account it affected.
+///
+/// ## The default is "show the warnings", by construction rather than by a written default
+///
+/// `bool(forKey:)` returns `false` for a key that has never been set, and `false` is *not
+/// suppressed*. So a fresh install, a new user account, and a deleted preferences file all warn —
+/// and none of them depends on a default having been registered. Registering one would add a second
+/// place the answer lives, and the safe answer is already the one absence gives.
+nonisolated final class UserDefaultsPreRunWarningSuppression: PreRunWarningSuppressionStore {
+
+    /// The stored key. Only referred to here, so there is one spelling of it.
+    static let key = "preRunWarningsSuppressed"
+
+    private let defaults: UserDefaults
+
+    /// - Parameter defaults: injectable so tests can use a throwaway suite. **A test that wrote to
+    ///   `.standard` would change the preferences of whoever ran the suite** — a side effect on a
+    ///   real machine, from a unit test, which is exactly the kind of thing this project's gates
+    ///   exist to keep out of the apparatus.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    var warningsSuppressed: Bool {
+        get { defaults.bool(forKey: Self.key) }
+        set { defaults.set(newValue, forKey: Self.key) }
+    }
+}

@@ -179,6 +179,7 @@ private struct HelperDiagnosticsWindow: View {
                               cycleIsRunning: $model.cycleIsRunning,
                               linkSpeedCode: $model.linkSpeedCode,
                               failureMode: $model.failureMode,
+                              warningsSuppressed: $model.warningsSuppressed,
                               deviceIsHeld: model.helperHoldsDevice,
                               mayIssueNewWork: model.mayIssueNewWork,
                               reportProduced: { report in

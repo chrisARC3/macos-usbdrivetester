@@ -77,6 +77,14 @@ struct HelperDiagnosticsView: View {
     /// dropdown, where FR-CTRL-7 requires it; the value it sets does not move with it.
     @Binding var failureMode: FailureModeCode
 
+    /// Whether the user has suppressed the pre-run **warning text** (Step 14, decision 5).
+    ///
+    /// A binding into `AppModel`, which writes it through to `UserDefaults`. It is here rather than
+    /// in the main window because it is the **way back** from a preference set elsewhere — the
+    /// checkbox that sets it lives in the pre-run dialog, and a setting with no way back is one the
+    /// user cannot undo without editing a plist (decision 7).
+    @Binding var warningsSuppressed: Bool
+
 
     /// Whether the helper holds a device — the bounded cycle's precondition. Acquired in the
     /// *main* window, needed here, so it lives in `AppModel`.
@@ -108,6 +116,7 @@ struct HelperDiagnosticsView: View {
             registrationSection
             connectionSection
             boundedCycleSection
+            preRunWarningsSection
             parameterSection
             teardownSection
         }
@@ -468,6 +477,53 @@ struct HelperDiagnosticsView: View {
     }
 
     // MARK: - Boundary parameter validation
+
+    // MARK: - Pre-run warnings (Step 14, decision 7)
+
+    /// The way back from "Don't show this warning again".
+    ///
+    /// It states the current setting **in words** rather than only offering a button, because the
+    /// two states are otherwise indistinguishable from this window: a user who does not remember
+    /// ticking the box has no way to find out what the app will do next run. NFR-USE-8 also asks
+    /// that meaning never rest on colour alone, and a lone enabled/disabled button rests on
+    /// dimming.
+    ///
+    /// The button is disabled when there is nothing to undo, and says so — the same rule as every
+    /// other refusal in this app: name the reason rather than leave the user to infer it from a
+    /// greyed control (FR-SAFE-4, NFR-USE-5). *Prose is not a precondition*, so the precondition is
+    /// the disable and the prose is the explanation.
+    private var preRunWarningsSection: some View {
+        Section("Pre-run warnings") {
+            Text("""
+                 The three mandatory warnings (FR-WARN-1/2/3) appear when a run is started. \
+                 Suppressing them removes the **text**, never the confirmation: a run always asks \
+                 first, naming the drive by model and USB serial.
+                 """)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Label(warningsSuppressed
+                  ? "The warning text is currently suppressed for this user account."
+                  : "The warning text is shown before every run.",
+                  systemImage: warningsSuppressed ? "eye.slash" : "eye")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Button("Show pre-run warnings again") { warningsSuppressed = false }
+                    .disabled(!warningsSuppressed)
+                Spacer()
+            }
+
+            if !warningsSuppressed {
+                Text("Nothing to restore — the warnings are already being shown.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
 
     private var parameterSection: some View {
         Section("Parameter validation at the trust boundary") {

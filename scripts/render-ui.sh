@@ -24,18 +24,19 @@
 #   `dark` to inspect dark appearance ON PURPOSE — useful for NFR-USE-8's contrast question.
 #   The probe prints `appearance=` in its diagnostic line so every render carries its provenance.
 #
-#   BUT `dark` IS A KNOWN PROBE ARTEFACT AND THE PROBE WARNS WHEN YOU USE IT. In dark appearance the
-#   device views draw the list and nothing else. THE APP IS FINE — confirmed 2026-08-10 by the
-#   project's owner on the installed Release build with the system in dark mode. Pinning the
-#   window's appearance, the app's, and the hosting view's each failed to change the render, so the
-#   evidence pointed at an app defect; looking at the real app refuted it. Never read a dark render
-#   as evidence about the app. Untried remedy: SwiftUI's own .preferredColorScheme on the hosted
-#   root — every attempt so far was AppKit-side. See PROGRESS.md, Step 14 increment 3.
+#   Dark renders were broken until 2026-08-10 and the cause was NOT the appearance. `cacheDisplay`
+#   captures the CONTENT VIEW's drawing and never the window's background, so every region where
+#   SwiftUI draws no background of its own landed in the PNG TRANSPARENT. Light mode hid it: black
+#   text over transparency composites readably in any viewer. Dark mode did not: white text over
+#   transparency vanished, leaving only the List, which draws its own opaque background. The probe
+#   now gives the captured view an opaque window-background layer, resolved inside the pinned
+#   appearance. Both appearances are verified against the shipped app.
 #
 # `view` is one of: content (default, the whole window), content-quitting, devices,
 #   diagnostics, diagnostics-held, diagnostics-quitting, empty, metrics, metrics-idle,
 #   report, report-empty, report-failures, report-qualified, report-stopped,
-#   report-unidentified, devices-unmounted, warnings, warnings-ticked, warnings-confirm,
+#   report-unidentified, devices-unmounted, diagnostics-warnings-suppressed, warnings,
+#   warnings-ticked, warnings-confirm,
 #   warnings-unidentified.
 # The `warnings*` views are Step 14's pre-run dialog. It ships as a SwiftUI **sheet**, which
 #   gets its own window and can therefore never be captured *in place* — so it is written as a
