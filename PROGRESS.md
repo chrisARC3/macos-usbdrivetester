@@ -16,65 +16,145 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 14 — COMPLETE (2026-08-11)
-
-Mandatory pre-run warnings & honest framing. FR-WARN-1/2/3/4, NFR-USE-4/6/8. Seven increments,
-2026-08-09 to 2026-08-11, eight commits ending at `e61c4f0`. **Gate passed in full.**
-
-**History archived to [`progress/step-14.md`](progress/step-14.md)** — the seven scoping decisions,
-the increment table, the accessibility audit's findings, the two defects the keyboard session found,
-and the nine-item human checklist that any future change to this area has to pass again.
-
-| | |
-|---|---|
-| **Verified** | **801 tests, 0 failures, 93 suites.** Zero source warnings from **three clean builds** with DerivedData wiped before each |
-| **Helper** | **untouched all step.** Source hash `737e6972bfdec1c5c1901a27bd5a00da2fed413166c909fc6639666c38e8907e`, so Step 10's three hardware gates continue to apply |
-| **Requirements changed** | NFR-USE-4 qualified, FR-WARN-1 qualified (2026-08-09); **VoiceOver removed from scope** (2026-08-11) — all three recorded in the requirement documents' Amendments |
-
----
-
-## Step 11 — NEXT, not started
+## Step 11 — IN PROGRESS. Scoped 2026-08-12; no code written yet
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
-**Its gating precondition is now discharged.** Step 11 deletes the `Unmount All` / `Acquire` /
-`Release` controls and gives Start ownership of unmount → acquire → run → release. That deletion was
-gated on Step 14's warnings existing since 2026-08-05, because after it FR-DEV-3's default selection
-is one deliberate click from a write — and on this machine that default is the 22 TB Seagate with
-Backup and Time Machine mounted. **Step 14 is done, so this may now proceed.**
+**Its gating precondition is discharged** — Step 14 completed 2026-08-11 (`f082716`), which is why
+it was built out of numeric order. This step deletes the `Unmount All` / `Acquire` / `Release`
+controls, after which FR-DEV-3's default selection is one deliberate click from a write, and on this
+machine that default is the 22 TB Seagate with Backup and Time Machine mounted. The warnings are the
+only thing standing there.
 
-### What to read before scoping it
+### The starting point, re-derived rather than quoted
 
-**BUILD-PLAN Step 11 carries six inherited notes** and they are the substance — the XPC
-connection-blocking measurement that constrains pause/stop, FR-TEST-10's slicing rule, the partial
-unmount that must not strand the user, the quit machinery, and the two interim behaviours this step
-subsumes. Do not scope this step without reading them. [CONSTRAINTS.md](CONSTRAINTS.md) has the same
-facts in shorter form and should be read in full anyway.
+| | |
+|---|---|
+| **Tree** | `c278df9`, clean, on `main`. Step 14 archived to [`progress/step-14.md`](progress/step-14.md) |
+| **Verified** | 801 tests, 0 failures, 93 suites; zero source warnings from three clean builds |
+| **Helper** | source hash `737e6972bfdec1c5c1901a27bd5a00da2fed413166c909fc6639666c38e8907e`, **re-derived 2026-08-12 and unchanged** — so Step 10's three hardware gates (`xpc-concurrency-check.sh`, `metrics-check.sh`, `retention-cycle-check.sh`) apply until increment 2 moves the hash |
+| **Protocol** | v9 |
+| **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) is attached and its **layout is intact** — GPT + EFI (unmounted) + `Vol_ExFAT` + `Vol_APFS` + `Vol_HFS`. No rebuild needed |
+| **FR-DEV-3's default** | confirmed from `BSDDeviceName`, which orders **numerically**: the first USB drive is `disk4`, the 22 TB Seagate |
 
-### Three things this step needs that are not in BUILD-PLAN
+### The five scoping decisions (user decisions, 2026-08-12, taken before a line was written)
 
-- **The 4 TB T5 EVO fixture drive is required**, not optional. `VolumeMounter.restoringUnmount` can
-  only be exercised end to end on a drive with two or more mounted volumes, and Start's abort path
-  reaches the identical partial-unmount state with no manual control left at all. Rebuild it with
-  `scripts/make-unmount-fixture.sh` if its layout has been lost.
-- **`AppModel.helperHoldsDevice` is still a per-device answer read as an any-device one.** Step 14
-  narrowed the related hazard — `heldDevice` is now the single source for both the pre-run dialog
-  and the report — but the boolean beside it was not touched. A run-owned claim removes the
-  ambiguity at the source; do not reintroduce a selection-scoped flag.
-- **The report's outcome vocabulary gains "stopped by user" here**, when FR-CTRL-4 finally gives it
-  a trigger. It was deliberately not built in advance: a sound mechanism behind a trigger that never
-  fires looks exactly like a broken one.
+1. **A run is a sequence of bounded calls, and the session is the claim.** Start takes the claim
+   once, holds it for the whole run, and releases it once — *never* a claim per chunk, which is
+   unbuildable anyway: macOS remounts the volume **~4 ms** after a release (measured Step 6), so a
+   per-chunk release would race its own remount tens of thousands of times. The metrics and failure
+   accumulators therefore move onto `AcquiredDevice`, opened by `acquireDevice` and closed by
+   `releaseDevice`. That gives whole-device progress and ETA, a **true whole-run p99** (percentiles
+   do not compose, so app-side aggregation of per-call p99s cannot produce one), a `FailureLog` cap
+   that applies once per run rather than per call, and cumulative figures arriving in the cycle's own
+   reply — which preserves protocol v9's property (*the figures belong to this run or they do not
+   exist*) at run scope, **with no new lifecycle methods**.
 
-### What Step 14 leaves it, concretely
+   The alternative considered and rejected was one long cancellable call, which needs no session at
+   all. It was rejected because it bets a multi-hour run on an NSXPC reply nothing here has measured,
+   makes `prepareForShutdown`'s and `releaseDevice`'s busy refusals hours-long instead of seconds,
+   and turns FR-CTRL-8's mid-pause I/O-size change into engine surgery.
 
-- The pre-run gate currently sits on `Run one bounded cycle` in the diagnostics window (scoping
-  decision 2). **Step 11 relocates it to the real Start**, along the same path FR-CTRL-7's failure
-  mode picker beside it is already documented to take, and deletes the scaffolding with the button.
-- `runBoundedCycle(authorisedBy:)` takes a `PreRunOutcome` as proof the gate ran. **Keep that
-  shape** — it is what makes "wire Start straight to a run" a deliberate act visible in a diff
-  rather than a one-word edit.
-- The nine-item human checklist in `progress/step-14.md` is what the relocated gate must pass again.
-  Three of its items cover mutations the suite cannot catch.
+2. **Pause is enforced helper-side, at the chunk boundary**, as `control: () -> RunControlSignal`
+   consulted at the **top of each chunk iteration** — the sibling of the `grant` closure the engine
+   already recomputes before every write. The previous chunk's full read → write → verify is complete
+   and nothing is in flight, so NFR-REL-10 holds by construction rather than by care. The signal
+   travels on the app's **second, non-owning connection**: a message on the run's own connection
+   provably cannot be delivered while `runRetentionCycle` blocks (measured 2026-08-04).
+
+3. **The pre-flight sits inside increment 2, before increments 3–7 are designed.** Build the smallest
+   helper-side control that can be measured, measure it on the 1 TB T5 scratch drive, then design the
+   rest around the number. A wrong number found in increment 7 is six increments built on it.
+
+4. **`maximumBytesPerCall` is decided by measurement, not by argument.** A change to 8 MiB was
+   proposed, to align the cap with the largest UI I/O size and shorten pause latency. The latency
+   half does not hold: once the chunk-boundary check exists, **pause latency is set by the chunk, not
+   the call** — ~27 ms at the 4 MiB default and ~63 ms at a 200 MB/s floor, and an 8 MiB cap is
+   *worse* than the chunk check at a 1 MiB I/O size, where one call is eight chunks. The cost half is
+   unmeasured: 8 MiB means **119,234 calls** for the 1 TB T5 and **476,935** for the 4 TB T5 EVO,
+   each an XPC round trip plus a buffer allocate/free pair, a geometry read and an observer
+   construction — a per-*call* term where NFR-PERF-3's measured 2.55% follows bytes moved. So
+   increment 2's pre-flight sweeps 8 MiB / 64 MiB / 256 MiB / 1 GiB in the same session and the cap
+   is set from that. The sequencer works with any value.
+
+   What *is* accepted: the cap's stated justification — *"what makes an uncancellable privileged
+   call survivable"* — lapses in this step, because this is the step that makes it cancellable. Its
+   remaining jobs are bounding the reply, the per-call failure list, and how long a wedged call can
+   occupy the daemon. CONSTRAINTS is rewritten in the docs pass rather than left contradicting it.
+
+5. **The three deletions land in increment 5**, at the same time Start takes ownership — not last.
+   There is then never a build in which the run needs a claim nobody can grant, and never one in
+   which two paths can both claim the device. The nine-item human checklist runs that same day.
+
+### Three defaults recorded rather than decided
+
+Raised during scoping and not contradicted, so they stand until they are:
+
+- **The claim is held through a pause.** Releasing would remount the volumes and force a second
+  unmount on resume.
+- **A quit during a run issues a stop** rather than waiting for a call boundary. This makes the
+  existing "stop at the call boundary" promise stronger, not weaker — the wait shortens from one
+  call to one chunk — and it is what stops a paused run leaving the wind-down waiting forever.
+- **Restart re-uses the held claim** rather than releasing and re-acquiring.
+
+### Increments
+
+| # | what | gate |
+|---|---|---|
+| **1 ✅** | `RunControlState` — the pure state machine, FR-CTRL-6's legal transitions, and each control's disabled **reason** (dimming is not a message). Nothing calls it. | **done 2026-08-12** — see below |
+| 2 | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**. **Then the pre-flight** — pause-settle latency and the cap sweep. | unit + mutations + a **new hardware gate**; needs an Xcode target-membership tick |
+| 3 | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device | unit + `metrics-check.sh` |
+| 4 | The whole-device sequencer, app-side: whole-MiB slicing with only the final call short (FR-TEST-10), `mayIssueNewWork` checked before **every** call, `stopOnFirstError` meaning stop the *run* | unit, with an injected caller |
+| 5 | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | renders + the **nine-item human checklist** + the 4 TB T5 EVO fixture |
+| 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted | renders + unit |
+| 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
+
+### Increment 1 — done 2026-08-12, not yet committed
+
+`RunControl/RunControlState.swift` + `RunControlPolicyTests.swift`. App target and test target only,
+both file-system synchronized, so **no Xcode work was needed** — verified rather than assumed, since
+`@testable import` resolving `RunControlPolicy` is what proves the file joined the app target.
+
+| | |
+|---|---|
+| **Verified** | **828 tests, 0 failures, 94 suites** (from the xcresult's top-level `totalTestCount`). 801 → 828 is exactly the 27 tests written, and 93 → 94 exactly the one new suite — the check that the files landed somewhere that compiles |
+| **Warnings** | zero from source; the two in the log are the pre-existing AppIntents-toolchain lines |
+| **Helper** | untouched. Hash still `737e6972…907e` |
+| **Mutations** | **12 introduced, 11 caught, 1 survived** — see below |
+
+**Eight states, not BUILD-PLAN's five**, and the differences are recorded in the source file's header:
+no `Configured` (FR-FAIL-4's default means it is never observably distinct from `idle`), one terminal
+state rather than three (the outcome is `RunReport`'s, FR-RPT-4), and Restart offered from `running`
+and `paused` but not from `finished`, where it would duplicate Start. `pausing` and `stopping` are
+their own states because the interval between a request and the helper's settle is real, and
+collapsing it is exactly the claim NFR-REL-10 forbids.
+
+**The mutation that survived, and what it found.** M9 blanked a disabled control's reason and passed
+all 827 tests. The check walked the *rendered controls* — and the single Pause/Resume control asks
+for `.resume` while paused, so `pause(in: .paused)`'s refusal never reaches a button. The row is
+reachable all the same: a menu item or a keyboard shortcut issues a command without consulting the
+control that would have offered it. **A real hole in the test, not a formality.** Fixed by walking
+the whole table instead of the surface (`everyRefusalInTheWholeTableIsASentence`), and M9 re-run
+against the fix — now caught. The note is on `RunControlPolicy.controls` so the next person does not
+re-derive it.
+
+### What this step must not lose
+
+- **The gate is RELOCATED, not re-implemented**, and `runBoundedCycle(authorisedBy:)`'s
+  `PreRunOutcome` parameter keeps its shape — it is what makes "wire Start straight to a run" a
+  deliberate act visible in a diff rather than a one-word edit. The mutation is not catchable by the
+  suite, so prevention is the only cover it has.
+- **A partial unmount that fails must not strand the user.** Step 10 fixed this on the control this
+  step deletes, so the fix goes with the control. Start's abort path reaches the identical state with
+  nothing left to press.
+- **`AppModel.mayIssueNewWork` is a precondition, not a hint** — checked before every call the
+  sequencer issues, not once when the run starts.
+- **The quit boundary moves with the run-state source**, and
+  `quittingAfterTheRunHasAlreadyFinishedDoesNotWaitForever` must survive the move.
+- **`AppModel.helperHoldsDevice` is deleted, not fixed** — a per-device answer read everywhere as an
+  any-device one. Do not reintroduce a selection-scoped flag.
+- **The 4 TB T5 EVO fixture is required, not optional.** `VolumeMounter.restoringUnmount` cannot be
+  exercised end to end on a single-volume drive.
 
 ---
 
