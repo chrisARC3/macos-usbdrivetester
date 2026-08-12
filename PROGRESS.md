@@ -109,7 +109,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted | renders + unit |
 | 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
-### Increment 1 — done 2026-08-12, not yet committed
+### Increment 1 — done 2026-08-12, `c89ed5c`
 
 `RunControl/RunControlState.swift` + `RunControlPolicyTests.swift`. App target and test target only,
 both file-system synchronized, so **no Xcode work was needed** — verified rather than assumed, since
@@ -137,6 +137,99 @@ control that would have offered it. **A real hole in the test, not a formality.*
 the whole table instead of the surface (`everyRefusalInTheWholeTableIsASentence`), and M9 re-run
 against the fix — now caught. The note is on `RunControlPolicy.controls` so the next person does not
 re-derive it.
+
+### Increment 2 — code done 2026-08-12, **pre-flight not yet run**, not committed
+
+Helper-side pause/stop at the chunk boundary, and protocol **v10**.
+
+| | |
+|---|---|
+| **Verified** | **855 tests, 0 failures, 96 suites**; app and helper build clean on v10 |
+| **Helper** | **hash moved to `c0ec07ae6cf746fb105446064ad584e391769a706e451ed1435a23c076f19702`.** Step 10's three hardware gates (`xpc-concurrency-check.sh`, `metrics-check.sh`, `retention-cycle-check.sh`) **no longer apply** and must be re-run before this step closes (increment 7) |
+| **Mutations** | **12 introduced, 11 caught, 1 survived — and the survivor was predicted** |
+| **Xcode work** | **none.** See the note below; BUILD-PLAN's summary of this is imprecise |
+
+**No Xcode target-membership tick was needed, and BUILD-PLAN is wrong about why.** Read from
+`project.pbxproj` rather than trusted: the helper folder is a `PBXFileSystemSynchronizedRootGroup`
+for the **helper** target, so a new file there joins it automatically — `RunControlChannel.swift`
+did. What needs a manual tick is the **test target**, which picks up `Core/` through an explicit
+14-file `membershipExceptions` list. The control vocabulary went into the existing
+`Core/RetentionRun.swift`, already on that list, beside `FailureMode` and `RunOutcome` where the
+run's vocabulary lives. Correct BUILD-PLAN's "Working on this project" wording in the docs pass.
+
+**What was built.** `RunControlSignal` and `RunControl.uninterrupted` in Core; the engine's
+`control: () -> RunControlSignal` consulted at the **top of each chunk iteration**, so a pause
+settles after the previous chunk's full read → write-back → verify with nothing in flight;
+`RunOutcome.pausedByUser(atBlock:)` and `.stoppedByUser(atBlock:)`, only the first offering a
+`resumeBlock`; `RunControlChannel` in the helper; and protocol v10 — `setRunControl` on the second
+connection, plus the reply carrying `RunOutcomeCode` and the resume block.
+
+**Two judgment calls, recorded because both cost something.**
+
+- **`control:` is required with no default**, unlike `observer:`. It cost 31 call-site edits. A run
+  that silently could not be interrupted is the `RunObservers.forRun` failure exactly: no test
+  failing anywhere, and nothing visible until somebody presses Pause on hardware and watches it do
+  nothing. `grant:` — the other safety-critical closure in that signature — is already required.
+- **The reply's `completed` boolean was REPLACED, not supplemented.** FR-CTRL-2/4 give a run four
+  endings, so a boolean beside a separate "why" would be two statements of one fact — the
+  `helperHoldsDevice` defect by another door. `didComplete` survives as a derived property, so
+  `RunReport` needed no change at all.
+
+**The survivor, and why it was run anyway.** M12 — the helper reporting a pause as a stop — passed
+the whole suite, **as predicted before the run**. `main.swift`'s outward `RunOutcome → RunOutcomeCode`
+mapping is not in the test target, the same hole `RunObservers.forRun` had. Running the mutation
+anyway is the point: it confirms the hole is where the code comments claim it is rather than
+somewhere else. Two covers, neither of them a unit test: the mapping is an exhaustive `switch` (Step
+12's device-loss case will be a compile error, not a silent `unrecognised`), and **the pre-flight
+asserts the observed outcome is `pausedByUser`** — `run-control-check.sh` prints a note naming this
+exact mutation when it sees outcome 4.
+
+#### The pre-flight — RUN AND PASSED, 2026-08-12, on the 1 TB T5 scratch drive (`12345686DAA9`)
+
+`scripts/run-control-check.sh` + `tools/run-control-probe`. Protocol v10 daemon, 1 GiB region
+64 GiB into the drive, one uninterrupted control run then one paused run per I/O size.
+**All four settled; 0 inconclusive.**
+
+| I/O size | chunks done | covered | 1-chunk bound | **settle** | fraction of bound | daemon ack |
+|---|---|---|---|---|---|---|
+| 1 MiB | 298 | 298 MiB | 6.71 ms | **5.83 ms** | 0.87 | 0.62 ms |
+| 2 MiB | 149 | 298 MiB | 13.41 ms | **10.13 ms** | 0.76 | 0.52 ms |
+| 4 MiB | 75 | 300 MiB | 26.83 ms | **6.19 ms** | 0.23 | 0.56 ms |
+| 8 MiB | 38 | 304 MiB | 53.66 ms | **42.45 ms** | 0.79 | 0.46 ms |
+
+Calibration from the control run: 1 GiB of coverage in **6,868 ms** = 149.1 MiB/s of coverage,
+i.e. **469 MB/s** of device I/O across read + write + verify — which matches this drive's
+independently measured ~470 MB/s. The chunk counts imply a pre-pause interval of 1,999–2,039 ms
+against an actual wait of 2,000 ms, so the four cases cross-check against the calibration and
+against each other.
+
+**What it establishes.** A `setRunControl` on the second connection reaches a helper inside a
+blocking `runRetentionCycle`, the engine acts on it, and the run settles **within one chunk** —
+every sample is a fraction of its own bound. The resume point matched
+`startBlock + chunksProcessed × blocksPerChunk` **exactly** in all four cases and was 1 MiB-aligned
+in all four, so it is proven rather than plausible. NFR-REL-10 holds on hardware.
+
+**It also discharges M12's cover.** The observed outcome was `pausedByUser` (3) in every case; a
+helper with the outward mapping swapped would have reported 4, and the script names that mutation
+by hand when it sees one. The mutation the unit suite provably cannot catch is caught here.
+
+**A claim of mine was wrong in the details, and the correction matters for the cap argument.** I
+said pause latency would be *"~27 ms at the 4 MiB default"*. That figure is the **bound** — one
+chunk — not the typical value: the pause lands at a uniformly random point inside a chunk, so the
+expected settle is about **half** the bound, and a single sample scatters across it. That is why
+2 MiB (10.13 ms) came out *higher* than 4 MiB (6.19 ms), which is not a defect and not noise in the
+mechanism — it is two draws from two different uniform distributions. The right statement is
+**"bounded by one chunk, typically half of one"**.
+
+The conclusion the cap argument rested on is unaffected and is now measured rather than asserted:
+**latency is set by the chunk, not the call.** A cap of 8 MiB would have produced these same
+figures, because the settle happens at a chunk boundary *inside* the call either way. `maximumBytesPerCall`
+stays at 1 GiB. Part 2 of the pre-flight — the per-call overhead sweep that would have set the cap
+on its remaining jobs — was deferred by user decision 2026-08-12; the sequencer works with any value.
+
+**For the docs pass (increment 7):** this measurement belongs in CONSTRAINTS section 1, and
+CONSTRAINTS' existing sentence *"the cap … is what makes an uncancellable privileged call
+survivable"* needs rewriting, since this step is what made the call cancellable.
 
 ### What this step must not lose
 

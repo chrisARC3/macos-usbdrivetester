@@ -257,10 +257,11 @@ struct HonestFramingTests {
 
         /// Built through the real initialiser, so the outcome is *derived* the way the shipped app
         /// derives it rather than asserted into place by the test.
-        static func report(didComplete: Bool,
+        static func report(outcome: RunOutcomeCode,
                            failedRangesEncoded: String,
                            failedBlockCount: UInt64) -> RunReport {
-            let reply = RunCycleOutcome(didComplete: didComplete,
+            let reply = RunCycleOutcome(runOutcomeCode: outcome.rawValue,
+                                        interruptedAtBlock: 0,
                                         chunksProcessed: 256,
                                         failedRangeCount: failedBlockCount > 0 ? 1 : 0,
                                         failureSummary: "",
@@ -289,11 +290,11 @@ struct HonestFramingTests {
         }
 
         static func cleanReport() -> RunReport {
-            report(didComplete: true, failedRangesEncoded: "", failedBlockCount: 0)
+            report(outcome: .completed, failedRangesEncoded: "", failedBlockCount: 0)
         }
 
         static func stoppedOnErrorReport() -> RunReport {
-            report(didComplete: false, failedRangesEncoded: "4096:8:1", failedBlockCount: 8)
+            report(outcome: .stoppedOnFailure, failedRangesEncoded: "4096:8:1", failedBlockCount: 8)
         }
     }
 }

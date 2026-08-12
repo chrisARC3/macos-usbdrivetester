@@ -272,8 +272,12 @@ public struct LoadedChunk: Equatable {
 
 /// Why a run stopped.
 ///
-/// Two cases now. Step 10 adds the user-selected failure modes, Step 11 adds stop-by-user, and
-/// Step 12 adds device loss — each of which is a *new* way to end, not a re-reading of these.
+/// Four cases. Step 11 added the two interruptions; Step 12 adds device loss — which is a *new*
+/// way to end, not a re-reading of these.
+///
+/// The two interruptions carry the block the run was **about to process**, not the last one it
+/// finished. That is the block a resume starts from, and stating it as the resume point rather
+/// than as "where we got to" removes an off-by-one from the one arithmetic that must not have one.
 public enum RunOutcome: Equatable, CustomStringConvertible {
 
     /// Every chunk in the plan was processed. Says nothing about whether they all passed —
@@ -284,13 +288,40 @@ public enum RunOutcome: Equatable, CustomStringConvertible {
     /// I/O was issued (NFR-REL-5).
     case stoppedOnFailure(BlockRangeFailure)
 
+    /// **FR-CTRL-2, NFR-REL-10.** The user paused, and the run settled at a chunk boundary with
+    /// no write in flight. The previous chunk's full read → write-back → verify is complete;
+    /// `atBlock` has not been touched.
+    ///
+    /// This is the only outcome a run may be **resumed** from (FR-CTRL-3), and the resume is
+    /// in-session — not FR-FAIL-7's prohibited cross-interruption resume.
+    case pausedByUser(atBlock: UInt64)
+
+    /// **FR-CTRL-4.** The user stopped the run. Same settling guarantee as ``pausedByUser``, and
+    /// the same block, but the run is over: a stopped run cannot be continued, and testing the
+    /// drive would have to start again from the beginning.
+    case stoppedByUser(atBlock: UInt64)
+
     public var description: String {
         switch self {
         case .completed:
             return "completed"
         case .stoppedOnFailure(let failure):
             return "stopped on failure at \(failure)"
+        case .pausedByUser(let block):
+            return "paused by the user at block \(block)"
+        case .stoppedByUser(let block):
+            return "stopped by the user at block \(block)"
         }
+    }
+
+    /// The block a resume would start from, or `nil` for an outcome that cannot be resumed.
+    ///
+    /// `nil` for ``stoppedByUser`` as well as for the two natural endings, and that is the point:
+    /// FR-FAIL-7 forbids resuming a run that was stopped, so the value that would let somebody do
+    /// it does not exist rather than existing and being ignored.
+    public var resumeBlock: UInt64? {
+        if case .pausedByUser(let block) = self { return block }
+        return nil
     }
 }
 
@@ -428,6 +459,66 @@ public enum FailureDisposition: Equatable {
     /// Stop now. The engine issues no further I/O of any kind and returns a summary whose
     /// outcome names this failure (NFR-REL-5).
     case stopRun
+}
+
+// MARK: - Run control (FR-CTRL-2/3/4, NFR-REL-10)
+
+/// What the app currently wants the run in flight to do.
+///
+/// ## Why the engine asks rather than being told
+///
+/// Measured 2026-08-04: while the helper is inside a blocking privileged call, **a second message
+/// on that same connection is not delivered until the call returns.** So a pause cannot arrive as
+/// a message to the code that is running — it has to be *left somewhere the run will look*. The
+/// app sets it over a second connection; the engine reads it at each chunk boundary.
+///
+/// Expressed as a closure the engine calls, not a value it is given, for exactly the reason
+/// `grant` is: a value captured once would be the answer as it stood when the run started, and the
+/// whole point is that it changes underneath a call that is already in flight.
+///
+/// ## Two cases and no third
+///
+/// There is deliberately no `resume` and no `unrecognised`.
+///
+/// **No `resume`,** because this is a *level*, not an edge: it says what the app wants now. Resume
+/// is the app setting ``proceed`` again. An edge-triggered control would have to be delivered while
+/// the run was looking, and the whole reason this type exists is that messages cannot be delivered
+/// to a blocked connection.
+///
+/// **No `unrecognised`,** for the same reason ``FailureMode`` has none: this side of the boundary
+/// is inside the helper, where a signal that cannot be read is not a state a run can be in. An
+/// unrecognised code arriving over XPC is *refused* at the boundary, which is where the case for it
+/// lives.
+///
+/// ## The safe direction, stated because it is what makes a stale value harmless
+///
+/// The helper never clears this by itself — the app owns the state (BUILD-PLAN Step 11: *"state
+/// owned GUI-side"*) and sets ``proceed`` before every run and on every resume. A stale ``pause``
+/// or ``stop`` can therefore only make a run do **less** than asked, never more, and the run it
+/// would shorten has not started. That asymmetry is what makes an app-owned level safe here where
+/// an app-owned *permission* would not be.
+public enum RunControlSignal: Equatable {
+
+    /// Carry on. The ordinary value, and what a run with no control surface always reads.
+    case proceed
+
+    /// **FR-CTRL-2.** Settle at the next chunk boundary and return, saying where to resume.
+    case pause
+
+    /// **FR-CTRL-4.** Settle at the next chunk boundary and end the run.
+    case stop
+}
+
+/// Ready-made control closures.
+public enum RunControl {
+
+    /// A run nothing can interrupt.
+    ///
+    /// Named rather than written as `{ .proceed }` at each call site so that "this run has no
+    /// control surface" is a **statement** in the source rather than a literal that reads like
+    /// boilerplate. Every test that does not exercise pause says so in one word, and a reader can
+    /// grep for the ones that do.
+    public static let uninterrupted: () -> RunControlSignal = { .proceed }
 }
 
 // MARK: - The two modes (FR-FAIL-1)

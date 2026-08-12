@@ -136,9 +136,28 @@ nonisolated struct DeviceProfile: Equatable {
 /// How a bounded cycle ended — everything the end-of-run report is built from (Step 10, v9).
 nonisolated struct RunCycleOutcome: Equatable {
 
+    /// How the run ended (FR-RPT-4), as the helper stated it.
+    ///
+    /// **Replaced a `didComplete` boolean in protocol v10.** FR-CTRL-2/4 give a run four ways to
+    /// end, and a boolean beside a separate "why" field would be two statements of one fact — the
+    /// defect `AppModel.helperHoldsDevice` is being deleted for in this same step. `didComplete`
+    /// survives below as a derived property, so callers that only wanted the boolean did not change.
+    let outcome: RunOutcomeCode
+
+    /// Where a paused run resumes (FR-CTRL-3), or `nil` for every other ending.
+    ///
+    /// `nil` rather than `0` for the three non-resumable endings, and the discriminator is the
+    /// **outcome code, not the value**: block 0 is a perfectly legitimate resume point, so a
+    /// sentinel would make "resume from the beginning" and "cannot be resumed" the same reply.
+    ///
+    /// It is `nil` for ``RunOutcomeCode/stoppedByUser`` too. A stopped run cannot be continued
+    /// (FR-FAIL-7), so the value that would let somebody continue it does not exist rather than
+    /// existing and being ignored — which is the version a later edit turns back on.
+    let resumeBlock: UInt64?
+
     /// Every planned chunk was processed. **Says nothing about whether they all passed** — a run
     /// that finds bad blocks and keeps going still completes (FR-FAIL-3).
-    let didComplete: Bool
+    var didComplete: Bool { outcome.didComplete }
 
     let chunksProcessed: UInt64
 
@@ -214,7 +233,8 @@ nonisolated struct RunCycleOutcome: Equatable {
     /// one call site where the mistake would be made, and `RunCycleOutcomeTests` pins the decode
     /// itself with values that are distinguishable from one another — a suite using `1.0` and
     /// `1.0` would pass with the two swapped.
-    init(didComplete: Bool,
+    init(runOutcomeCode: Int,
+         interruptedAtBlock: UInt64,
          chunksProcessed: UInt64,
          failedRangeCount: Int,
          failureSummary: String,
@@ -237,7 +257,10 @@ nonisolated struct RunCycleOutcome: Equatable {
             WireSentinel.latency(nanoseconds, sampleCount: readLatencySampleCount)
         }
 
-        self.didComplete = didComplete
+        let outcome = RunOutcomeCode(wireValue: runOutcomeCode)
+        self.outcome = outcome
+        // The code decides, not the value. See `resumeBlock`.
+        self.resumeBlock = outcome == .pausedByUser ? interruptedAtBlock : nil
         self.chunksProcessed = chunksProcessed
         self.failedRangeCount = failedRangeCount
         self.failureSummary = failureSummary
@@ -564,17 +587,18 @@ final class HelperConnection {
                                      blockCount: blockCount,
                                      ioSizeBytes: ioSizeBytes,
                                      failureModeCode: failureMode.rawValue) {
-                completed, chunks, failedRangeCount, failureSummary, cacheBypassCode,
-                _, bufferBytesHeld, hostOverheadFraction, helperCoreFraction,
+                runOutcomeCode, interruptedAtBlock, chunks, failedRangeCount, failureSummary,
+                cacheBypassCode, _, bufferBytesHeld, hostOverheadFraction, helperCoreFraction,
                 failureModeUsedCode, failedRangesEncoded, failedBlockCount,
                 readBytesPerSecond, writeBytesPerSecond, readLatencySampleCount,
                 readLatencyMinimum, readLatencyMaximum, readLatencyP99Upper, message in
 
-                // Straight into a labelled initialiser, one value per line. Nineteen positional
+                // Straight into a labelled initialiser, one value per line. Twenty positional
                 // values with six adjacent same-typed numbers among them is exactly where a
                 // transposition hides, and this closure is not reachable by any unit test.
                 finish(.success(RunCycleOutcome(
-                    didComplete: completed,
+                    runOutcomeCode: runOutcomeCode,
+                    interruptedAtBlock: interruptedAtBlock,
                     chunksProcessed: chunks,
                     failedRangeCount: failedRangeCount,
                     failureSummary: failureSummary,
@@ -619,6 +643,35 @@ final class HelperConnection {
                     readLatencyMaximumNanoseconds: latencyMaximum,
                     readLatencyP99UpperBoundNanoseconds: latencyP99Upper,
                     chunksFailed: chunksFailed)))
+            }
+        }
+    }
+
+    /// Tell the helper what the run in flight should do at its next chunk boundary
+    /// (FR-CTRL-2/3/4, NFR-REL-10).
+    ///
+    /// **Goes out on ``progressConnection``, not the owning one**, and that is not a style choice:
+    /// a second message on a connection with a blocking call in flight is not delivered until that
+    /// call returns (measured 2026-08-04). Sent on the run's own connection, a pause would arrive
+    /// *after* the run it was meant to interrupt had already ended — the button would appear dead,
+    /// and then the run would stop by itself a few seconds later, which is the worst available way
+    /// for a control to be wrong.
+    ///
+    /// The connection stays **non-owning**: this method never acquires, so its death still releases
+    /// nothing (NFR-REL-5).
+    ///
+    /// ## The reply is NOT the acknowledgement
+    ///
+    /// Success here means the helper *recorded* the request. It does **not** mean the run has
+    /// settled, and nothing may show "Paused" on the strength of it — that is precisely the
+    /// two-party handshake BUILD-PLAN's risks note forbids collapsing. The acknowledgement is the
+    /// **`runRetentionCycle` reply** coming back with `RunOutcomeCode.pausedByUser` and its resume
+    /// block, which is the helper stating it settled at a chunk boundary with no write in flight.
+    func setRunControl(_ code: RunControlCode,
+                       completion: @escaping (Result<(accepted: Bool, message: String), Error>) -> Void) {
+        withProxy(completion, on: currentProgressConnection()) { tester, finish in
+            tester.setRunControl(code: code.rawValue) { accepted, message in
+                finish(.success((accepted: accepted, message: message)))
             }
         }
     }

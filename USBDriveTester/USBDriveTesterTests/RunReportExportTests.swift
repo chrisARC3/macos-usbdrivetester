@@ -23,7 +23,8 @@ struct RunReportExportTests {
 
     private static func report(serial: String? = "12345686DAA9",
                                cacheBypassCode: Int = 1) -> RunReport {
-        let reply = RunCycleOutcome(didComplete: true,
+        let reply = RunCycleOutcome(runOutcomeCode: RunOutcomeCode.completed.rawValue,
+                                    interruptedAtBlock: 0,
                                     chunksProcessed: 256,
                                     failedRangeCount: 1,
                                     failureSummary: "",

@@ -38,7 +38,8 @@ struct RunCycleOutcomeTests {
     /// A complete, healthy reply. Every numeric value is deliberately different from every other,
     /// so any pair being swapped fails.
     private static func outcome(
-        didComplete: Bool = true,
+        outcome: RunOutcomeCode = .completed,
+        interruptedAtBlock: UInt64 = 0,
         chunksProcessed: UInt64 = 256,
         failedRangeCount: Int = 0,
         failureSummary: String = "no failed block ranges",
@@ -57,7 +58,8 @@ struct RunCycleOutcomeTests {
         readLatencyP99UpperBoundNanoseconds: UInt64 = 2_195_000,
         message: String = "Cycle completed"
     ) -> RunCycleOutcome {
-        RunCycleOutcome(didComplete: didComplete,
+        RunCycleOutcome(runOutcomeCode: outcome.rawValue,
+                        interruptedAtBlock: interruptedAtBlock,
                         chunksProcessed: chunksProcessed,
                         failedRangeCount: failedRangeCount,
                         failureSummary: failureSummary,
@@ -276,7 +278,7 @@ struct RunCycleOutcomeTests {
     /// No run happened, so no mode was used. Distinct from either real mode, and it must not
     /// resolve to one.
     @Test func aRefusedRunReportsNoMode() {
-        let refused = Self.outcome(didComplete: false, chunksProcessed: 0,
+        let refused = Self.outcome(outcome: .unrecognised, chunksProcessed: 0,
                                    failureModeUsedCode: 0)
         #expect(refused.failureModeUsed == .unrecognised)
         #expect(refused.failureModeUsed.isRunnable == false)
@@ -296,7 +298,7 @@ struct RunCycleOutcomeTests {
     /// In the reply, a refused run has nothing to misattribute: no mode, no ranges, no rates, no
     /// latency samples.
     @Test func aRefusedRunHasNoFiguresToMisattribute() {
-        let refused = Self.outcome(didComplete: false,
+        let refused = Self.outcome(outcome: .unrecognised,
                                    chunksProcessed: 0,
                                    failedRangeCount: 0,
                                    failureSummary: "",
@@ -334,19 +336,37 @@ struct RunCycleOutcomeTests {
 
 // MARK: - The version handshake
 
-struct ProtocolVersionNineTests {
+struct ProtocolVersionTests {
 
-    /// A signature change on both sides, so the bump is mandatory rather than merely cheap: a v8
-    /// daemon would neither receive the failure mode nor encode the reply block this app decodes.
-    /// The app and the helper are separately installed artefacts, so an old daemon can still be
-    /// registered after an app update — and the handshake is what turns that into "too old"
-    /// rather than a call that silently does something else.
-    @Test func theProtocolVersionIsNine() {
-        #expect(TesterProtocol.version == 9)
+    /// **v10** — Step 11 adds `setRunControl` and replaces the reply's `completed` boolean with
+    /// ``RunOutcomeCode`` plus a resume block.
+    ///
+    /// A signature change on the reply, so the bump is mandatory rather than merely cheap: a v9
+    /// client would decode `Int` where it expected `Bool` and read every field after it one
+    /// position out. The app and the helper are separately installed artefacts, so an old daemon
+    /// can still be registered after an app update — and the handshake is what turns that into
+    /// "too old" rather than a call that silently does something else.
+    ///
+    /// This test failing is the **intended** consequence of a protocol change, not an obstacle to
+    /// one: it is here so that a signature edit cannot land without somebody deciding, in a diff,
+    /// that the version should move with it.
+    @Test func theProtocolVersionIsTen() {
+        #expect(TesterProtocol.version == 10)
     }
 
-    /// The bounded-call cap is unchanged by v9. It is not a tuning parameter — it is what makes
-    /// an uncancellable privileged write safe to expose at all, and Step 11 is what replaces it.
+    /// **The cap is unchanged by v10, and that is a measurement pending rather than a decision
+    /// taken.**
+    ///
+    /// Its original justification — *"what makes an uncancellable privileged call survivable"* —
+    /// lapses in this step, because this is the step that makes the call cancellable. What remains
+    /// is bounding the reply, the per-call failure list, and how long a wedged call can occupy the
+    /// daemon. Increment 2's pre-flight sweeps 8 / 64 / 256 MiB / 1 GiB on the scratch drive and
+    /// the value is set from that; until then it stays where it was rather than moving on an
+    /// argument.
+    ///
+    /// Note what this does **not** bound any more: pause latency. That is set by the *chunk* —
+    /// ~27 ms at the 4 MiB default — because the engine consults the control at each chunk
+    /// boundary rather than at each call boundary.
     @Test func theCallCapIsUnchangedByTheBump() {
         #expect(TesterProtocol.maximumBytesPerCall == 1 << 30)
     }

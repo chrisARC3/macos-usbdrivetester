@@ -643,13 +643,14 @@ final class TesterControlImpl: NSObject, TesterControl {
                            blockCount: UInt64,
                            ioSizeBytes: Int,
                            failureModeCode: Int,
-                           reply: @escaping (Bool, UInt64, Int, String, Int, Double, Int,
+                           reply: @escaping (Int, UInt64, UInt64, Int, String, Int, Double, Int,
                                              Double, Double, Int, String, UInt64, Double,
                                              Double, UInt64, UInt64, UInt64, UInt64,
                                              String) -> Void) {
 
         /// Every refusal path replies with **no figures at all** — rates `-1`, latency sample
-        /// count `0`, no ranges, and a `failureModeUsedCode` of `0` because no run happened.
+        /// count `0`, no ranges, a `failureModeUsedCode` of `0` and a `runOutcomeCode` of `0`,
+        /// because no run happened.
         ///
         /// That is the point of carrying the figures here rather than polling `runProgress`
         /// afterwards: `MetricsChannel`'s slot still holds the *previous* run's numbers at this
@@ -659,7 +660,7 @@ final class TesterControlImpl: NSObject, TesterControl {
                         runRetentionCycle REFUSED for \(self.peer, privacy: .public): \
                         \(detail, privacy: .public)
                         """)
-            reply(false, 0, 0, "",
+            reply(RunOutcomeCode.unrecognised.rawValue, 0, 0, 0, "",
                   CacheBypassOutcome.unrecognised.rawValue, 0, 0, -1, -1,
                   FailureModeCode.unrecognised.rawValue, "", 0,
                   -1, -1, 0, 0, 0, 0,
@@ -728,8 +729,13 @@ final class TesterControlImpl: NSObject, TesterControl {
             // sentinels as `runProgress`: `-1` is "not measured", never `0`, which means
             // *stalled*; and a sample count of `0` is what makes the three latency figures
             // meaningless, because `0` nanoseconds is itself a legitimate reading.
+            // FR-RPT-4's vocabulary, stated by the side that knows. The app used to derive
+            // "completed" from a boolean and infer the rest; from v10 the helper says which of the
+            // four endings happened, because it is the only party that can distinguish a run that
+            // settled on a pause from one that ran out of chunks.
             let latency = result.metrics?.readLatency
-            reply(summary.isComplete,
+            reply(Self.outcomeCode(summary.outcome),
+                  summary.outcome.resumeBlock ?? 0,
                   summary.chunksProcessed,
                   summary.failures.totalRangeCount,
                   summary.failures.summaryLine,
@@ -754,6 +760,59 @@ final class TesterControlImpl: NSObject, TesterControl {
         case .failure(let refusal):
             refuse(refusal.description)
         }
+    }
+
+    /// Map Core's ``RunOutcome`` onto the wire (FR-RPT-4).
+    ///
+    /// Written out rather than derived from a raw value on `RunOutcome`, for the reason
+    /// `FailureMode.wireCode` is: Core compiles into the helper and the test target but
+    /// deliberately not into the app module, so the two enumerations cannot be one type. Written
+    /// as an exhaustive `switch` so that adding a way for a run to end — Step 12's device loss —
+    /// is a compile error here rather than a silent `unrecognised`.
+    private static func outcomeCode(_ outcome: RunOutcome) -> Int {
+        switch outcome {
+        case .completed:        return RunOutcomeCode.completed.rawValue
+        case .stoppedOnFailure: return RunOutcomeCode.stoppedOnFailure.rawValue
+        case .pausedByUser:     return RunOutcomeCode.pausedByUser.rawValue
+        case .stoppedByUser:    return RunOutcomeCode.stoppedByUser.rawValue
+        }
+    }
+
+    // MARK: - Step 11: run control (FR-CTRL-2/3/4, NFR-REL-10)
+    //
+    // Arrives on a SECOND connection while `runRetentionCycle` blocks the run's own. That is not a
+    // convention, it is what the transport requires: measured 2026-08-04, a second message on a
+    // connection with a call in flight is not delivered until the call returns.
+    //
+    // It takes no device slot, touches no descriptor and holds no lock the run holds. All it does
+    // is set a value the engine reads at its next chunk boundary.
+
+    func setRunControl(code: Int, reply: @escaping (Bool, String) -> Void) {
+        let wireCode = RunControlCode(wireValue: code)
+
+        // Refused, never defaulted (NFR-REL-7). The direction matters more here than anywhere
+        // else on this interface: resolving an unknown code to `proceed` would answer a caller
+        // asking to STOP A WRITE with a run that keeps writing.
+        let signal: RunControlSignal
+        switch wireCode {
+        case .proceed: signal = .proceed
+        case .pause:   signal = .pause
+        case .stop:    signal = .stop
+        case .unrecognised:
+            let detail = "Refusing: \(code) is not a run-control code this helper recognises. "
+                       + "Allowed: \(RunControlCode.proceed.rawValue) (proceed), "
+                       + "\(RunControlCode.pause.rawValue) (pause), "
+                       + "\(RunControlCode.stop.rawValue) (stop)."
+            ioLog.error("""
+                        setRunControl REFUSED for \(self.peer, privacy: .public): \
+                        \(detail, privacy: .public)
+                        """)
+            reply(false, detail)
+            return
+        }
+
+        RunControlChannel.shared.request(signal, from: peer)
+        reply(true, "Run control set to \(signal).")
     }
 
     // MARK: - Step 9: live metrics

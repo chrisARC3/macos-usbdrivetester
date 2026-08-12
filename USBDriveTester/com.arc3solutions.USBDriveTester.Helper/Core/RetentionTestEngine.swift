@@ -310,6 +310,17 @@ public extension RetentionTestEngine {
     ///   - grant: what the helper currently holds. Called **before every write**, not once —
     ///     a device released mid-run must stop the very next write (NFR-REL-3, NFR-REL-5),
     ///     and `AcquiredDevice.grant` recomputes rather than caching precisely so this works.
+    ///   - control: what the app currently wants this run to do (FR-CTRL-2/3/4). Called **at each
+    ///     chunk boundary**, for the same reason `grant` is called before each write: the answer
+    ///     changes underneath a call that is already in flight, so a value captured once would be
+    ///     the answer as it stood when the run started.
+    ///
+    ///     **Required, with no default**, unlike `observer`. A run that silently could not be
+    ///     interrupted would fail exactly the way `RunObservers.forRun` was built to prevent — no
+    ///     test failing anywhere, and nothing visible until somebody pressed Pause on real
+    ///     hardware and watched it do nothing. `grant`, the other safety-critical closure in this
+    ///     signature, is required for the same reason. Pass ``RunControl/uninterrupted`` to say so
+    ///     deliberately.
     ///   - observer: receives run start, each completed chunk, each failure, and the summary.
     ///     Its answer to a failure decides whether the run continues.
     ///   - clock: monotonic nanoseconds. Injected so FR-TEST-9's falsifier can be driven from
@@ -324,6 +335,7 @@ public extension RetentionTestEngine {
              blockRange: Range<UInt64>? = nil,
              cacheBypass: CacheBypassAssessment,
              grant: () -> DeviceAccessGrant?,
+             control: () -> RunControlSignal,
              observer: RunObserver? = nil,
              clock: MonotonicClock = RunClock.monotonicNanoseconds) throws -> RunSummary {
 
@@ -384,6 +396,23 @@ public extension RetentionTestEngine {
                                       cacheBypass: assessment.state))
 
         for chunk in plan {
+            // **NFR-REL-10, and the only place a run is interrupted.**
+            //
+            // Consulted here — before this chunk's read, and therefore *after* the previous
+            // chunk's full read → write-back → verify — so a pause settles with the device at a
+            // chunk boundary and no write in flight **by construction rather than by care**. There
+            // is no other point in this loop where that is true without qualification.
+            //
+            // It is also before `chunksProcessed += 1`, which is what makes `chunk.startBlock` the
+            // correct resume point: this chunk has not been touched, so a resume must redo it, not
+            // skip it. The alternative — record the last completed chunk and add one — is the same
+            // fact with an increment in front of it, and the increment is where the off-by-one
+            // would live.
+            if let interruption = Self.interruption(control(), atBlock: chunk.startBlock) {
+                outcome = interruption
+                break
+            }
+
             chunksProcessed += 1
 
             // The chunk's span starts here, so host overhead below captures *everything* in this
@@ -540,6 +569,21 @@ public extension RetentionTestEngine {
     }
 
     // MARK: Internals
+
+    /// Translate the app's current wish into the outcome it ends this run with, or `nil` to carry
+    /// on (FR-CTRL-2/4).
+    ///
+    /// A function rather than a `switch` in the loop so that "which signals end a run, and as
+    /// what" is one expression a test can reach — the same reason `FailureModeObserver` is its own
+    /// type rather than a branch inside `RunLogger`'s counter bookkeeping.
+    private static func interruption(_ signal: RunControlSignal,
+                                     atBlock block: UInt64) -> RunOutcome? {
+        switch signal {
+        case .proceed: return nil
+        case .pause:   return .pausedByUser(atBlock: block)
+        case .stop:    return .stoppedByUser(atBlock: block)
+        }
+    }
 
     /// The NFR-REL-3 guard, in the vocabulary a run aborts with.
     private static func requireWriteAccess(_ grant: DeviceAccessGrant?,

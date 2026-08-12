@@ -159,6 +159,7 @@ struct NonDestructivenessTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         let after = device.snapshot()
@@ -182,6 +183,7 @@ struct NonDestructivenessTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(firstDifference(before, device.snapshot()) == nil)
@@ -221,6 +223,7 @@ struct NonDestructivenessTests {
                            deviceName: Fixture.deviceName,
                            cacheBypass: Fixture.bypassedAssessment,
                            grant: { Fixture.grant },
+                           control: RunControl.uninterrupted,
                            clock: SteppingClock.plausible.now)
 
         #expect(firstDifference(before, backing.snapshot()) != nil,
@@ -237,6 +240,7 @@ struct NonDestructivenessTests {
                                      blockRange: 100 ..< 100,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.outcome == .completed)
@@ -259,6 +263,7 @@ struct VerifyMismatchTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      observer: observer,
                                      clock: SteppingClock.plausible.now)
         return (summary, device)
@@ -353,6 +358,7 @@ struct HardErrorTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.failures.ranges == [BlockRangeFailure(startBlock: 128,
@@ -371,6 +377,7 @@ struct HardErrorTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.failures.ranges == [BlockRangeFailure(startBlock: 256,
@@ -394,6 +401,7 @@ struct HardErrorTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         // 1. No write was even attempted at the faulted chunk's offset.
@@ -426,6 +434,7 @@ struct HardErrorTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(ChunkCycleAudit.check(recorder.operations).isEmpty)
@@ -455,6 +464,7 @@ struct HardErrorTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.failures.ranges == [
@@ -477,6 +487,7 @@ struct HardErrorTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.failures.ranges.count == 2)
@@ -496,6 +507,7 @@ struct OneChunkInFlightTests {
                            deviceName: Fixture.deviceName,
                            cacheBypass: Fixture.bypassedAssessment,
                            grant: { Fixture.grant },
+                           control: RunControl.uninterrupted,
                            clock: SteppingClock.plausible.now)
 
         #expect(ChunkCycleAudit.check(recorder.operations).isEmpty)
@@ -511,6 +523,7 @@ struct OneChunkInFlightTests {
                            deviceName: Fixture.deviceName,
                            cacheBypass: Fixture.bypassedAssessment,
                            grant: { Fixture.grant },
+                           control: RunControl.uninterrupted,
                            clock: SteppingClock.plausible.now)
 
         let cycles = ChunkCycleAudit.completedCycles(recorder.operations)
@@ -541,6 +554,7 @@ struct OneChunkInFlightTests {
                            deviceName: Fixture.deviceName,
                            cacheBypass: Fixture.bypassedAssessment,
                            grant: { Fixture.grant },
+                           control: RunControl.uninterrupted,
                            clock: SteppingClock.plausible.now)
 
         #expect(ChunkCycleAudit.check(recorder.operations).isEmpty)
@@ -563,6 +577,7 @@ struct BoundedRangeTests {
                                      blockRange: 1_280 ..< 3_328,          // 16 whole chunks
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.chunksPlanned == 16)
@@ -586,6 +601,7 @@ struct BoundedRangeTests {
                                      blockRange: 1_280 ..< 3_328,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.outcome == .completed)
@@ -606,6 +622,7 @@ struct BoundedRangeTests {
                                      blockRange: 1_280 ..< 3_280,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.chunksPlanned == 16)
@@ -631,6 +648,7 @@ struct BoundedRangeTests {
                                blockRange: 8_000 ..< 9_000,
                                cacheBypass: Fixture.bypassedAssessment,
                                grant: { Fixture.grant },
+                               control: RunControl.uninterrupted,
                                clock: SteppingClock.plausible.now)
         }
         #expect(recorder.operations.isEmpty)
@@ -647,6 +665,7 @@ struct BoundedRangeTests {
                                deviceName: Fixture.deviceName,
                                cacheBypass: Fixture.bypassedAssessment,
                                grant: { Fixture.grant },
+                               control: RunControl.uninterrupted,
                                clock: SteppingClock.plausible.now)
         }
         #expect(recorder.operations.isEmpty)
@@ -668,6 +687,7 @@ struct WriteGuardTests {
                                deviceName: Fixture.deviceName,
                                cacheBypass: Fixture.bypassedAssessment,
                                grant: { nil },
+                               control: RunControl.uninterrupted,
                                clock: SteppingClock.plausible.now)
         }
 
@@ -687,6 +707,7 @@ struct WriteGuardTests {
                                deviceName: Fixture.deviceName,
                                cacheBypass: Fixture.bypassedAssessment,
                                grant: { elsewhere },
+                               control: RunControl.uninterrupted,
                                clock: SteppingClock.plausible.now)
         }
         #expect(recorder.writes.isEmpty)
@@ -716,6 +737,7 @@ struct WriteGuardTests {
                                deviceName: Fixture.deviceName,
                                cacheBypass: Fixture.bypassedAssessment,
                                grant: grant,
+                               control: RunControl.uninterrupted,
                                clock: SteppingClock.plausible.now)
         }
 
@@ -749,6 +771,7 @@ struct StopPathTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      observer: observer,
                                      clock: SteppingClock.plausible.now)
 
@@ -773,6 +796,7 @@ struct StopPathTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.outcome == .completed)
@@ -791,6 +815,7 @@ struct CacheBypassIntegrationTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.cacheBypass.state == .bypassed)
@@ -807,6 +832,7 @@ struct CacheBypassIntegrationTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.blockNodeAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.cacheBypass.state.qualifiesVerifyResult)
@@ -824,6 +850,7 @@ struct CacheBypassIntegrationTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.immeasurablyFast.now)
 
         #expect(summary.cacheBypass.state.qualifiesVerifyResult,
@@ -842,7 +869,9 @@ struct CacheBypassIntegrationTests {
         let summary = try engine.run(buffers: Fixture.buffers(),
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.bypassedAssessment,
-                                     grant: { Fixture.grant })     // the real monotonic clock
+                                     grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted)
+                                                                       // the real monotonic clock
 
         #expect(summary.cacheBypass.state.qualifiesVerifyResult)
         #expect(summary.cacheBypass.fastestObservedBytesPerSecond
@@ -858,6 +887,7 @@ struct CacheBypassIntegrationTests {
                                      deviceName: Fixture.deviceName,
                                      cacheBypass: Fixture.blockNodeAssessment,
                                      grant: { Fixture.grant },
+                                     control: RunControl.uninterrupted,
                                      clock: SteppingClock.plausible.now)
 
         #expect(summary.cacheBypass.state != .bypassed)

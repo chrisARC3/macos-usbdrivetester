@@ -20,10 +20,14 @@
 //    * runRetentionCycle      — the read -> write-back -> verify cycle, bounded (Step 8)
 //    * digestRange            — SHA-256 of a bounded range of the held device (Step 8)
 //    * runProgress            — live metrics for the run in progress (Step 9)
+//    * setRunControl          — pause / resume / stop the run in flight (Step 11)
 //
-//  Deferred on purpose: pause / resume / stop. Those need Step 11's state machine to be
-//  meaningful; stubbing them now would be dead code AND attack surface. Widening the
-//  protocol later is cheap, walking a wide one back is not (BUILD-PLAN Step 3, risks).
+//  `setRunControl` was deferred until it could be meaningful, which is this step: stubbing it
+//  earlier would have been dead code AND attack surface. Note it is ONE method carrying a *level*,
+//  not a pause/resume/stop triple carrying edges — the run READS it at each chunk boundary, and an
+//  edge would have to be delivered to a connection that is blocked for the run's whole duration
+//  (measured 2026-08-04). Widening the protocol later is cheap, walking a wide one back is not
+//  (BUILD-PLAN Step 3, risks).
 //
 //  NOTE (Step 9): the helper -> GUI *callback* protocol that earlier notes anticipated was
 //  not built. Measured 2026-08-04, a second connection is answered concurrently while a
@@ -267,12 +271,22 @@ import Foundation
     ///     refused rather than defaulted** if this build does not recognise it: quietly
     ///     resolving an unknown code to FR-FAIL-4's default would answer a caller asking to
     ///     stop on the first error with a run that writes to the whole drive.
-    ///   - reply: nineteen values, in the order below.
+    ///   - reply: twenty values, in the order below.
     ///
-    ///     **The run** — `completed`, `chunksProcessed`, `message`. `completed` is `true` only
-    ///     when every chunk in the range was processed; it says nothing about whether they all
-    ///     *passed*, because a run that finds bad blocks and keeps going still completes
-    ///     (FR-FAIL-3).
+    ///     **The run** — `runOutcomeCode`, `interruptedAtBlock`, `chunksProcessed`, `message`.
+    ///     `runOutcomeCode` is a ``RunOutcomeCode`` raw value and it **replaced a `completed`
+    ///     boolean in v10**: with FR-CTRL-2/4 there are now four ways for a run to end, and a
+    ///     boolean beside a separate "why" field would be two statements of one fact — which is
+    ///     the defect `AppModel.helperHoldsDevice` is being deleted for. `completed` survives as a
+    ///     *derived* property on the app side, so nothing that only wanted the boolean had to
+    ///     change. It still says nothing about whether every chunk *passed*: a run that finds bad
+    ///     blocks and keeps going still completes (FR-FAIL-3).
+    ///
+    ///     `interruptedAtBlock` is the block a paused run resumes from (FR-CTRL-3), and is
+    ///     meaningful **only** when `runOutcomeCode` is ``RunOutcomeCode/pausedByUser`` — the code
+    ///     is the discriminator, exactly as `readLatencySampleCount` is for the latency figures.
+    ///     It is `0` otherwise, and `0` is a legitimate resume point, which is why the code and
+    ///     not a sentinel decides.
     ///
     ///     **The failures (FR-RPT-1)** — `failedRangeCount` (retained **plus** any the cap
     ///     dropped), `failureSummary` (the human line, also carried inside `message`),
@@ -313,26 +327,72 @@ import Foundation
                            blockCount: UInt64,
                            ioSizeBytes: Int,
                            failureModeCode: Int,
-                           reply: @escaping (Bool,     //  1 completed
-                                             UInt64,   //  2 chunksProcessed
-                                             Int,      //  3 failedRangeCount
-                                             String,   //  4 failureSummary
-                                             Int,      //  5 cacheBypassCode
-                                             Double,   //  6 fastestObservedBytesPerSecond
-                                             Int,      //  7 bufferBytesHeld
-                                             Double,   //  8 hostOverheadFraction
-                                             Double,   //  9 helperCoreFraction
-                                             Int,      // 10 failureModeUsedCode        (v9)
-                                             String,   // 11 failedRangesEncoded        (v9)
-                                             UInt64,   // 12 failedBlockCount           (v9)
-                                             Double,   // 13 readBytesPerSecond         (v9)
-                                             Double,   // 14 writeBytesPerSecond        (v9)
-                                             UInt64,   // 15 readLatencySampleCount     (v9)
-                                             UInt64,   // 16 readLatencyMinimumNs       (v9)
-                                             UInt64,   // 17 readLatencyMaximumNs       (v9)
-                                             UInt64,   // 18 readLatencyP99UpperBoundNs (v9)
-                                             String)   // 19 message
+                           reply: @escaping (Int,      //  1 runOutcomeCode             (v10)
+                                             UInt64,   //  2 interruptedAtBlock         (v10)
+                                             UInt64,   //  3 chunksProcessed
+                                             Int,      //  4 failedRangeCount
+                                             String,   //  5 failureSummary
+                                             Int,      //  6 cacheBypassCode
+                                             Double,   //  7 fastestObservedBytesPerSecond
+                                             Int,      //  8 bufferBytesHeld
+                                             Double,   //  9 hostOverheadFraction
+                                             Double,   // 10 helperCoreFraction
+                                             Int,      // 11 failureModeUsedCode        (v9)
+                                             String,   // 12 failedRangesEncoded        (v9)
+                                             UInt64,   // 13 failedBlockCount           (v9)
+                                             Double,   // 14 readBytesPerSecond         (v9)
+                                             Double,   // 15 writeBytesPerSecond        (v9)
+                                             UInt64,   // 16 readLatencySampleCount     (v9)
+                                             UInt64,   // 17 readLatencyMinimumNs       (v9)
+                                             UInt64,   // 18 readLatencyMaximumNs       (v9)
+                                             UInt64,   // 19 readLatencyP99UpperBoundNs (v9)
+                                             String)   // 20 message
                                             -> Void)
+
+    /// Tell the helper what the run in flight should do at its next chunk boundary
+    /// (FR-CTRL-2/3/4, NFR-REL-10).
+    ///
+    /// ## This MUST be called on a second connection
+    ///
+    /// Measured 2026-08-04 (`scripts/xpc-concurrency-check.sh`): while the helper is inside a
+    /// blocking privileged call, **a second message on that same connection is not delivered until
+    /// the call returns**, while a second connection is answered concurrently in 0.2–0.3 ms. So a
+    /// pause sent on the connection running `runRetentionCycle` would be delivered *after* the run
+    /// it was meant to interrupt had already ended — the request would appear to do nothing, and
+    /// then the run would stop by itself, which is the worst available way for a control to be
+    /// wrong. The app sends this on the same non-owning connection it polls `runProgress` on.
+    ///
+    /// ## A level, not an edge — and therefore no `resume`
+    ///
+    /// This states what the app wants **now**. Resume is ``RunControlCode/proceed`` sent again.
+    /// An edge-triggered control would have to be delivered while the run was looking, and the
+    /// whole reason this method exists is that a blocked connection cannot be delivered to.
+    ///
+    /// The helper never clears it: the app owns the state and sets `proceed` before every run and
+    /// on every resume. A stale `pause` or `stop` can therefore only make a run do **less** than
+    /// asked, and the run it would shorten has not started.
+    ///
+    /// ## Why this may abort a run when `prepareForShutdown` may not
+    ///
+    /// `prepareForShutdown` deliberately refuses while busy, so that no caller — even a correctly
+    /// Team-ID-signed one — can use it to abort a run. The difference is what each would leave
+    /// behind. A teardown mid-write can leave a half-written device (NFR-REL-5). A stop cannot:
+    /// the engine settles at a chunk boundary with the previous chunk's full read → write-back →
+    /// verify complete, which is exactly NFR-REL-10's guarantee. And FR-CTRL-4 *requires* the user
+    /// to be able to stop a run. Nothing is granted here that an accepted caller did not already
+    /// have — one wanting to keep a drive claimed could simply call `acquireDevice` and hold it.
+    ///
+    /// - Parameters:
+    ///   - code: a ``RunControlCode`` raw value. An unrecognised code is **refused, never
+    ///     defaulted** — the same rule as ``FailureModeCode``, and for a sharper reason here:
+    ///     defaulting an unknown code to `proceed` would answer a caller asking to *stop a write*
+    ///     with a run that keeps writing.
+    ///   - reply: `(accepted, message)`. Deliberately does **not** report whether a run is in
+    ///     flight: the app issues its own runs and receives their completions, so it already knows
+    ///     the lifecycle, and a second source for that fact is a second thing that can be wrong
+    ///     (user decision 2026-08-04, the same reason `runProgress` carries no "is a run active"
+    ///     flag).
+    func setRunControl(code: Int, reply: @escaping (Bool, String) -> Void)
 
     /// A snapshot of the run currently in progress (Step 9, FR-METR-2/4/5/6, NFR-PERF-5).
     ///
@@ -549,6 +609,88 @@ nonisolated public enum FailureModeCode: Int {
     public var isRunnable: Bool { self != .unrecognised }
 }
 
+/// What the app wants the run in flight to do, as it travels over the wire (FR-CTRL-2/3/4).
+///
+/// - Important: these raw values are duplicated by ``RunControlSignal`` in `Core/RetentionRun.swift`,
+///   which is what the engine actually reads, for the same reason ``FailureModeCode`` is duplicated:
+///   Core compiles into the helper and the test target but deliberately **not** into the app module.
+///   `RunControlWireTests` is the only place both are visible at once, and it pins them together.
+///
+/// ## Why this one has an unrecognised case and `RunControlSignal` does not
+///
+/// The same asymmetry, for the same reason: anything arriving over this interface is untrusted input
+/// even though the connection is code-signature-authenticated (NFR-REL-7), so a code this build does
+/// not know has to be *representable* in order to be **refused**. Inside the helper there is no such
+/// case, because a run cannot be in a control state it cannot read.
+///
+/// It is never defaulted, and the direction matters more here than anywhere else on this interface:
+/// resolving an unknown code to ``proceed`` would answer a caller asking to **stop a write** with a
+/// run that keeps writing.
+nonisolated public enum RunControlCode: Int {
+
+    /// Carry on. Also what a resume sends (FR-CTRL-3) — this is a level, not an edge.
+    case proceed = 1
+
+    /// **FR-CTRL-2.** Settle at the next chunk boundary and reply with the resume point.
+    case pause = 2
+
+    /// **FR-CTRL-4.** Settle at the next chunk boundary and end the run.
+    case stop = 3
+
+    /// Anything this build does not recognise. **Refused, never defaulted.**
+    case unrecognised = 0
+
+    /// Map a wire value, never trapping on one this build does not know.
+    public init(wireValue: Int) {
+        self = RunControlCode(rawValue: wireValue) ?? .unrecognised
+    }
+
+    /// Is this a control state the helper may actually adopt?
+    public var isActionable: Bool { self != .unrecognised }
+}
+
+/// How a run ended, as it travels over the wire (FR-RPT-4).
+///
+/// Replaced v9's `completed` boolean in **v10**. With FR-CTRL-2/4 there are four ways for a run to
+/// end, and a boolean beside a separate "why" field would be two statements of one fact.
+///
+/// - Important: duplicated by ``RunOutcome`` in `Core/RetentionRun.swift`, which is where a run
+///   actually ends, for the same reason the other wire enums are. `RunControlWireTests` pins them.
+nonisolated public enum RunOutcomeCode: Int {
+
+    /// Every chunk in the range was processed. **Not** a claim that they all passed — a run that
+    /// finds bad blocks and keeps going still completes (FR-FAIL-3).
+    case completed = 1
+
+    /// **FR-FAIL-2.** The run halted at a failed range because the mode said to.
+    case stoppedOnFailure = 2
+
+    /// **FR-CTRL-2, NFR-REL-10.** The user paused; the helper settled at a chunk boundary with no
+    /// write in flight. The **only** code for which `interruptedAtBlock` means anything.
+    case pausedByUser = 3
+
+    /// **FR-CTRL-4.** The user stopped the run. It cannot be continued (FR-FAIL-7).
+    case stoppedByUser = 4
+
+    /// No run happened — a refusal — or a code this build does not recognise. Never treated as a
+    /// completion.
+    case unrecognised = 0
+
+    /// Map a wire value, never trapping on one this build does not know.
+    public init(wireValue: Int) {
+        self = RunOutcomeCode(rawValue: wireValue) ?? .unrecognised
+    }
+
+    /// Did every planned chunk get processed? What v9's `completed` boolean answered.
+    public var didComplete: Bool { self == .completed }
+
+    /// Was the run cut short by the user, either way? Both mean the drive is only partly covered,
+    /// and a report must never read as a clean pass over the whole device.
+    public var wasInterruptedByUser: Bool {
+        self == .pausedByUser || self == .stoppedByUser
+    }
+}
+
 /// What kind of failure a reported range was, as it travels over the wire.
 ///
 /// - Important: duplicated by `BlockFailureKind` in `Core/RetentionRun.swift`; pinned by
@@ -757,6 +899,21 @@ public enum TesterProtocol {
     ///   a post-reply poll would export the wrong run's measurements. In the reply they belong to
     ///   this run or they do not exist.
     ///
+    /// - **10** — Step 11: adds `setRunControl`, and `runRetentionCycle`'s reply gains
+    ///   ``RunOutcomeCode`` and the resume block while **losing** the `completed` boolean it
+    ///   replaces. A **signature change on the reply**, so the bump is mandatory: a v9 client would
+    ///   decode `Int` where it expected `Bool` and read every field after it one position out.
+    ///
+    ///   `setRunControl` must be called on a **second connection**, for the same measured reason
+    ///   `runProgress` must be (2026-08-04). It is the first method on this interface that changes
+    ///   what a call *already in flight* will do — every other one either asks a question or starts
+    ///   something — which is why it is a level the run reads rather than a message the run
+    ///   receives: a blocked connection cannot be delivered to.
+    ///
+    ///   `completed` became `runOutcomeCode` rather than gaining a sibling because FR-CTRL-2/4 give
+    ///   a run four ways to end, and a boolean beside a separate "why" would be two statements of
+    ///   one fact — the defect `AppModel.helperHoldsDevice` is being deleted for in this same step.
+    ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
@@ -768,7 +925,7 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 9
+    public static let version = 10
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

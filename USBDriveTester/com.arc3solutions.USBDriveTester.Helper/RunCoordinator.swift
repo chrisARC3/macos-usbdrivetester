@@ -385,6 +385,11 @@ enum RunCoordinator {
                                          // Recomputed per chunk on purpose: a device released
                                          // mid-run must stop the very next write (NFR-REL-3).
                                          grant: { device.grant },
+                                         // Read per chunk for the same reason, and from the
+                                         // process-wide slot rather than a captured value: the
+                                         // pause arrives on a *different connection* while this
+                                         // call is blocking this one (measured 2026-08-04).
+                                         control: { RunControlChannel.shared.current },
                                          observer: observer)
             logDeviceDiagnostics(blockDevice)
 

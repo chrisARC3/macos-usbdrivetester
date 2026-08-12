@@ -39,16 +39,17 @@ private enum Fixture {
     /// `cacheBypassCode` 1 is `.bypassed` (verified); 3 is `.inconclusive`, which qualifies. Any
     /// non-`.bypassed` verdict qualifies, so 3 stands for all of them.
     static func report(_ outcome: RunReportOutcome, qualified: Bool) -> RunReport {
-        let didComplete: Bool
+        let wireOutcome: RunOutcomeCode
         let failedBlocks: UInt64
         switch outcome {
-        case .completedClean:        didComplete = true;  failedBlocks = 0
-        case .completedWithFailures: didComplete = true;  failedBlocks = 8
-        case .stoppedOnError:        didComplete = false; failedBlocks = 8
-        case .incomplete:            didComplete = false; failedBlocks = 0
+        case .completedClean:        wireOutcome = .completed;        failedBlocks = 0
+        case .completedWithFailures: wireOutcome = .completed;        failedBlocks = 8
+        case .stoppedOnError:        wireOutcome = .stoppedOnFailure; failedBlocks = 8
+        case .incomplete:            wireOutcome = .stoppedOnFailure; failedBlocks = 0
         }
-        let reply = RunCycleOutcome(didComplete: didComplete,
-                                    chunksProcessed: didComplete ? 256 : 2,
+        let reply = RunCycleOutcome(runOutcomeCode: wireOutcome.rawValue,
+                                    interruptedAtBlock: 0,
+                                    chunksProcessed: wireOutcome.didComplete ? 256 : 2,
                                     failedRangeCount: failedBlocks > 0 ? 1 : 0,
                                     failureSummary: "",
                                     cacheBypassCode: qualified ? 3 : 1,

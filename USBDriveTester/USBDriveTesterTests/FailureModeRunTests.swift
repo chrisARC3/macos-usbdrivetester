@@ -94,6 +94,7 @@ private enum Fixture {
                               deviceName: deviceName,
                               cacheBypass: bypassedAssessment,
                               grant: { grant },
+                              control: RunControl.uninterrupted,
                               observer: RunObservers.forRun(mode: mode,
                                                             watchedBy: extra.map { [$0] } ?? []),
                               clock: plausibleClock())

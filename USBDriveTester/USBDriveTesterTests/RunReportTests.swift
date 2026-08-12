@@ -51,7 +51,8 @@ private enum Fixture {
     static let finished = Date(timeIntervalSince1970: 1_785_000_007)
 
     /// A finished 1 GiB run with nothing wrong.
-    static func reply(didComplete: Bool = true,
+    static func reply(outcome: RunOutcomeCode = .completed,
+                      interruptedAtBlock: UInt64 = 0,
                       chunksProcessed: UInt64 = 256,
                       failedRangeCount: Int = 0,
                       failedRangesEncoded: String = "",
@@ -64,7 +65,8 @@ private enum Fixture {
                       readLatencyMinimumNanoseconds: UInt64 = 1_100_000,
                       readLatencyMaximumNanoseconds: UInt64 = 9_900_000,
                       readLatencyP99UpperBoundNanoseconds: UInt64 = 2_195_000) -> RunCycleOutcome {
-        RunCycleOutcome(didComplete: didComplete,
+        RunCycleOutcome(runOutcomeCode: outcome.rawValue,
+                        interruptedAtBlock: interruptedAtBlock,
                         chunksProcessed: chunksProcessed,
                         failedRangeCount: failedRangeCount,
                         failureSummary: "",
@@ -113,7 +115,7 @@ struct ReportExistenceTests {
     /// drive. Writing a file for one would put a description of a test that never touched the
     /// hardware on somebody's disk.
     @Test func aRefusedCallProducesNoReport() {
-        let refused = Fixture.reply(didComplete: false,
+        let refused = Fixture.reply(outcome: .unrecognised,
                                     chunksProcessed: 0,
                                     failureModeUsedCode: 0,   // no run happened
                                     cacheBypassCode: 0,
@@ -128,7 +130,7 @@ struct ReportExistenceTests {
     /// The discriminator is the mode echo — the helper stating what it did — and not the chunk
     /// count, which would be the app inferring it from an implementation detail.
     @Test func aRunThatStoppedOnItsFirstChunkStillGetsAReport() {
-        let stopped = Fixture.reply(didComplete: false,
+        let stopped = Fixture.reply(outcome: .stoppedOnFailure,
                                     chunksProcessed: 1,
                                     failedRangeCount: 1,
                                     failedRangesEncoded: "200:2:3",
@@ -163,7 +165,7 @@ struct ReportOutcomeTests {
     }
 
     @Test func aHaltedRunIsStoppedOnError() {
-        let reply = Fixture.reply(didComplete: false, chunksProcessed: 2,
+        let reply = Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 2,
                                   failedRangeCount: 1, failedRangesEncoded: "200:2:3",
                                   failedBlockCount: 2, failureModeUsedCode: 1)
         #expect(Fixture.report(reply).outcome == .stoppedOnError)
@@ -172,7 +174,7 @@ struct ReportOutcomeTests {
     /// The case that exists so the report cannot lie about a reply it cannot classify. Not a
     /// mechanism awaiting a trigger — a refusal to guess about an input the app does not control.
     @Test func aRunThatEndedEarlyWithNoFailureIsCalledIncompleteRatherThanGuessedAt() {
-        let reply = Fixture.reply(didComplete: false, chunksProcessed: 10)
+        let reply = Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 10)
         let report = Fixture.report(reply)
         #expect(report.outcome == .incomplete)
         #expect(report.outcome.didCoverTheRequestedRange == false)
@@ -289,10 +291,10 @@ struct ReportCacheBypassTests {
             Fixture.reply(cacheBypassCode: 3),
             Fixture.reply(failedRangeCount: 1, failedRangesEncoded: "8:2:1",
                           failedBlockCount: 2, cacheBypassCode: 3),
-            Fixture.reply(didComplete: false, chunksProcessed: 1, failedRangeCount: 1,
+            Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 1, failedRangeCount: 1,
                           failedRangesEncoded: "8:2:3", failedBlockCount: 2,
                           failureModeUsedCode: 1, cacheBypassCode: 2),
-            Fixture.reply(didComplete: false, chunksProcessed: 3, cacheBypassCode: 0),
+            Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 3, cacheBypassCode: 0),
         ]
         for reply in replies {
             #expect(Fixture.report(reply).headline.contains("NOT VERIFIED"))
@@ -677,7 +679,7 @@ struct ReportMarkdownShapeTests {
     /// A stopped run's untested remainder is repeated in the framing section, because that is
     /// where a reader looks to find out what the result is worth.
     @Test func aStoppedRunRepeatsThatTheRestIsUntested() {
-        let reply = Fixture.reply(didComplete: false, chunksProcessed: 2,
+        let reply = Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 2,
                                   failedRangeCount: 1, failedRangesEncoded: "200:2:3",
                                   failedBlockCount: 2, failureModeUsedCode: 1)
         let document = Fixture.markdown(Fixture.report(reply))
@@ -700,7 +702,7 @@ struct ReportMarkdownShapeTests {
         #expect(Fixture.markdown(Fixture.report())
                     .contains("| Failure-handling mode | Log and continue |"))
 
-        let stopped = Fixture.reply(didComplete: false, chunksProcessed: 2,
+        let stopped = Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 2,
                                     failedRangeCount: 1, failedRangesEncoded: "200:2:3",
                                     failedBlockCount: 2, failureModeUsedCode: 1)
         #expect(Fixture.markdown(Fixture.report(stopped))
@@ -722,10 +724,10 @@ struct ReportMarkdownShapeTests {
         let replies: [RunCycleOutcome] = [
             Fixture.reply(),
             Fixture.reply(failedRangeCount: 1, failedRangesEncoded: "8:2:1", failedBlockCount: 2),
-            Fixture.reply(didComplete: false, chunksProcessed: 1, failedRangeCount: 1,
+            Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 1, failedRangeCount: 1,
                           failedRangesEncoded: "8:2:3", failedBlockCount: 2,
                           failureModeUsedCode: 1),
-            Fixture.reply(didComplete: false, chunksProcessed: 3),
+            Fixture.reply(outcome: .stoppedOnFailure, chunksProcessed: 3),
         ]
         for reply in replies {
             let document = Fixture.markdown(Fixture.report(reply))

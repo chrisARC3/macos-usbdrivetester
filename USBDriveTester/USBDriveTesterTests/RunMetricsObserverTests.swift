@@ -80,6 +80,7 @@ private enum Wiring {
                               deviceName: deviceName,
                               cacheBypass: bypassed,
                               grant: { grant },
+                              control: RunControl.uninterrupted,
                               observer: observer,
                               clock: clock)
     }
