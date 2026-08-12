@@ -173,14 +173,27 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
   regions where SwiftUI draws no background of its own would land in the PNG transparent. The probe
   now supplies an opaque layer. This was diagnosed wrongly **twice** before anyone read the capture
   code.
-- **Render only as tall as you need.** Rendering 1,800 pt to inspect a 200 pt section is pure waste;
-  the height argument is the lever. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
+- **Render only as tall as you need — but the height argument is a FLOOR, not a ceiling** (measured
+  2026-08-11, correcting a header note that had called it "the lever"). `NSHostingView` sizes to its
+  content, so a view with no intrinsic cap ignores the number: the `metrics*` family returned
+  **2,876 pt** when asked for 460. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
+- **24 view cases, and three of them render a state this machine cannot produce** — `empty` (no
+  drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
+  drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
+  the last was added in Step 14 for a row that had never been rendered in either appearance.
+- **Dynamic Type is NOT checkable here, and the axis that would have checked it was built and then
+  deleted.** `.dynamicTypeSize` applied to an offscreen `NSHostingView` changes nothing on macOS —
+  measured, and discriminated with two controls before it was believed. Confirmed independently at
+  the keyboard: the System Settings text-size slider moves no font in this app either. The axis was
+  removed rather than kept, because a lever that looks live and does nothing would let somebody
+  render at `accessibility5`, see no clipping, and conclude the layout is safe. Do not rebuild it
+  without re-measuring. Full note in `scripts/render-ui.sh`'s header.
 - The probe prints `appActive / windowKey / firstResponder / appearance` on every run. That line has
   settled several questions that were otherwise being argued about.
 
-*Full account: `PROGRESS.md`, Step 14 increment 3.*
+*Full account: `progress/step-14.md`, increments 3 and 6.*
 
 ---
 
@@ -192,12 +205,26 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
   2026-08-06 with the hazard in front of the user. *"I do not want to go down the road of trying to
   divine user intentions."* Same policy as refusing to grade throughput. **On this machine that
   default is currently the 22 TB Seagate with a live Time Machine on it** — which is why Step 11's
-  removal of the explicit unmount is gated on Step 14's warnings existing.
+  removal of the explicit unmount was gated on Step 14's warnings existing. **That gate is
+  discharged (Step 14 complete 2026-08-11), so Step 11 may proceed** — but the hazard it was
+  protecting against is unchanged, and Step 11 is the step that puts the default selection one
+  deliberate click from a write. The warnings are the only thing standing there.
 - **FR-SAFE-5 withdrawn, FR-SAFE-6 REVERSED, FR-SAFE-7 moot.** Start owns unmount → acquire → run →
   release. FR-SAFE-1/2/3 and NFR-REL-3 are untouched: only *who performs the unmount* changed.
 - **NFR-USE-4 qualified 2026-08-09.** The pre-run warning **text** is suppressible per logged-in
   user; the **deliberate act is not** — a suppressed run still raises a confirmation naming the drive
   by model and USB serial.
+- **Screen-reader (VoiceOver) support is OUT OF SCOPE** — user decision 2026-08-11, NFR-USE-8
+  amended. Nothing verifies it and no gate depends on it. **The rest of NFR-USE-8 stands**: never
+  convey pass/fail by colour alone (audited and passed in greyscale across every status surface,
+  both appearances), Dynamic Type, and contrast. Accessibility code already in the app was kept
+  **voluntarily** — it is not requirement-driven, so do not build a gate around it, and do not
+  delete it either.
+- **Status tint is decoration, never the carrier.** `RunReportPresentation` owns the report's
+  symbol-and-tint decision as a pure type precisely so a test can reach it; the words and the symbol
+  shape carry the meaning. Measured 2026-08-11: the headline renders at 13.97:1 in light appearance
+  against status tints at 2.22–2.31:1 — the tint is the *least* legible part of the verdict, which
+  is the right way round.
 - **Failures interrupt with a modal; a successful unmount reports nothing.** The rule lives in
   `OutcomePresentation`, not in a view.
 - **The main scene is a `Window`, not a `WindowGroup`.** Closing the main window quits the app, and

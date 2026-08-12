@@ -62,6 +62,13 @@ are **process**, not history.
   Incremental builds do not re-emit warnings, and `build.sh` does **not** compile the test target —
   so `build.sh Debug`, `build.sh Release` **and** `test.sh`, each with DerivedData wiped first.
   Two of the three were the whole check for seven steps.
+- **Prove the clean build was actually clean, by counting compile tasks.** Wiping DerivedData and
+  seeing `BUILD SUCCEEDED` is not evidence that anything recompiled, and a wipe that silently
+  failed would make the whole zero-warnings check worthless. Count them:
+  `grep -c 'SwiftCompile' <log>`. Measured 2026-08-11 on a genuine clean run — **Debug 76**
+  per-file tasks, **Release 2** (that is correct: `-O -whole-module-optimization` emits one task
+  per *module*, each consuming a full `.SwiftFileList`), **test 148**. A Release count of 2 looks
+  alarming and is not; a Debug count of 2 would be the real thing to worry about.
 - **Get the test count from the xcresult, not the console.**
   `xcrun xcresulttool get test-results summary --path <xcresult>` and read the **top-level**
   `totalTestCount` — not `passedTests` inside `devicesAndConfigurations`, which counts something
@@ -1173,11 +1180,26 @@ React to classified failures per the user-selected mode, and conclude every run 
 > **FR-SAFE-1/2/3 and NFR-REL-3 are untouched** — no write may happen unless every volume is
 > unmounted *and* exclusive access is held. Only who performs the unmount has changed.
 >
-> **This removal is gated on Step 14's warnings existing.** The explicit unmount click is currently
-> the only deliberate act between selecting a drive and writing to it; FR-WARN-1/2/3 are what
-> replace it. Deleting these controls before those warnings exist would leave the product briefly
-> *less* guarded than either the current design or the intended one. Either build Step 14 first or
-> land both together.
+> **This removal was gated on Step 14's warnings existing, and THAT GATE IS NOW DISCHARGED** —
+> Step 14 completed 2026-08-11 (`f082716`), which is why it was built out of numeric order. The
+> explicit unmount click was the only deliberate act between selecting a drive and writing to it;
+> FR-WARN-1/2/3 are what replace it.
+>
+> **What that means for this step is not "proceed and forget it".** After this deletion the pre-run
+> dialog is the *only* thing between FR-DEV-3's default selection and a write, and on this machine
+> that default is the 22 TB Seagate carrying Backup and Time Machine. Two obligations follow:
+>
+> - **The gate must be relocated, not re-implemented.** It currently sits on `Run one bounded cycle`
+>   in the diagnostics window (Step 14 scoping decision 2), because there was no Start control until
+>   now. Move it to Start along the same path FR-CTRL-7's failure-mode picker beside it is already
+>   documented to take, and delete the scaffolding with the button.
+> - **Keep `runBoundedCycle(authorisedBy:)`'s shape.** It takes a `PreRunOutcome` as proof the gate
+>   ran, and the `guard` re-checks it. That parameter exists to make "wire Start straight to a run" a
+>   deliberate act visible in a diff rather than a one-word edit — the mutation is not catchable by
+>   the suite, so prevention is the only cover it has.
+>
+> **The nine-item human checklist in `progress/step-14.md` is what the relocated gate must pass
+> again.** Three of its items cover mutations no test here can reach.
 >
 > **A PARTIAL UNMOUNT THAT FAILS MUST NOT STRAND THE USER (found in real use, 2026-08-06).**
 > Reported against the control this step deletes, but the hazard survives the deletion and lands
@@ -1490,10 +1512,15 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 > FR-WARN-1/2/3's acknowledgement is the only thing between them, which is why Step 11's removal of
 > the explicit unmount is gated on this step and not merely sequenced after it.
 
+> **STEP 14 IS COMPLETE (2026-08-11).** Full account in [`progress/step-14.md`](progress/step-14.md)
+> — the eight scoping decisions, the increment table, the accessibility audit, the two defects the
+> keyboard session found, and the nine-item human checklist. The requirement changes are in the NFR
+> document's 2026-08-09 entry (NFR-USE-4 qualified) and 2026-08-11 entry (VoiceOver removed from
+> scope), and the FR document's 2026-08-09 entry (FR-WARN-1 qualified; FR-WARN-2/3/4 examined and
+> unaffected). The notes below record how it was scoped and are kept as written.
+>
 > **SCOPED 2026-08-09 — seven user decisions, taken before a line was written, and one of them
-> changes this step's own gate.** Full account in `PROGRESS.md` (this step is the one in progress; see "Step 14 — scoping and authoring
-> log"; the requirement change is in the NFR document's 2026-08-09 entry (NFR-USE-4 qualified) and
-> the FR document's (FR-WARN-1 qualified; FR-WARN-2/3/4 examined and unaffected).
+> changed this step's own gate.**
 >
 > 1. **This step lands BEFORE Step 11**, which is what its gating relationship always required.
 > 2. **Until Step 11 builds Start, the gate sits on `Run one bounded cycle`** in the diagnostics
