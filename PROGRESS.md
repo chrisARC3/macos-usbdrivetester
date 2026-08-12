@@ -138,7 +138,7 @@ the whole table instead of the surface (`everyRefusalInTheWholeTableIsASentence`
 against the fix — now caught. The note is on `RunControlPolicy.controls` so the next person does not
 re-derive it.
 
-### Increment 2 — code done 2026-08-12, **pre-flight not yet run**, not committed
+### Increment 2 — done 2026-08-12, `e13d3e8`
 
 Helper-side pause/stop at the chunk boundary, and protocol **v10**.
 
