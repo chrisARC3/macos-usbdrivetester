@@ -107,8 +107,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 | # | what | gate |
 |---|---|---|
 | **1 ✅** | `RunControlState` — the pure state machine, FR-CTRL-6's legal transitions, and each control's disabled **reason** (dimming is not a message). Nothing calls it. | **done 2026-08-12** — see below |
-| 2 | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**. **Then the pre-flight** — pause-settle latency and the cap sweep. | unit + mutations + a **new hardware gate**; needs an Xcode target-membership tick |
-| 3 | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device | unit + `metrics-check.sh` |
+| **2 ✅** | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**, then the pre-flight. **No Xcode tick was needed** and the cap sweep was deferred — both differ from what this row predicted; see below. | **done 2026-08-12** — see below |
+| **3 ← NEXT** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device | unit + `metrics-check.sh` |
 | 4 | The whole-device sequencer, app-side: whole-MiB slicing with only the final call short (FR-TEST-10), `mayIssueNewWork` checked before **every** call, `stopOnFirstError` meaning stop the *run* | unit, with an injected caller |
 | 5 | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | renders + the **nine-item human checklist** + the 4 TB T5 EVO fixture |
 | 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted | renders + unit |
