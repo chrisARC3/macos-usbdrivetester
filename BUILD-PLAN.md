@@ -82,6 +82,16 @@ are **process**, not history.
   counters.
 - **A green suite is not evidence a test works.** Break the thing on purpose and re-run — the
   project's oldest lesson, and it has caught something every time it has been applied.
+- **A mutation script must restore a file only if it actually differs.** Writing the pristine text
+  back unconditionally still counts as a file modification, and anything watching the working tree —
+  an editor, a build system, an assistant's context — re-reads the whole file for a change that did
+  not happen. Twelve mutations across five files did this ~60 times on 2026-08-12. One line fixes
+  it: `if path.read_text() != pristine: path.write_text(pristine)`.
+- **Run a mutation you expect to survive, and say so in advance.** Step 11 increment 2 deliberately
+  mutated the helper's `main.swift`, which the test target does not compile. It survived, as
+  predicted — and that is the result: it confirms the hole is where the code comments claim it is
+  rather than somewhere nobody has looked. A predicted survivor is evidence; an unexpected one is a
+  finding. Both beat only running mutations you are confident will die.
 
 **The build environment**
 
@@ -304,9 +314,15 @@ simulation-first still applies wherever the plan calls for it.
 >
 > **The order is deliberate and is not the numbering.** Step 14 was built before Step 11 because
 > Step 11's deletion of the `Unmount All` / `Acquire` / `Release` controls was gated on Step 14's
-> warnings existing — after that deletion, FR-DEV-3's default selection is one deliberate click from
-> a write, and on this machine that default is the 22 TB Seagate carrying Backup and Time Machine.
+> warnings existing — after that deletion, **two** clicks stand between FR-DEV-3's default selection
+> and a write (Start, then Proceed on a dialog naming the drive by model and USB serial), and on
+> this machine that default is the 22 TB Seagate carrying Backup and Time Machine.
 > **That gate is now discharged**, so Step 11 may proceed.
+>
+> **The deletion itself is settled and will not be re-visited** (user decision 2026-08-12). The
+> "one deliberate click" phrasing this plan used until then — still present in Step 14's notes
+> below, which are dated rationale and deliberately not rewritten — undercounted by one. See
+> [CONSTRAINTS.md](CONSTRAINTS.md) section 2, which supersedes it.
 >
 > **Read [PROGRESS.md](PROGRESS.md) first** — it holds what Step 11 inherits. For *why* something was
 > done the way it was, `progress/step-NN.md` has the archived history of that step; this table is the

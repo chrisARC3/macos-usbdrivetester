@@ -39,14 +39,59 @@ Consequences that are load-bearing:
 
 - The GUI polls `runProgress` on a **second, non-owning** connection. It never acquires, and its
   death releases nothing.
-- **Pause and stop are subject to the same constraint** (Step 11).
+- **Pause and stop are subject to the same constraint**, which is why `setRunControl` is a **level
+  the run reads** rather than a message the run receives — see "Run control" below.
 - `releaseDevice` on the owning connection during a run would queue behind the very call it was
   meant to shorten. This is why quitting waits for the call boundary rather than releasing first.
-- `TesterProtocol.maximumBytesPerCall` (1 GiB) is not a tuning parameter: it is what makes an
-  uncancellable privileged call survivable at ~7 s, and it is what makes the busy-refusals of
-  `releaseDevice` and `prepareForShutdown` reachable at all.
+- `TesterProtocol.maximumBytesPerCall` (1 GiB) bounds the reply, the per-call failure list, and how
+  long a wedged call can occupy the daemon. **Its original justification has lapsed** — it used to
+  read *"what makes an uncancellable privileged call survivable"*, and Step 11 is the step that made
+  the call cancellable. The busy-refusals of `releaseDevice` and `prepareForShutdown` are reachable
+  from the second connection regardless of call length, so they no longer depend on it either.
+  **It is still not a tuning parameter for pause latency**, which is set by the chunk (below).
 
 *Full account: `progress/step-09.md`, D1.*
+
+### Run control: a level the run reads, and a settle bounded by one chunk
+
+**`setRunControl` is one method carrying a level — `proceed` / `pause` / `stop` — not a
+pause/resume/stop triple carrying edges.** Resume is `proceed` sent again. An edge would have to be
+delivered to a connection that is blocked for the run's whole duration, which the measurement above
+forbids; so the app *leaves* its wish somewhere the run will look, and the engine reads it at each
+chunk boundary. It travels on the app's second, non-owning connection.
+
+**The engine consults it at the TOP of each chunk iteration** — before that chunk's read, therefore
+after the previous chunk's full read → write-back → verify. There is no other point in that loop
+where "no write is in flight" is true without qualification, which is how NFR-REL-10 holds by
+construction rather than by care. It is also *before* the processed-chunk counter increments, which
+is what makes the chunk's own start block the correct resume point.
+
+**Measured on hardware 2026-08-12** (`scripts/run-control-check.sh`, 1 TB T5 scratch drive, protocol
+v10), calibrated against an uninterrupted control run of 1 GiB in 6,868 ms — 469 MB/s of device I/O,
+matching this drive's independently measured rate:
+
+| I/O size | 1-chunk bound | settle | fraction of bound |
+|---|---|---|---|
+| 1 MiB | 6.71 ms | 5.83 ms | 0.87 |
+| 2 MiB | 13.41 ms | 10.13 ms | 0.76 |
+| 4 MiB | 26.83 ms | 6.19 ms | 0.23 |
+| 8 MiB | 53.66 ms | 42.45 ms | 0.79 |
+
+**The settle is bounded by one chunk and is typically about half of one.** The pause lands at a
+uniformly random point inside a chunk, so a single sample scatters across the bound — which is why
+2 MiB came out *higher* than 4 MiB here. That is two draws from two different distributions, not
+noise in the mechanism. **Do not quote the bound as the typical value**; an earlier note in this
+project did, and the correction is the reason this table exists rather than a single figure.
+
+The daemon acknowledged each request in 0.46–0.62 ms, and **that acknowledgement is not the settle.**
+The helper recording a request and the run having acted on it are different facts; only the second
+is NFR-REL-10's guarantee, and nothing may display "Paused" on the strength of the first.
+
+**Latency is therefore set by the CHUNK, not the call** — which is what makes the per-call cap
+irrelevant to it. A cap of 8 MiB would produce these same figures, because the settle happens at a
+chunk boundary *inside* the call either way.
+
+*Full account: commit `e13d3e8`.*
 
 ### I/O placement (FR-TEST-10)
 
@@ -206,11 +251,65 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
   divine user intentions."* Same policy as refusing to grade throughput. **On this machine that
   default is currently the 22 TB Seagate with a live Time Machine on it** — which is why Step 11's
   removal of the explicit unmount was gated on Step 14's warnings existing. **That gate is
-  discharged (Step 14 complete 2026-08-11), so Step 11 may proceed** — but the hazard it was
-  protecting against is unchanged, and Step 11 is the step that puts the default selection one
-  deliberate click from a write. The warnings are the only thing standing there.
+  discharged (Step 14 complete 2026-08-11), so Step 11 may proceed.**
+- **START OWNS UNMOUNT → ACQUIRE → RUN → RELEASE. Settled 2026-08-12, and it will not be
+  re-visited.** Step 11 increment 5 deletes the `Unmount All` / `Acquire` / `Release` controls; the
+  question of whether that leaves the product under-guarded is closed.
+
+  **And the count that question kept being argued from was wrong.** This project's documents said in
+  six places that the deletion leaves FR-DEV-3's default *"one deliberate click from a write"*.
+  **There are two clicks**, and the second is the substantive one:
+
+  1. **Start.**
+  2. **Proceed**, on either the full FR-WARN-1/2/3 warnings or — where the text has been suppressed
+     — a confirmation naming the drive by **model and USB serial** (NFR-USE-4 as qualified
+     2026-08-09). That dialog cannot be switched off to nothing; only its content changes.
+
+  > *"This is perfectly adequate. Besides, we have no evidence that more user button clicks makes it
+  > less likely that a drive will be mis-identified."* — user, 2026-08-12
+
+  That reasoning is the same species as FR-DEV-3's own defence and as the refusal to grade
+  throughput: **do not add a mechanism whose benefit is assumed rather than demonstrated.** A third
+  click would be a guard nobody has evidence for, bought with friction on every run for the
+  professional user NFR-USE-4's suppression exists to serve. The thing that actually addresses
+  mis-identification is already there and is not a click at all — it is the dialog **naming the
+  drive by the identifier that survives a renumbering**.
+
+  The older "one click" phrasing survives in `BUILD-PLAN.md`'s Step 14 notes, the NFR document's
+  2026-08-09 amendment and the `progress/` archives. Those are **dated records of what was believed
+  then** and are deliberately not rewritten; this entry supersedes them.
 - **FR-SAFE-5 withdrawn, FR-SAFE-6 REVERSED, FR-SAFE-7 moot.** Start owns unmount → acquire → run →
   release. FR-SAFE-1/2/3 and NFR-REL-3 are untouched: only *who performs the unmount* changed.
+- **A RUN IS A SEQUENCE OF BOUNDED CALLS, AND THE SESSION IS THE CLAIM** (Shape A, chosen
+  2026-08-12 over the alternative below). Start takes the claim once, holds it for the whole run,
+  releases it once — **never a claim per chunk**, which is unbuildable anyway: macOS remounts the
+  volume **~4 ms** after a release (measured Step 6), so a per-chunk release would race its own
+  remount tens of thousands of times.
+
+  So the metrics and failure accumulators belong on the **claim**, not on the call. Four things
+  follow, and each is a reason the shape was chosen rather than a consequence to be managed:
+
+  - **A true whole-run p99.** Percentiles do not compose, so aggregating per-call p99s app-side
+    cannot produce one. FR-METR-3 and FR-RPT-3 would silently degrade.
+  - **Whole-device progress and ETA**, rather than the fraction of whichever gibibyte is in flight.
+  - **`FailureLog`'s cap applies once per run**, not per call — so its truncation notice means what
+    it says on a failing drive.
+  - **Cumulative figures arrive in the cycle's own reply**, which preserves protocol v9's hard-won
+    property — *the figures belong to this run or they do not exist* — at run scope, **with no new
+    lifecycle methods**. `acquireDevice` opens the session and `releaseDevice` closes it.
+
+  **The alternative was one long cancellable call, and it needs no session at all.** It was
+  rejected on three counts: it bets a multi-hour run on an NSXPC reply nothing here has measured;
+  it makes `prepareForShutdown`'s and `releaseDevice`'s busy refusals hours-long instead of
+  seconds; and it turns FR-CTRL-8's *"a run resumed after a size change continues using the newly
+  selected size"* into engine surgery, because buffers are allocated per call. Under Shape A that
+  requirement falls out for free.
+
+  **What is NOT a reason, and was checked rather than assumed:** preserving the 1 GiB cap. The
+  cap's own justification lapsed in this step (see section 1), and pause latency is set by the
+  chunk regardless — so Shape A stands on the four properties above, not on the cap.
+
+  *Full account: commit `e13d3e8`; the measurement that backs it, `scripts/run-control-check.sh`.*
 - **NFR-USE-4 qualified 2026-08-09.** The pre-run warning **text** is suppressible per logged-in
   user; the **deliberate act is not** — a suppressed run still raises a confirmation naming the drive
   by model and USB serial.

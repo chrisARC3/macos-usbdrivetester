@@ -22,9 +22,14 @@ Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…
 
 **Its gating precondition is discharged** — Step 14 completed 2026-08-11 (`f082716`), which is why
 it was built out of numeric order. This step deletes the `Unmount All` / `Acquire` / `Release`
-controls, after which FR-DEV-3's default selection is one deliberate click from a write, and on this
-machine that default is the 22 TB Seagate with Backup and Time Machine mounted. The warnings are the
-only thing standing there.
+controls and gives Start ownership of the whole sequence.
+
+**That deletion is settled and will not be re-visited** (user decision 2026-08-12; full entry in
+[CONSTRAINTS.md](CONSTRAINTS.md) section 2). It leaves **two** clicks between FR-DEV-3's default
+selection and a write — Start, then Proceed on a dialog that names the drive by model and USB serial
+and cannot be switched off to nothing. This document said "one deliberate click" until 2026-08-12
+and was wrong. A third click would be a guard with no evidence behind it; what actually addresses
+mis-identification is the dialog naming the drive by the identifier that survives a renumbering.
 
 ### The starting point, re-derived rather than quoted
 
