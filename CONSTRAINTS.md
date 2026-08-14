@@ -99,11 +99,39 @@ All test I/O begins on a **1 MiB boundary** and covers a **whole number of MiB**
 being a range ending at the device's final block. **The helper enforces both and refuses otherwise**
 — shown refusing on hardware, not assumed.
 
-So a whole-device sequencer must **slice by whole MiB and let only the final call be short**. A
-sequencer advancing by "1 GiB or whatever is left" is refused on its last-but-one call against any
-device whose size is not a whole number of MiB — which the scratch device is not.
+So a whole-device sequencer must **slice by whole MiB and let only the final call be short**. That
+conclusion is right. **The justification this entry gave for it was measured on 2026-08-14 and is
+wrong**, and the correction matters because it moves where the fragility actually is.
 
-*Full account: `progress/step-09.md`.*
+This entry used to say a sequencer advancing by *"1 GiB or whatever is left"* is **"refused on its
+last-but-one call"** against a device whose size is not a whole number of MiB. Checked rather than
+believed — `Core/RunParameterValidator.swift` compiled standalone, four geometries walked through
+`RunPlacement.validate`:
+
+| geometry | naive `min(cap, remaining)` |
+|---|---|
+| 1 TB T5, 1,953,525,168 blocks | 932 calls, **0 refusals** |
+| 4 TB T5 EVO, 7,814,037,168 | 3,727 calls, **0 refusals** |
+| 22 TB Seagate, 42,970,644,479 | 20,490 calls, **0 refusals** |
+| 4,096-byte, 244,190,646 | 932 calls, **0 refusals** |
+
+It produces slices **identical** to whole-MiB slicing on all four, and is safe for one unstated
+reason: **`maximumBytesPerCall` is itself a whole multiple of 1 MiB**, so `min(cap, remaining)` is
+always either a whole 1 GiB or the final remainder, which is exempt. Give it a cap that is *not* a
+whole number of MiB and it is refused on **call 2**, not last-but-one.
+
+What **is** refused on its last-but-one call is a different sequencer — one that backs the final
+call up so it is a full 1 GiB — failing at #931/#932 on the 1 TB T5 and #3726/#3727 on the 4 TB EVO.
+The recorded symptom belongs to that algorithm and was written down against this one.
+
+**Two things follow, and the second is the one that costs something.** Whole-MiB rounding is correct
+for *any* cap where the naive form is correct only for today's — so keep it. And because the two
+agree on every real geometry, **a test that only slices real devices at the real cap cannot tell
+them apart**: `RunSlicing`'s cap is therefore an injected parameter and the suite slices with
+deliberately ragged ones. Confirmed by mutation — deleting the rounding is killed by the ragged-cap
+cases and **not** by the walk over the real drives.
+
+*Full accounts: `progress/step-09.md` for the rule; commit `c8bcc2a` for the measurement.*
 
 ### Unmounting: five things, and four of them are counter-intuitive
 
@@ -180,9 +208,14 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
 *this call* ended is what a sequencer branches on).
 
 - **p99 is octave-bucketed, integer-only, and reported as an UPPER BOUND.** Read-latency statistics
-  **keep accumulating** across a mid-run I/O-size change — and, from increment 3, across every call
-  of the run. **Percentiles do not compose**, so an app aggregating per-call p99s cannot produce a
-  whole-run one; that is why the accumulator had to move rather than the app doing arithmetic.
+  accumulate across **every call of the run** (increment 3). **Percentiles do not compose**, so an
+  app aggregating per-call p99s cannot produce a whole-run one; that is why the accumulator had to
+  move rather than the app doing arithmetic — and it is also why *"reset the figures on a size
+  change"* could never have been an app-side subtraction.
+  **A run no longer spans two I/O sizes at all** (FR-CTRL-8 revised 2026-08-14): a size change ends
+  the run. So the bimodal-distribution caveat this entry used to carry is retired, and
+  `RunReport.latencySpansMultipleIOSizes` is permanently `false` — correctly, because the product
+  cannot produce a run that would make it true.
 - **Progress is byte-denominated, never chunk-denominated** — which is what makes a mid-run size
   change expressible at all. `chunkMeasured` fires **once per chunk on every path**, including the
   three failure branches, so a display keeps advancing on a failing drive instead of freezing.
@@ -370,11 +403,36 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   selected size"* into engine surgery, because buffers are allocated per call. Under Shape A that
   requirement falls out for free.
 
+  **The third of those grounds lapsed on 2026-08-14** — there is no resume across a size change any
+  more, so nothing has to survive one. **Shape A is unaffected**: it stands on the four properties
+  above, and the amendment that retired this ground is one Shape A is what makes cheap (a size
+  change ends the run, the claim goes, the session dies with it). Recorded so nobody re-derives a
+  decision from an argument that has expired — the first two grounds are untouched.
+
   **What is NOT a reason, and was checked rather than assumed:** preserving the 1 GiB cap. The
   cap's own justification lapsed in this step (see section 1), and pause latency is set by the
   chunk regardless — so Shape A stands on the four properties above, not on the cap.
 
   *Full account: commit `e13d3e8`; the measurement that backs it, `scripts/run-control-check.sh`.*
+- **A RUN USES ONE I/O SIZE, AND CHANGING IT ENDS THE RUN** (FR-CTRL-8 revised 2026-08-14). The
+  dropdown is live before a run and while one is paused or stopped, and dead while it is running —
+  that half is unchanged since 2026-08-04. What changed is the other half: changing the size while
+  paused **ends** the run instead of resuming it at the new size, so testing at a different size is
+  a new run from block 0.
+
+  **This is the cheap way to get "clear the figures and start fresh", and the only one that does not
+  cost a protocol bump.** It cannot be done app-side — percentiles do not compose and a minimum
+  cannot be un-seen. It cannot be done by releasing and re-acquiring mid-pause — macOS remounts
+  ~4 ms after a release. The remaining alternative was a v12 method resetting the session's
+  accumulators, plus a session split into two accumulator lifetimes (failures and progress span the
+  run; throughput and latency span the size), which would put two scopes in every report. Ending the
+  run instead gets clean accumulators **by construction**, which is the property Shape A was chosen
+  for.
+
+  It reverses 2026-08-04's *"the statistics keep accumulating across a size change"*, whose reasoning
+  was answered rather than overlooked: a p99 over two populations describes neither, and the
+  evidence is not deleted — it belongs to a run that ended and was reported. Full account in the FR
+  document's 2026-08-14 amendment.
 - **NFR-USE-4 qualified 2026-08-09.** The pre-run warning **text** is suppressible per logged-in
   user; the **deliberate act is not** — a suppressed run still raises a confirmation naming the drive
   by model and USB serial.

@@ -1226,10 +1226,15 @@ React to classified failures per the user-selected mode, and conclude every run 
 > Every call must start on a **1 MiB boundary** and cover a **whole number of MiB**, the sole
 > exception being a range that ends at the device's final block (FR-TEST-5's short final chunk).
 > The helper enforces both and refuses otherwise — verified refusing on hardware, not merely
-> assumed. So a sequencer that advanced by, say, "1 GiB or whatever is left" would be refused on
-> its last-but-one call against a device whose size is not a whole number of MiB, which the scratch device's
-> is not (953,869 MiB **plus 1,456 blocks**). Slice by whole MiB and let only the final call be
-> short.
+> assumed. Slice by whole MiB and let only the final call be short — the scratch device is
+> 953,869 MiB **plus 1,456 blocks**, so the exemption is not hypothetical.
+>
+> **This note used to claim** that a sequencer advancing by *"1 GiB or whatever is left"* would be
+> *"refused on its last-but-one call"*. **Measured 2026-08-14 (increment 4, `c8bcc2a`): it is not** —
+> it produces 0 refusals and identical slices on all four real geometries, because the 1 GiB cap is
+> itself a whole multiple of 1 MiB. A cap that is not would break it on **call 2**. The
+> last-but-one symptom belongs to a *different* sequencer, one that backs the final call up to a
+> full 1 GiB. Full correction in [CONSTRAINTS.md](CONSTRAINTS.md) section 1.
 >
 > Two more things Step 9 leaves in place that this step's design depends on: **progress is
 > byte-denominated, never chunk-denominated** (which is what makes FR-CTRL-8's revised mid-run

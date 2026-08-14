@@ -228,12 +228,17 @@ nonisolated struct RunReport: Equatable {
 
     /// The I/O sizes the run used, in the order they were used, **without deduplication**.
     ///
-    /// A list rather than a single value because FR-CTRL-8 permits the size to change while a run
-    /// is paused, and the read-latency statistics deliberately keep accumulating across such a
-    /// change — which makes the distribution bimodal. A report showing one latency figure over
-    /// two populations, without saying so, invites the reader to compare it with a
-    /// single-size run. Today a run is one call and this holds one element; Step 11 is where it
-    /// holds more, and the renderer already says so when it does.
+    /// A list rather than a single value because FR-CTRL-8 once permitted the size to change while
+    /// a run was paused, with the read-latency statistics accumulating across the change — which
+    /// made the distribution bimodal, and a report showing one latency figure over two populations
+    /// without saying so invites comparison with a single-size run.
+    ///
+    /// **FR-CTRL-8 was revised again on 2026-08-14: a size change now ENDS the run.** So this
+    /// permanently holds exactly one element and ``latencySpansMultipleIOSizes`` is permanently
+    /// `false` — correctly, because the product can no longer produce a run that spans two sizes.
+    /// Kept as a list rather than collapsed to an `Int`: the renderer's multi-size wording is the
+    /// only thing that would have to come back if the requirement moves again, and a type that can
+    /// still express the truth costs nothing.
     let ioSizesUsed: [Int]
 
     /// FR-FAIL-1's mode, **as the helper reported having run in** — not as the app asked for it.

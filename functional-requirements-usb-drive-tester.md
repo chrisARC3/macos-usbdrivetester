@@ -109,7 +109,7 @@ This document specifies the **functional requirements** — the observable behav
 | FR-CTRL-5 | The user shall be able to restart a test from the beginning. | M | PB Features |
 | FR-CTRL-6 | The system shall enforce valid control transitions via a defined run-control state machine (e.g., resume only from paused, pause only while running). | M | ADR Action Item 10 |
 | FR-CTRL-7 | The system shall require the user to select the failure-handling mode (FR-FAIL-1) before a run can be started. | M | PB Handling I/O Failures |
-| FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable before a run starts and while a run is paused or stopped, and fixed while a run is actively running. A run resumed after a size change continues from its point of pause using the newly selected size. | M | user decision 2026-06-25; **revised 2026-08-04** |
+| FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable before a run starts and while a run is paused or stopped, and fixed while a run is actively running. **Changing the size while paused ends the run**; there is no resume across a size change, and a run uses exactly one I/O size for its whole life. | M | user decision 2026-06-25; revised 2026-08-04; **revised again 2026-08-14** |
 | FR-CTRL-9 | The system shall test only one device at a time; a new run shall not be startable while another run is in progress. | M | user decision 2026-06-25 |
 
 ## FR-METR — Metrics Capture & Live Monitoring
@@ -330,17 +330,27 @@ for the duration of that run**". It is now also configurable **while a run is pa
 and a resumed run continues from its point of pause using the newly selected size. Fixed only
 while actively running.
 
+> **The sentence above about resuming was withdrawn on 2026-08-14** — a size change now *ends* the
+> run. This entry is left as the dated record of what was decided then; see the 2026-08-14 entry
+> below for what replaced it and why.
+
 Two consequences follow, both of which the metrics design already had to satisfy for other
 reasons:
 
 1. **Progress must be measured in bytes, not chunks.** A size change alters how many chunks remain,
-   so a chunk-denominated percentage would jump at the moment of the change.
+   so a chunk-denominated percentage would jump at the moment of the change. *(Still required
+   2026-08-14, for its other reason: a bounded diagnostic run reports the fraction of the drive it
+   covered.)*
 2. **Read-latency statistics span the sizes used.** An 8 MiB read takes roughly twice as long as a
    4 MiB one, so a run whose size changed has a bimodal latency distribution. The statistics
    **keep accumulating** rather than resetting (user decision 2026-08-04): a drive that produced
    one 30-second read at 4 MiB is showing retry behaviour that matters regardless of what was
    selected afterwards, and resetting would delete that evidence. The run report records which
    sizes were used.
+
+   > **Superseded 2026-08-14.** A size change ends the run, so no run's statistics span two sizes
+   > and the question no longer arises. The reasoning above was weighed and answered rather than
+   > overlooked — see the 2026-08-14 entry.
 
 **A slider was considered and rejected** for the progress display: a slider implies the thumb can
 be dragged, and the starting block is never user-selectable. A progress bar with a live percentage
@@ -611,8 +621,66 @@ actual guarantees in the document that is supposed to be the record of them. It 
 the 2026-08-06 BSD-name entry: the rule has two halves and stating only one of them would license a
 regression.
 
+### 2026-08-14 — FR-CTRL-8 revised again: a size change ENDS the run
+
+**Trigger.** User decision during Step 11 increment 4's scoping, on being asked how the I/O size
+reaches each call of a whole-device run.
+
+> *"The transfer size dropdown menu should be disabled during an active run. However, upon either a
+> cancel or pause command, the transfer size dropdown should be enabled again. If the user changes
+> the transfer size, the previous performance metrics should be cleared and started fresh."*
+> — user, 2026-08-14
+
+The first two sentences were **already** FR-CTRL-8 as revised 2026-08-04 and change nothing. The
+third reverses that revision's second consequence.
+
+**FR-CTRL-8 — revised.** The dropdown remains configurable before a run and while a run is paused or
+stopped, and fixed while actively running. What changes is what happens next: **changing the size
+while paused ends the run** rather than resuming it at the new size. A run therefore uses exactly
+one I/O size for its whole life, and testing the drive at a different size is a new run from
+block 0.
+
+**This reverses the 2026-08-04 decision that read-latency statistics keep accumulating across a
+size change**, and that decision's reasoning is worth restating because it was a good one: *a drive
+that produced one 30-second read at 4 MiB is showing retry behaviour that matters regardless of what
+was selected afterwards, and resetting would delete that evidence.* The counter-argument accepted
+here is that a p99 computed over two populations describes neither, and that the evidence is not
+deleted — it belongs to a run that has ended and been reported.
+
+**Why this shape rather than a metrics-reset call**, decided on measurement rather than preference:
+
+1. **It cannot be done app-side at all.** Percentiles do not compose and a minimum cannot be
+   un-seen — the exact reason Step 11 increment 3 moved the accumulators onto the claim instead of
+   having the app do arithmetic.
+2. **It cannot be done by releasing and re-acquiring mid-pause.** macOS remounts the volumes ~4 ms
+   after a release (measured Step 6), which is why the claim is held through a pause.
+3. **So the alternative was a new protocol method and a bump to v12**, plus a session split into two
+   accumulator lifetimes — the failure log and progress span the run, throughput and latency span
+   the size — which would make every report carry figures at two scopes and have to say which is
+   which.
+
+Ending the run instead costs none of that: the claim is released, the session dies with it, and the
+next Start begins with clean accumulators **by construction** — the property Shape A was chosen for
+(*"a fresh claim starts empty… rather than because somebody remembered to clear a slot"*).
+
+**What it costs.** The 2026-08-04 clause *"a run resumed after a size change continues from its point
+of pause using the newly selected size"* is withdrawn. There is no resume across a size change. This
+returns FR-CTRL-8 to BUILD-PLAN Step 11's original wording — *"fixed for the run's duration"* — by a
+different route and for a different reason.
+
+**Consequences already absorbed.** `RunSequenceResult.ioSizesUsed` holds exactly one element, so
+`RunReport.latencySpansMultipleIOSizes` is now permanently `false` — correctly, because the product
+can no longer produce a run that spans two sizes. Byte-denominated progress (2026-08-04's first
+consequence) is **unaffected and still required**, for its other reason: a bounded diagnostic run
+must report the fraction of the *drive* it covered.
+
+**Built in:** the control is Step 11 increment 6; the sequencer that takes one fixed size per run is
+increment 4 (`c8bcc2a`).
+
+---
+
 ## Open Questions
 
 None outstanding — all questions from iterations 1–2 have been resolved (see *user
 decision 2026-06-25* annotations throughout), and the 2026-07-30, 2026-08-02, 2026-08-04,
-2026-08-05, 2026-08-06 and 2026-08-09 amendments above are recorded rather than open.
+2026-08-05, 2026-08-06, 2026-08-09 and 2026-08-14 amendments above are recorded rather than open.

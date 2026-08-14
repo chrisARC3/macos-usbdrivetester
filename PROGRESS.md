@@ -361,10 +361,14 @@ by the harness: a `where` clause on an enum case makes a `switch` non-exhaustive
 Restored from saved pristine copies with a `cmp` guard and rewritten; anchor uniqueness asserted for
 all 14 before and after.
 
-**Owed to increment 7's docs pass, beyond what increments 2 and 3 already left:** correct the
-"last-but-one" claim in CONSTRAINTS section 1 and BUILD-PLAN Step 11, and `RunReport.ioSizesUsed`'s
-comment, which reads *"Step 11 is where it holds more"* and is now permanently wrong — with the size
-fixed per run, it holds exactly one element.
+**Docs owed by this increment: all discharged 2026-08-14, before increment 5**, rather
+than deferred to increment 7. A cold start is told to read CONSTRAINTS in full and trust it, so
+leaving a claim in it that had been *measured false* would have defeated the file's purpose for
+three increments. Corrected: the "last-but-one" claim in CONSTRAINTS section 1 and BUILD-PLAN
+Step 11; FR-CTRL-8 and its 2026-08-04 consequences in the FR document, with a new 2026-08-14
+amendment; the metrics bullet in CONSTRAINTS section 1 that assumed a mid-run size change; Shape A's
+third rejection ground, which lapsed with that amendment; and `RunReport.ioSizesUsed`'s comment.
+**Increments 2 and 3's items are still owed** — see their entries above.
 
 ### What this step must not lose
 
