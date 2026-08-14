@@ -174,24 +174,50 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
 
 ### Metrics and reporting
 
+**Every figure here is now the RUN's, not the call's** — see "the session is the claim" in section 2,
+built in Step 11 increment 3. The two exceptions are `bufferBytesHeld` (2 × *this call's* I/O size,
+because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interruptedAtBlock` (how
+*this call* ended is what a sequencer branches on).
+
 - **p99 is octave-bucketed, integer-only, and reported as an UPPER BOUND.** Read-latency statistics
-  **keep accumulating** across a mid-run I/O-size change.
+  **keep accumulating** across a mid-run I/O-size change — and, from increment 3, across every call
+  of the run. **Percentiles do not compose**, so an app aggregating per-call p99s cannot produce a
+  whole-run one; that is why the accumulator had to move rather than the app doing arithmetic.
 - **Progress is byte-denominated, never chunk-denominated** — which is what makes a mid-run size
   change expressible at all. `chunkMeasured` fires **once per chunk on every path**, including the
   three failure branches, so a display keeps advancing on a failing drive instead of freezing.
+  The denominator is the **whole device**, from the claim's authoritative ioctl geometry, stated
+  once when the session opens. A bounded diagnostic run therefore reports the fraction of the
+  *drive* it covered, not 100% of the piece it asked for — which is the true statement.
+- **`isComplete` and `fractionComplete` answer different questions and are not derived from each
+  other.** The first is "every chunk the calls asked for was attempted"; the second is "this much of
+  the device". Both are true at once after a call that completed. Collapsing them makes one lie, and
+  it is the whole-device figure the user reads.
 - **Throughput is reported, never graded.** The manufacturer's sustained figure is not something this
   tool knows, and inventing a verdict would be a judgement dressed as a measurement.
 - **"Completed clean" means *no currently-unreadable blocks were found*, never "healthy".**
 - **A refused call is not a run**: no report, and the refusal is logged so its absence is explicable.
-- `MetricsChannel.begin()` runs *after* every validation refusal, so a **refused run leaves the
-  previous run's figures installed**. Protocol v9 carries the final figures back in
-  `runRetentionCycle`'s own reply, atomically with the run they describe, which removes the
-  wrong-run's-numbers hazard by construction rather than detecting it.
-- **NFR-PERF-3 has numbers** (2026-08-05): 2.55% host overhead → the run is **97.4% device-bound** at
-  the 4 MiB default and ~470 MB/s; the whole daemon is 4.22% of one core. **Host cost follows bytes
-  moved, not chunk count** — a larger I/O size does not reduce it.
+- **The figures belong to this run or they do not exist — and from increment 3 that is a WEAKER
+  guard than it was.** Protocol v9 read them from an observer installed *after* validation, so a
+  refused call had nothing to misattribute; `MetricsChannel.begin()` and its process-wide slot are
+  **gone**. The accumulators now live on the claim and predate the call, so what keeps the property
+  is only that the helper assembles the reply from a `CycleResult`, which exists on the success path
+  alone. They sit one line from the refusal path, and `main.swift` is not in the test target.
+  **`metrics-check.sh`'s three "reported no figures" assertions are the only cover anywhere** —
+  verified, not assumed: mutation H1 (2026-08-12) wrote that exact defect and the gate killed it.
+  Do not weaken those assertions.
+  What *did* improve: a poll can no longer return a **previous** run's figures at all, because the
+  session dies with the claim.
+- **NFR-PERF-3 has numbers, and there are now TWO of them that must not be confused.** The
+  host-overhead ratio is 2.55% at 4 MiB (2026-08-05) and **2.620% over a whole run** (2026-08-14) —
+  both mean the run is device-bound, and both are host ns ÷ device ns, undiluted. The **daemon CPU**
+  figure is the one that changed meaning: Step 9's **4.22% of one core** was per call, whereas from
+  increment 3 it is bracketed from `acquireDevice` and is a **run average diluted by the idle
+  between calls** — measured 7.73% → 6.50% → 5.44% → 4.85% across four calls, falling as idle
+  accumulates. Step 16's release note wants the during-I/O figure. Quote which one you mean.
+  **Host cost follows bytes moved, not chunk count** — a larger I/O size does not reduce it.
 
-*Full accounts: `progress/step-09.md`, `progress/step-10.md`.*
+*Full accounts: `progress/step-09.md`, `progress/step-10.md`; increment 3, commit `4c84329`.*
 
 ### Device loss (Step 12's territory, and a live defect until then)
 
@@ -281,10 +307,19 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
 - **FR-SAFE-5 withdrawn, FR-SAFE-6 REVERSED, FR-SAFE-7 moot.** Start owns unmount → acquire → run →
   release. FR-SAFE-1/2/3 and NFR-REL-3 are untouched: only *who performs the unmount* changed.
 - **A RUN IS A SEQUENCE OF BOUNDED CALLS, AND THE SESSION IS THE CLAIM** (Shape A, chosen
-  2026-08-12 over the alternative below). Start takes the claim once, holds it for the whole run,
-  releases it once — **never a claim per chunk**, which is unbuildable anyway: macOS remounts the
-  volume **~4 ms** after a release (measured Step 6), so a per-chunk release would race its own
-  remount tens of thousands of times.
+  2026-08-12 over the alternative below; **built in increment 3, `4c84329`, and measured on
+  hardware**). Start takes the claim once, holds it for the whole run, releases it once — **never a
+  claim per chunk**, which is unbuildable anyway: macOS remounts the volume **~4 ms** after a
+  release (measured Step 6), so a per-chunk release would race its own remount tens of thousands of
+  times.
+
+  **The session is *stored on* the claim, not kept in step with it**, and that is the load-bearing
+  part of how it was built: `AcquiredDevice` holds a `RunSession`, created by `DeviceClaim.acquire`
+  and destroyed by `release()`. So a fresh claim starts empty and a released claim answers nothing
+  **by construction** rather than because somebody remembered to clear a slot. `MetricsChannel`
+  keeps only its lookup job; `begin()` and its process-wide slot are deleted. The alternative —
+  keep the slot, add an `end()` called from release — was rejected as two things that must be kept
+  in step to state one fact, which is what `AppModel.helperHoldsDevice` is being deleted for.
 
   So the metrics and failure accumulators belong on the **claim**, not on the call. Four things
   follow, and each is a reason the shape was chosen rather than a consequence to be managed:
@@ -386,3 +421,27 @@ Every defect this project has produced came from trusting a substitute for the r
   mechanism** — a green suite over a false premise is exactly as green as one over a true premise.
 - **A test that agrees with any change is not a check.** A key-name test read the key from the
   constant on both sides and would have passed the rename it was written to prevent.
+- **A MUTATION THAT DID NOT COMPILE IS NOT A SURVIVOR, AND A HARNESS THAT SAYS OTHERWISE IS THE
+  WORST FAILURE AVAILABLE.** Increment 3's harness reported *"SURVIVED: all 0 tests passed"* for a
+  mutation whose textual anchor occurred **twice** in the file: it patched the wrong site, the build
+  failed, and zero tests ran. A suite that did not run is the number-that-did-not-move trap wearing
+  a green hat — it would have been recorded as evidence that a real hole exists where none does.
+  Two fixes, both required: a total of `0` is **inconclusive regardless of the failure count**, and
+  every anchor is **asserted unique** before it is applied. Verifying that the pattern *exists* is
+  not verifying that it landed where you meant.
+- **One flag stating two facts misdiagnoses, and the mutation is how you find out.** The metrics
+  probe computed `REFUSED` as `outcome == unrecognised && chunks == 0`. A mutation that leaked
+  figures into a correct refusal flipped it, and the gate announced *"the alignment guard is not
+  enforced"* — pointing at innocent code while the real defect was three lines below. Under a
+  cumulative session the conflation was also measuring the wrong thing outright, because the chunk
+  count in a reply is the run's total. Split them.
+- **`git checkout <file>` reverts to HEAD, not to the state you were mutating from.** Used to undo a
+  deliberate defect, it silently discarded an increment's worth of uncommitted edits to that file as
+  well. It was caught by **re-deriving the helper source hash and finding it did not return to the
+  known-good value** — a hash against a known-good one is a stronger restore check than reading a
+  diff, and it costs one command. Mutate from saved pristine copies with a `cmp` guard.
+- **A whole-binary comparison does not answer "did this change behaviour".** Debug builds embed
+  line numbers, so a comment-only edit produces a different binary. Comparing `__TEXT,__text` and
+  `__TEXT,__cstring` does answer it — byte-identical across 1.63 MB of instruction text is proof
+  the compiled behaviour is unchanged, and it is what let a post-gate comment rewrite stand without
+  re-running the gate.

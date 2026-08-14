@@ -332,6 +332,13 @@ as *"the alignment guard is not enforced"*, pointing at innocent code. Split in 
   any-device one. Do not reintroduce a selection-scoped flag.
 - **The 4 TB T5 EVO fixture is required, not optional.** `VolumeMounter.restoringUnmount` cannot be
   exercised end to end on a single-volume drive.
+- **The sequencer must not re-derive what the session already reports** (from increment 3). Whole-
+  device progress, the ETA and the whole-run p99 come from `runProgress` and from the cycle's reply,
+  already cumulative and already denominated in the whole device. An app that summed per-call
+  figures would be building a second source for facts that now have one — and for the p99 it would
+  simply be wrong, because percentiles do not compose. The two reply fields that are still *per
+  call* and that a sequencer legitimately branches on are `runOutcomeCode` / `interruptedAtBlock`
+  and `bufferBytesHeld`.
 
 ---
 

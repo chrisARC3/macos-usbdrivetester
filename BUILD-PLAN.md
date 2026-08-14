@@ -2,12 +2,20 @@
 
 **Status:** Draft for execution
 **Date:** 2026-06-25
-**Last amended:** 2026-08-06 — Step 10's scoping decisions recorded at the head of that step
+**Last amended:** 2026-08-14 — "Working on this project" corrected on **target membership** (the
+note said `Helper/Core/` needs an Xcode tick to join the *helper*; it does not — what needs one is
+the *test target's* `membershipExceptions` list), plus mutation-harness and zsh traps paid for in
+Step 11 increment 3.
+Previously 2026-08-06 — Step 10's scoping decisions recorded at the head of that step
 (protocol v9 carries the final figures; "stopped by user" deferred to Step 11 and device loss to
 Step 12; the report gets its own `Window`), with the matching inherited notes on Steps 11 and 12.
 Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Disk Access), and the
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
+
+> **The step in progress is Step 11, and the protocol is v11.** Anything below that names an
+> earlier protocol version is a dated record of what was true when it was written — the inherited
+> notes on Steps 11 and 12 especially. `PROGRESS.md` is the tracker; `CONSTRAINTS.md` is what binds.
 **Source documents:**
 - [Product Brief](USBDriveTester.md)
 - [ADR-001](ADR-001-usb-drive-tester.md) — the 16 Action Items this plan sequences
@@ -92,6 +100,14 @@ are **process**, not history.
   predicted — and that is the result: it confirms the hole is where the code comments claim it is
   rather than somewhere nobody has looked. A predicted survivor is evidence; an unexpected one is a
   finding. Both beat only running mutations you are confident will die.
+- **Assert the anchor is UNIQUE, and treat a zero test count as inconclusive.** Increment 3's
+  harness checked only that its search text *existed*; the text occurred twice, it patched the
+  wrong site, the build failed, zero tests ran, and it printed "SURVIVED: all 0 tests passed". Full
+  account in CONSTRAINTS section 3 — the short version is that `assert text.count(old) == 1` and
+  `if not total: verdict = INCONCLUSIVE` are both one line and both mandatory.
+- **Restore from a saved pristine copy, never with `git checkout <file>`**, which reverts to HEAD
+  and takes any uncommitted work in that file with it. Re-derive the helper source hash afterwards
+  and check it against the known-good value; that is what caught it.
 
 **The build environment**
 
@@ -106,9 +122,19 @@ are **process**, not history.
   `import AppKit`).
 - `SWIFT_VERSION = 5.0` — keep it. `ARCHS = arm64`, deployment target 26.0, team `5JC55GTLZA`,
   App Sandbox **off** (must stay off), Hardened Runtime on.
-- **New files under the app target and the test target join automatically** (file-system
-  synchronized groups). **New files under `Helper/Core/` do not** — they need a target-membership
-  tick in Xcode, which is the user's job (see "How we work" in the session brief).
+- **Target membership — and the version of this note that stood until 2026-08-12 was WRONG about
+  which target needs the tick.** Read from `project.pbxproj`, not remembered:
+  - The app folder, the test folder **and the helper folder** are each a
+    `PBXFileSystemSynchronizedRootGroup`, so a new file in any of them **joins its own target
+    automatically**. A new file under `Helper/Core/` joins the *helper* with no Xcode work at all.
+  - What needs a manual tick is the **test target's** view of `Helper/Core/`, which it picks up
+    through an explicit `membershipExceptions` list — 14 files as of increment 3. **A new file in
+    `Core/` is invisible to the tests until it is added to that list**, which is the user's job
+    (see "How we work" in the session brief).
+  - So the question to ask is never "is this file in `Core/`?" but **"does a test need to see
+    it?"**. Step 11's increments 1–3 needed no Xcode work at all, because each put its new types in
+    files already on that list (`Core/RetentionRun.swift`, `Core/RunMetrics.swift`) — which is
+    itself the cheap way to avoid the tick. **Check `project.pbxproj` before assuming either way.**
 - `SMAppService` records the **registering app's path**, so always install to `/Applications` with
   `scripts/install-app.sh` and register from there. That script **only copies files**: after
   installing you must unregister and re-register in the app, then confirm with **Check version**,
@@ -126,6 +152,10 @@ are **process**, not history.
 - Bash arithmetic is **signed** 64-bit: `od -An -N8 -tu8` yields values above 2⁶³ that go negative
   through a modulo. Use 32 bits.
 - Invoke `log` as **`/usr/bin/log`** — the bare name gets mangled in this environment.
+- **Ad-hoc commands run under zsh, where `path` is tied to `PATH`.** Assigning a scalar to a
+  variable named `path` in a loop destroys the search path for the rest of that command, and every
+  subsequent tool fails with `command not found` — which reads like a broken environment rather
+  than a typo. Name it anything else. (Checked-in scripts are `#!/bin/bash` and unaffected.)
 - Scripts needing `sudo` must be run in a **real Terminal**; a run button has no TTY.
 - **`system_profiler SPUSBDataType` prints nothing on macOS 26** and exits 0 — the data type is now
   `SPUSBHostDataType`. An empty result is not a finding; it did not mean the drives had no serials.
