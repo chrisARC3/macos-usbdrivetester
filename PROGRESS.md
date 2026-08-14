@@ -109,9 +109,9 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **1 ✅** | `RunControlState` — the pure state machine, FR-CTRL-6's legal transitions, and each control's disabled **reason** (dimming is not a message). Nothing calls it. | **done 2026-08-12** — see below |
 | **2 ✅** | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**, then the pre-flight. **No Xcode tick was needed** and the cap sweep was deferred — both differ from what this row predicted; see below. | **done 2026-08-12** — see below |
 | **3 ✅** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device. Protocol **v11**, which this row did not predict — nine reply arguments changed meaning. Two gate clients had to be rebuilt before the gate could run at all. | **done 2026-08-14** — see below |
-| **4 ← NEXT** | The whole-device sequencer, app-side: whole-MiB slicing with only the final call short (FR-TEST-10), `mayIssueNewWork` checked before **every** call, `stopOnFirstError` meaning stop the *run* | unit, with an injected caller |
-| 5 | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | renders + the **nine-item human checklist** + the 4 TB T5 EVO fixture |
-| 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted | renders + unit |
+| **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
+| **5 ← NEXT** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | renders + the **nine-item human checklist** + the 4 TB T5 EVO fixture |
+| 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. **Now also carries FR-CTRL-8's amendment** — a size change ends the run (decision 2026-08-14, below) | renders + unit |
 | 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
 ### Increment 1 — done 2026-08-12, `c89ed5c`
@@ -314,6 +314,57 @@ as *"the alignment guard is not enforced"*, pointing at innocent code. Split in 
   otherwise and was corrected in this commit.
 
 **Full account, including the restore mistake and how the hash caught it: commit `4c84329`.**
+
+### Increment 4 — done 2026-08-14, `c8bcc2a`
+
+The app-side sequencer: `RunControl/RunSlicing.swift` and `RunControl/RunSequencer.swift`, plus two
+test suites. **No Xcode work**, read from `project.pbxproj` rather than assumed.
+
+| | |
+|---|---|
+| **Verified** | **913 tests, 0 failures, 112 suites**. 873 → 913 is exactly the 40 tests written and 102 → 112 exactly the 10 new suites |
+| **Warnings** | zero from source across three clean builds, DerivedData wiped before each. SwiftCompile tasks Debug 80 / Release 2 / test 158 |
+| **Helper** | **untouched** — hash still `b804178d…31124`, so Step 10's three gates are exactly as owed as they were |
+| **Mutations** | **14 introduced, 13 caught, 1 survived — and the survivor was predicted** |
+
+**A documented justification for FR-TEST-10 was measured and found wrong.** CONSTRAINTS section 1
+and BUILD-PLAN Step 11 both say a sequencer advancing by *"1 GiB or whatever is left"* is *"refused
+on its last-but-one call"*. The claim is in no `progress/` archive, so it was checked: walked four
+real geometries through `RunPlacement.validate` and that sequencer produces **0 refusals on all
+four**, slicing identically to this increment's. It is safe only because `maximumBytesPerCall` is
+itself a whole multiple of 1 MiB — give it a ragged cap and it is refused on **call 2**. What *is*
+refused last-but-one is a different sequencer, one that backs the final call up to a full 1 GiB
+(#931/#932 on the 1 TB T5). **The design was unaffected; the test was not.** The two forms agree on
+every real geometry, so the cap became a required parameter and the suite slices with ragged ones —
+without which the rounding is correct-but-unobservable. Mutation M1 confirmed exactly that: it is
+killed by the ragged-cap cases and **not** by the walk over the real drives at the real cap.
+
+**Two user decisions that differ from what was offered.** The I/O size is **fixed for the run**, and
+**changing it ends the run** rather than resuming with a new one — which gives the next Start clean
+accumulators *by construction*, the property Shape A was chosen for, with no protocol change, no
+v12 and no split accumulator lifetimes. It reverses the 2026-08-04 decision that latency statistics
+keep accumulating across a size change; the amendment and the control are increment 6's. And the
+sequencer **owns no run state** — `RunControlState` stays with increment 5's coordinator, since
+`starting` / `claimEstablished` / `deviceReleased` are states this type can neither cause nor
+observe.
+
+**The predicted survivor, and the decision it leaves open.** M13 removes the late-reply guard in
+`callReturned`. Nothing in increment 4 can end a run with a call outstanding — increment 7's
+Restart-from-`running` is what can — so the unit suite cannot reach it, though a real
+`NSXPCConnection` can if a reply block and the error handler both fire. That makes it
+*un-unit-testable* rather than unreachable, the same category as increment 2's M12, and the guard
+was kept on that basis. **Increment 7 should pin it** when Restart makes it reachable.
+
+**Four mutations would not have compiled**, caught by reading them back before the run rather than
+by the harness: a `where` clause on an enum case makes a `switch` non-exhaustive, and `>= 0` on a
+`UInt64` is an always-true warning. Both score INCONCLUSIVE under increment 3's rules, not CAUGHT.
+Restored from saved pristine copies with a `cmp` guard and rewritten; anchor uniqueness asserted for
+all 14 before and after.
+
+**Owed to increment 7's docs pass, beyond what increments 2 and 3 already left:** correct the
+"last-but-one" claim in CONSTRAINTS section 1 and BUILD-PLAN Step 11, and `RunReport.ioSizesUsed`'s
+comment, which reads *"Step 11 is where it holds more"* and is now permanently wrong — with the size
+fixed per run, it holds exactly one element.
 
 ### What this step must not lose
 

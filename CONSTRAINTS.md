@@ -226,8 +226,11 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
 - **Do not infer device loss from a failure count.** A genuinely dead drive also fails every chunk,
   so the heuristic is wrong exactly when being wrong is most expensive.
 - **Until Step 12 builds this, a drive that drops off the bus is reported as a drive with ~2 million
-  bad blocks** — a false accusation about somebody's hardware, in a file that outlives the session.
-  Observed for real during a hardware gate, not simulated.
+  bad blocks** — a false accusation about a drive, in a file that outlives the session. Nothing is
+  distributed before Step 16 (section 2), so the person misled is the one who can recognise it —
+  which lowers the stakes and changes nothing about the defect. The exported report is still the
+  artefact a drive's history is kept in, and this project has already had one report that could not
+  say which drive it was about. Observed for real during a hardware gate, not simulated.
 
 *Full account: `progress/step-10.md`, increment 6; BUILD-PLAN Step 12's inherited notes.*
 
@@ -270,6 +273,33 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
 
 ## 2. Settled — do not re-open
 
+- **NOTHING IS DISTRIBUTED UNTIL THE WHOLE BUILD PLAN IS COMPLETE** (user decision 2026-08-14). No
+  early access, no preview build, no external tester. Step 16 is where distribution happens; every
+  build before it runs on this machine, for the person building it.
+
+  **What it changes is who is exposed to a defect, and therefore how a risk reads.** Several notes
+  here and in the requirements were written as though a stranger would be handed a wrong answer
+  about their own hardware. Until Step 16 the reader of every report this tool produces is the
+  person who wrote it. A wrong report is still wrong; it is merely being shown to the one person
+  equipped to recognise it.
+
+  **What it does not change, which is the larger half:**
+
+  - **Every runtime guard stays.** The mount guard, the exclusive claim, `RunPlacement`'s refusal,
+    `mayIssueNewWork`, the pre-run dialog and its two clicks — none of these exist to make a
+    *release* safe. They exist because FR-DEV-3 default-selects the first usable device in BSD-name
+    order, which on this machine is **the 22 TB Seagate carrying Backup and Time Machine**, and
+    because every hardware gate writes real bytes to a real drive. The exposure they cover is
+    today's, not Step 16's.
+  - **The per-step gates stay.** Their purpose is that a step's defects are found in that step
+    rather than four steps later. Who eventually receives the result has nothing to do with it.
+  - **The verification rules stay**, including the one below whose wording rested on the word
+    *ships* and has been corrected.
+
+  **Searched rather than assumed, 2026-08-14.** The source contains no `#if DEBUG`, no production
+  flag, no release-gated path, no `TODO`/`FIXME`/`HACK`, and no guard whose stated justification is
+  a recipient other than this machine's owner. There was no mechanism of that kind to remove — the
+  thing this decision actually retires is a *framing*, not a guard.
 - **Runs cover the WHOLE DEVICE, always start at block 0.** No user-selectable start, ever. Progress
   is a bar with a live percentage, never a slider.
 - **FR-DEV-3 default-selects the first usable device in BSD-name order**, confirmed under challenge
@@ -363,8 +393,13 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   `OutcomePresentation`, not in a view.
 - **The main scene is a `Window`, not a `WindowGroup`.** Closing the main window quits the app, and
   cannot bypass the during-a-run confirmation.
-- **Nothing untriggerable ships.** An outcome, mode or control with no way to reach it is not built
-  in advance — *a sound mechanism behind a trigger that never fires looks exactly like a broken one.*
+- **Nothing untriggerable is built in advance.** An outcome, mode or control with no way to reach it
+  waits for its trigger — *a sound mechanism behind a trigger that never fires looks exactly like a
+  broken one.* **This is a rule about verification, not about what a release contains**, and it is
+  worth being precise now that nothing is released until the plan ends: it says you cannot
+  distinguish a working unreachable mechanism from a broken one, which is as true on a machine
+  nobody else will ever see. It read *"nothing untriggerable **ships**"* until 2026-08-14, resting a
+  live rule on a premise that is now explicitly false.
 - **Commit straight to `main`**, never a branch unless said in advance, message `Step N: <title>`,
   and **only when asked**.
 - **The ADR's 16 checkboxes are never ticked.** It is a decision record; BUILD-PLAN is the tracker.

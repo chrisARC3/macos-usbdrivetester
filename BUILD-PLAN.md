@@ -50,6 +50,29 @@ This plan turns the ADR's 16 Action Items (AI-1 … AI-16) into an ordered seque
 - Every step ends with a **Verification Gate** — an explicit, testable definition of "done." **Do not start the next step until the current gate passes.** This is the core discipline of the plan.
 - Where a step builds code that touches the privileged trust boundary, the step calls out which side of the boundary (GUI vs. helper) the code lives on.
 
+### Nothing is distributed until the whole plan is complete (user decision 2026-08-14)
+
+No early access, no preview build, no external tester. **Step 16 is where distribution happens**,
+and every build before it runs on this machine, for the person building it.
+
+This is recorded because it changes how a risk in these pages should be read, and because it is easy
+to over-apply. It means **there is no partly-finished version anyone else can be handed**, so a
+hazard framed as "a stranger is told something false about their own hardware" is really "the author
+is", until Step 16.
+
+It does **not** relax anything in the plan, and two things in particular:
+
+- **The runtime guards are not release guards.** The mount guard, the exclusive claim, FR-TEST-10's
+  placement refusal, `mayIssueNewWork` and the pre-run dialog protect the drives attached to *this*
+  machine on *every gate run between now and Step 16* — including the 22 TB Seagate that FR-DEV-3
+  default-selects. Their exposure is today's.
+- **Every step still ends at its Verification Gate.** A gate exists so a step's defects are found in
+  that step rather than four steps later; who eventually receives the result is not part of that
+  argument.
+
+Full entry, including what was searched for and not found, in
+[CONSTRAINTS.md](CONSTRAINTS.md) section 2.
+
 ### Why the order differs from the ADR's 1–16 list
 
 The ADR lists action items by topic, not by dependency. Three deliberate re-orderings:
