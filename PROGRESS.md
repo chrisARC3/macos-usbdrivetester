@@ -108,8 +108,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 |---|---|---|
 | **1 ✅** | `RunControlState` — the pure state machine, FR-CTRL-6's legal transitions, and each control's disabled **reason** (dimming is not a message). Nothing calls it. | **done 2026-08-12** — see below |
 | **2 ✅** | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**, then the pre-flight. **No Xcode tick was needed** and the cap sweep was deferred — both differ from what this row predicted; see below. | **done 2026-08-12** — see below |
-| **3 ← NEXT** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device | unit + `metrics-check.sh` |
-| 4 | The whole-device sequencer, app-side: whole-MiB slicing with only the final call short (FR-TEST-10), `mayIssueNewWork` checked before **every** call, `stopOnFirstError` meaning stop the *run* | unit, with an injected caller |
+| **3 ✅** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device. Protocol **v11**, which this row did not predict — nine reply arguments changed meaning. Two gate clients had to be rebuilt before the gate could run at all. | **done 2026-08-14** — see below |
+| **4 ← NEXT** | The whole-device sequencer, app-side: whole-MiB slicing with only the final call short (FR-TEST-10), `mayIssueNewWork` checked before **every** call, `stopOnFirstError` meaning stop the *run* | unit, with an injected caller |
 | 5 | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | renders + the **nine-item human checklist** + the 4 TB T5 EVO fixture |
 | 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted | renders + unit |
 | 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
@@ -235,6 +235,85 @@ on its remaining jobs — was deferred by user decision 2026-08-12; the sequence
 **For the docs pass (increment 7):** this measurement belongs in CONSTRAINTS section 1, and
 CONSTRAINTS' existing sentence *"the cap … is what makes an uncancellable privileged call
 survivable"* needs rewriting, since this step is what made the call cancellable.
+
+### Increment 3 — done 2026-08-14, `4c84329`
+
+The metrics and failure accumulators moved onto the **claim**. `acquireDevice` opens the session,
+`releaseDevice` closes it, no lifecycle method was added.
+
+| | |
+|---|---|
+| **Verified** | **873 tests, 0 failures, 102 suites**; `metrics-check.sh` **0 failures** on hardware at v11; zero warnings from source |
+| **Helper** | hash **`b804178ddea31cc521983e5ee343c6d5c50b3a73c7708294741a8f6decb31124`** |
+| **Protocol** | **v11** — nine reply arguments changed *meaning* with no signature change |
+| **Mutations** | **10 introduced, 9 caught, 1 survived — and the survivor was predicted** |
+| **Xcode work** | **none**, read from `project.pbxproj` rather than assumed |
+
+**The session is stored on the claim rather than kept in step with it.** `AcquiredDevice` gains one
+`RunSession` property; `MetricsChannel` loses `begin()` and its process-wide slot and becomes a
+lookup. A fresh claim therefore starts empty and a released claim answers nothing *by construction*
+— the alternative (keep the slot, add an `end()`) is two things stating one fact, which is what
+`helperHoldsDevice` is being deleted for. The accumulating logic is `RunSessionObserver` in Core so
+a test can reach it; `DeviceClaim.swift` gains a property and no logic, because it is not in the
+test target.
+
+**Protocol v9's property survived, by a weaker guard, and that is written at the site.** v9 read the
+figures from an observer that did not exist until a call passed validation. The session predates the
+call, so what replaces it is the result type: figures come from a `CycleResult`, which exists only on
+the success path. Weaker, because they now exist one line from the refusal path and `main.swift` is
+not in the test target. `metrics-check.sh`'s three *"reported no figures"* assertions are the only
+cover anywhere — **verified, not assumed**: mutation H1 wrote that exact defect and the gate killed
+it. What *did* improve: a poll can no longer return a *previous* run's figures at all, because they
+died with the claim.
+
+**A defect found while scoping, not on the increment's list.** `CacheBypassAssessment` was re-seeded
+every call, so FR-TEST-9's *only ever downgrades* contract broke across calls — a `likelyCached`
+verdict earned at 40% of a drive would be gone by 41%. Invisible at one call per run; live from
+increment 4's ~1,000. The session now carries it.
+
+**The gate could not run at all, inherited from increment 2.** `tools/metrics-probe` and
+`tools/mount-guard-client` did not *compile* against v10. Both rebuilt; all five gate clients now
+compile clean against v11.
+
+**What the gate measured** — 1 TB T5 scratch drive (`12345686DAA9`), one run of four calls, each
+size over its own gibibyte so the shape matches what increment 4's sequencer will produce:
+
+| call | I/O | cumulative chunks | % of device | latency min / p99 / max |
+|---|---|---|---|---|
+| 1 | 1 MiB | 1024 | 0.107352 | 1.949 / 2.163 / 5.379 ms |
+| 2 | 2 MiB | 1536 | 0.214704 | 1.949 / 4.260 / 12.723 ms |
+| 3 | 4 MiB | 1792 | 0.322057 | 1.949 / 9.044 / 28.525 ms |
+| 4 | 8 MiB | 1920 | 0.429409 | 1.949 / 17.039 / 30.145 ms |
+
+**The latency column is the evidence and it is independently predictable.** The minimum held at
+1,948,666 ns through all four calls — the run's fastest read was set in call 1 and survived, which a
+per-call accumulator cannot report. The p99 lands on one read at whichever I/O size is currently
+largest (2.16 / 4.26 / 9.04 / 17.04 ms against 2.10 / 4.19 / 8.39 / 16.78 predicted at 500 MB/s),
+because the top 1% of a union is dominated by the biggest reads present — and slightly above each,
+as an octave-bucketed upper bound must be. Host overhead 2.620% of device I/O time over the run,
+against Step 9's 2.55% at 4 MiB.
+
+**Two findings from the mutation pass, neither about the helper.** The harness nearly recorded a
+false survivor: M3's anchor occurs twice in `RunMetrics.swift`, the wrong site was patched, the build
+failed, and the classifier reported *"SURVIVED: all 0 tests passed"*. A suite that did not run is the
+number-that-did-not-move trap; a total of `0` is now INCONCLUSIVE regardless of the failure count,
+and anchors are asserted unique. And H1 exposed the **probe** conflating two facts — `REFUSED` was
+`outcome == unrecognised && chunks == 0`, so a correct refusal carrying leaked figures was reported
+as *"the alignment guard is not enforced"*, pointing at innocent code. Split in two.
+
+**For the docs pass (increment 7), beyond what increment 2 already left:**
+
+- **`HELPER_CORE_FRACTION` changed meaning and CONSTRAINTS must say which figure is which.**
+  Bracketed from acquire, it is now a run average **diluted by the idle between calls** —
+  7.73% → 6.50% → 5.44% → 4.85% across the four, falling as idle accumulates — where Step 9's
+  4.22% was per-call. Step 16's release note wants the during-I/O figure. Two numbers that measure
+  different things must not sit side by side as though they did not.
+- **`retention-cycle-check.sh` is owed because the helper binary moved, *not* because the write
+  path changed.** `RetentionTestEngine` was not touched; this increment changed what the observers
+  accumulate. Accumulating is not writing, and NFR-REL-1 is about the bytes. The gate script said
+  otherwise and was corrected in this commit.
+
+**Full account, including the restore mistake and how the hash caught it: commit `4c84329`.**
 
 ### What this step must not lose
 
