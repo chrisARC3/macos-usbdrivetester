@@ -62,7 +62,7 @@ private enum Metrics {
     /// A fresh accumulator over `chunks` chunks of `chunkBytes`, started at clock zero.
     static func metrics(chunks: UInt64, byteLength: Int = chunkBytes) -> RunMetrics {
         RunMetrics(chunksPlanned: chunks,
-                   rangeBytesTotal: chunks * UInt64(byteLength),
+                   deviceBytesTotal: chunks * UInt64(byteLength),
                    startBlock: 0,
                    startedAtNanoseconds: 0)
     }
@@ -271,7 +271,7 @@ struct ProgressTests {
         // FR-TEST-5: three full 4 MiB chunks and a final one of a single block.
         let total = 3 * UInt64(Metrics.chunkBytes) + Metrics.blockSize
         var metrics = RunMetrics(chunksPlanned: 4,
-                                 rangeBytesTotal: total,
+                                 deviceBytesTotal: total,
                                  startBlock: 0,
                                  startedAtNanoseconds: 0)
 
@@ -440,7 +440,7 @@ struct HostOverheadTests {
     /// to discover otherwise.
     @Test func aClockReadingBeforeTheStartYieldsZeroElapsedRatherThanAnUnderflow() {
         let metrics = RunMetrics(chunksPlanned: 10,
-                                 rangeBytesTotal: 1_000,
+                                 deviceBytesTotal: 1_000,
                                  startBlock: 0,
                                  startedAtNanoseconds: 1_000_000)
         let snapshot = metrics.snapshot(atNanoseconds: 0)

@@ -1,17 +1,18 @@
 //
 //  MetricsChannel.swift
-//  Helper — making a run's metrics readable from another thread, and nothing else.
+//  Helper — making a run's accumulators readable from another thread, and nothing else.
 //
-//  Step 9 (AI-8), BUILD-PLAN 9.4. This is the concurrency half of the live-metrics path; the
-//  arithmetic half is `Core/RunMetrics`, which has no locks by rule and is unit-tested without
-//  any.
+//  Step 9 (AI-8), BUILD-PLAN 9.4; reshaped in Step 11 increment 3 when a run stopped being one
+//  call. This is the concurrency half of the live-metrics path; the arithmetic half is
+//  `Core/RunMetrics`, which has no locks by rule and is unit-tested without any.
 //
 //  ## Why this file has no logic in it
 //
 //  Deliberately. Everything that could be decided in Core already was — the accumulation, the
-//  percentile, the ETA, the three rates. What is left here is a lock and a slot, because that is
-//  the part that cannot exist in Core: a run mutates its metrics on the thread XPC delivered
-//  `runRetentionCycle` on, and `runProgress` reads them on a different thread entirely.
+//  percentile, the ETA, the three rates, the failure coalescing. What is left here is a lock and a
+//  lookup, because that is the part that cannot exist in Core: a run mutates its accumulators on
+//  the thread XPC delivered `runRetentionCycle` on, and `runProgress` reads them on a different
+//  thread entirely.
 //
 //  Anything with a decision in it that ends up here is in the wrong file.
 //
@@ -27,36 +28,78 @@
 //  reader that has not asked. Recording a chunk is ~3 ns of histogram work (measured) inside a
 //  lock nobody else holds; the poll walks 2,240 buckets once a second.
 //
-//  ## Lifetime: the last run's figures survive it
+//  ## LIFETIME: THE SESSION IS THE CLAIM, AND THAT IS WHY THERE IS NO SLOT ANY MORE
 //
-//  ``begin()`` replaces the slot, and nothing clears it. A poll arriving after a run finishes
-//  therefore returns that run's **final** numbers, which is exactly what a caller wants at the
-//  end of a run — and between runs there is no caller to mislead, because the app issues runs on
-//  its own connection and knows the lifecycle without asking (user decision 2026-08-04).
+//  Until Step 11 this file owned a process-wide slot that `begin()` replaced when a run started
+//  and nothing ever cleared. That was right when one call was one run, and it carried a known
+//  hazard: `begin()` ran *after* validation, so a **refused** call left the previous run's figures
+//  installed, and a caller that polled would find them and report them as its own. Protocol v9's
+//  answer was to carry the figures in the cycle's own reply, read from the observer that call had
+//  installed — "the figures belong to this run or they do not exist".
+//
+//  A run is now a sequence of bounded calls and the accumulators live on the **claim**
+//  (CONSTRAINTS section 2), so that mechanism is gone and had to be replaced rather than ported:
+//
+//    * **The slot is deleted.** The session is a stored property of ``AcquiredDevice``, created by
+//      `DeviceClaim.acquire` and destroyed by `release()`. Its lifetime *is* the claim's, so a new
+//      claim necessarily starts empty and a released claim necessarily answers nothing. That
+//      property is no longer maintained by anybody remembering to clear something.
+//    * **The v9 hazard cannot occur at all.** There is no previous run's accumulator to confuse
+//      this run with — it died with its claim. A poll arriving after a refused call now returns
+//      *this* session's figures, which is a true statement about the run in progress rather than a
+//      different run's numbers wearing its name.
+//    * **What still guards the reply is the result type.** Every figure in `runRetentionCycle`'s
+//      reply is read out of `RunCoordinator.CycleResult`, and a `CycleResult` exists only on the
+//      success path; a refusal returns `.failure` and `main.swift`'s `refuse()` has nothing to read
+//      from. That is a weaker guard than v9's — under v9 the refusal path *could not* reach any
+//      figures, and now they exist one line away — and `main.swift` is not in the test target, so
+//      the only check that reaches it is `metrics-check.sh`'s assertion that a refused call
+//      reports no mode and no figures. Say so rather than rounding it up.
+//
+//  What this class keeps is the half its name is about: **finding** the session from a connection
+//  other than the one running.
 //
 
 import Foundation
 
-// MARK: - The run's metrics, readable from another thread
+// MARK: - The run's accumulators, readable from another thread
 
-/// Wraps a `RunMetricsObserver` so a run can write to it while `runProgress` reads.
+/// One run's session: the accumulators that span every bounded call the run is made of, behind a
+/// lock so `runProgress` can read them while the run writes.
 ///
-/// `@unchecked Sendable` with an explicit lock, the same pattern and for the same reason as
-/// `HelperActivity`: XPC delivers calls on arbitrary queues, so serialisation is stated here
-/// rather than assumed.
+/// Held by ``AcquiredDevice`` for exactly as long as the claim is held. `@unchecked Sendable` with
+/// an explicit lock, the same pattern and for the same reason as `HelperActivity`: XPC delivers
+/// calls on arbitrary queues, so serialisation is stated here rather than assumed.
 ///
-/// - Important: the lock is held across `RunMetrics.record` and across snapshot computation, and
-///   across nothing else. Neither does I/O, allocates, or calls out — so a poll can never block
-///   a run for longer than a percentile walk, and a run can never block a poll for longer than a
-///   histogram increment.
-final class SynchronizedMetricsObserver: RunObserver, @unchecked Sendable {
+/// - Important: the lock is held across `RunSessionObserver`'s mutations and across snapshot
+///   computation, and across nothing else. Neither does I/O, allocates, or calls out — so a poll
+///   can never block a run for longer than a percentile walk, and a run can never block a poll for
+///   longer than a histogram increment.
+final class RunSession: RunObserver, @unchecked Sendable {
 
     private let lock = NSLock()
-    private let inner: RunMetricsObserver
+    private let inner: RunSessionObserver
 
-    init(clock: @escaping MonotonicClock = RunClock.monotonicNanoseconds) {
-        inner = RunMetricsObserver(clock: clock)
+    /// The daemon's CPU when the session opened, for NFR-PERF-3's second figure.
+    ///
+    /// Taken at **acquire** rather than at the first call, so the fraction covers the run as the
+    /// user experiences it — including the gaps between calls, in which the daemon is idle and so
+    /// contributes wall-clock but no CPU. The alternative, bracketing each call and summing, would
+    /// report the cost of the calls rather than the cost of the run.
+    private let cpuAtOpen: Double?
+    private let wallAtOpen: UInt64
+
+    init(deviceBytesTotal: UInt64,
+         cacheBypass: CacheBypassAssessment,
+         clock: @escaping MonotonicClock = RunClock.monotonicNanoseconds) {
+        inner = RunSessionObserver(deviceBytesTotal: deviceBytesTotal,
+                                   cacheBypass: cacheBypass,
+                                   clock: clock)
+        cpuAtOpen = HelperCPUSample.processCPUSeconds()
+        wallAtOpen = RunClock.monotonicNanoseconds()
     }
+
+    // MARK: RunObserver
 
     func runStarted(_ start: RunStart) {
         lock.withLock { inner.runStarted(start) }
@@ -66,45 +109,67 @@ final class SynchronizedMetricsObserver: RunObserver, @unchecked Sendable {
         lock.withLock { inner.chunkMeasured(chunk, measurement: measurement) }
     }
 
-    /// What the run looks like right now, or `nil` before its first event.
+    func failureDetected(_ failure: BlockRangeFailure) -> FailureDisposition {
+        lock.withLock { inner.failureDetected(failure) }
+    }
+
+    func runFinished(_ summary: RunSummary) {
+        lock.withLock { inner.runFinished(summary) }
+    }
+
+    // MARK: Reading it
+
+    /// What the run looks like right now, or `nil` before its first call.
     var snapshot: MetricsSnapshot? {
         lock.withLock { inner.snapshot() }
+    }
+
+    /// Every failed range the run has produced, coalesced across calls and capped once.
+    var failureLog: FailureLog {
+        lock.withLock { inner.failureLog }
+    }
+
+    /// The FR-TEST-9 verdict as it stands — seeded at acquire, then only ever downgraded by what
+    /// the run's own throughput has revealed. **This is what seeds the next call**, which is what
+    /// stops a downgrade being forgotten at a call boundary.
+    var cacheBypass: CacheBypassAssessment {
+        lock.withLock { inner.cacheBypass }
+    }
+
+    /// The daemon's CPU over the run so far, as a fraction of one core (BUILD-PLAN 9.5a).
+    ///
+    /// `nil` when it could not be established — never `0`, which means something else.
+    var helperCoreFraction: Double? {
+        let wallSeconds = Double(RunClock.monotonicNanoseconds() &- wallAtOpen) / 1_000_000_000
+        return HelperCPUSample.coreFraction(from: cpuAtOpen,
+                                            to: HelperCPUSample.processCPUSeconds(),
+                                            wallSeconds: wallSeconds)
     }
 }
 
 // MARK: - Finding it from another connection
 
-/// The process-wide slot holding the current run's metrics.
+/// Where `runProgress` looks for the run in progress.
 ///
-/// A singleton for the same reason `HelperActivity` is one: `runProgress` arrives on a *different
-/// connection* from the run it is asking about — it has to, because a second message on the run's
-/// own connection is not delivered until the run ends (measured 2026-08-04,
-/// `scripts/xpc-concurrency-check.sh`). So there is nowhere connection-scoped to put this.
+/// This exists because `runProgress` arrives on a *different connection* from the run it is asking
+/// about — it has to, because a second message on the run's own connection is not delivered until
+/// the run ends (measured 2026-08-04, `scripts/xpc-concurrency-check.sh`). So there is nowhere
+/// connection-scoped to look.
 ///
-/// It holds no device, takes no slot and blocks nothing. `HelperActivity` remains the authority
-/// on what the helper is *doing*; this only remembers what the last run measured.
-final class MetricsChannel: @unchecked Sendable {
+/// It **owns nothing**. `HelperActivity` is the authority on what the helper holds, and the session
+/// is a property of the held claim; this is one indirection with its reasoning attached, kept as a
+/// named seam so that reasoning stays attached to something rather than becoming a bare
+/// `HelperActivity.shared.heldDevice?.runSession` at the call site.
+enum MetricsChannel {
 
-    static let shared = MetricsChannel()
-
-    private let lock = NSLock()
-    private var current: SynchronizedMetricsObserver?
-
-    private init() {}
-
-    /// Start a fresh observer for a new run and install it, replacing any previous run's.
-    func begin(clock: @escaping MonotonicClock = RunClock.monotonicNanoseconds)
-        -> SynchronizedMetricsObserver {
-        let observer = SynchronizedMetricsObserver(clock: clock)
-        lock.withLock { current = observer }
-        return observer
-    }
-
-    /// The current — or most recent — run's figures, or `nil` if no run has started since the
-    /// daemon launched.
-    var snapshot: MetricsSnapshot? {
-        let observer = lock.withLock { current }
-        return observer?.snapshot
+    /// The current run's figures, or `nil` when no device is held or its session has issued no
+    /// call yet.
+    ///
+    /// Two different absences, deliberately reported the same way: in both, no run has measured
+    /// anything, and `runProgress` has nothing true to say. What it cannot return is a *previous*
+    /// run's figures, because releasing the claim destroyed them.
+    static var snapshot: MetricsSnapshot? {
+        HelperActivity.shared.heldDevice?.runSession.snapshot
     }
 }
 

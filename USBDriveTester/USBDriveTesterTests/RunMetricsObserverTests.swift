@@ -48,6 +48,10 @@ private enum Wiring {
 
     static let deviceName = "disk9"
 
+    /// The whole simulated device, in bytes — the session's progress denominator. These runs
+    /// cover the device entirely, so covered reaches this and `fractionComplete` reaches 1.
+    static let deviceBytes = blocks * UInt64(blockSize)
+
     static let grant = DeviceAccessGrant(deviceName: deviceName,
                                          claimHeld: true,
                                          exclusiveOpenHeld: true)
@@ -376,7 +380,9 @@ struct RunMetricsFromARunTests {
 
     @Test func aCleanRunProducesACompleteSnapshot() throws {
         let clock = SteppedClock()
-        let metrics = RunMetricsObserver(clock: clock.now)
+        let metrics = RunSessionObserver(deviceBytesTotal: Wiring.deviceBytes,
+                                             cacheBypass: Wiring.bypassed,
+                                             clock: clock.now)
 
         try Wiring.run(try Wiring.device(), observer: metrics, clock: clock.now)
         let snapshot = try #require(metrics.snapshot())
@@ -389,7 +395,7 @@ struct RunMetricsFromARunTests {
         #expect(snapshot.isComplete)
         #expect(snapshot.fractionComplete == 1.0)
 
-        #expect(snapshot.rangeBytesTotal == deviceBytes)
+        #expect(snapshot.deviceBytesTotal == deviceBytes)
         #expect(snapshot.rangeBytesCovered == deviceBytes)
         #expect(snapshot.bytesRead == deviceBytes)
         #expect(snapshot.bytesWritten == deviceBytes)
@@ -416,7 +422,9 @@ struct RunMetricsFromARunTests {
         device.injectReadFault(blocks: 128 ..< 256)                       // chunk 1
         device.injectWriteFault(blocks: 256 ..< 384)                      // chunk 2
 
-        let metrics = RunMetricsObserver(clock: clock.now)
+        let metrics = RunSessionObserver(deviceBytesTotal: Wiring.deviceBytes,
+                                             cacheBypass: Wiring.bypassed,
+                                             clock: clock.now)
         try Wiring.run(device, observer: metrics, clock: clock.now)
         let snapshot = try #require(metrics.snapshot())
 
@@ -441,7 +449,9 @@ struct RunMetricsFromARunTests {
     }
 
     @Test func theSnapshotIsNilBeforeARunStarts() {
-        let metrics = RunMetricsObserver(clock: SteppedClock().now)
+        let metrics = RunSessionObserver(deviceBytesTotal: Wiring.deviceBytes,
+                                             cacheBypass: Wiring.bypassed,
+                                             clock: SteppedClock().now)
         #expect(metrics.snapshot() == nil)
         #expect(metrics.metrics == nil)
     }

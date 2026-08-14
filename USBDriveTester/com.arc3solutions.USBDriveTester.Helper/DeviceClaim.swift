@@ -695,8 +695,24 @@ final class AcquiredDevice: @unchecked Sendable {
     /// The run-start cache-bypass verdict (FR-TEST-9), established at acquire.
     ///
     /// Step 8 seeds a `CacheBypassAssessment` from this and the link speed, then feeds the
-    /// run's throughput in — which can only ever downgrade it.
+    /// run's throughput in — which can only ever downgrade it. From Step 11 that assessment
+    /// lives on ``runSession``, so the downgrade survives a call boundary.
     let cacheBypass: CacheBypassState
+
+    /// **The run's session** — the accumulators that span every bounded call the run is made of:
+    /// metrics, the failure log, and the FR-TEST-9 assessment (Step 11 increment 3, CONSTRAINTS
+    /// section 2).
+    ///
+    /// It is a property of the claim, not of a call, and that is the whole design. `acquireDevice`
+    /// opens the session by constructing this object; `releaseDevice` closes it by destroying it.
+    /// So the accumulators cannot outlive the claim, a fresh claim cannot inherit a previous run's
+    /// figures, and neither property needs anybody to remember to clear anything.
+    ///
+    /// Created here rather than lazily on the first call so that the progress denominator is the
+    /// **authoritative ioctl geometry** established two lines above, stated once. A session that
+    /// learned its device's size from whichever call happened to be first would be a second place
+    /// that fact comes from.
+    let runSession: RunSession
 
     /// **The authoritative geometry**: ioctl-derived, reconciled, and validated. Everything
     /// that addresses the device uses this, never ``geometry``.
@@ -732,6 +748,14 @@ final class AcquiredDevice: @unchecked Sendable {
         self.rawGeometry = rawGeometry
         self.uncachedIO = uncachedIO
         self.cacheBypass = cacheBypass
+
+        // The run's session opens here, with the claim. Both of its inputs are facts this acquire
+        // has just established: the device's capacity from the geometry ioctls (never IOKit's
+        // provisional numbers), and the FR-TEST-9 verdict from the descriptor as it was opened.
+        let authoritative = reconciliation.authoritative
+        self.runSession = RunSession(
+            deviceBytesTotal: authoritative.blockCount * UInt64(authoritative.logicalBlockSize),
+            cacheBypass: CacheBypassAssessment(uncachedIO, linkSpeed: geometry.usbLinkSpeed))
     }
 
     /// A `RawBlockDevice` over the held descriptor, using the authoritative geometry.

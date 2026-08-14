@@ -1,7 +1,7 @@
 //
 //  main.swift
-//  metrics-probe — drives a real bounded cycle and polls its live metrics from a second
-//  connection, the way the GUI does.
+//  metrics-probe — drives a real run and polls its live metrics from a second connection, the
+//  way the GUI does.
 //
 //  ## What this is evidence for
 //
@@ -13,7 +13,7 @@
 //
 //  So this does what the app does, from the CLI where it can be asserted mechanically:
 //
-//    * connection A issues `runRetentionCycle` and blocks for the whole run;
+//    * connection A issues `runRetentionCycle` and blocks for the whole call;
 //    * connection B polls `runProgress` twice a second and timestamps every reply.
 //
 //  Two connections is not a stylistic choice. Measured 2026-08-04
@@ -21,10 +21,31 @@
 //  is **not delivered until that call returns**, while a second connection is answered
 //  concurrently in 0.2–0.3 ms.
 //
+//  ## PROTOCOL v11: FOUR CALLS ARE ONE RUN, AND THE FIGURES ARE CUMULATIVE
+//
+//  Rewritten in Step 11 increment 3. A run is now a sequence of bounded calls and the accumulators
+//  live on the claim (CONSTRAINTS section 2), so this probe's four cycles — one per I/O size FR-CTRL-8
+//  offers — are **one run of four calls** inside one `acquireDevice`, not four runs. Three things
+//  follow, and each is a deliberate change to what the gate asserts:
+//
+//    * **Every figure but two is cumulative.** Chunk counts, latency samples, failure counts,
+//      throughput and the two NFR-PERF-3 fractions describe the run so far, not the call that
+//      returned them. The expectations below are running totals, computed here so a wrong one is a
+//      failure rather than a number nobody checked. `bufferBytesHeld` and the outcome code stay
+//      per-call.
+//    * **Each size runs over its OWN gibibyte**, at `index × runBlocks`, rather than all four over
+//      the first one. That keeps `currentBlock` and `fractionComplete` monotonic across the seam —
+//      which is the property a real sequencer has, so the gate now rehearses the shape increment 4
+//      will use instead of a shape nothing in the product produces.
+//    * **Progress is against the WHOLE DEVICE.** Four gibibytes of a 1 TB drive is ~0.43%, not
+//      100%. `EXPECTED_FRACTION` is computed here from the ioctl block count and the bytes actually
+//      asked for, so a helper that used the *call's* range as its denominator — which is what the
+//      code did before this increment — would report ~100% and be caught rather than believed.
+//
 //  ## ⚠️  THIS WRITES TO THE DRIVE
 //
-//  It runs the read → write-back → verify cycle over the **first 1 GiB** of the device, starting
-//  at block 0 — which is what a real run does (FR-TEST-4) and is 1 MiB-aligned by construction
+//  It runs the read → write-back → verify cycle over the **first 4 GiB** of the device, starting at
+//  block 0 — which is where a real run begins (FR-TEST-4) and is 1 MiB-aligned by construction
 //  (FR-TEST-10). The cycle writes back exactly the bytes it read; that is proven in simulation and
 //  was verified byte-for-byte on the scratch device in Step 8. This probe does **not** re-prove it —
 //  `scripts/retention-cycle-check.sh` is what fingerprints the device either side of a run.
@@ -44,7 +65,7 @@ guard arguments.count >= 2 else {
     FileHandle.standardError.write(Data("""
         usage: metrics-probe <bsdName> [pollIntervalMs]
 
-               WRITES to the first 1 GiB of the named device.
+               WRITES to the first 4 GiB of the named device.
                pollIntervalMs defaults to 500 — twice NFR-PERF-5's required cadence, so a
                missed refresh is visible rather than marginal.
 
@@ -159,6 +180,7 @@ blockingCall("version", on: runConnection) { tester, done in
 print("[version] PROTOCOL=\(helperProtocolVersion)")
 print("[version] EXPECTED=\(TesterProtocol.version)")
 
+// THE SESSION OPENS HERE. Everything below is one run; `releaseAndExit` closes it.
 var acquired = false
 blockingCall("acquire", on: runConnection) { tester, done in
     tester.acquireDevice(bsdName: bsdName) { ok, causeCode, message in
@@ -191,66 +213,89 @@ func releaseAndExit(_ status: Int32) -> Never {
 }
 
 var blockSize: UInt32 = 0
+var deviceBlockCount: UInt64 = 0
 var linkSpeedCode = -1
 blockingCall("profile", on: runConnection) { tester, done in
-    tester.deviceProfile { available, ioctlBlockSize, _, _, _, _, speedCode, _, message in
-        if available { blockSize = ioctlBlockSize; linkSpeedCode = speedCode }
-        else { print("[profile] UNAVAILABLE=\(message)") }
+    tester.deviceProfile { available, ioctlBlockSize, ioctlBlockCount, _, _, _, speedCode, _, message in
+        if available {
+            blockSize = ioctlBlockSize
+            deviceBlockCount = ioctlBlockCount
+            linkSpeedCode = speedCode
+        } else {
+            print("[profile] UNAVAILABLE=\(message)")
+        }
         done()
     }
 }
 
-guard blockSize > 0 else {
+guard blockSize > 0, deviceBlockCount > 0 else {
     print("[probe] ABORTED=no geometry from the held device")
     releaseAndExit(1)
 }
 
-// 1 GiB from block 0, once per permitted I/O size. Block 0 is where a real run begins
-// (FR-TEST-4) and is 1 MiB-aligned by construction (FR-TEST-10); the length is the per-call cap,
-// itself a whole number of MiB.
+// One gibibyte per I/O size, each over its **own** region, advancing from block 0.
+//
+// Block 0 is where a real run begins (FR-TEST-4); each start is a whole multiple of the per-call
+// cap and therefore 1 MiB-aligned (FR-TEST-10), and each length is the cap itself, a whole number
+// of MiB. Advancing rather than repeating is what keeps `currentBlock` and `fractionComplete`
+// monotonic across the four calls — the shape a real sequencer produces.
 //
 // ## Why every size, and not just the default
 //
-// NFR-PERF-3's host-overhead figure was measured at 4 MiB only (2026-08-04), and that leaves an
-// open question the Step 16 release note cannot answer: does the host cost scale with **bytes
-// moved** or with **chunk count**? The two imply opposite advice about I/O size, so guessing is
-// worse than not saying. Sweeping all four of FR-CTRL-8's sizes over the same gibibyte gives an
-// 8x lever on chunk count at constant bytes, which settles it — and incidentally exercises the
-// chunk plan at every size the UI can select, on real media.
+// Sweeping all four of FR-CTRL-8's sizes exercises the chunk plan at every size the UI can select,
+// on real media, and at an 8× spread of chunk counts. It no longer doubles as the host-cost
+// normalisation study: that question — does the cost follow bytes moved or chunk count? — was
+// settled on 2026-08-05 and is recorded in CONSTRAINTS section 1 ("Host cost follows bytes moved,
+// not chunk count"). Under a cumulative session the per-size figures are running totals and cannot
+// be compared against one another anyway; NFR-PERF-3's own claim is asserted at the end, where the
+// cumulative fraction is the run's.
 let runBlocks = TesterProtocol.maximumBytesPerCall / UInt64(blockSize)
 let sweepSizes = TesterProtocol.permittedIOSizes
 let detailedSize = TesterProtocol.defaultIOSizeBytes
+let deviceBytes = deviceBlockCount * UInt64(blockSize)
+
+guard deviceBlockCount >= UInt64(sweepSizes.count) * runBlocks else {
+    print("[probe] ABORTED=the device is smaller than the \(sweepSizes.count) GiB this sweep covers")
+    releaseAndExit(1)
+}
 
 print("[probe] BLOCK_SIZE=\(blockSize)")
+print("[probe] DEVICE_BLOCKS=\(deviceBlockCount)")
+print("[probe] DEVICE_BYTES=\(deviceBytes)")
 print("[probe] LINK_SPEED_CODE=\(linkSpeedCode)")
 print("[probe] START_BLOCK=0")
 print("[probe] RUN_BLOCKS=\(runBlocks)")
 print("[probe] SWEEP_SIZES=\(sweepSizes.map(String.init).joined(separator: ","))")
 print("[probe] DETAILED_SIZE=\(detailedSize)")
 
-// MARK: - One cycle, polled from the other connection
+// MARK: - One call of the run, polled from the other connection
 
-/// What one size's run produced.
+/// What one call produced. The figures marked cumulative describe the **run**, not this call.
 struct CycleRun {
     let ioSizeBytes: Int
-    let completed: Bool
+    let startBlock: UInt64
+
+    /// Protocol v10: how **this call** ended. `1` is `RunOutcomeCode.completed`.
+    let outcomeCode: Int
+    let interruptedAtBlock: UInt64
+
+    /// Cumulative — every chunk the run has attempted.
     let chunks: UInt64
-    let failedRanges: Int
-    let failureSummary: String
-    let cacheBypass: Int
-    let bufferBytes: Int
-    let hostOverheadFraction: Double
-    let helperCoreFraction: Double
+
+    let failedRanges: Int                       // cumulative
+    let failureSummary: String                  // cumulative
+    let cacheBypass: Int                        // the run's verdict, only ever downgraded
+    let bufferBytes: Int                        // per call: 2 x this call's I/O size
+    let hostOverheadFraction: Double            // cumulative
+    let helperCoreFraction: Double              // cumulative, bracketed from acquire
     let message: String
-    let wallNanoseconds: UInt64
+    let wallNanoseconds: UInt64                 // this call's own wall clock, measured here
     let samples: [Sample]
     let replyNanoseconds: UInt64
     let startNanoseconds: UInt64
 
-    // Protocol v9 (Step 10). The final figures now arrive in the cycle's own reply rather than
-    // having to be polled for afterwards — which is the whole point: `MetricsChannel`'s slot is
-    // replaced when a run *starts*, so a refused run leaves the previous run's numbers behind,
-    // and this probe's Step 9 predecessor read exactly that kind of stale value once already.
+    /// The run's figures, arriving in the reply rather than having to be polled for — which is
+    /// what keeps protocol v9's property at run scope: a refused call returns none of them.
     let failureModeUsed: Int
     let failedBlockCount: UInt64
     let finalReadBytesPerSecond: Double
@@ -261,12 +306,13 @@ struct CycleRun {
     let finalLatencyP99UpperNanoseconds: UInt64
 }
 
-func runCycle(ioSizeBytes: Int) -> CycleRun {
+func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
     let log = SampleLog()
     let finished = Flag()
     let semaphore = DispatchSemaphore(value: 0)
 
-    var completed = false
+    var outcomeCode = 0
+    var interruptedAt: UInt64 = 0
     var chunks: UInt64 = 0
     var failedRanges = 0
     var failureSummary = ""
@@ -298,16 +344,17 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
         // mode never acts on anything — but the reply says which mode ran, and that is
         // asserted, because it is the only evidence available that the mode reached the run
         // path when there is no failure for it to stop on.
-        tester.runRetentionCycle(startBlock: 0,
+        tester.runRetentionCycle(startBlock: startBlock,
                                  blockCount: runBlocks,
                                  ioSizeBytes: ioSizeBytes,
                                  failureModeCode: FailureModeCode.standard.rawValue) {
-            done, chunkCount, failed, summary, bypass, _, buffers, hostOverhead,
+            outcome, resumeBlock, chunkCount, failed, summary, bypass, _, buffers, hostOverhead,
             coreFraction, modeUsed, _, failedBlocks, readRate, writeRate,
             latencySampleCount, latencyMin, latencyMax, latencyP99, text in
 
             replyNanoseconds = nowNanoseconds()
-            completed = done
+            outcomeCode = outcome
+            interruptedAt = resumeBlock
             chunks = chunkCount
             failedRanges = failed
             failureSummary = summary
@@ -336,14 +383,12 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
 
     // Poll on the OTHER connection while the run blocks this one's.
     //
-    // Settle first, for the same reason the D1 pre-flight did: `MetricsChannel.begin()` runs
-    // inside `runCycle` *after* validation — correctly, so a refused run does not wipe the
-    // previous run's figures — which leaves a few milliseconds where a poll still sees the
-    // **previous** size's completed snapshot. Without this, every table's first row read 100%
-    // and then dropped to 3%, which looks like progress going backwards and is really just a
-    // question asked before there was anything new to answer it.
-    Thread.sleep(forTimeInterval: 0.25)
-
+    // No settling delay any more, and its removal is the point. It existed because
+    // `MetricsChannel.begin()` replaced the shared slot *after* validation, so the first poll of
+    // each size saw the **previous** size's completed snapshot at 100% and the table then dropped
+    // to 3% — progress apparently going backwards. Under a session there is no slot to replace and
+    // no previous run to see: a poll during call 2 legitimately returns the run's state after
+    // call 1, which is exactly what monotonic progress looks like.
     let pollInterval = Double(pollIntervalMilliseconds) / 1_000
     let deadline = startNanoseconds &+ 600 * 1_000_000_000
 
@@ -380,16 +425,16 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
 
     Thread.sleep(forTimeInterval: 1)          // let a straggler reply land
 
-    // ONE MORE POLL, AFTER THE RUN HAS REPLIED.
+    // ONE MORE POLL, AFTER THE CALL HAS REPLIED.
     //
     // The loop above exits the instant the cycle replies, so its newest snapshot is whatever the
     // last poll caught — up to one poll interval *before* the end. On 2026-08-04 that made the
     // gate report "progress ended at 93.75%" and "240 latency samples for 256 chunks" at every
-    // I/O size, and the arithmetic gave it away: every figure was exactly samples/chunks. The run
+    // I/O size, and the arithmetic gave it away: every figure was exactly samples/chunks. The call
     // had completed; nobody had asked the helper what the completed state was.
     //
-    // `MetricsChannel` keeps the finished run's accumulator until the next run replaces it, so
-    // this final ask is what the run actually ended at.
+    // The session keeps accumulating for as long as the claim is held, so this final ask is what
+    // the run actually stood at when this call ended.
     blockingCall("final-progress", on: progressConnection, timeout: 30) { tester, done in
         tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
                              remaining, latencySamples, latencyMin, latencyMax,
@@ -411,7 +456,9 @@ func runCycle(ioSizeBytes: Int) -> CycleRun {
     }
 
     return CycleRun(ioSizeBytes: ioSizeBytes,
-                    completed: completed,
+                    startBlock: startBlock,
+                    outcomeCode: outcomeCode,
+                    interruptedAtBlock: interruptedAt,
                     chunks: chunks,
                     failedRanges: failedRanges,
                     failureSummary: failureSummary,
@@ -439,50 +486,82 @@ func column(_ text: String, _ width: Int) -> String {
     text.count >= width ? text : text + String(repeating: " ", count: width - text.count)
 }
 
-// MARK: - The sweep
+// MARK: - The sweep: four calls, one run
 
 var runs: [CycleRun] = []
 
-for size in sweepSizes {
+/// The running totals the session should be reporting. Computed here rather than read back, so
+/// "the helper agrees with itself" is not what is being checked.
+var expectedChunks: UInt64 = 0
+var expectedBlocksCovered: UInt64 = 0
+var previousFraction = -1.0
+var previousCurrentBlock: UInt64 = 0
+
+for (index, size) in sweepSizes.enumerated() {
+    let startBlock = UInt64(index) * runBlocks
+    expectedChunks += TesterProtocol.maximumBytesPerCall / UInt64(size)
+    expectedBlocksCovered += runBlocks
+
     print("")
     print("  ── \(size / (1 << 20)) MiB I/O ─────────────────────────────────────────────")
-    print("  running \(TesterParameters.gibibyteDescription) from block 0, polling every "
-        + "\(pollIntervalMilliseconds) ms …")
-    let run = runCycle(ioSizeBytes: size)
+    print("  call \(index + 1) of \(sweepSizes.count): \(TesterParameters.gibibyteDescription) "
+        + "from block \(startBlock), polling every \(pollIntervalMilliseconds) ms …")
+    let run = runCycle(ioSizeBytes: size, startBlock: startBlock)
     runs.append(run)
 
-    print("[size:\(size)] COMPLETED=\(run.completed ? 1 : 0)")
+    let expectedFraction = Double(expectedBlocksCovered) / Double(deviceBlockCount)
+
+    print("[size:\(size)] START_BLOCK=\(startBlock)")
+    print("[size:\(size)] OUTCOME_CODE=\(run.outcomeCode)")
+    print("[size:\(size)] EXPECTED_OUTCOME_CODE=\(RunOutcomeCode.completed.rawValue)")
+    print("[size:\(size)] INTERRUPTED_AT_BLOCK=\(run.interruptedAtBlock)")
     print("[size:\(size)] CHUNKS=\(run.chunks)")
-    print("[size:\(size)] EXPECTED_CHUNKS=\(TesterProtocol.maximumBytesPerCall / UInt64(size))")
+    print("[size:\(size)] EXPECTED_CHUNKS=\(expectedChunks)")
     print("[size:\(size)] FAILED_RANGES=\(run.failedRanges)")
     print("[size:\(size)] FAILURE_SUMMARY=\(run.failureSummary)")
     print("[size:\(size)] CACHE_BYPASS=\(run.cacheBypass)")
     print("[size:\(size)] BUFFER_BYTES=\(run.bufferBytes)")
+    print("[size:\(size)] EXPECTED_BUFFER_BYTES=\(size * 2)")
     print("[size:\(size)] WALL_MS=\(formatted(milliseconds(run.wallNanoseconds)))")
     print("[size:\(size)] HOST_OVERHEAD_FRACTION=\(run.hostOverheadFraction)")
     print("[size:\(size)] HELPER_CORE_FRACTION=\(run.helperCoreFraction)")
 
-    // Cadence and progress, per size — NFR-PERF-5 is not a property of one I/O size.
+    // Cadence and progress, per call — NFR-PERF-5 is not a property of one I/O size.
     let inRun = run.samples.filter { $0.atNanoseconds <= run.replyNanoseconds }
     var widestGap = 0.0
-    for index in 1 ..< Swift.max(inRun.count, 1) {
-        let gap = milliseconds(inRun[index].atNanoseconds &- inRun[index - 1].atNanoseconds)
+    for sampleIndex in 1 ..< Swift.max(inRun.count, 1) {
+        let gap = milliseconds(inRun[sampleIndex].atNanoseconds
+                                &- inRun[sampleIndex - 1].atNanoseconds)
         if gap > widestGap { widestGap = gap }
     }
+    // Mid-run means: available, arrived before the reply, and reporting real coverage. The old
+    // `fractionComplete < 1` clause is gone — against the whole device the fraction never
+    // approaches 1 on a drive this size, so it excluded nothing and would have been a filter
+    // nobody could see failing.
     let midRun = run.samples.filter {
-        $0.available && $0.atNanoseconds < run.replyNanoseconds
-            && $0.fractionComplete > 0 && $0.fractionComplete < 1
+        $0.available && $0.atNanoseconds < run.replyNanoseconds && $0.fractionComplete > 0
     }
-    let fractions = midRun.map(\.fractionComplete)
-    let monotonic = zip(fractions, fractions.dropFirst()).allSatisfy { $0 <= $1 }
     let final = run.samples.last
+
+    // Monotonic **across the whole run**, not within one call: the session accumulates, so a
+    // fraction that fell at a call boundary would mean the accumulator had been reset — which is
+    // precisely the defect this increment removed.
+    var monotonic = true
+    for sample in run.samples where sample.available && sample.fractionComplete > 0 {
+        if sample.fractionComplete < previousFraction { monotonic = false }
+        previousFraction = Swift.max(previousFraction, sample.fractionComplete)
+        if sample.currentBlock < previousCurrentBlock { monotonic = false }
+        previousCurrentBlock = Swift.max(previousCurrentBlock, sample.currentBlock)
+    }
 
     print("[size:\(size)] SAMPLES_TOTAL=\(run.samples.count)")
     print("[size:\(size)] SAMPLES_MID_RUN=\(midRun.count)")
     print("[size:\(size)] WIDEST_GAP_MS=\(formatted(widestGap))")
     print("[size:\(size)] MONOTONIC=\(monotonic ? 1 : 0)")
-    print("[size:\(size)] FINAL_FRACTION=\(formatted((final?.fractionComplete ?? 0) * 100, 2))")
+    print("[size:\(size)] FINAL_FRACTION=\(formatted((final?.fractionComplete ?? 0) * 100, 6))")
+    print("[size:\(size)] EXPECTED_FRACTION=\(formatted(expectedFraction * 100, 6))")
     print("[size:\(size)] FINAL_CURRENT_BLOCK=\(final?.currentBlock ?? 0)")
+    print("[size:\(size)] EXPECTED_CURRENT_BLOCK=\(startBlock + runBlocks)")
     print("[size:\(size)] FINAL_LATENCY_SAMPLES=\(final?.latencySamples ?? 0)")
     print("[size:\(size)] FINAL_LATENCY_MIN_NS=\(final?.latencyMinimum ?? 0)")
     print("[size:\(size)] FINAL_LATENCY_MAX_NS=\(final?.latencyMaximum ?? 0)")
@@ -491,15 +570,14 @@ for size in sweepSizes {
     print("[size:\(size)] FINAL_WRITE_BYTES_PER_SECOND=\(final?.writeBytesPerSecond ?? -1)")
     print("[size:\(size)] FINAL_CHUNKS_FAILED=\(final?.chunksFailed ?? 0)")
 
-    // Protocol v9 (Step 10). The same six figures, by a completely different route: these came
-    // back in `runRetentionCycle`'s reply, the `FINAL_*` ones above from a `runProgress` poll
-    // issued after it. **They must agree.**
+    // The same figures, by a completely different route: these came back in the cycle's reply,
+    // the `FINAL_*` ones above from a `runProgress` poll issued after it. **They must agree.**
     //
-    // That agreement is the only check available on the part of the v9 reply no unit test can
-    // reach. The reply is nineteen positional values assembled in the helper's `main.swift`, six
-    // of them adjacent same-typed numbers — two `Double` rates and four `UInt64` latency figures
-    // — and a transposition there would compile, run, and put read throughput under "write" in
-    // an exported report. Two independent paths to the same numbers is what makes it visible.
+    // That agreement is the only check available on the part of the reply no unit test can reach.
+    // The reply is twenty positional values assembled in the helper's `main.swift`, six of them
+    // adjacent same-typed numbers — two `Double` rates and four `UInt64` latency figures — and a
+    // transposition there would compile, run, and put read throughput under "write" in an exported
+    // report. Two independent paths to the same numbers is what makes it visible.
     print("[size:\(size)] REPLY_FAILURE_MODE_USED=\(run.failureModeUsed)")
     print("[size:\(size)] REPLY_FAILED_BLOCKS=\(run.failedBlockCount)")
     print("[size:\(size)] REPLY_READ_BYTES_PER_SECOND=\(run.finalReadBytesPerSecond)")
@@ -512,60 +590,51 @@ for size in sweepSizes {
     // The full snapshot table only for the default size, or the output becomes unreadable.
     guard size == detailedSize else { continue }
     print("")
-    print("  live snapshots at the default I/O size, relative to the run starting")
-    print("    " + column("at ms", 10) + column("%", 8) + column("read MB/s", 12)
-        + column("write MB/s", 12) + column("ETA s", 9) + column("reads", 9) + "p99 ms")
+    print("  live snapshots at the default I/O size, relative to this call starting")
+    print("    " + column("at ms", 10) + column("% device", 11) + column("read MB/s", 12)
+        + column("write MB/s", 12) + column("ETA s", 11) + column("reads", 9) + "p99 ms")
     for sample in run.samples where sample.available {
         let at = milliseconds(sample.atNanoseconds &- run.startNanoseconds)
         print("    " + column(formatted(at, 0), 10)
-            + column(formatted(sample.fractionComplete * 100, 1), 8)
+            + column(formatted(sample.fractionComplete * 100, 4), 11)
             + column(sample.readBytesPerSecond >= 0
                      ? formatted(sample.readBytesPerSecond / 1_000_000, 0) : "—", 12)
             + column(sample.writeBytesPerSecond >= 0
                      ? formatted(sample.writeBytesPerSecond / 1_000_000, 0) : "—", 12)
             + column(sample.estimatedRemainingSeconds >= 0
-                     ? formatted(sample.estimatedRemainingSeconds, 1) : "—", 9)
+                     ? formatted(sample.estimatedRemainingSeconds, 0) : "—", 11)
             + column("\(sample.latencySamples)", 9)
             + (sample.latencySamples > 0
                ? formatted(Double(sample.latencyP99Upper) / 1_000_000, 3) : "—"))
     }
 }
 
-// MARK: - Does host cost follow bytes, or chunks?
+// MARK: - What the run came to
 
 print("")
-print("  ── host cost vs I/O size ───────────────────────────────────────────────────────")
-print("    " + column("I/O size", 11) + column("chunks", 9) + column("overhead %", 13)
-    + column("us/chunk", 12) + column("us/MiB", 10) + "read MB/s")
-
-for run in runs where run.hostOverheadFraction >= 0 && run.chunks > 0 {
-    let deviceNanoseconds = Double(run.wallNanoseconds)          // dominated by device I/O
-    let hostNanoseconds = deviceNanoseconds * run.hostOverheadFraction
-        / (1 + run.hostOverheadFraction)
-    let perChunk = hostNanoseconds / Double(run.chunks) / 1_000
-    let mibMoved = Double(TesterProtocol.maximumBytesPerCall) / Double(1 << 20)
-    let perMib = hostNanoseconds / mibMoved / 1_000
-    let readRate = run.samples.last?.readBytesPerSecond ?? -1
-
-    print("    " + column("\(run.ioSizeBytes / (1 << 20)) MiB", 11)
-        + column("\(run.chunks)", 9)
-        + column(formatted(run.hostOverheadFraction * 100, 3), 13)
-        + column(formatted(perChunk, 1), 12)
-        + column(formatted(perMib, 1), 10)
-        + (readRate >= 0 ? formatted(readRate / 1e6, 0) : "—"))
-
-    print("[scaling:\(run.ioSizeBytes)] US_PER_CHUNK=\(formatted(perChunk, 3))")
-    print("[scaling:\(run.ioSizeBytes)] US_PER_MIB=\(formatted(perMib, 3))")
+print("  ── the run, cumulative ─────────────────────────────────────────────────────────")
+if let last = runs.last {
+    let coveredGiB = Double(expectedBlocksCovered * UInt64(blockSize)) / Double(1 << 30)
+    let deviceGiB = Double(deviceBytes) / Double(1 << 30)
+    print("    chunks               \(last.chunks)")
+    print("    read-latency samples \(last.finalLatencySamples)")
+    print("    covered              \(formatted(coveredGiB, 2)) GiB of \(formatted(deviceGiB, 2)) GiB")
+    print("    host overhead        \(formatted(last.hostOverheadFraction * 100, 3))% of device I/O time")
+    print("    daemon CPU           \(formatted(last.helperCoreFraction * 100, 3))% of one core")
+    print("[run] CUMULATIVE_CHUNKS=\(last.chunks)")
+    print("[run] CUMULATIVE_EXPECTED_CHUNKS=\(expectedChunks)")
+    print("[run] CUMULATIVE_LATENCY_SAMPLES=\(last.finalLatencySamples)")
+    print("[run] CUMULATIVE_HOST_OVERHEAD_FRACTION=\(last.hostOverheadFraction)")
+    print("[run] CUMULATIVE_HELPER_CORE_FRACTION=\(last.helperCoreFraction)")
 }
-
 print("")
-print("  If us/MiB is roughly constant while us/chunk tracks the I/O size, host cost follows")
-print("  BYTES MOVED and a larger I/O size will not reduce it. If us/chunk is roughly constant")
-print("  instead, it follows CHUNK COUNT and a larger size reduces it proportionally.")
+print("  Host cost follows BYTES MOVED, not chunk count — measured 2026-08-05 and recorded in")
+print("  CONSTRAINTS section 1. This sweep no longer re-derives it: under a cumulative session the")
+print("  per-size figures are running totals and cannot be compared with one another.")
 
 print("[probe] TRANSPORT_FAILED=\(transportFailed ? 1 : 0)")
 
-// MARK: - FR-TEST-10, shown refusing
+// MARK: - FR-TEST-10 shown refusing, and a refused call carrying no figures
 
 // A run that satisfies the placement rule proves the rule did not get in the way. It says
 // nothing about whether the rule is *enforced* — and an unenforced guard is indistinguishable
@@ -574,6 +643,19 @@ print("[probe] TRANSPORT_FAILED=\(transportFailed ? 1 : 0)")
 //
 // Neither of these performs any I/O: `RunCoordinator.runCycle` validates placement before it
 // vends a block device, so a refusal costs nothing and touches nothing.
+//
+// ## AND THIS IS NOW THE SHARPER HALF OF THE GATE
+//
+// These refusals arrive **inside the session the four calls above filled**, so the figures a
+// refusal could wrongly report are no longer some previous run's — they are *this* run's, sitting
+// on the claim, four gibibytes of entirely plausible measurements. Under protocol v9 the guard was
+// structural: the observer a call read its figures from did not exist until that call passed
+// validation. Under a session the accumulators predate the call, and what keeps the property is
+// that `RunCoordinator` returns a `CycleResult` only on success, so `main.swift`'s refusal path has
+// nothing to read from.
+//
+// That is a weaker guard, and `main.swift` is not in the test target. **These four lines are the
+// only check anywhere that reaches that reply assembly.**
 
 func expectRefusal(_ label: String,
                    startBlock: UInt64,
@@ -584,20 +666,25 @@ func expectRefusal(_ label: String,
                                  blockCount: blockCount,
                                  ioSizeBytes: detailedSize,
                                  failureModeCode: failureModeCode) {
-            completed, chunks, _, _, _, _, _, _, _, modeUsed, ranges, failedBlocks,
+            outcome, _, chunks, _, _, _, _, _, _, _, modeUsed, ranges, failedBlocks,
             readRate, writeRate, latencySamples, _, _, _, message in
 
-            // `completed == false` and no chunks processed is what a refusal looks like; a
-            // refusal that had already written something would show up as chunks > 0.
-            print("[\(label)] REFUSED=\(completed || chunks > 0 ? 0 : 1)")
+            // WAS THE CALL REFUSED — and nothing else. The outcome code alone answers it.
+            //
+            // This used to be `outcome == unrecognised && chunks == 0`, one flag stating two
+            // facts, and mutation H1 on 2026-08-12 showed why that is wrong. H1 leaked the
+            // session's figures into the refusal reply; the helper had refused correctly — outcome
+            // 0, and the message was the right FR-TEST-10 text — but the leaked chunk count
+            // flipped this flag and the gate reported "the alignment guard is not enforced",
+            // sending the reader to `RunPlacement`, which was innocent.
+            //
+            // Under v11 the conflation is not merely unhelpful, it is measuring the wrong thing:
+            // `chunks` in the reply is the RUN's cumulative total, so it is non-zero for reasons
+            // that have nothing to do with whether this call did any work. "Did it report
+            // anything it should not have" is a separate fact and has its own line below.
+            print("[\(label)] REFUSED=\(outcome == RunOutcomeCode.unrecognised.rawValue ? 1 : 0)")
+            print("[\(label)] OUTCOME_CODE=\(outcome)")
             print("[\(label)] CHUNKS=\(chunks)")
-
-            // Protocol v9 (Step 10). **A refused run must carry no figures at all**, and this is
-            // the hardware evidence for why the figures travel in this reply rather than being
-            // polled from `runProgress` afterwards: at this moment the helper's `MetricsChannel`
-            // slot still holds the *previous* run's numbers, because `begin()` runs after
-            // validation. A caller that went looking would find them, correctly formatted, and
-            // put another run's measurements into an exported report.
             print("[\(label)] MODE_USED=\(modeUsed)")
             print("[\(label)] RANGES_ENCODED=\(ranges)")
             print("[\(label)] FAILED_BLOCKS=\(failedBlocks)")
@@ -614,7 +701,7 @@ print("")
 print("  asking for three runs the helper must refuse …")
 print("")
 
-// Half one: a start one block past zero — 512 bytes in, not a 1 MiB boundary (FR-TEST-10).
+// Half one: a start one block past a boundary — 512 bytes in, not a 1 MiB boundary (FR-TEST-10).
 expectRefusal("misaligned", startBlock: 1, blockCount: runBlocks)
 
 // Half two: a length one block short of a whole number of MiB, in the middle of the device so
@@ -627,8 +714,39 @@ expectRefusal("partial", startBlock: 0, blockCount: runBlocks - 1)
 // so the refusal can only be the mode.
 expectRefusal("badmode", startBlock: 0, blockCount: runBlocks, failureModeCode: 99)
 
-let allCompleted = !runs.isEmpty && runs.allSatisfy { $0.completed }
-releaseAndExit(transportFailed || !allCompleted ? 1 : 0)
+// MARK: - And the session dies with the claim
+
+// One poll after the release. Under protocol v9 this returned the finished run's figures for as
+// long as the daemon lived, because the slot was never cleared. The session is a property of the
+// claim, so releasing it destroyed the accumulators and there is nothing left to report — which is
+// what makes "a poll cannot return a previous run's numbers" a fact about the object graph rather
+// than about anybody remembering to clear something.
+
+blockingCall("release", on: runConnection) { tester, done in
+    tester.releaseDevice { released, message in
+        print("[release] RELEASED=\(released ? 1 : 0)")
+        print("[release] MESSAGE=\(message)")
+        done()
+    }
+}
+
+blockingCall("after-release", on: progressConnection, timeout: 30) { tester, done in
+    tester.runProgress { available, fraction, currentBlock, readRate, _, _,
+                         latencySamples, _, _, _, _ in
+        print("[after-release] AVAILABLE=\(available ? 1 : 0)")
+        print("[after-release] FRACTION=\(fraction)")
+        print("[after-release] CURRENT_BLOCK=\(currentBlock)")
+        print("[after-release] READ_BYTES_PER_SECOND=\(readRate)")
+        print("[after-release] LATENCY_SAMPLES=\(latencySamples)")
+        done()
+    }
+}
+
+let allCompleted = !runs.isEmpty
+    && runs.allSatisfy { $0.outcomeCode == RunOutcomeCode.completed.rawValue }
+runConnection.invalidate()
+progressConnection.invalidate()
+exit(transportFailed || !allCompleted ? 1 : 0)
 
 // MARK: -
 

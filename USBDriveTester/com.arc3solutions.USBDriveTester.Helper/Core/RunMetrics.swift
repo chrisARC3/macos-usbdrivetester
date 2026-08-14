@@ -47,9 +47,33 @@
 //  ## Constant memory (NFR-PERF-7)
 //
 //  Two `LatencyHistogram`s and about twenty scalars: **35,840 bytes plus change, forever.**
-//  ``init(chunksPlanned:rangeBytesTotal:startBlock:startedAtNanoseconds:)`` does take the run's
+//  ``init(chunksPlanned:deviceBytesTotal:startBlock:startedAtNanoseconds:)`` does take the run's
 //  size — but as *numbers*, which allocate nothing. There is no collection here whose length
 //  depends on the device, the chunk count, or how long the run has been going.
+//
+//  ## A RUN IS A SEQUENCE OF BOUNDED CALLS, AND THE SESSION IS THE CLAIM (Step 11, increment 3)
+//
+//  Everything above was written when one XPC call *was* one run. It is not any more. A
+//  whole-device run is ~1,000 calls of at most `TesterProtocol.maximumBytesPerCall`, and the
+//  accumulators belong to the **claim** that spans them, not to any one call — see CONSTRAINTS
+//  section 2. Three consequences are visible in this file:
+//
+//    * ``RunSessionObserver`` **folds** each call's `RunStart` into one accumulator instead of
+//      replacing it. That single line is the whole mechanical difference, and it is why the type
+//      was renamed from `RunMetricsObserver`: it now holds a session, not one call's metrics.
+//    * ``MetricsSnapshot/deviceBytesTotal`` — which was `rangeBytesTotal`, one call's range — is
+//      the **whole device**, stated once when the session opens from the claim's authoritative
+//      ioctl geometry. Progress and the ETA are therefore whole-device, which is the property
+//      Shape A was chosen for. The rename is deliberate: a name that said "range" for a value
+//      that means "device" is exactly the drift CONSTRAINTS section 3 keeps paying for.
+//    * A **true whole-run p99**, because percentiles do not compose and no amount of app-side
+//      aggregation of per-call p99s could produce one.
+//
+//  ``chunksPlanned`` is the one figure that stays denominated in *calls asked for* rather than in
+//  the device: the whole-device chunk count is not knowable, because FR-CTRL-8 lets the I/O size
+//  change mid-run. So ``MetricsSnapshot/isComplete`` means "every chunk the calls asked for was
+//  attempted", while ``MetricsSnapshot/fractionComplete`` means "this much of the device". They
+//  answer different questions and are deliberately not derived from each other.
 //
 
 import Foundation
@@ -105,13 +129,18 @@ public struct MetricsSnapshot: Equatable, Sendable {
 
     // MARK: The run's shape
 
-    /// Chunks the plan contains.
+    /// Chunks the session's calls have asked for, summed. **Not** a whole-device figure: FR-CTRL-8
+    /// lets the I/O size change mid-run, so the device's chunk count is not a fixed number.
     public let chunksPlanned: UInt64
 
-    /// Bytes the run's range covers, once.
-    public let rangeBytesTotal: UInt64
+    /// Bytes the **whole device** holds — what progress and the ETA are measured against.
+    ///
+    /// Was `rangeBytesTotal`, one call's range, until Step 11 made a run a sequence of calls. It
+    /// is stated once when the session opens, from the claim's authoritative ioctl geometry, so
+    /// it cannot drift between calls.
+    public let deviceBytesTotal: UInt64
 
-    /// First block of the run.
+    /// First block of the run — the session's origin, from its first call.
     public let startBlock: UInt64
 
     // MARK: Progress — counted on **attempt**, so a failing drive still shows movement
@@ -155,7 +184,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
     public let verifyLatency: LatencySummary
 
     public init(chunksPlanned: UInt64,
-                rangeBytesTotal: UInt64,
+                deviceBytesTotal: UInt64,
                 startBlock: UInt64,
                 chunksAttempted: UInt64,
                 chunksFailed: UInt64,
@@ -174,7 +203,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
                 readLatency: LatencySummary,
                 verifyLatency: LatencySummary) {
         self.chunksPlanned = chunksPlanned
-        self.rangeBytesTotal = rangeBytesTotal
+        self.deviceBytesTotal = deviceBytesTotal
         self.startBlock = startBlock
         self.chunksAttempted = chunksAttempted
         self.chunksFailed = chunksFailed
@@ -226,10 +255,16 @@ public struct MetricsSnapshot: Equatable, Sendable {
 
     // MARK: - Derived: progress and ETA (FR-METR-5/6, NFR-PERF-6)
 
-    /// `0...1`. Zero for an empty range rather than undefined.
+    /// How much of the **device** this session has covered, `0...1`. Zero for an empty device
+    /// rather than undefined.
+    ///
+    /// Whole-device from Step 11: covered bytes accumulate across every call in the session, and
+    /// the denominator is the device. A caller that runs a bounded region therefore sees the
+    /// fraction of the *drive* it covered, which is the true statement — not 100% of the piece it
+    /// asked for.
     public var fractionComplete: Double {
-        guard rangeBytesTotal > 0 else { return 0 }
-        return Swift.min(1, Double(rangeBytesCovered) / Double(rangeBytesTotal))
+        guard deviceBytesTotal > 0 else { return 0 }
+        return Swift.min(1, Double(rangeBytesCovered) / Double(deviceBytesTotal))
     }
 
     /// Remaining wall-clock, from **measured** throughput only — never from a link speed
@@ -239,11 +274,11 @@ public struct MetricsSnapshot: Equatable, Sendable {
     /// first chunk is a number with no evidence behind it. Converges by construction: the
     /// estimate is `elapsed × remaining ÷ covered`, and `remaining` goes to zero.
     public var estimatedRemainingNanoseconds: UInt64? {
-        guard rangeBytesTotal > 0 else { return nil }
-        guard rangeBytesCovered < rangeBytesTotal else { return 0 }
+        guard deviceBytesTotal > 0 else { return nil }
+        guard rangeBytesCovered < deviceBytesTotal else { return 0 }
         guard rangeBytesCovered > 0, elapsedNanoseconds > 0 else { return nil }
 
-        let remaining = Double(rangeBytesTotal - rangeBytesCovered)
+        let remaining = Double(deviceBytesTotal - rangeBytesCovered)
         // `Double` rather than integer arithmetic: `elapsed × remaining` overflows `UInt64` on
         // any real device, and 53 bits of mantissa is exact to ~104 days of nanoseconds.
         let estimate = Double(elapsedNanoseconds) * remaining / Double(rangeBytesCovered)
@@ -298,8 +333,11 @@ public struct MetricsSnapshot: Equatable, Sendable {
 public struct RunMetrics {
 
     // The run's shape. Numbers, not storage — nothing here allocates per chunk or per byte.
-    public let chunksPlanned: UInt64
-    public let rangeBytesTotal: UInt64
+
+    /// Chunks the session's calls have asked for so far. A `var` because a run is a sequence of
+    /// calls and each one adds its own plan — see ``extendPlan(byChunks:)``.
+    public private(set) var chunksPlanned: UInt64
+    public let deviceBytesTotal: UInt64
     public let startBlock: UInt64
     private let startedAtNanoseconds: UInt64
 
@@ -323,19 +361,34 @@ public struct RunMetrics {
     private var verifyLatency = LatencyHistogram()
 
     /// - Parameters:
-    ///   - chunksPlanned: how many chunks the plan contains.
-    ///   - rangeBytesTotal: bytes the range covers, counted **once** — not the 3× the cycle moves.
-    ///   - startBlock: the run's first block, so ``MetricsSnapshot/currentBlock`` starts somewhere real.
+    ///   - chunksPlanned: how many chunks the session's first call contains. Later calls add
+    ///     theirs through ``extendPlan(byChunks:)``.
+    ///   - deviceBytesTotal: the **whole device**, counted **once** — not the 3× the cycle moves,
+    ///     and not the range of any one call. This is what progress and the ETA divide by.
+    ///   - startBlock: the session's first block, so ``MetricsSnapshot/currentBlock`` starts
+    ///     somewhere real.
     ///   - startedAtNanoseconds: the injected clock's reading at run start. No clock is called here.
     public init(chunksPlanned: UInt64,
-                rangeBytesTotal: UInt64,
+                deviceBytesTotal: UInt64,
                 startBlock: UInt64,
                 startedAtNanoseconds: UInt64) {
         self.chunksPlanned = chunksPlanned
-        self.rangeBytesTotal = rangeBytesTotal
+        self.deviceBytesTotal = deviceBytesTotal
         self.startBlock = startBlock
         self.startedAtNanoseconds = startedAtNanoseconds
         self.currentBlock = startBlock
+    }
+
+    /// Add a further call's chunk plan to the session's total.
+    ///
+    /// The counterpart of a run being a sequence of bounded calls: each one plans its own chunks,
+    /// and ``MetricsSnapshot/isComplete`` is only meaningful against the sum. `&+=` for the same
+    /// reason every other counter in this type uses it — a root daemon does not trap — and the
+    /// overflow it guards against is unreachable: the largest drive here, the 4 TB T5 EVO at
+    /// 7,814,037,168 blocks, is about 3.8 million chunks at the smallest I/O size, against a
+    /// 2⁶⁴ counter.
+    public mutating func extendPlan(byChunks chunks: UInt64) {
+        chunksPlanned &+= chunks
     }
 
     /// Fold one chunk's measurement in. Constant time, no allocation.
@@ -400,7 +453,7 @@ public struct RunMetrics {
             : 0
 
         return MetricsSnapshot(chunksPlanned: chunksPlanned,
-                               rangeBytesTotal: rangeBytesTotal,
+                               deviceBytesTotal: deviceBytesTotal,
                                startBlock: startBlock,
                                chunksAttempted: chunksAttempted,
                                chunksFailed: chunksFailed,
@@ -427,13 +480,29 @@ public struct RunMetrics {
     }
 }
 
-// MARK: - Driving the accumulator from a run
+// MARK: - Driving the accumulators from a run's sequence of calls
 
-/// The `RunObserver` that turns a run's events into metrics.
+/// The `RunObserver` that accumulates **one run** across the sequence of bounded calls it is made
+/// of (Step 11, CONSTRAINTS section 2).
 ///
 /// A class, because `RunObserver` is `AnyObject`-bound and because the helper needs to read the
 /// accumulating snapshot from *outside* the run — that is the whole point of a live display.
-/// The accumulator itself stays a value type; this owns one.
+/// The accumulators themselves stay value types; this owns them.
+///
+/// ## What it accumulates, and why each one has to be here rather than in the caller
+///
+/// | | why it cannot be aggregated per call |
+/// |---|---|
+/// | ``metrics`` | percentiles do not compose, so no app-side combination of per-call p99s is a whole-run p99 (FR-METR-3, FR-RPT-3). The coverage rate and the ETA need one origin for the same reason. |
+/// | ``failures`` | `FailureLog`'s cap must apply **once per run**, or its truncation notice means "this call listed a thousand" on a drive with a million bad blocks (FR-RPT-1). |
+/// | ``cacheBypass`` | the assessment's whole contract is that it **only ever downgrades**. Re-seeding it per call silently promotes it back, so a `likelyCached` verdict earned at 40% of a drive is gone by 41% (FR-TEST-9). |
+///
+/// ## `runStarted` folds; it does not replace
+///
+/// This is the single mechanical difference from the per-call accumulator that preceded it, and
+/// it is the whole increment. The engine fires `runStarted` once per XPC call, so *replacing* the
+/// accumulator — which is what this type did until Step 11 — wipes the run at every call boundary
+/// and leaves a whole-device run reporting the last gibibyte's figures as its own.
 ///
 /// ## Thread-safety is not here, deliberately
 ///
@@ -441,33 +510,103 @@ public struct RunMetrics {
 /// same contract: one run, one task). Publishing a snapshot to a *reader on another thread* is
 /// the helper's job, because that is where the concurrency lives and where a lock belongs.
 /// Reading ``snapshot(atNanoseconds:)`` from another thread while a run is in progress is a data
-/// race — the helper's publisher is what makes it safe.
-public final class RunMetricsObserver: RunObserver {
+/// race — the helper's `RunSession` is what makes it safe.
+public final class RunSessionObserver: RunObserver {
 
-    /// `nil` until ``runStarted(_:)`` arrives: a run's shape is not known before it starts, and
-    /// an accumulator invented with guessed totals would report a percentage of the wrong thing.
+    /// `nil` until the session's **first** ``runStarted(_:)`` arrives — a run that has issued no
+    /// call has measured nothing, and an accumulator invented with guessed totals would report a
+    /// percentage of the wrong thing. Every later `runStarted` extends this one.
     public private(set) var metrics: RunMetrics?
+
+    /// Every failed range the **whole run** produced, coalesced and capped once.
+    ///
+    /// Kept open across calls: ``FailureLog/finish()`` is deliberately *not* called here, so the
+    /// range still pending at a call boundary can coalesce with the first failure of the next
+    /// call. A contiguous bad region spanning two calls is one range, not two. ``failureLog``
+    /// finishes a **copy**, which is what lets that be true and still be readable at any instant.
+    private var failures = FailureLog()
+
+    /// The FR-TEST-9 verdict for the run so far.
+    ///
+    /// Seeded when the session opens, from what the acquire structurally established about the
+    /// descriptor, and then replaced by each call's own final verdict — so a downgrade earned by
+    /// one call is what the next call starts from. Non-optional precisely so there is no call
+    /// site that could reach for a fresh seed instead.
+    public private(set) var cacheBypass: CacheBypassAssessment
+
+    /// The whole device, in bytes — what progress and the ETA divide by. Stated once, when the
+    /// session opens, from the claim's authoritative ioctl geometry.
+    private let deviceBytesTotal: UInt64
 
     /// The reading to stamp the run's start with — the *same* injected clock the engine uses,
     /// so a test can drive both from one `SteppingClock` and get an exact elapsed time.
     private let clock: MonotonicClock
 
-    public init(clock: @escaping MonotonicClock = RunClock.monotonicNanoseconds) {
+    /// - Parameters:
+    ///   - deviceBytesTotal: the held device's capacity. **Required, with no default**, for the
+    ///     reason `control:` is required on the engine: a session that silently measured progress
+    ///     against nothing would report `0` forever, and the first place anyone would find out is
+    ///     a progress bar that never moves on a run that is working perfectly.
+    ///   - cacheBypass: the FR-TEST-9 verdict the acquire established. Also required — a session
+    ///     that seeded itself would be a second place the verdict comes from, and the whole point
+    ///     of holding it here is that there is exactly one.
+    public init(deviceBytesTotal: UInt64,
+                cacheBypass: CacheBypassAssessment,
+                clock: @escaping MonotonicClock = RunClock.monotonicNanoseconds) {
+        self.deviceBytesTotal = deviceBytesTotal
+        self.cacheBypass = cacheBypass
         self.clock = clock
     }
 
+    /// Begin the session on the first call, and **extend** it on every one after.
     public func runStarted(_ start: RunStart) {
-        metrics = RunMetrics(chunksPlanned: start.chunkCount,
-                             rangeBytesTotal: start.rangeByteCount,
-                             startBlock: start.startBlock,
-                             startedAtNanoseconds: clock())
+        guard metrics != nil else {
+            metrics = RunMetrics(chunksPlanned: start.chunkCount,
+                                 deviceBytesTotal: deviceBytesTotal,
+                                 startBlock: start.startBlock,
+                                 startedAtNanoseconds: clock())
+            return
+        }
+        metrics?.extendPlan(byChunks: start.chunkCount)
     }
 
     public func chunkMeasured(_ chunk: Chunk, measurement: ChunkMeasurement) {
         metrics?.record(measurement)
     }
 
-    /// What the run looks like now, or `nil` before it started.
+    /// Record the failure against the **run**, and decide nothing.
+    ///
+    /// `.continueRun` is the neutral answer of an observer that only watches, exactly as
+    /// `RunLogger.failureDetected` returns it: `FailureModeObserver` is what obeys FR-FAIL-1, and
+    /// `ObserverFanOut`'s stop-wins rule is what makes a neutral answer safe. A recorder that
+    /// could also stop a run would be two decisions in one place.
+    public func failureDetected(_ failure: BlockRangeFailure) -> FailureDisposition {
+        failures.record(failure)
+        return .continueRun
+    }
+
+    /// Carry this call's final FR-TEST-9 verdict into the session, so the next call is seeded with
+    /// it rather than with the acquire-time structural verdict.
+    ///
+    /// A call that **throws** never reaches here, and that is correct rather than a gap: a throw
+    /// is a `RunAbort` — this tool's fault, not the drive's — the call is refused, and a refused
+    /// call reports nothing. The session keeps the last verdict a completed call established.
+    public func runFinished(_ summary: RunSummary) {
+        cacheBypass = summary.cacheBypass
+    }
+
+    /// The run's failures as they stand, with the pending range closed.
+    ///
+    /// Finishes a **copy**: closing the real one would end the coalescing at whatever instant a
+    /// caller happened to look, turning one contiguous bad region into two ranges because
+    /// somebody polled in the middle of it.
+    public var failureLog: FailureLog {
+        var closed = failures
+        closed.finish()
+        return closed
+    }
+
+    /// What the run looks like now, or `nil` before its first call.
     public func snapshot() -> MetricsSnapshot? {
         metrics?.snapshot(atNanoseconds: clock())
     }

@@ -227,19 +227,31 @@ enum RunCoordinator {
         /// `nil` when it could not be established — never `0`, which means something else.
         let helperCoreFraction: Double?
 
-        /// **This run's** final figures (FR-RPT-2/3), read from the observer this call installed
-        /// rather than from `MetricsChannel.shared` (Step 10, protocol v9).
+        /// **The run's** cumulative figures (FR-RPT-2/3), read from the session on the claim.
         ///
-        /// The distinction is the whole reason these travel in the cycle's reply. `begin()`
-        /// replaces the shared slot when a run *starts*, which is after validation — so on a
-        /// **refused** run the slot still holds the *previous* run's figures. A caller that
-        /// polled `runProgress` once the reply arrived would get them, correctly formatted, and
-        /// put them in a report that outlives the session. Reading the local observer means a
-        /// refused run has no figures at all, which is the true answer.
+        /// Cumulative from Step 11: a run is a sequence of bounded calls, so these describe every
+        /// call the session has completed, not this one. That is what makes them a true whole-run
+        /// p99 and a whole-device coverage rate — percentiles do not compose, so no aggregation of
+        /// per-call figures app-side could produce either.
         ///
-        /// `nil` before the run's first event — a run refused before it started, or one that
-        /// never measured a chunk.
+        /// **These exist only on the success path, and that is what keeps protocol v9's property
+        /// at run scope.** v9 read the observer *this call installed*, which did not exist until
+        /// the call passed validation, so a refused call had no figures to misattribute. The
+        /// session predates the call, so that mechanism is gone; what replaces it is this type —
+        /// a refusal returns `.failure` and there is no `CycleResult` for `main.swift` to read
+        /// figures out of. The reply's sentinels are therefore still the only thing a refused call
+        /// can say.
+        ///
+        /// `nil` before the run's first measured chunk.
         let metrics: MetricsSnapshot?
+
+        /// Every failed range the **run** has produced (FR-RPT-1), coalesced across calls and
+        /// capped once.
+        ///
+        /// From the session rather than from ``summary``'s per-call log, which is why the cap and
+        /// its truncation notice mean what they say on a failing drive: `FailureLog`'s limit is
+        /// 1,024 retained ranges for the run, not 1,024 per gibibyte.
+        let failures: FailureLog
 
         /// The mode this run was actually performed in.
         ///
@@ -331,12 +343,20 @@ enum RunCoordinator {
                                                                   errnoCode: 0)))
         }
 
-        // 6. FR-TEST-9, seeded from what the acquire established — *not* re-checked here.
-        //    The check is `fstat` plus the two `fcntl` results on the descriptor, taken when
-        //    it was opened; re-opening the node to ask again is what makes DiskArbitration
-        //    remount the volume ~4 ms later (measured 2026-08-01). The descriptor has been
-        //    held continuously since, so the verdict still describes it.
-        let assessment = CacheBypassAssessment(device.uncachedIO, linkSpeed: device.usbLinkSpeed)
+        // 6. FR-TEST-9, from the **session** — seeded at acquire from what that established, and
+        //    carrying every downgrade the run's earlier calls earned.
+        //
+        //    Not re-checked here: the check is `fstat` plus the two `fcntl` results on the
+        //    descriptor, taken when it was opened, and re-opening the node to ask again is what
+        //    makes DiskArbitration remount the volume ~4 ms later (measured 2026-08-01). The
+        //    descriptor has been held continuously since, so the verdict still describes it.
+        //
+        //    **Re-seeding it here from `device.uncachedIO` is the defect this line replaced.**
+        //    The assessment's whole contract is that it only ever downgrades; a fresh seed per
+        //    call promotes it back, so a `likelyCached` verdict earned at 40% of a drive was gone
+        //    by 41% — invisible while one call was one run, live the moment a run became ~1,000
+        //    of them. `RunSessionCacheBypassTests.aDowngradeInOneCallSurvivesTheNextOne` pins it.
+        let assessment = device.runSession.cacheBypass
 
         let engine = RetentionTestEngine(device: blockDevice, ioSizeBytes: ioSizeBytes)
 
@@ -355,26 +375,23 @@ enum RunCoordinator {
         //    `RunLogger` takes the same `failureMode` value on the same line — one prints the
         //    mode, the other obeys it, so the mode in the log is necessarily the mode that ran.
         //
-        //    Installing the metrics observer in `MetricsChannel` is what makes `runProgress`
-        //    able to find it from a *different connection*, which it must: a second message on
-        //    this connection will not be delivered until this call returns (measured
-        //    2026-08-04, scripts/xpc-concurrency-check.sh).
-        let metrics = MetricsChannel.shared.begin()
+        //    The session is **the claim's**, not this call's. It is what makes the figures span
+        //    the whole run, and it is what `runProgress` finds from a *different connection* —
+        //    which it must, because a second message on this connection will not be delivered
+        //    until this call returns (measured 2026-08-04, scripts/xpc-concurrency-check.sh).
+        //    Taken from the `AcquiredDevice` the run slot handed back, so a call cannot possibly
+        //    accumulate into the session of a device it does not hold.
+        let session = device.runSession
         let observer = RunObservers.forRun(mode: failureMode,
                                            watchedBy: [RunLogger(failureMode: failureMode),
-                                                       metrics])
+                                                       session])
 
-        // NFR-PERF-3's CPU figure brackets only the cycle. Reading `getrusage` costs one
-        // syscall, twice per run — not per chunk.
-        let cpuBefore = HelperCPUSample.processCPUSeconds()
-        let wallBefore = RunClock.monotonicNanoseconds()
-
-        func perfFigures(_ summary: RunSummary) -> (Double?, Double?) {
-            let wallSeconds = Double(RunClock.monotonicNanoseconds() &- wallBefore) / 1_000_000_000
-            let core = HelperCPUSample.coreFraction(from: cpuBefore,
-                                                    to: HelperCPUSample.processCPUSeconds(),
-                                                    wallSeconds: wallSeconds)
-            return (metrics.snapshot?.hostOverheadFraction, core)
+        // NFR-PERF-3's two figures are both the **run's** from Step 11. The CPU bracket opens at
+        // acquire and lives on the session (see `RunSession.cpuAtOpen`); the host-overhead ratio
+        // comes out of the session's accumulated timings. Reading `getrusage` costs one syscall,
+        // once per call — not per chunk.
+        func perfFigures() -> (Double?, Double?) {
+            (session.snapshot?.hostOverheadFraction, session.helperCoreFraction)
         }
 
         do {
@@ -393,13 +410,15 @@ enum RunCoordinator {
                                          observer: observer)
             logDeviceDiagnostics(blockDevice)
 
-            let (overhead, core) = perfFigures(summary)
-            logPerformance(summary, overheadFraction: overhead, coreFraction: core)
+            let (overhead, core) = perfFigures()
+            logPerformance(summary, session: session.snapshot,
+                           overheadFraction: overhead, coreFraction: core)
             return .success(CycleResult(summary: summary,
                                         hostOverheadFraction: overhead,
                                         helperCoreFraction: core,
-                                        // The observer this call installed, not the shared slot.
-                                        metrics: metrics.snapshot,
+                                        // The run's session, not this call's slice of it.
+                                        metrics: session.snapshot,
+                                        failures: session.failureLog,
                                         failureMode: failureMode))
         } catch let abort as RunAbort {
             ioLog.error("""
@@ -482,14 +501,23 @@ enum RunCoordinator {
 
     /// Log the run's measured figures under the `metrics` category (NFR-OBS-1).
     ///
-    /// Once per run, not per chunk. Addressing and timing only — never device contents
-    /// (NFR-SEC-6) — and **no verdict**: throughput is reported for the user to judge against
-    /// the manufacturer's advertised figure and the negotiated link speed, not graded by this
-    /// tool (user decision 2026-08-04).
+    /// Once per **call**, not per chunk — and the figures are the **session's**, so a whole-device
+    /// run leaves a line per gibibyte, each one the run's cumulative state at that point. That is
+    /// deliberately useful: the sequence is the run's history, and the last line is its result.
+    /// The one per-call figure is the chunk count, which is named as such.
+    ///
+    /// Addressing and timing only — never device contents (NFR-SEC-6) — and **no verdict**:
+    /// throughput is reported for the user to judge against the manufacturer's advertised figure
+    /// and the negotiated link speed, not graded by this tool (user decision 2026-08-04).
+    ///
+    /// - Parameter session: the run's cumulative snapshot. Passed in rather than looked up, so
+    ///   this logs the session the call actually accumulated into — `MetricsChannel` answers for
+    ///   whatever device is held *now*, which is a different question.
     private static func logPerformance(_ summary: RunSummary,
+                                       session: MetricsSnapshot?,
                                        overheadFraction: Double?,
                                        coreFraction: Double?) {
-        guard let snapshot = MetricsChannel.shared.snapshot else { return }
+        guard let snapshot = session else { return }
 
         func rate(_ bytesPerSecond: Double?) -> String {
             guard let bytesPerSecond else { return "not measured" }
@@ -515,7 +543,9 @@ enum RunCoordinator {
                           host overhead \(percent(overheadFraction), privacy: .public) of device I/O time; \
                           daemon CPU \(percent(coreFraction), privacy: .public) of one core; \
                           unaccounted \(milliseconds(snapshot.unaccountedNanoseconds), privacy: .public); \
-                          \(summary.chunksProcessed, privacy: .public) chunks
+                          \(snapshot.chunksAttempted, privacy: .public) chunks this run \
+                          (\(summary.chunksProcessed, privacy: .public) this call), \
+                          \(String(format: "%.2f%%", snapshot.fractionComplete * 100), privacy: .public) of the device
                           """)
     }
 

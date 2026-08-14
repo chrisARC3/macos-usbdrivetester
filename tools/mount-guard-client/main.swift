@@ -405,13 +405,27 @@ for command in commands {
                                      blockCount: blockCount,
                                      ioSizeBytes: ioSize,
                                      failureModeCode: modeCode) {
-                completed, chunks, failedRangeCount, failureSummary, cacheBypass,
-                fastestBytesPerSecond, bufferBytesHeld, hostOverheadFraction,
+                outcomeCode, interruptedAtBlock, chunks, failedRangeCount, failureSummary,
+                cacheBypass, fastestBytesPerSecond, bufferBytesHeld, hostOverheadFraction,
                 helperCoreFraction, failureModeUsed, failedRangesEncoded, failedBlockCount,
                 readBytesPerSecond, writeBytesPerSecond, latencySamples,
                 latencyMinimum, latencyMaximum, latencyP99Upper, message in
 
-                print("[cycle] COMPLETED=\(completed ? 1 : 0)")
+                // Protocol v10 replaced the reply's `completed` boolean with a `RunOutcomeCode`,
+                // because FR-CTRL-2/4 give a run four ways to end and a boolean beside a separate
+                // "why" would be two statements of one fact. `COMPLETED` is kept as the derived
+                // value so the gate scripts that read it did not have to change with the wire.
+                let outcome = RunOutcomeCode(wireValue: outcomeCode)
+                print("[cycle] COMPLETED=\(outcome.didComplete ? 1 : 0)")
+                print("[cycle] OUTCOME_CODE=\(outcomeCode)")
+                // Meaningful only for `pausedByUser`; the code is the discriminator, not a
+                // sentinel, because 0 is a legitimate resume point.
+                print("[cycle] INTERRUPTED_AT_BLOCK=\(interruptedAtBlock)")
+
+                // Protocol v11: every figure below except `BUFFER_BYTES` is **cumulative over the
+                // run** — every call since `acquireDevice` — rather than describing this call.
+                // This client issues one cycle per acquire, so for it the two coincide; a caller
+                // that issued several would see running totals.
                 print("[cycle] CHUNKS=\(chunks)")
                 print("[cycle] FAILED_RANGES=\(failedRangeCount)")
                 print("[cycle] FAILURE_SUMMARY=\(failureSummary)")

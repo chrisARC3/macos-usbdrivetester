@@ -338,20 +338,25 @@ struct RunCycleOutcomeTests {
 
 struct ProtocolVersionTests {
 
-    /// **v10** — Step 11 adds `setRunControl` and replaces the reply's `completed` boolean with
-    /// ``RunOutcomeCode`` plus a resume block.
+    /// **v11** — Step 11 increment 3 makes a run a sequence of bounded calls and moves the
+    /// accumulators onto the claim, so nine of `runRetentionCycle`'s reply arguments now describe
+    /// the **run** rather than the call that returned them.
     ///
-    /// A signature change on the reply, so the bump is mandatory rather than merely cheap: a v9
-    /// client would decode `Int` where it expected `Bool` and read every field after it one
-    /// position out. The app and the helper are separately installed artefacts, so an old daemon
-    /// can still be registered after an app update — and the handshake is what turns that into
-    /// "too old" rather than a call that silently does something else.
+    /// Nothing about the signature changed, which is exactly why this bump is the one most worth
+    /// having. A v10 daemon answering a v11 app would return one gibibyte's figures where the app
+    /// expects the whole run's — every field the right type, well-formed, plausible, and
+    /// understating a whole-device run by a factor of a thousand. There is nothing in the reply
+    /// that could reveal it, so the handshake is the only thing that can.
+    ///
+    /// v10 before it was the reply's `completed` boolean becoming ``RunOutcomeCode`` plus a resume
+    /// block — a signature change, where a v9 client would have decoded `Int` as `Bool` and read
+    /// every later field one position out.
     ///
     /// This test failing is the **intended** consequence of a protocol change, not an obstacle to
-    /// one: it is here so that a signature edit cannot land without somebody deciding, in a diff,
-    /// that the version should move with it.
-    @Test func theProtocolVersionIsTen() {
-        #expect(TesterProtocol.version == 10)
+    /// one: it is here so that neither a signature edit nor a change to what an argument *means*
+    /// can land without somebody deciding, in a diff, that the version should move with it.
+    @Test func theProtocolVersionIsEleven() {
+        #expect(TesterProtocol.version == 11)
     }
 
     /// **The cap is unchanged by v10, and that is a measurement pending rather than a decision

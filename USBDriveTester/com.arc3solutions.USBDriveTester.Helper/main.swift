@@ -650,11 +650,24 @@ final class TesterControlImpl: NSObject, TesterControl {
 
         /// Every refusal path replies with **no figures at all** — rates `-1`, latency sample
         /// count `0`, no ranges, a `failureModeUsedCode` of `0` and a `runOutcomeCode` of `0`,
-        /// because no run happened.
+        /// because this call did nothing.
         ///
-        /// That is the point of carrying the figures here rather than polling `runProgress`
-        /// afterwards: `MetricsChannel`'s slot still holds the *previous* run's numbers at this
-        /// moment, and a caller that went looking would find them and report them as this run's.
+        /// ## What guards this, and why it is weaker than it was (Step 11 increment 3)
+        ///
+        /// Under protocol v9 the guard was structural and absolute: the observer a call read its
+        /// figures from was installed *after* validation, so a refusal reaching this point had
+        /// nothing to read. That is no longer true. The accumulators now live on the claim and
+        /// predate the call, so at this instant a whole run's worth of entirely plausible figures
+        /// is sitting one line away in `MetricsChannel.snapshot`.
+        ///
+        /// What replaces it is the **result type**: every figure in the success reply is read out
+        /// of a `RunCoordinator.CycleResult`, and there is no `CycleResult` on this path. Nothing
+        /// stronger than that stops somebody filling these sentinels in — and `main.swift` is not
+        /// in the test target, so no unit test can see it happen.
+        ///
+        /// **The only cover anywhere is `metrics-check.sh`'s three "reported no figures"
+        /// assertions**, and that is verified rather than hoped: mutation H1 on 2026-08-12 wrote
+        /// exactly this defect and the gate killed it. Do not weaken those assertions.
         func refuse(_ detail: String) {
             ioLog.error("""
                         runRetentionCycle REFUSED for \(self.peer, privacy: .public): \
@@ -699,13 +712,19 @@ final class TesterControlImpl: NSObject, TesterControl {
 
         case .success(let result):
             let summary = result.summary
+            // The failures are the **run's**, accumulated on the claim's session across every
+            // call so far — not this call's. That is what makes `FailureLog`'s cap apply once per
+            // run rather than once per gibibyte, and what makes its truncation notice mean what
+            // it says on a failing drive (Step 11 increment 3, FR-RPT-1).
+            let failures = result.failures
+
             // `completed` says every planned chunk was processed. It deliberately does NOT
             // mean they all passed — a run that finds bad blocks and keeps going still
             // completes (FR-FAIL-3), and collapsing the two would be the report saying
             // "clean" when it means "finished".
             var message = "Cycle \(summary.outcome.description): "
-                        + "\(summary.chunksProcessed) of \(summary.chunksPlanned) chunks; "
-                        + "\(summary.failures.summaryLine). "
+                        + "\(summary.chunksProcessed) of \(summary.chunksPlanned) chunks "
+                        + "this call; \(failures.summaryLine) for the run. "
 
             // FR-TEST-9: mandatory, not conditional on having failed. An absent line is
             // indistinguishable from a passing one.
@@ -716,7 +735,7 @@ final class TesterControlImpl: NSObject, TesterControl {
             // including those the cap dropped. A report showing the list must say when the two
             // disagree — `FailureLog.isTruncated`'s whole reason for existing.
             let encodedRanges = FailedRangeCoding.encode(
-                summary.failures.ranges.compactMap { failure in
+                failures.ranges.compactMap { failure in
                     guard let kind = FailedBlockRangeKind(wireValue: failure.kind.wireCode) else {
                         return nil
                     }
@@ -736,9 +755,12 @@ final class TesterControlImpl: NSObject, TesterControl {
             let latency = result.metrics?.readLatency
             reply(Self.outcomeCode(summary.outcome),
                   summary.outcome.resumeBlock ?? 0,
-                  summary.chunksProcessed,
-                  summary.failures.totalRangeCount,
-                  summary.failures.summaryLine,
+                  // Cumulative from v11: the chunks the RUN has attempted, which is what pairs
+                  // with every other figure here. `summary.chunksProcessed` is this call's and
+                  // stays in the message and the log line.
+                  result.metrics?.chunksAttempted ?? summary.chunksProcessed,
+                  failures.totalRangeCount,
+                  failures.summaryLine,
                   summary.cacheBypass.state.wireCode,
                   summary.cacheBypass.fastestObservedBytesPerSecond,
                   summary.bufferBytesHeld,
@@ -748,7 +770,7 @@ final class TesterControlImpl: NSObject, TesterControl {
                   result.helperCoreFraction ?? -1,
                   result.failureMode.wireCode,
                   encodedRanges,
-                  summary.failures.failedBlockCount,
+                  failures.failedBlockCount,
                   result.metrics?.readBytesPerSecond ?? -1,
                   result.metrics?.writeBytesPerSecond ?? -1,
                   latency?.count ?? 0,
@@ -828,9 +850,14 @@ final class TesterControlImpl: NSObject, TesterControl {
     func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double,
                                        UInt64, UInt64, UInt64, UInt64, UInt64) -> Void) {
 
-        guard let snapshot = MetricsChannel.shared.snapshot else {
-            // No run has started since this daemon launched. Everything else is meaningless
-            // and is zero rather than a plausible-looking figure.
+        guard let snapshot = MetricsChannel.snapshot else {
+            // Either no device is held, or the held claim's session has issued no call yet.
+            // Both mean the same thing — nothing has been measured — and everything else is
+            // meaningless and is zero rather than a plausible-looking figure.
+            //
+            // From Step 11 this can no longer return a *previous* run's figures: the session is a
+            // property of the claim, so releasing the device destroyed them. That is what
+            // preserves protocol v9's property at run scope.
             reply(false, 0, 0, -1, -1, -1, 0, 0, 0, 0, 0)
             return
         }

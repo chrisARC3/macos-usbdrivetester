@@ -303,16 +303,23 @@ import Foundation
     ///     nothing would ever reveal it.
     ///
     ///     **The final figures (FR-RPT-2/3)** — `readBytesPerSecond`, `writeBytesPerSecond`,
-    ///     `readLatencySampleCount`, and the three latency figures. They are here rather than
-    ///     read from ``runProgress(reply:)`` after the fact for one reason: `MetricsChannel`'s
-    ///     slot is replaced when a run *starts*, which happens after validation — so a **refused**
-    ///     run leaves the previous run's figures installed, and a report assembled from a
-    ///     post-reply poll would export the wrong run's measurements into the only artefact this
-    ///     product persists. Arriving in the reply, they belong to this run or they do not exist.
+    ///     `readLatencySampleCount`, and the three latency figures. **Cumulative over the whole
+    ///     run from v11**, and here rather than polled from ``runProgress(reply:)`` afterwards so
+    ///     that they belong to this run or do not exist.
+    ///
+    ///     That property was v9's, and the mechanism behind it changed in v11 rather than
+    ///     surviving. v9 read them from an observer installed *after* validation, so a refused
+    ///     call had nothing to misattribute. The accumulators now live on the claim and predate
+    ///     the call; what keeps the property is that the helper assembles this reply only on its
+    ///     success path, and a refusal replies with sentinels. The hazard v9 was written for —
+    ///     a poll returning a **previous** run's figures — cannot occur at all now, because the
+    ///     previous run's accumulators died with its claim.
+    ///
     ///     Same sentinels as `runProgress`: rates are `-1` when not measured (never `0`, which
     ///     means *stalled*), and a `readLatencySampleCount` of `0` makes the three latency values
     ///     meaningless — `0` nanoseconds is itself a legitimate reading. The p99 travels as its
-    ///     **upper bound**.
+    ///     **upper bound**, and from v11 it is a **whole-run** p99: percentiles do not compose, so
+    ///     no app-side aggregation of per-call values could produce one.
     ///
     ///     **The rest** — `cacheBypassCode` is a ``CacheBypassOutcome`` raw value, the FR-TEST-9
     ///     verdict as it stood at the **end** of the run: the acquire-time verdict possibly
@@ -914,6 +921,32 @@ public enum TesterProtocol {
     ///   a run four ways to end, and a boolean beside a separate "why" would be two statements of
     ///   one fact — the defect `AppModel.helperHoldsDevice` is being deleted for in this same step.
     ///
+    /// - **11** — Step 11 increment 3: **a run is a sequence of bounded calls, and the session is
+    ///   the claim** (CONSTRAINTS section 2). No signature changed and no method was added — what
+    ///   changed is the **meaning of nine reply arguments**, which the rule above makes a
+    ///   mandatory bump on its own.
+    ///
+    ///   `chunksProcessed`, `failedRangeCount`, `failureSummary`, `failedRangesEncoded`,
+    ///   `failedBlockCount`, `readBytesPerSecond`, `writeBytesPerSecond`, the three latency
+    ///   figures, `hostOverheadFraction`, `helperCoreFraction`, `cacheBypassCode` and
+    ///   `fastestObservedBytesPerSecond` are now **cumulative over the whole run** — every call
+    ///   the session has completed since `acquireDevice` — rather than describing the one call
+    ///   that returned them. `runProgress`'s `fractionComplete` and `estimatedRemainingSeconds`
+    ///   are correspondingly against the **whole device**, not the call's range.
+    ///
+    ///   Two fields stay per-call and are the exceptions worth knowing: `bufferBytesHeld`, because
+    ///   it is 2× *this call's* I/O size and FR-CTRL-8 lets the size change mid-run; and
+    ///   `runOutcomeCode` / `interruptedAtBlock`, because how *this* call ended is what a
+    ///   sequencer branches on.
+    ///
+    ///   **A silent meaning change is exactly what the handshake exists to catch.** A v10 daemon
+    ///   answering a v11 app would return one gibibyte's figures where the app expects the run's,
+    ///   and the report would understate a whole-device run by a factor of a thousand with nothing
+    ///   in the reply to reveal it — every field well-formed, plausible, and wrong.
+    ///
+    ///   `acquireDevice` opens the session and `releaseDevice` closes it. No lifecycle method was
+    ///   added for it, which is the property Shape A was chosen for.
+    ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
@@ -925,7 +958,7 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 10
+    public static let version = 11
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**
