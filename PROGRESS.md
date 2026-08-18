@@ -414,7 +414,8 @@ wire does not exist as far as the user is concerned, however well tested it is.*
 |---|---|
 | **Verified** | **959 tests, 0 failures, 122 suites** |
 | **Warnings** | zero from source across three clean builds. SwiftCompile Debug 83 / Release 2 / test 162 |
-| **Helper** | **hash moved to `a36c4f77…5a40`** (helper + `Shared`, `find … -name '*.swift' \| sort \| xargs cat \| shasum -a 256`). Step 10's three gates no longer apply; `metrics-check.sh` was re-run and passes, the other two are owed |
+| **Helper** | **hash `a36c4f77…5a40` at `1a10438`** — the tree `metrics-check.sh` actually ran against. Recipe, because the older recorded hashes' recipe is written down nowhere: `find <helper> <Shared> -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Step 10's three gates no longer apply; `metrics-check.sh` was re-run and passes, the other two are owed |
+| **Helper, now** | `0d727d98…b29c`, moved by `1237c5f`. **Comment-only** — every changed line in that commit's Swift diff is a `///` line, so the gate above still stands. A source hash answers "did the source change"; it does not answer "did behaviour change", and the two must not be confused (CONSTRAINTS section 1) |
 | **Gate** | `metrics-check.sh` **120 PASS / 0 FAIL** on hardware |
 | **Mutations** | **10 introduced, 9 caught, 1 survived — predicted** (the panel row, whose only cover is a render) |
 
