@@ -8,7 +8,9 @@
 #
 # WHAT IT DOES
 #
-#   1. Confirms the live daemon speaks the protocol this build expects (v7). A daemon that is
+#   1. Confirms the live daemon speaks the protocol THIS BUILD expects — read from
+#      `TesterProtocol.version` at compile time, never hard-coded here, so a bump cannot leave
+#      this script asserting a stale number. (v12 as of 2026-08-18.) A daemon that is
 #      too old fails the call as a transport error, which reads like a broken connection rather
 #      than "the installed helper is out of date".
 #   2. Draws a RANDOM start LBA, aligned to one 4 MiB chunk and at least 1 GiB clear of the end
@@ -36,7 +38,7 @@
 # 2026-07-30 exclusivity matrix, which only ever tested O_EXLOCK against O_EXLOCK.
 #
 # So the fingerprints come from the helper's own descriptor, one bounded call per window
-# (protocol v7's digestRange). A fingerprint taken by the same process on both sides of a cycle
+# (`digestRange`, added at protocol v7). A fingerprint taken by the same process on both sides
 # is only evidence if the fingerprint function is known to work, which is why the digest lives
 # in Core/DeviceDigest.swift and is unit-tested against known SHA-256 vectors: a digest that
 # returned a constant would make "before == after" pass unconditionally.
@@ -61,7 +63,10 @@
 #
 # PREREQUISITES
 #   * The helper registered and enabled via SMAppService, running from /Applications
-#     (scripts/install-app.sh), at protocol v7.
+#     (scripts/install-app.sh), at the protocol this build expects — the script checks and says
+#     so, and `scripts/install-app.sh` warns if a daemon is still running the previous binary.
+#     **Copying files does not reload the daemon**; two gate runs on 2026-08-18 measured stale
+#     code while returning entirely plausible numbers.
 #   * FULL DISK ACCESS (NFR-INST-4) for the app, so the helper's acquire works. Root is not
 #     sufficient on its own.
 #   * An interactive Terminal (for the confirmation prompt and for codesign's keychain access).
