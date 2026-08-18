@@ -59,8 +59,9 @@ private enum Fixture {
                       failedBlockCount: UInt64 = 0,
                       failureModeUsedCode: Int = 2,
                       cacheBypassCode: Int = 1,
-                      readBytesPerSecond: Double = 517_000_000,
-                      writeBytesPerSecond: Double = 491_000_000,
+                      sustainedReadBytesPerSecond: Double = 517_000_000,
+                      sustainedWriteBytesPerSecond: Double = 491_000_000,
+                      coverageBytesPerSecond: Double = 245_000_000,
                       readLatencySampleCount: UInt64 = 256,
                       readLatencyMinimumNanoseconds: UInt64 = 1_100_000,
                       readLatencyMaximumNanoseconds: UInt64 = 9_900_000,
@@ -77,8 +78,9 @@ private enum Fixture {
                         failureModeUsedCode: failureModeUsedCode,
                         failedRangesEncoded: failedRangesEncoded,
                         failedBlockCount: failedBlockCount,
-                        readBytesPerSecond: readBytesPerSecond,
-                        writeBytesPerSecond: writeBytesPerSecond,
+                        sustainedReadBytesPerSecond: sustainedReadBytesPerSecond,
+                        sustainedWriteBytesPerSecond: sustainedWriteBytesPerSecond,
+                        coverageBytesPerSecond: coverageBytesPerSecond,
                         readLatencySampleCount: readLatencySampleCount,
                         readLatencyMinimumNanoseconds: readLatencyMinimumNanoseconds,
                         readLatencyMaximumNanoseconds: readLatencyMaximumNanoseconds,
@@ -119,8 +121,9 @@ struct ReportExistenceTests {
                                     chunksProcessed: 0,
                                     failureModeUsedCode: 0,   // no run happened
                                     cacheBypassCode: 0,
-                                    readBytesPerSecond: -1,
-                                    writeBytesPerSecond: -1,
+                                    sustainedReadBytesPerSecond: -1,
+                                    sustainedWriteBytesPerSecond: -1,
+                                    coverageBytesPerSecond: -1,
                                     readLatencySampleCount: 0)
         #expect(RunReport(reply: refused, startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
@@ -489,8 +492,9 @@ struct ReportMeasurementTests {
 
     @Test func throughputAndLatencyAreTabulated() {
         let document = Fixture.markdown(Fixture.report())
-        #expect(document.contains("| Average read throughput | 517 MB/s |"))
-        #expect(document.contains("| Average write throughput | 491 MB/s |"))
+        #expect(document.contains("| Read throughput | 517 MB/s |"))
+        #expect(document.contains("| Write throughput | 491 MB/s |"))
+        #expect(document.contains("| Covering | 245 MB/s |"))
         #expect(document.contains("Read latency, minimum"))
         #expect(document.contains("Read latency, maximum"))
         #expect(document.contains("| Reads measured | 256 |"))
@@ -516,24 +520,42 @@ struct ReportMeasurementTests {
     /// An unmeasured figure renders as something visibly not a number. `0 MB/s` would mean
     /// *stalled*, which is a real and very different condition.
     @Test func unmeasuredFiguresRenderAsAnEmDashAndNeverAsZero() {
-        let reply = Fixture.reply(readBytesPerSecond: -1,
-                                  writeBytesPerSecond: -1,
+        let reply = Fixture.reply(sustainedReadBytesPerSecond: -1,
+                                  sustainedWriteBytesPerSecond: -1,
+                                  coverageBytesPerSecond: -1,
                                   readLatencySampleCount: 0)
         let report = Fixture.report(reply)
-        #expect(report.readBytesPerSecond == nil)
+        #expect(report.sustainedReadBytesPerSecond == nil)
 
         let document = Fixture.markdown(report)
-        #expect(document.contains("| Average read throughput | — |"))
-        #expect(document.contains("| Average write throughput | — |"))
+        #expect(document.contains("| Read throughput | — |"))
+        #expect(document.contains("| Write throughput | — |"))
+        #expect(document.contains("| Covering | — |"))
         #expect(document.contains("0 MB/s") == false)
         #expect(document.contains("-1") == false)
     }
 
     /// A genuinely stalled drive reports zero, and that must survive as a measurement.
     @Test func aZeroRateIsPrintedBecauseItIsAMeasurement() {
-        let reply = Fixture.reply(readBytesPerSecond: 0)
+        let reply = Fixture.reply(sustainedReadBytesPerSecond: 0)
         // Falls through to kB/s at this magnitude, which is still a number and still zero.
-        #expect(Fixture.markdown(Fixture.report(reply)).contains("| Average read throughput | 0 kB/s |"))
+        #expect(Fixture.markdown(Fixture.report(reply)).contains("| Read throughput | 0 kB/s |"))
+    }
+
+    /// **The report says what it measured.** A rate whose denominator is unstated cannot be
+    /// checked against anything — which is how the app spent a week showing figures 1.5x and 3.4x
+    /// what Activity Monitor showed for the same drive, with nothing on screen or in the file to
+    /// reveal the mismatch (2026-08-17).
+    ///
+    /// The report matters more than the screen here: it is the copy that gets forwarded and
+    /// re-read months later, detached from whatever was on screen at the time.
+    @Test func theReportStatesWhatItsThroughputFiguresMean() {
+        let document = Fixture.markdown(Fixture.report())
+        #expect(document.contains("**the time the run spent working**"))
+        #expect(document.contains("time paused"))
+        #expect(document.contains("Activity Monitor"))
+        #expect(document.contains("counts the verify read as well as the original read"))
+        #expect(document.contains("about twice Covering"))
     }
 
     /// D9, in the artefact where it matters most: a bare pair of numbers in a file invites the
@@ -556,7 +578,7 @@ struct ReportMeasurementTests {
     @Test func anAbsentLinkSpeedSimplyOmitsTheRow() {
         let document = Fixture.markdown(Fixture.report(linkSpeed: nil))
         #expect(document.contains("Negotiated USB link speed") == false)
-        #expect(document.contains("Average read throughput"))
+        #expect(document.contains("Read throughput"))
     }
 }
 

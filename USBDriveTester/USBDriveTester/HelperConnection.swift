@@ -202,11 +202,17 @@ nonisolated struct RunCycleOutcome: Equatable {
     /// The daemon's CPU as a fraction of one core over the run (BUILD-PLAN 9.5a), or `nil`.
     let helperCoreFraction: Double?
 
-    /// Average read throughput over the run (FR-RPT-2), or `nil` when nothing was measured.
-    let readBytesPerSecond: Double?
+    /// Bytes read per second of **wall clock** over the run — original reads and verify reads
+    /// together (FR-RPT-2) — or `nil` when nothing was measured.
+    let sustainedReadBytesPerSecond: Double?
 
-    /// Average write throughput over the run (FR-RPT-2), or `nil` when nothing was measured.
-    let writeBytesPerSecond: Double?
+    /// Bytes written per second of **wall clock** over the run (FR-RPT-2).
+    let sustainedWriteBytesPerSecond: Double?
+
+    /// How fast the run covered the drive, against the wall clock (FR-METR-5). About half the
+    /// read rate and about the same as the write rate, because every covered byte is read,
+    /// written and read again.
+    let coverageBytesPerSecond: Double?
 
     /// How many original reads the three latency figures are computed over. `0` makes them all
     /// `nil`, because `0` nanoseconds is a legitimate reading and cannot be its own sentinel.
@@ -245,8 +251,9 @@ nonisolated struct RunCycleOutcome: Equatable {
          failureModeUsedCode: Int,
          failedRangesEncoded: String,
          failedBlockCount: UInt64,
-         readBytesPerSecond: Double,
-         writeBytesPerSecond: Double,
+         sustainedReadBytesPerSecond: Double,
+         sustainedWriteBytesPerSecond: Double,
+         coverageBytesPerSecond: Double,
          readLatencySampleCount: UInt64,
          readLatencyMinimumNanoseconds: UInt64,
          readLatencyMaximumNanoseconds: UInt64,
@@ -271,8 +278,9 @@ nonisolated struct RunCycleOutcome: Equatable {
         self.bufferBytesHeld = bufferBytesHeld
         self.hostOverheadFraction = WireSentinel.rate(hostOverheadFraction)
         self.helperCoreFraction = WireSentinel.rate(helperCoreFraction)
-        self.readBytesPerSecond = WireSentinel.rate(readBytesPerSecond)
-        self.writeBytesPerSecond = WireSentinel.rate(writeBytesPerSecond)
+        self.sustainedReadBytesPerSecond = WireSentinel.rate(sustainedReadBytesPerSecond)
+        self.sustainedWriteBytesPerSecond = WireSentinel.rate(sustainedWriteBytesPerSecond)
+        self.coverageBytesPerSecond = WireSentinel.rate(coverageBytesPerSecond)
         self.readLatencySampleCount = readLatencySampleCount
         self.readLatencyMinimum = latency(readLatencyMinimumNanoseconds)
         self.readLatencyMaximum = latency(readLatencyMaximumNanoseconds)
@@ -590,7 +598,8 @@ final class HelperConnection {
                 runOutcomeCode, interruptedAtBlock, chunks, failedRangeCount, failureSummary,
                 cacheBypassCode, _, bufferBytesHeld, hostOverheadFraction, helperCoreFraction,
                 failureModeUsedCode, failedRangesEncoded, failedBlockCount,
-                readBytesPerSecond, writeBytesPerSecond, readLatencySampleCount,
+                sustainedReadBytesPerSecond, sustainedWriteBytesPerSecond, coverageBytesPerSecond,
+                readLatencySampleCount,
                 readLatencyMinimum, readLatencyMaximum, readLatencyP99Upper, message in
 
                 // Straight into a labelled initialiser, one value per line. Twenty positional
@@ -609,8 +618,9 @@ final class HelperConnection {
                     failureModeUsedCode: failureModeUsedCode,
                     failedRangesEncoded: failedRangesEncoded,
                     failedBlockCount: failedBlockCount,
-                    readBytesPerSecond: readBytesPerSecond,
-                    writeBytesPerSecond: writeBytesPerSecond,
+                    sustainedReadBytesPerSecond: sustainedReadBytesPerSecond,
+                    sustainedWriteBytesPerSecond: sustainedWriteBytesPerSecond,
+                    coverageBytesPerSecond: coverageBytesPerSecond,
                     readLatencySampleCount: readLatencySampleCount,
                     readLatencyMinimumNanoseconds: readLatencyMinimum,
                     readLatencyMaximumNanoseconds: readLatencyMaximum,
@@ -629,14 +639,15 @@ final class HelperConnection {
     func runProgress(completion: @escaping (Result<RunProgressSnapshot, Error>) -> Void) {
         withProxy(completion, on: currentProgressConnection()) { tester, finish in
             tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
-                                 remainingSeconds, latencySamples, latencyMinimum,
+                                 coveringRate, remainingSeconds, latencySamples, latencyMinimum,
                                  latencyMaximum, latencyP99Upper, chunksFailed in
                 finish(.success(RunProgressSnapshot(
                     available: available,
                     fractionComplete: fraction,
                     currentBlock: currentBlock,
-                    readBytesPerSecond: readRate,
-                    writeBytesPerSecond: writeRate,
+                    sustainedReadBytesPerSecond: readRate,
+                    sustainedWriteBytesPerSecond: writeRate,
+                    coverageBytesPerSecond: coveringRate,
                     estimatedRemainingSeconds: remainingSeconds,
                     readLatencySampleCount: latencySamples,
                     readLatencyMinimumNanoseconds: latencyMinimum,

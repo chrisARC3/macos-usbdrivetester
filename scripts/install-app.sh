@@ -63,3 +63,29 @@ echo "--- Embedded LaunchDaemon plist ---"
 ls -l "$DEST/Contents/Library/LaunchDaemons/" 2>/dev/null || echo "(missing!)"
 echo
 echo "Installed. Launch it from /Applications and use the Step 3 panel to register."
+
+# THE RUNNING DAEMON IS NOT RELOADED BY COPYING FILES, and on 2026-08-18 that cost a full
+# hardware gate run: metrics-check.sh was run twice against a daemon started before the fix it
+# was meant to verify, and the version handshake could not catch it because the PROTOCOL had not
+# changed — only the arithmetic behind one field had.
+#
+# So the check is on the binary's own timestamp, not on the version. If a daemon is running from
+# an older binary than the one just installed, say so loudly and give the exact command.
+HELPER_BIN="$DEST/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper"
+HELPER_PID="$(pgrep -f 'USBDriveTester.Helper' | head -1 || true)"
+if [[ -n "$HELPER_PID" && -f "$HELPER_BIN" ]]; then
+    BIN_EPOCH="$(stat -f '%m' "$HELPER_BIN")"
+    PID_START="$(ps -o lstart= -p "$HELPER_PID" 2>/dev/null || true)"
+    PID_EPOCH="$(date -j -f '%a %b %e %T %Y' "$PID_START" '+%s' 2>/dev/null || echo 0)"
+    if [[ "$PID_EPOCH" -gt 0 && "$PID_EPOCH" -lt "$BIN_EPOCH" ]]; then
+        echo
+        echo "  ⚠️  A helper daemon (pid ${HELPER_PID}) is still running the PREVIOUS binary."
+        echo "      Copying files does not reload it. Until it restarts, the app and every gate"
+        echo "      are talking to the old code — and if the protocol version did not change,"
+        echo "      nothing will tell you."
+        echo
+        echo "      sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper"
+        echo
+        echo "      (or unregister and re-register in the app's Step 3 panel)"
+    fi
+fi

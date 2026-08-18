@@ -204,10 +204,12 @@ nonisolated enum RunReportMarkdown {
 
         lines.append("| | |")
         lines.append("|---|---|")
-        lines.append(row("Average read throughput",
-                         MetricsFormatting.throughput(report.readBytesPerSecond)))
-        lines.append(row("Average write throughput",
-                         MetricsFormatting.throughput(report.writeBytesPerSecond)))
+        lines.append(row("Read throughput",
+                         MetricsFormatting.throughput(report.sustainedReadBytesPerSecond)))
+        lines.append(row("Write throughput",
+                         MetricsFormatting.throughput(report.sustainedWriteBytesPerSecond)))
+        lines.append(row("Covering",
+                         MetricsFormatting.throughput(report.coverageBytesPerSecond)))
         if let linkSpeed = report.usbLinkSpeedDescription {
             lines.append(row("Negotiated USB link speed", linkSpeed))
         }
@@ -221,14 +223,35 @@ nonisolated enum RunReportMarkdown {
         lines.append(row("Reads measured", grouped(report.readLatencySampleCount)))
         lines.append("")
 
+        // **The definition travels with the numbers.** A rate whose denominator is unstated
+        // cannot be checked against anything, and the first person to check ours against
+        // Activity Monitor reported them as a defect (2026-08-17) — correctly. The report is the
+        // copy that gets forwarded and re-read months later, detached from any screen, so it is
+        // the artefact that most needs to say what it measured.
+        lines.append("All three rates are measured over **the time the run spent working** — "
+                   + "time paused, and time between one call and the next, is excluded. While a "
+                   + "run is going they are therefore directly comparable to Activity Monitor or "
+                   + "any other tool watching this drive, and a pause does not make the drive "
+                   + "look slower than it is. Read counts the verify read as well as the "
+                   + "original read, because both are reads. Covering is how fast the run worked "
+                   + "through the drive itself: every byte is read, written back and read again, "
+                   + "so Read runs at about twice Covering and Write at about the same.")
+        lines.append("")
+
         // Throughput is reported and never graded (user decision 2026-08-04). Saying so in the
         // report matters more than saying it in the UI: a bare pair of numbers in a file invites
         // the reader to supply the missing verdict themselves, and the honest thing is to name
         // what they would need in order to.
-        lines.append("Throughput is **reported, not graded**. Whether a rate indicates wear is a "
-                   + "judgement against the manufacturer's advertised sustained figure for this "
-                   + "model and the negotiated link speed above — neither of which this tool "
-                   + "knows. It measures; it does not diagnose.")
+        // Deliberately does NOT restate the denominator: the paragraph above defines it, and
+        // saying it twice is how the two came to disagree. Found by reading the rendered report
+        // rather than the source — this said "against the wall clock" while the paragraph above
+        // it said "the time the run spent working" (2026-08-18).
+        lines.append("Throughput is **reported, not graded**. These figures describe a mixed "
+                   + "read-write-verify workload, so they are **not** "
+                   + "comparable to a manufacturer's sequential-read or sequential-write rating, "
+                   + "which is measured doing one thing at a time. Reading them as a fraction of "
+                   + "an advertised figure would make every healthy drive look worn. "
+                   + "It measures; it does not diagnose.")
         lines.append("")
 
         if report.readLatencySampleCount > 0 {

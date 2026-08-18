@@ -141,7 +141,7 @@ guard arguments.count >= 2, arguments.count <= 4 else {
     FileHandle.standardError.write(Data("""
         usage: sudo nocache-probe <bsdName> [ioSizeMiB] [readsPerPhase]
                bsdName        canonical whole-disk name, e.g. diskN — resolved from a SERIAL
-//                             by scripts/lib/device-identity.sh, not typed
+                              by scripts/lib/device-identity.sh, not typed
                ioSizeMiB      1, 2, 4 or 8 (default 4) — the FR-CTRL-8 choices
                readsPerPhase  reads of the same region per phase (default 4, minimum 2)
 

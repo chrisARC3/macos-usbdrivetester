@@ -18,13 +18,27 @@
 //  ## It reports; it does not grade (user decision 2026-08-04)
 //
 //  There is deliberately **no** "healthy", "slow" or "degraded" anywhere here, no threshold, and
-//  no colour keyed to a rate. Whether a measured rate indicates wear is the user's judgement,
-//  made against the manufacturer's advertised sustained figure — which this tool does not know
-//  and must not invent.
+//  no colour keyed to a rate. Whether a measured rate indicates wear is the user's judgement, and
+//  this tool does not have what that judgement needs.
 //
-//  What the display owes that judgement is the **other** number it needs: the negotiated link
-//  speed, shown beside the measured rate, because "significantly below the advertised rate after
-//  accounting for negotiated speed limits" cannot be evaluated with only one of the two.
+//  ## And from v12 it does not invite the comparison either (user decision 2026-08-17)
+//
+//  Until v12 this panel told the reader to compare these figures against the drive's advertised
+//  sustained rate. **That instruction was wrong once the rates became wall-clock**, and wrong in
+//  the one direction that matters: a manufacturer's figure is a pure sequential read or a pure
+//  sequential write, while a cycle interleaves read, write and verify. On the 4 TB T5 EVO the
+//  wall-clock write is 122 MB/s against an advertised ~460 — 27%, which reads as a dying drive
+//  and means nothing whatever about wear.
+//
+//  That is precisely the bias the FR document warns about: manufacturing "a systematic bias
+//  toward *this drive looks worn*, on a tool whose output is a judgement about somebody's
+//  hardware". So the comparison is gone rather than reworded. The figure the comparison would
+//  have needed — bytes moved divided by the time spent moving them — is still computed and still
+//  logged every call by `RunCoordinator`; it is simply not something this screen asks the reader
+//  to act on.
+//
+//  The negotiated link speed keeps its row on its own merits: it says whether the transport is
+//  the bottleneck, which is answerable from what is on screen.
 //
 //  ## Colour is never the only signal (NFR-USE-8)
 //
@@ -206,21 +220,26 @@ struct RunMetricsView: View {
 
     private var throughput: some View {
         VStack(alignment: .leading, spacing: 6) {
-            row("Read", MetricsFormatting.throughput(snapshot.readBytesPerSecond))
-            row("Write", MetricsFormatting.throughput(snapshot.writeBytesPerSecond))
+            row("Read", MetricsFormatting.throughput(snapshot.sustainedReadBytesPerSecond))
+            row("Write", MetricsFormatting.throughput(snapshot.sustainedWriteBytesPerSecond))
+            row("Covering", MetricsFormatting.throughput(snapshot.coverageBytesPerSecond))
             row("USB link negotiated at", MetricsFormatting.linkSpeed(code: linkSpeedCode))
 
-            // The framing the user asked for: this tool measures, the user judges. Stated in
-            // the UI rather than only in the docs, because a bare MB/s figure on a drive-testing
-            // screen invites being read as a verdict.
+            // **The definition is on screen, next to the number.** Without it these figures are
+            // not checkable against anything, and the first person to check them against
+            // Activity Monitor reported them as a bug (2026-08-17) — correctly, because a rate
+            // whose denominator is unstated is not a measurement anyone else can reproduce.
             Text("""
-                 Compare these against the drive's advertised sustained rate, allowing for the \
-                 negotiated link above. A rate well below what the drive claims — once the link \
-                 is accounted for — can indicate wear, but this tool does not judge that for you.
+                 Read and Write count every byte moved against the time the run spends \
+                 working, so while it is running they match what Activity Monitor reports for \
+                 this drive. Time paused does not count against them. Covering is how fast the \
+                 run is working through the drive itself: every byte is read, written back and \
+                 read again, so Read runs at about twice Covering and Write at about the same.
                  """)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
         }
     }
 

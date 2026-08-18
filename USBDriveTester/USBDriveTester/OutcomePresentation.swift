@@ -131,6 +131,16 @@ nonisolated enum OutcomePresentation: Equatable {
         return false
     }
 
+    /// The dialog's heading, or `nil` when this presentation raises none.
+    ///
+    /// Added in Step 11 increment 5, when Start took over unmount → acquire → run → release: the
+    /// abort path needs the same headings the deleted controls used, and reading them off this type
+    /// is what keeps *one* statement of "what does a failed unmount call itself".
+    var title: String? {
+        if case .interrupt(let title) = self { return title }
+        return nil
+    }
+
     /// Whether the message is left in the pane.
     var showsInline: Bool { self != .silent }
 

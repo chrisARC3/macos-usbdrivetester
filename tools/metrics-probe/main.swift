@@ -101,6 +101,7 @@ struct Sample {
     let currentBlock: UInt64
     let readBytesPerSecond: Double
     let writeBytesPerSecond: Double
+    let coveringBytesPerSecond: Double
     let estimatedRemainingSeconds: Double
     let latencySamples: UInt64
     let latencyMinimum: UInt64
@@ -300,6 +301,7 @@ struct CycleRun {
     let failedBlockCount: UInt64
     let finalReadBytesPerSecond: Double
     let finalWriteBytesPerSecond: Double
+    let finalCoveringBytesPerSecond: Double
     let finalLatencySamples: UInt64
     let finalLatencyMinimumNanoseconds: UInt64
     let finalLatencyMaximumNanoseconds: UInt64
@@ -326,6 +328,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
     var failedBlockCount: UInt64 = 0
     var finalReadRate = -1.0
     var finalWriteRate = -1.0
+    var finalCoveringRate = -1.0
     var finalLatencySamples: UInt64 = 0
     var finalLatencyMinimum: UInt64 = 0
     var finalLatencyMaximum: UInt64 = 0
@@ -349,7 +352,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
                                  ioSizeBytes: ioSizeBytes,
                                  failureModeCode: FailureModeCode.standard.rawValue) {
             outcome, resumeBlock, chunkCount, failed, summary, bypass, _, buffers, hostOverhead,
-            coreFraction, modeUsed, _, failedBlocks, readRate, writeRate,
+            coreFraction, modeUsed, _, failedBlocks, readRate, writeRate, coveringRate,
             latencySampleCount, latencyMin, latencyMax, latencyP99, text in
 
             replyNanoseconds = nowNanoseconds()
@@ -366,6 +369,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
             failedBlockCount = failedBlocks
             finalReadRate = readRate
             finalWriteRate = writeRate
+            finalCoveringRate = coveringRate
             finalLatencySamples = latencySampleCount
             finalLatencyMinimum = latencyMin
             finalLatencyMaximum = latencyMax
@@ -398,7 +402,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
             transportFailed = true
         }) {
             tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
-                                 remaining, latencySamples, latencyMin, latencyMax,
+                                 coveringRate, remaining, latencySamples, latencyMin, latencyMax,
                                  latencyP99, chunksFailed in
                 log.append(Sample(atNanoseconds: nowNanoseconds(),
                                   available: available,
@@ -406,6 +410,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
                                   currentBlock: currentBlock,
                                   readBytesPerSecond: readRate,
                                   writeBytesPerSecond: writeRate,
+                                  coveringBytesPerSecond: coveringRate,
                                   estimatedRemainingSeconds: remaining,
                                   latencySamples: latencySamples,
                                   latencyMinimum: latencyMin,
@@ -437,7 +442,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
     // the run actually stood at when this call ended.
     blockingCall("final-progress", on: progressConnection, timeout: 30) { tester, done in
         tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
-                             remaining, latencySamples, latencyMin, latencyMax,
+                             coveringRate, remaining, latencySamples, latencyMin, latencyMax,
                              latencyP99, chunksFailed in
             log.append(Sample(atNanoseconds: nowNanoseconds(),
                               available: available,
@@ -445,6 +450,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
                               currentBlock: currentBlock,
                               readBytesPerSecond: readRate,
                               writeBytesPerSecond: writeRate,
+                              coveringBytesPerSecond: coveringRate,
                               estimatedRemainingSeconds: remaining,
                               latencySamples: latencySamples,
                               latencyMinimum: latencyMin,
@@ -476,6 +482,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
                     failedBlockCount: failedBlockCount,
                     finalReadBytesPerSecond: finalReadRate,
                     finalWriteBytesPerSecond: finalWriteRate,
+                    finalCoveringBytesPerSecond: finalCoveringRate,
                     finalLatencySamples: finalLatencySamples,
                     finalLatencyMinimumNanoseconds: finalLatencyMinimum,
                     finalLatencyMaximumNanoseconds: finalLatencyMaximum,
@@ -568,6 +575,7 @@ for (index, size) in sweepSizes.enumerated() {
     print("[size:\(size)] FINAL_LATENCY_P99_NS=\(final?.latencyP99Upper ?? 0)")
     print("[size:\(size)] FINAL_READ_BYTES_PER_SECOND=\(final?.readBytesPerSecond ?? -1)")
     print("[size:\(size)] FINAL_WRITE_BYTES_PER_SECOND=\(final?.writeBytesPerSecond ?? -1)")
+    print("[size:\(size)] FINAL_COVERING_BYTES_PER_SECOND=\(final?.coveringBytesPerSecond ?? -1)")
     print("[size:\(size)] FINAL_CHUNKS_FAILED=\(final?.chunksFailed ?? 0)")
 
     // The same figures, by a completely different route: these came back in the cycle's reply,
@@ -582,6 +590,7 @@ for (index, size) in sweepSizes.enumerated() {
     print("[size:\(size)] REPLY_FAILED_BLOCKS=\(run.failedBlockCount)")
     print("[size:\(size)] REPLY_READ_BYTES_PER_SECOND=\(run.finalReadBytesPerSecond)")
     print("[size:\(size)] REPLY_WRITE_BYTES_PER_SECOND=\(run.finalWriteBytesPerSecond)")
+    print("[size:\(size)] REPLY_COVERING_BYTES_PER_SECOND=\(run.finalCoveringBytesPerSecond)")
     print("[size:\(size)] REPLY_LATENCY_SAMPLES=\(run.finalLatencySamples)")
     print("[size:\(size)] REPLY_LATENCY_MIN_NS=\(run.finalLatencyMinimumNanoseconds)")
     print("[size:\(size)] REPLY_LATENCY_MAX_NS=\(run.finalLatencyMaximumNanoseconds)")
@@ -667,7 +676,7 @@ func expectRefusal(_ label: String,
                                  ioSizeBytes: detailedSize,
                                  failureModeCode: failureModeCode) {
             outcome, _, chunks, _, _, _, _, _, _, _, modeUsed, ranges, failedBlocks,
-            readRate, writeRate, latencySamples, _, _, _, message in
+            readRate, writeRate, coveringRate, latencySamples, _, _, _, message in
 
             // WAS THE CALL REFUSED — and nothing else. The outcome code alone answers it.
             //
@@ -690,6 +699,7 @@ func expectRefusal(_ label: String,
             print("[\(label)] FAILED_BLOCKS=\(failedBlocks)")
             print("[\(label)] READ_BYTES_PER_SECOND=\(readRate)")
             print("[\(label)] WRITE_BYTES_PER_SECOND=\(writeRate)")
+            print("[\(label)] COVERING_BYTES_PER_SECOND=\(coveringRate)")
             print("[\(label)] LATENCY_SAMPLES=\(latencySamples)")
             print("[\(label)] MESSAGE=\(message)")
             done()
@@ -731,7 +741,7 @@ blockingCall("release", on: runConnection) { tester, done in
 }
 
 blockingCall("after-release", on: progressConnection, timeout: 30) { tester, done in
-    tester.runProgress { available, fraction, currentBlock, readRate, _, _,
+    tester.runProgress { available, fraction, currentBlock, readRate, _, _, _,
                          latencySamples, _, _, _, _ in
         print("[after-release] AVAILABLE=\(available ? 1 : 0)")
         print("[after-release] FRACTION=\(fraction)")

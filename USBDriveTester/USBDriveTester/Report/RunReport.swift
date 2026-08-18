@@ -272,8 +272,21 @@ nonisolated struct RunReport: Equatable {
 
     // MARK: What was measured (FR-RPT-2/3)
 
-    let readBytesPerSecond: Double?
-    let writeBytesPerSecond: Double?
+    /// Bytes read per second of **wall clock** — original reads and verify reads together.
+    ///
+    /// Wall-clock from v12, so a reader can reproduce it with any tool that watches the drive.
+    /// The figure this replaced divided by time-spent-reading, which nothing outside this app
+    /// could check and which read 53% high against Activity Monitor (2026-08-17).
+    let sustainedReadBytesPerSecond: Double?
+
+    /// Bytes written per second of **wall clock**.
+    let sustainedWriteBytesPerSecond: Double?
+
+    /// How fast the run covered the drive, against the wall clock. About half the read rate and
+    /// about the same as the write rate, because every covered byte is read, written and read
+    /// again.
+    let coverageBytesPerSecond: Double?
+
     let readLatencySampleCount: UInt64
     let readLatencyMinimum: Duration?
     let readLatencyMaximum: Duration?
@@ -469,8 +482,9 @@ extension RunReport {
         self.failedRanges = reply.failedRanges
         self.totalFailedRangeCount = reply.failedRangeCount
         self.failedBlockCount = reply.failedBlockCount
-        self.readBytesPerSecond = reply.readBytesPerSecond
-        self.writeBytesPerSecond = reply.writeBytesPerSecond
+        self.sustainedReadBytesPerSecond = reply.sustainedReadBytesPerSecond
+        self.sustainedWriteBytesPerSecond = reply.sustainedWriteBytesPerSecond
+        self.coverageBytesPerSecond = reply.coverageBytesPerSecond
         self.readLatencySampleCount = reply.readLatencySampleCount
         self.readLatencyMinimum = reply.readLatencyMinimum
         self.readLatencyMaximum = reply.readLatencyMaximum

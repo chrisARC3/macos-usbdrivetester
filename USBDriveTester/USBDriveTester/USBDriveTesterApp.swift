@@ -168,42 +168,15 @@ private struct HelperDiagnosticsWindow: View {
 
     @Environment(AppModel.self) private var model
 
-    /// Opens the report window when a run ends. `Window` is single-instance, so asking to open an
-    /// already-open one brings it forward rather than making a second.
-    @Environment(\.openWindow) private var openWindow
-
     var body: some View {
         @Bindable var model = model
-        HelperDiagnosticsView(simulatedRunActive: $model.simulatedRunActive,
-                              helper: model.helper,
-                              cycleIsRunning: $model.cycleIsRunning,
-                              linkSpeedCode: $model.linkSpeedCode,
+        // Six arguments fewer than before increment 5. The run, the report and the pre-run dialog
+        // all left this window when Start took ownership of the sequence — what is left here needs
+        // the helper, the real run state, and two settings.
+        HelperDiagnosticsView(helper: model.helper,
+                              runIsActive: model.runIsActive,
                               failureMode: $model.failureMode,
-                              warningsSuppressed: $model.warningsSuppressed,
-                              deviceIsHeld: model.helperHoldsDevice,
-                              mayIssueNewWork: model.mayIssueNewWork,
-                              reportProduced: { report in
-                                  model.lastRunReport = report
-                                  // A refused call is not a run: no report, and the log says why
-                                  // so that its absence is explicable rather than looking like a
-                                  // lost one. Nothing is opened for it either — a window that
-                                  // appeared saying "no run has finished yet" immediately after
-                                  // pressing the button would be worse than no window.
-                                  guard let report else {
-                                      RunReportLog.noReportForRefusedCall(
-                                          "the request did not become a run")
-                                      return
-                                  }
-                                  RunReportLog.reportProduced(report)
-                                  openWindow(id: WindowID.report)
-                              },
-                              // The drive a run would be on — for Step 14's pre-run dialog AND for
-                              // the report the run produces. A second `reportedDevice:` argument
-                              // fed from `model.lastRunDevice` was removed on 2026-08-11: that
-                              // property is not written until the run is already under way, so the
-                              // report captured `nil` and named an unidentified drive. See
-                              // `HelperDiagnosticsView.makeReport`.
-                              heldDevice: model.heldDevice)
+                              warningsSuppressed: $model.warningsSuppressed)
             .frame(minWidth: 560, minHeight: 480)
     }
 }

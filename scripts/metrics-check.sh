@@ -55,11 +55,14 @@
 #   because this step changed what the engine accumulates.
 #
 # PREREQUISITES
-#   * The helper must be registered, enabled, running from /Applications, and at **protocol v11**.
-#     Step 11 increment 3 changed the MEANING of nine reply arguments without changing the
-#     signature, so a v10 daemon would answer with well-formed, plausible, per-call figures where
-#     this expects the run's. Re-install (scripts/install-app.sh), then unregister and re-register
-#     in the app — the script only copies files — and confirm with Check version.
+#   * The helper must be registered, enabled, running from /Applications, and at **protocol v12**.
+#     v12 reshaped BOTH replies: the two throughput arguments became wall-clock figures under new
+#     names and a third, `coverageBytesPerSecond`, was added. A v11 daemon replies with twenty
+#     arguments where this expects twenty-one, so the decode fails outright — which is the loud
+#     failure the handshake exists to produce. Before that, v11 changed the MEANING of nine
+#     arguments without changing the signature, which would have been the quiet one.
+#     Re-install (scripts/install-app.sh), then unregister and re-register in the app — the script
+#     only copies files — and confirm with Check version.
 #   * Full Disk Access (NFR-INST-4).
 #   * An interactive Terminal, for codesign's keychain access.
 #
@@ -142,7 +145,7 @@ cat <<EOF
      verified byte-for-byte on this drive in Step 8 — but this script does not re-prove it.
      Run scripts/retention-cycle-check.sh for the fingerprinted proof.
 
-  Requires the helper at protocol v11. Expect about a minute.
+  Requires the helper at protocol v12. Expect about a minute.
 
   Press Return to continue, or Ctrl-C to abort.
 
@@ -254,10 +257,12 @@ if [[ "$HELPER_PROTOCOL" == "$EXPECTED_PROTOCOL" && -n "$HELPER_PROTOCOL" ]]; th
     check pass "the running daemon implements protocol v${HELPER_PROTOCOL}"
 else
     check fail "protocol mismatch: daemon v${HELPER_PROTOCOL:-<none>}, expected v${EXPECTED_PROTOCOL:-?}"
-    echo "        v11 (Step 11 increment 3) changed the MEANING of nine reply arguments without" >&2
-    echo "        changing the signature: they describe the whole run, not the call that returned" >&2
-    echo "        them. A v10 daemon answers with per-call figures that are well-formed, plausible" >&2
-    echo "        and wrong, which is exactly what this handshake exists to stop." >&2
+    echo "        v12 (Step 11 increment 6) reshaped BOTH replies: the two throughput arguments" >&2
+    echo "        became wall-clock figures under new names, and coverageBytesPerSecond was added." >&2
+    echo "        A v11 daemon sends twenty arguments where this expects twenty-one, so the decode" >&2
+    echo "        fails outright — the loud failure. v11 before it was the quiet kind: it changed" >&2
+    echo "        the MEANING of nine arguments without changing the signature, so a v10 daemon" >&2
+    echo "        answered with figures that were well-formed, plausible and wrong." >&2
     echo "        Re-install (scripts/install-app.sh), then unregister and re-register in the app" >&2
     echo "        — install-app.sh only copies files — and confirm with Check protocol version." >&2
     exit 1
@@ -332,11 +337,11 @@ for SIZE in $SWEEP; do
 
     # 2. THE REPLY'S FIGURES AGREE WITH THE POLL'S. Same six numbers by two independent routes:
     #    `REPLY_*` came back inside `runRetentionCycle`'s reply, `FINAL_*` from a `runProgress`
-    #    poll issued after it. The reply is nineteen positional values assembled in the helper's
-    #    `main.swift` — six of them adjacent same-typed numbers — and no unit test can reach that
-    #    assembly. A transposition there compiles, runs, and puts read throughput under "write"
-    #    in an exported report. This is what makes it visible.
-    for FIELD in READ_BYTES_PER_SECOND WRITE_BYTES_PER_SECOND \
+    #    poll issued after it. The reply is twenty-one positional values assembled in the helper's
+    #    `main.swift` — seven of them adjacent same-typed numbers from v12 — and no unit test can
+    #    reach that assembly. A transposition there compiles, runs, and puts read throughput under
+    #    "write" in an exported report. This is what makes it visible.
+    for FIELD in READ_BYTES_PER_SECOND WRITE_BYTES_PER_SECOND COVERING_BYTES_PER_SECOND \
                  LATENCY_SAMPLES LATENCY_MIN_NS LATENCY_MAX_NS; do
         REPLY_VALUE="$(size_value "$SIZE" "REPLY_${FIELD}")"
         POLL_VALUE="$(size_value "$SIZE" "FINAL_${FIELD}")"
@@ -450,10 +455,37 @@ sys.exit(0 if a >= 0 and abs(a - b) <= 0.0001 else 1)"; then
     # would be a host answer, not a device one (the ceiling CacheBypassCheck uses as a backstop).
     READ_RATE="$(size_value "$SIZE" FINAL_READ_BYTES_PER_SECOND)"
     WRITE_RATE="$(size_value "$SIZE" FINAL_WRITE_BYTES_PER_SECOND)"
+    COVER_RATE="$(size_value "$SIZE" FINAL_COVERING_BYTES_PER_SECOND)"
     if python3 -c "import sys; sys.exit(0 if 0 < float('${READ_RATE:--1}') < 8e9 else 1)"; then
         check pass "${MIB} MiB: read $(python3 -c "print(f\"{float('$READ_RATE')/1e6:.0f}\")") MB/s, write $(python3 -c "print(f\"{float('${WRITE_RATE:--1}')/1e6:.0f}\")") MB/s — transport-plausible"
     else
         check fail "${MIB} MiB: read throughput ${READ_RATE:-?} B/s is not transport-plausible"
+    fi
+
+    # --- THE THREE RATES SHARE ONE DENOMINATOR (protocol v12, FR-METR-1/5).
+    #
+    # This is the assertion that would have caught the 2026-08-17 report on hardware. Until v12
+    # the app divided read and write by *phase* time and covering by the wall clock, so the three
+    # were not on one scale and nothing here could have compared them. They now all divide by the
+    # wall clock, which forces an arithmetic identity on a healthy run:
+    #
+    #     read ≈ 2 × covering     (the original read and the verify read)
+    #     write ≈ 1 × covering    (one write per covered byte)
+    #
+    # A 10% band, because a run with failed chunks legitimately reads less than twice its coverage
+    # — that is the signal, not noise — and this gate runs on a healthy drive. If this fails on
+    # good hardware, a rate has gone back to dividing by something other than the wall clock, and
+    # the figure on the user's screen no longer matches what Activity Monitor shows them.
+    if python3 - "$READ_RATE" "$WRITE_RATE" "$COVER_RATE" <<'RATIO'; then
+import sys
+read, write, cover = (float(v) for v in sys.argv[1:4])
+sys.exit(0 if cover > 0
+         and abs(read / cover - 2.0) <= 0.2
+         and abs(write / cover - 1.0) <= 0.1 else 1)
+RATIO
+        check pass "${MIB} MiB: read/write/covering share one denominator — $(python3 -c "print(f\"{float('$READ_RATE')/float('$COVER_RATE'):.2f}x / {float('$WRITE_RATE')/float('$COVER_RATE'):.2f}x covering\")")"
+    else
+        check fail "${MIB} MiB: the rates do not share a denominator — read=${READ_RATE:-?} write=${WRITE_RATE:-?} covering=${COVER_RATE:-?}; expected read≈2x and write≈1x covering"
     fi
 done
 
@@ -587,7 +619,7 @@ BADMODE_CHUNKS="$(grep -m1 -- '\[badmode\] CHUNKS=' "$OUTPUT" | sed 's/.*=//' ||
 # `main.swift`'s refusal path with nothing to read from.
 #
 # That is a weaker guard than v9's, said plainly rather than rounded up. `main.swift` is not in the
-# test target, so no unit test compiles that reply assembly. **These three lines are the only check
+# test target, so no unit test compiles that reply assembly. **These four lines are the only check
 # anywhere that reaches it**, and the figures a regression would leak are no longer some previous
 # run's — they are this run's, which is exactly what makes them believable in a report.
 for LABEL in misaligned partial badmode; do
@@ -596,15 +628,16 @@ for LABEL in misaligned partial badmode; do
     MODE_USED="$(grep -m1 -- "\[$LABEL\] MODE_USED=" "$OUTPUT" | sed 's/.*=//' || true)"
     READ_RATE="$(grep -m1 -- "\[$LABEL\] READ_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
     WRITE_RATE="$(grep -m1 -- "\[$LABEL\] WRITE_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
+    COVER_RATE="$(grep -m1 -- "\[$LABEL\] COVERING_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
     SAMPLES="$(grep -m1 -- "\[$LABEL\] LATENCY_SAMPLES=" "$OUTPUT" | sed 's/.*=//' || true)"
     RANGES="$(grep -m1 -- "\[$LABEL\] RANGES_ENCODED=" "$OUTPUT" | sed 's/.*=//' || true)"
 
     if [[ "$OUTCOME" == "0" && "$CHUNKS_SEEN" == "0" && "$MODE_USED" == "0" \
-          && "$READ_RATE" == "-1.0" && "$WRITE_RATE" == "-1.0" \
+          && "$READ_RATE" == "-1.0" && "$WRITE_RATE" == "-1.0" && "$COVER_RATE" == "-1.0" \
           && "$SAMPLES" == "0" && -z "$RANGES" ]]; then
         check pass "the refused '${LABEL}' call reported no outcome, no mode and no figures"
     else
-        check fail "the refused '${LABEL}' call reported figures — outcome=${OUTCOME:-?} chunks=${CHUNKS_SEEN:-?} mode=${MODE_USED:-?} read=${READ_RATE:-?} write=${WRITE_RATE:-?} samples=${SAMPLES:-?} ranges='${RANGES}'"
+        check fail "the refused '${LABEL}' call reported figures — outcome=${OUTCOME:-?} chunks=${CHUNKS_SEEN:-?} mode=${MODE_USED:-?} read=${READ_RATE:-?} write=${WRITE_RATE:-?} covering=${COVER_RATE:-?} samples=${SAMPLES:-?} ranges='${RANGES}'"
     fi
 done
 

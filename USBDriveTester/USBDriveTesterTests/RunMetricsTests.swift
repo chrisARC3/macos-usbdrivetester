@@ -42,6 +42,14 @@ private enum Metrics {
     /// `4 MiB ÷ 10 ms`, the read rate used throughout — close to `disk4`'s measured ~475 MB/s.
     static let tenMilliseconds: UInt64 = 10 * millisecond
 
+    /// Wall clock one ``healthyChunk`` really occupies: three 10 ms phases **plus its 50 us of
+    /// host overhead**.
+    ///
+    /// The clock must advance by this, not by the phases alone. A fixture whose wall clock ran
+    /// faster than its own accounted work is not a physically possible run, and this one did —
+    /// which hid a 0.17% gap between elapsed and active time behind a 1e-6 tolerance.
+    static let healthyChunkWall: UInt64 = 3 * tenMilliseconds + 50_000
+
     /// Blocks a 4 MiB chunk covers at 512-byte geometry.
     static var blocksPerChunk: UInt64 { UInt64(chunkBytes) / blockSize }
 
@@ -94,7 +102,7 @@ struct ThroughputTests {
         var now: UInt64 = 0
         for index in UInt64(0) ..< 10 {
             metrics.record(Metrics.healthyChunk(index: index))
-            now &+= 3 * Metrics.tenMilliseconds
+            now &+= Metrics.healthyChunkWall
         }
         let snapshot = metrics.snapshot(atNanoseconds: now)
 
@@ -117,18 +125,75 @@ struct ThroughputTests {
         var now: UInt64 = 0
         for index in UInt64(0) ..< 10 {
             metrics.record(Metrics.healthyChunk(index: index))
-            now &+= 3 * Metrics.tenMilliseconds          // wall clock: all three phases
+            now &+= Metrics.healthyChunkWall            // three phases AND the overhead
         }
         let snapshot = metrics.snapshot(atNanoseconds: now)
 
         let readRate = try #require(snapshot.readBytesPerSecond)
         let coverageRate = try #require(snapshot.coverageBytesPerSecond)
 
-        // 41,943,040 bytes of range in 0.3 s of wall clock.
-        expectClose(coverageRate, 41_943_040.0 / 0.3, "coverage rate")
-        expectClose(coverageRate, readRate / 3.0, relativeTolerance: 0.000_001,
-                    "coverage should be a third of the read rate for a symmetric cycle")
+        // 41,943,040 bytes of range in 0.3005 s of working time — three 10 ms phases and
+        // 50 us of host overhead, ten times over.
+        expectClose(coverageRate, 41_943_040.0 / 0.3005, "coverage rate")
+        // "About" a third, and the 0.17% it is out by is the host overhead: coverage divides by
+        // 3p + h where the phase rate divides by p. A 1e-6 tolerance here would be asserting
+        // that the run does no host work at all.
+        expectClose(coverageRate, readRate / 3.0, relativeTolerance: 0.01,
+                    "coverage should be about a third of the read rate for a symmetric cycle")
         #expect(coverageRate < readRate)
+    }
+
+    /// Every gap counts, not just the most recent one.
+    ///
+    /// **Found by mutation M3 on 2026-08-18, which survived.** `RunSessionStabilityTests` pauses
+    /// a two-call run, and two calls have exactly one gap — so `idleNanoseconds = nanoseconds`
+    /// and `idleNanoseconds &+= nanoseconds` are indistinguishable there. A whole-device run is
+    /// about a thousand calls, and a user who pauses twice would have the first pause charged to
+    /// the drive's throughput.
+    ///
+    /// Asserted on the accumulator rather than through the engine because that is where the
+    /// arithmetic is; that the observer calls this once per gap is M5's job, and M5 is caught.
+    @Test func idleAccumulatesAcrossEveryGapAndNotJustTheLast() {
+        var metrics = Metrics.metrics(chunks: 10)
+        metrics.record(Metrics.healthyChunk(index: 0))
+
+        metrics.noteIdle(nanoseconds: 100_000_000)      // first pause
+        metrics.noteIdle(nanoseconds: 250_000_000)      // second pause
+
+        let snapshot = metrics.snapshot(atNanoseconds: 10 * Metrics.healthyChunkWall)
+        #expect(snapshot.idleNanoseconds == 350_000_000,
+                "a session has as many gaps as it has calls; only the last was counted")
+    }
+
+    /// Idle time is subtracted from the denominator, so a gap in which no call was running
+    /// cannot depress a rate.
+    ///
+    /// The accumulator's half of the story. Noticing the gap is ``RunSessionObserver``'s job —
+    /// this type has no clock and cannot see one — and `RunSessionStabilityTests` covers that.
+    @Test func idleTimeIsSubtractedFromTheRateDenominator() throws {
+        var metrics = Metrics.metrics(chunks: 10)
+        var now: UInt64 = 0
+        for index in UInt64(0) ..< 10 {
+            metrics.record(Metrics.healthyChunk(index: index))
+            now &+= Metrics.healthyChunkWall
+        }
+        let busy = metrics.snapshot(atNanoseconds: now)
+
+        // Half an hour in which nothing ran, declared as such.
+        let pause: UInt64 = 30 * 60 * 1_000_000_000
+        metrics.noteIdle(nanoseconds: pause)
+        let afterAPause = metrics.snapshot(atNanoseconds: now &+ pause)
+
+        #expect(afterAPause.runningNanoseconds == busy.runningNanoseconds,
+                "the pause was not subtracted from the denominator")
+        // `expectClose` takes the optional itself — it records an Issue on nil, with the label.
+        expectClose(afterAPause.sustainedReadBytesPerSecond,
+                    try #require(busy.sustainedReadBytesPerSecond),
+                    "a declared idle span must not change the measured read rate")
+
+        // And the wall clock still tells the truth about how long the run took.
+        #expect(afterAPause.elapsedNanoseconds == busy.elapsedNanoseconds &+ pause)
+        #expect(afterAPause.idleNanoseconds == pause)
     }
 
     @Test func ratesAreUnknownRatherThanZeroBeforeAnythingHasHappened() {
@@ -137,8 +202,74 @@ struct ThroughputTests {
         #expect(snapshot.readBytesPerSecond == nil)
         #expect(snapshot.writeBytesPerSecond == nil)
         #expect(snapshot.coverageBytesPerSecond == nil)
+        #expect(snapshot.sustainedReadBytesPerSecond == nil)
+        #expect(snapshot.sustainedWriteBytesPerSecond == nil)
         #expect(snapshot.hostOverheadFraction == nil)
         #expect(snapshot.estimatedRemainingNanoseconds == nil)
+    }
+
+    /// **What the app displays**: bytes moved ÷ the time the run spent working.
+    ///
+    /// Read counts the verify read as well as the original, because both are reads and the
+    /// kernel counts both. A figure that omitted the verify would be exactly half of what the
+    /// user sees in Activity Monitor.
+    @Test func theSustainedRatesDivideByWorkingTimeAndCountBothReads() throws {
+        var metrics = Metrics.metrics(chunks: 10)
+        var now: UInt64 = 0
+        for index in UInt64(0) ..< 10 {
+            metrics.record(Metrics.healthyChunk(index: index))
+            now &+= Metrics.healthyChunkWall            // three phases AND the overhead
+        }
+        let snapshot = metrics.snapshot(atNanoseconds: now)
+
+        // 41,943,040 bytes of range in 0.3005 s of working time. Every byte was read twice and
+        // written once. The two relationships below are EXACT rather than approximate, because
+        // all three rates divide by the same denominator — which is the point.
+        let covering = try #require(snapshot.coverageBytesPerSecond)
+        let read = try #require(snapshot.sustainedReadBytesPerSecond)
+        let write = try #require(snapshot.sustainedWriteBytesPerSecond)
+
+        expectClose(read, 2 * 41_943_040.0 / 0.3005, "sustained read")
+        expectClose(write, 41_943_040.0 / 0.3005, "sustained write")
+        expectClose(read, covering * 2,
+                    "read should be twice covering — the original read and the verify")
+        expectClose(write, covering,
+                    "write should equal covering — one write per covered byte")
+    }
+
+    /// **The 2026-08-17 report, reproduced from first principles.**
+    ///
+    /// The user measured the 4 TB T5 EVO with DriveSpeed and with Activity Monitor — which agreed
+    /// with each other exactly — and found the app reading about 50% high on read and over 3×
+    /// high on write. Nothing was miscounted: the displayed rates divided by *phase* time, so
+    /// each described the drive only during the fraction of the run that phase was running.
+    ///
+    /// For a perfectly symmetric cycle the arithmetic gives exactly 1.5× and 3×. The real run's
+    /// slightly uneven phase times perturbed those into the 1.53 and 3.42 that were reported.
+    ///
+    /// Pinned here so that putting a phase rate back on a display fails a test rather than a
+    /// user. Both kinds of rate are kept — "slow while working" and "spends a long time not
+    /// working" are different faults — but only one kind is comparable to anything.
+    @Test func aPhaseRateOverstatesWhatAnOutsideObserverCanSee() throws {
+        var metrics = Metrics.metrics(chunks: 10)
+        var now: UInt64 = 0
+        for index in UInt64(0) ..< 10 {
+            metrics.record(Metrics.healthyChunk(index: index))
+            now &+= Metrics.healthyChunkWall
+        }
+        let snapshot = metrics.snapshot(atNanoseconds: now)
+
+        let phaseRead = try #require(snapshot.readBytesPerSecond)
+        let phaseWrite = try #require(snapshot.writeBytesPerSecond)
+        let sustainedRead = try #require(snapshot.sustainedReadBytesPerSecond)
+        let sustainedWrite = try #require(snapshot.sustainedWriteBytesPerSecond)
+
+        // 1% rather than 1e-6: the exact ratios are 1.5 + h/2p and 3 + h/p, and the 0.17% they
+        // are out by is this fixture's host overhead. The claim is the factor, not the decimals.
+        expectClose(phaseRead / sustainedRead, 1.5, relativeTolerance: 0.01,
+                    "the read rate v11 displayed was 1.5x what an outside observer measured")
+        expectClose(phaseWrite / sustainedWrite, 3.0, relativeTolerance: 0.01,
+                    "the write rate v11 displayed was 3x what an outside observer measured")
     }
 }
 
@@ -365,14 +496,18 @@ struct ETATests {
     /// At a steady rate the estimate is not merely converging — it is exact at every step.
     @Test func aConstantRateGivesAnExactETAFromTheFirstChunk() throws {
         let chunkCount: UInt64 = 50
-        let perChunk = 10 * Metrics.millisecond
+        // Divisible by three, so the three phases sum to the chunk's wall time EXACTLY. At
+        // 10 ms it did not: 10/3 truncates to 3,333,333 ns and three of those is a nanosecond
+        // short, which the ETA now divides by and which this test asserts to the nanosecond.
+        let phase = 4 * Metrics.millisecond
+        let perChunk = 3 * phase
 
         var metrics = Metrics.metrics(chunks: chunkCount, byteLength: Metrics.mebibyte)
         var now: UInt64 = 0
 
         for index in UInt64(0) ..< chunkCount {
             metrics.record(Metrics.healthyChunk(index: index,
-                                                phase: perChunk / 3,
+                                                phase: phase,
                                                 overhead: 0,
                                                 byteLength: Metrics.mebibyte))
             now &+= perChunk

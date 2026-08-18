@@ -15,20 +15,33 @@
 //  > `HelperConnection` would be two owners — and closing one window could drop a claim out from
 //  > under a run happening in the other, leaving a half-written device.
 //
-//  That is the same hazard Step 6 hit when the device list gained its own reason to talk to the
-//  helper, and it was solved the same way: one connection, hoisted to where every consumer shares
-//  it. The scene split just moves "where" up a level.
+//  ## The run state collapsed here in Step 11 increment 5
 //
-//  ## Why the run state is here too
+//  Three things used to answer "is a run happening", and each was consulted by a different part of
+//  the app:
 //
-//  The bounded cycle is started from the **diagnostics** window and displayed by the metrics panel
-//  in the **main** window. Neither can own that fact. And the app deliberately does not ask the
-//  helper whether a run is active — it issues the run itself and receives the completion, so it
-//  already knows (user decision 2026-08-04); a second source for the same fact would be a second
-//  thing that can be wrong.
+//    * `simulatedRunActive` — Step 4/5's stand-in, which blocked uninstall and froze the list;
+//    * `cycleIsRunning` — Step 9's real bounded cycle, and the quit's call boundary;
+//    * `helperHoldsDevice` — **deleted rather than fixed.** It was written from
+//      `checkDeviceReadiness`'s `helperHoldsThisDevice`, a *per-device* answer, and read at every
+//      use site as "the helper holds *some* device". Do not reintroduce a selection-scoped flag.
 //
-//  Step 11 replaces `simulatedRunActive` and `cycleIsRunning` with the run-control state machine,
-//  which becomes the single authoritative source this class is standing in for.
+//  All three are gone. ``runControl`` is the single authoritative source, and everything that used
+//  to ask one of the three now asks it. One consequence simplifies the quit path considerably:
+//  **the app never holds a claim outside a run any more.** The claim's lifetime is exactly the
+//  run's, by construction rather than by bookkeeping — which is the property `helperHoldsDevice`
+//  was failing to state.
+//
+//  ## Why device discovery is here and not in `ContentView`
+//
+//  It was `@State` on the main window until increment 5, and moving it is not tidiness. The run
+//  controller needs the selected drive, and it needs it from an **escaping closure**. A SwiftUI
+//  `View` is a struct, and a closure created inside one captures what the view was built with —
+//  the defect that headed every first-run report "Unidentified drive". Owning discovery here means
+//  every closure the controller holds captures exactly one long-lived class and nothing else.
+//
+//  Discovery is app-lifetime anyway: it starts once and keeps itself current (FR-DEV-7), and
+//  closing the main window quits the app.
 //
 //  ## Why quitting is coordinated here too (2026-08-05)
 //
@@ -55,18 +68,40 @@ final class AppModel {
     /// death releases nothing.
     let helper = HelperConnection()
 
+    /// The device list, and the selection a run is started against (FR-DEV-1/3/4/7).
+    ///
+    /// Owned here from increment 5 — see this file's header for why it left `ContentView`.
+    let discovery: DeviceDiscovery
+
     /// Answers `windowShouldClose(_:)` for the main window. Owned here because it must outlive any
     /// window — `NSWindow.delegate` is a *weak* reference, so a guard owned by the view that
     /// installs it would leave the window with no delegate at all the moment that view went away.
     let mainWindowCloseGuard = MainWindowCloseGuard()
 
+    /// **The** run state (FR-CTRL-1…9). Everything that used to ask one of the three deleted
+    /// sources asks this.
+    ///
+    /// `nil` until the main window has appeared, which is where it is built — and that is honest
+    /// rather than a gap: **no run can be in flight before the UI that starts one exists**, which
+    /// is the same reasoning `USBDriveTesterApp` already relies on for wiring the lifecycle
+    /// delegate at `onAppear`. A ⌘Q arriving before then finds no run and terminates immediately.
+    ///
+    /// Built in the view rather than in `init` because its dependencies close over this object,
+    /// and a class cannot hand `self` to something it is in the middle of constructing.
+    var runControl: RunController?
+
     /// Where the suppression preference is kept. See ``warningsSuppressed``.
     private let suppressionStore: PreRunWarningSuppressionStore
 
-    /// - Parameter suppressionStore: injected by tests and by `tools/ui-probe` so neither touches
-    ///   the real user's preferences. The default is the only one the app ever uses.
-    init(suppressionStore: PreRunWarningSuppressionStore = UserDefaultsPreRunWarningSuppression()) {
+    /// - Parameters:
+    ///   - suppressionStore: injected by tests and by `tools/ui-probe` so neither touches the real
+    ///     user's preferences. The default is the only one the app ever uses.
+    ///   - deviceSource: injected for the same two consumers, so a render and a test can present a
+    ///     known device list with no hardware attached.
+    init(suppressionStore: PreRunWarningSuppressionStore = UserDefaultsPreRunWarningSuppression(),
+         deviceSource: DeviceSource = IOKitDeviceEnumerator()) {
         self.suppressionStore = suppressionStore
+        self.discovery = DeviceDiscovery(source: deviceSource)
         self.warningsSuppressed = suppressionStore.warningsSuppressed
         mainWindowCloseGuard.model = self
     }
@@ -88,74 +123,6 @@ final class AppModel {
         didSet { suppressionStore.warningsSuppressed = warningsSuppressed }
     }
 
-    /// Step 4/5's stand-in toggle: blocks uninstall (NFR-REL-5) and freezes discovery (FR-DEV-7).
-    var simulatedRunActive = false
-
-    /// True while Step 9's bounded cycle is actually in flight.
-    var cycleIsRunning = false {
-        didSet {
-            // Capture *which drive* and *when*, at the moment the run starts. See
-            // `lastRunDeviceName` and `lastRunStartedAt` for why the metrics panel needs both.
-            if cycleIsRunning {
-                lastRunDevice = heldDevice
-                lastRunStartedAt = Date()
-                // The previous run's report is not this run's, and leaving it on screen while a
-                // new run is in flight is the stale-pane defect Step 9 was reported for, in a
-                // window instead of a panel.
-                lastRunReport = nil
-            } else if quitState == .windingDown {
-                // **This is the call boundary.** The privileged call has returned, so the device
-                // can be released — which it could not be a moment ago, because a message on the
-                // connection running the cycle is not delivered until that cycle ends (measured
-                // 2026-08-04, `xpc-concurrency-check.sh`).
-                beginRelease()
-            }
-        }
-    }
-
-    /// The drive the helper currently holds, or `nil` when it holds none.
-    ///
-    /// Tracked alongside ``helperHoldsDevice`` rather than derived from the device list, because
-    /// the claim belongs to the *helper* and outlives any particular selection — which is exactly
-    /// the property the list's selection does not have.
-    ///
-    /// ## Why this is a `ReportedDevice` and not the two strings it used to be (Step 10)
-    ///
-    /// It was `heldDeviceName` plus `heldDeviceSerial`, and Step 10 needs the model name, the
-    /// capacity and the block size as well — the report identifies its drive properly or it
-    /// identifies nothing. Four parallel optionals that must all be set and cleared together are
-    /// four things that can disagree; one optional record cannot. The old names survive below as
-    /// computed accessors, so nothing that only wanted the BSD name had to change.
-    var heldDevice: ReportedDevice?
-
-    /// The drive the most recent run was performed on.
-    ///
-    /// ## Why the metrics panel has to name its drive (2026-08-05, user decision)
-    ///
-    /// The panel is headed "Last run" and keeps its figures after the run ends — correctly, since
-    /// they are the run's result. But it sat under a *device list*, so after selecting a different
-    /// drive it read as that drive's numbers. Reported as one of three panes showing stale
-    /// information for a device that was no longer selected.
-    ///
-    /// Naming the drive fixes it without deleting evidence, which clearing the panel would have
-    /// done. A measurement whose subject is unstated is the same defect as a percentile printed
-    /// without its bound: not wrong, just not saying what it is about.
-    var lastRunDevice: ReportedDevice?
-
-    /// BSD name of the held drive — a **locator**, shown on live surfaces beside the serial.
-    var heldDeviceName: String? { heldDevice?.bsdNameAtRunTime }
-
-    /// BSD name of the drive the last run used. Live-adjacent: the metrics panel shows it beside
-    /// the serial so a user can cross-check two identifiers against the machine in front of them.
-    var lastRunDeviceName: String? { lastRunDevice?.bsdNameAtRunTime }
-
-    /// Serial number of the drive the most recent run was performed on.
-    ///
-    /// The one field that survives a replug as an answer to "which drive was this?". `nil` when
-    /// that drive reported no serial, which the metrics panel states with a warning rather than
-    /// leaving the model name to imply an identification it cannot make.
-    var lastRunDeviceSerial: String? { lastRunDevice?.usbSerialNumber }
-
     // MARK: - The end-of-run report (Step 10)
 
     /// The report the most recent **run** produced, or `nil` when no run has finished this
@@ -165,57 +132,27 @@ final class AppModel {
     /// Export is the only persistence (FR-RPT-5).
     var lastRunReport: RunReport?
 
+    /// A failure the user has to be told about — a drive that could not be prepared, or a run
+    /// control that never reached the daemon. `nil` when there is nothing to say.
+    ///
+    /// **Failures interrupt; a successful unmount reports nothing** (user decision 2026-08-09,
+    /// `OutcomePresentation`). Held here rather than in the view's `@State` because the thing that
+    /// produces it is `RunController`, and a closure cannot write a `View` struct's state.
+    var runFailure: RunFailureMessage?
+
     /// FR-FAIL-1's mode for the next run, chosen before it starts. FR-FAIL-4's default.
     ///
-    /// Lives here rather than in the diagnostics view because Step 11 moves the control that sets
-    /// it to the main window's pre-run controls, beside the I/O-size dropdown and the Start
-    /// button (FR-CTRL-7), while the thing that reads it stays wherever the run is issued.
+    /// The control that sets it is still in the diagnostics window; increment 6 relocates it to the
+    /// pre-run controls beside the I/O-size dropdown, where FR-CTRL-7 requires it. The value does
+    /// not move with the control.
     var failureMode: FailureModeCode = .standard
 
-    /// When the most recent run started.
+    /// Whether anything is happening that must freeze the device list (FR-DEV-7), block an
+    /// uninstall (NFR-INST-3) and make a quit ask first.
     ///
-    /// Same reasoning as ``lastRunDeviceName``, in the other dimension: the panel keeps its
-    /// figures after the run ends, so "Last run" alone never says *when*. Within one sitting that
-    /// is merely unhelpful; across a long session it is misleading, because a reading taken hours
-    /// ago looks exactly like one taken a moment ago.
-    ///
-    /// - Note: this app retains **no run history** (FR-RPT — each run stands alone, and export is
-    ///   the only persistence), so this cannot outlive the process and a displayed run is always
-    ///   from the current session. The timestamp is still worth carrying: it is what Step 10's
-    ///   exported report needs, and the report *does* outlive the session — which is the case
-    ///   where an undated measurement really can be read as current years later.
-    var lastRunStartedAt: Date?
-
-    /// Negotiated USB link speed of the held device, from `deviceProfile`. Shown beside measured
-    /// throughput so a rate can be judged against the manufacturer's advertised sustained figure
-    /// "after accounting for negotiated speed limits" — the user's stated method, which needs
-    /// both numbers.
-    var linkSpeedCode = -1
-
-    /// Whether the helper currently holds exclusive access to a device.
-    ///
-    /// Owned here because the two windows disagree about it otherwise: the **main** window is
-    /// where a device is acquired and released, and the **diagnostics** window is where the
-    /// bounded cycle is started — and that cycle cannot run without one.
-    ///
-    /// Added 2026-08-04 after the button was reported as doing nothing. It was in fact working
-    /// perfectly: the helper answered *"no device is held"* in 25 ms, the spinner flashed for a
-    /// frame, and a failure message was the only trace. Every other control in this app disables
-    /// itself and names the corrective step rather than failing on press (FR-SAFE-4, NFR-USE-5);
-    /// this one said "requires a device to be acquired first" in prose and then looked live.
-    /// Prose is not a precondition.
-    ///
-    /// - Note: the app's belief, refreshed from `checkDeviceReadiness` and the acquire/release
-    ///   results. The helper remains the authority — this only decides whether a control is
-    ///   offered, never whether a run may proceed.
-    var helperHoldsDevice = false
-
-    /// Whether anything that must freeze the device list is happening (FR-DEV-7).
-    ///
-    /// Either source is enough, so this is an `or` rather than two independent switches. A real
-    /// cycle freezes discovery for exactly the reason the stand-in does: the list must not rebuild
-    /// underneath a run.
-    var runIsActive: Bool { simulatedRunActive || cycleIsRunning }
+    /// One source, where there were three. `false` before the main window exists, which is correct:
+    /// nothing can be running.
+    var runIsActive: Bool { runControl?.isRunActive ?? false }
 
     // MARK: - Quitting during a run (user decision 2026-08-05)
 
@@ -239,8 +176,8 @@ final class AppModel {
     /// window-modal sheet on the main window, so the diagnostics window stays clickable
     /// underneath it, and starting a gibibyte of writes while a "shall I quit?" dialog is open is
     /// not a thing to leave available. "Issue no further work" is the first half of the
-    /// stop-at-the-boundary promise, and this is where it is kept — Step 11's run sequencer must
-    /// consult it before every call it issues.
+    /// stop-at-the-boundary promise, and this is where it is kept — `RunSequencer` consults it
+    /// before every call it issues.
     var mayIssueNewWork: Bool { quitState == .idle }
 
     /// True while the app is waiting for the call boundary so it can quit.
@@ -296,37 +233,55 @@ final class AppModel {
     }
 
     /// "Cancel and Quit" — issue nothing further, then quit at the call boundary.
+    ///
+    /// ## A quit issues a STOP (recorded default, 2026-08-12)
+    ///
+    /// Rather than waiting for the in-flight call to end by itself. That makes the existing promise
+    /// **stronger**, not weaker — the wait shortens from one bounded call to one chunk — and it is
+    /// what stops a **paused** run leaving the wind-down waiting for ever: a paused run has nothing
+    /// in flight and no reply coming, so there is no boundary to wait for.
     func cancelAndQuit() {
         guard quitState == .confirming || quitState == .idle else { return }
         quitState = .windingDown
 
-        // The boundary may already have passed: a bounded cycle takes about seven seconds and a
-        // dialog can sit unanswered for longer. Without this the app would wait for a
-        // `cycleIsRunning` transition that had already happened, and quitting would appear to do
-        // nothing at all.
-        if !cycleIsRunning { beginRelease() }
+        if let runControl, runControl.isRunActive {
+            // Refused while the drive is still being *prepared*, and that is fine rather than a
+            // gap: `mayIssueNewWork` is already false, and `RunSequencer` consults it before every
+            // call including the first — so a run that reaches `running` halts immediately and
+            // settles by the ordinary path.
+            runControl.stop()
+            return
+        }
+
+        // The boundary may already have passed — a run takes as long as it takes and a dialog can
+        // sit unanswered for longer. Without this the app would wait for a transition that had
+        // already happened, and quitting would appear to do nothing at all.
+        beginRelease()
     }
 
-    /// Release the device, then terminate. See `QuitSequence` for the once-only and no-hang
-    /// properties this delegates to.
+    /// The run has come to rest and the drive is released. Called by ``RunController``.
+    ///
+    /// **This is the call boundary**, and it replaces `cycleIsRunning` going false. It fires on
+    /// every route out of a run — completed, stopped, failed, or a Start that aborted before any
+    /// write — so there is no path on which a wind-down waits for something that will not come.
+    func runSettled() {
+        guard quitState == .windingDown else { return }
+        beginRelease()
+    }
+
+    /// Terminate, once. See `QuitSequence` for the once-only and no-hang properties.
     private func beginRelease() {
         guard quitSequence == nil else { return }
 
-        // `nil` when nothing is held — there is then nothing to release and nothing to wait for.
-        let release: QuitSequence.Release? = helperHoldsDevice
-            ? { [helper] done in helper.releaseDevice { _ in done() } }
-            : nil
-
-        // The acknowledgement deadline is `QuitSequence`'s own default rather than a figure
-        // restated here: two statements of one number are two things that can drift, and the
-        // reason it is five seconds is documented where it is used.
-        let sequence = QuitSequence(release: release) { [weak self] in
+        // **Nothing to release here any more.** Before increment 5 the app could hold a claim with
+        // no run — `Acquire exclusive access` was a button — so the wind-down had to release it.
+        // Now the claim's lifetime is exactly the run's and `RunController` releases it before it
+        // reports settling, so by the time this runs there is nothing left to give back.
+        let sequence = QuitSequence(release: nil) { [weak self] in
             guard let self else { return }
             // Recorded *before* terminating: the second `applicationShouldTerminate` this triggers
             // has to be able to tell the app's own quit from a user pressing ⌘Q again.
             self.quitState = .terminating
-            self.helperHoldsDevice = false
-            self.heldDevice = nil
             self.terminateAction()
         }
         quitSequence = sequence

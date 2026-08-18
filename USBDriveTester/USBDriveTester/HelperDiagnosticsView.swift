@@ -3,13 +3,7 @@
 //  USBDriveTester (app target — unprivileged)
 //
 //  INTERIM panel — the harness that closed the Step 3 and Step 4 Verification Gates,
-//  moved out of `ContentView` in Step 5 and demoted behind a disclosure so the device
-//  list can be the primary UI.
-//
-//  It is kept rather than deleted for a practical reason: Step 6 needs a registered,
-//  enabled helper again, and Step 11 needs the mid-run guard. Throwing away the
-//  register / uninstall / round-trip controls now would mean rebuilding them to get
-//  through the next gate. It still is not product UI, and Steps 11 and 14 replace it.
+//  moved out of `ContentView` in Step 5 and demoted behind its own window in Step 9.
 //
 //  What it covers:
 //    * Registration  — register, approve, watch `.status` reach `.enabled` (Step 3),
@@ -17,12 +11,23 @@
 //    * Round-trip    — live XPC through the *registered* daemon; also discharged the
 //                      ping deferred out of Step 1.
 //    * Parameters    — the helper rejecting misaligned / out-of-range requests.
-//    * Teardown      — the mid-run guard that refuses an uninstall.
+//    * Pre-run       — the failure mode (FR-FAIL-1) and the way back from a suppressed warning.
 //
-//  The simulated-run toggle now has a second consumer: from Step 5 it also freezes
-//  device discovery (FR-DEV-7), so the binding is owned by `ContentView` rather than by
-//  this view. Step 11 replaces it with the real run-control state machine, at which
-//  point both consumers read the same authoritative state.
+//  ## What Step 11 increment 5 took out of here
+//
+//  **The bounded-cycle button is gone**, and with it the whole Step 9 scaffolding: the run, the
+//  report assembly, and the pre-run dialog it raised. Start owns unmount → acquire → run → release
+//  now, in the main window, and the gate moved with it.
+//
+//  It could not have stayed. Its precondition was `AppModel.helperHoldsDevice`, which this
+//  increment deletes, and the only control that could satisfy it — `Acquire exclusive access` —
+//  went at the same time. Leaving it would have meant either a button that can never be enabled or,
+//  worse, a second path able to issue privileged work on the owning connection while a run holds
+//  it.
+//
+//  **The run-state stand-in toggle is gone too.** It existed because there was no run engine; there
+//  is one now, so uninstall and the device-list freeze read the real state
+//  (`AppModel.runIsActive`) instead of a switch that stood in for it.
 //
 //  Not covered here: the foreign-client rejection (Step 3) is driven from the CLI by
 //  scripts/negative-test.sh, because it needs an adhoc-signed binary that cannot be
@@ -41,40 +46,26 @@ struct HelperDiagnosticsView: View {
     private static let demoBlockCount: UInt64 = 2048
     private static var demoByteCount: UInt64 { demoBlockCount * UInt64(demoBlockSize) }
 
-    /// Stand-in for the run-control state machine built in Step 11. Owned by
-    /// `ContentView` because discovery reads it too.
-    @Binding var simulatedRunActive: Bool
-
-    /// Shared with `DeviceListView` and owned by `ContentView` (Step 6). One connection
+    /// Shared with the main window and owned by `AppModel` (Step 6). One connection
     /// per app: the helper ties a device claim to the connection that took it, so a
     /// second connection here would be a second owner.
     let helper: HelperConnection
 
-    @State private var registration = HelperRegistration()
-
-    @State private var pingResult: ActionResult?
-    @State private var versionResult: ActionResult?
-    @State private var validationResult: ActionResult?
-
-    @State private var versionMismatch = false
-    @State private var isCalling = false
-
-    /// Step 9's bounded-cycle scaffolding.
+    /// Whether a run is happening (`AppModel.runIsActive`), for the uninstall guard.
     ///
-    /// `cycleIsRunning` and `linkSpeedCode` are **bindings** rather than local state because the
-    /// metrics panel lives in `ContentView`, above this disclosure: it needs to know a run is in
-    /// flight (the app knows its own run's lifecycle, so the helper is never asked) and it needs
-    /// the negotiated link speed to show beside measured throughput. Step 11 owns both properly
-    /// when the run-control state machine becomes the single source of run state.
-    @Binding var cycleIsRunning: Bool
-    @Binding var linkSpeedCode: Int
+    /// The real thing since increment 5. It used to be the stand-in toggle that lived in this very
+    /// panel — which meant NFR-REL-5's app-side guard was wired to a switch and **not** to the
+    /// bounded cycle running beside it. The helper's own refusal was the only thing covering that,
+    /// exactly as it covers a wrong mount belief; the collapse fixes it at the source.
+    let runIsActive: Bool
 
     /// FR-FAIL-1's mode for the next run, chosen **before** it starts.
     ///
-    /// A binding into `AppModel` rather than local state, for the same reason as the two above:
-    /// the run is issued here and the report that names the mode is shown in a third window.
-    /// Step 11 moves this control to the main window's pre-run controls beside the I/O-size
-    /// dropdown, where FR-CTRL-7 requires it; the value it sets does not move with it.
+    /// A binding into `AppModel` rather than local state: the run is issued from the main window
+    /// and the report that names the mode is shown in a third one. **Increment 6 relocates this
+    /// control** to the pre-run controls beside the I/O-size dropdown, where FR-CTRL-7 wants it; it
+    /// stays here until then so `stopOnFirstError` remains reachable, and a run outcome nobody can
+    /// trigger is one nobody has checked.
     @Binding var failureMode: FailureModeCode
 
     /// Whether the user has suppressed the pre-run **warning text** (Step 14, decision 5).
@@ -85,75 +76,25 @@ struct HelperDiagnosticsView: View {
     /// user cannot undo without editing a plist (decision 7).
     @Binding var warningsSuppressed: Bool
 
+    @State private var registration = HelperRegistration()
 
-    /// Whether the helper holds a device — the bounded cycle's precondition. Acquired in the
-    /// *main* window, needed here, so it lives in `AppModel`.
-    let deviceIsHeld: Bool
+    @State private var pingResult: ActionResult?
+    @State private var versionResult: ActionResult?
+    @State private var validationResult: ActionResult?
 
-    /// Whether new privileged work may still be issued (`AppModel.mayIssueNewWork`).
-    ///
-    /// False once a quit is pending. "Cancel and Quit" promises to issue no further work, and this
-    /// control is the only thing in the app that issues any — so the promise is kept here or it is
-    /// not kept at all. The confirmation is a sheet on the *main* window, which leaves this window
-    /// clickable underneath it, so the disable is doing real work rather than guarding an
-    /// unreachable state.
-    let mayIssueNewWork: Bool
-
-    /// Hands the finished run's report to the app. Called with `nil` when the helper **refused**
-    /// the call, which is not a run and gets no report.
-    ///
-    /// A closure rather than a direct write, so `tools/ui-probe` can host this view with no model
-    /// behind it and so the assembly stays visible at the one call site that has all the pieces.
-    var reportProduced: (RunReport?) -> Void = { _ in }
-
-    /// The drive the helper holds **now** (`AppModel.heldDevice`) — the one a run would be on, and
-    /// the single source for **both** the pre-run dialog's identification and the report's.
-    ///
-    /// There was a second property here until 2026-08-11, `reportedDevice`, fed from
-    /// `AppModel.lastRunDevice` and used only by the report. It was removed rather than fixed in
-    /// place: `lastRunDevice` is not written until the run is already under way, so a view struct
-    /// built before the press captured `nil`, and every report from a fresh launch was headed
-    /// "Unidentified drive". Two properties naming the same drive at two different instants is the
-    /// shape of defect `AppModel.heldDevice`'s own note warns about — *four parallel optionals that
-    /// must all be set and cleared together are four things that can disagree.* One property cannot
-    /// disagree with itself, and this one is already proven correct by the dialog.
-    var heldDevice: ReportedDevice?
-
-    @State private var cycleResult: ActionResult?
-
-    /// The dialog Start raised, or `nil` when none is up (Step 14, increment 5).
-    @State private var pendingPrompt: PreRunPrompt?
-
-    /// The suppression checkbox's state **while the dialog is open**.
-    ///
-    /// Deliberately *not* bound to `warningsSuppressed`. Binding the checkbox straight to the
-    /// persisted value would record the preference the instant it was ticked — including for a user
-    /// who then presses **Cancel**, which `PreRunWarningPolicy.outcome` exists to prevent: the
-    /// preference is recorded only by a run that actually starts. Reset every time the dialog is
-    /// raised.
-    @State private var suppressionRequested = false
+    @State private var versionMismatch = false
+    @State private var isCalling = false
 
     var body: some View {
         Form {
             registrationSection
             connectionSection
-            boundedCycleSection
+            preRunControlsSection
             preRunWarningsSection
             parameterSection
-            teardownSection
         }
         .formStyle(.grouped)
         .onAppear { registration.refresh() }
-        // FR-WARN-1/2/3 and NFR-USE-4. A sheet rather than an `alert` because decision 5 puts a
-        // `Toggle` in it, which an alert cannot hold. `item:` rather than `isPresented:` so the
-        // prompt and its presentation are one value — two would be a state pair that can disagree,
-        // which is what `OutcomeAlert` was deliberately kept separate from `lastOutcome` to avoid.
-        .sheet(item: $pendingPrompt) { prompt in
-            PreRunPromptSheet(prompt: prompt,
-                              suppressFutureWarnings: $suppressionRequested,
-                              onProceed: { preRunPromptDismissed(.proceed) },
-                              onCancel: { preRunPromptDismissed(.cancel) })
-        }
     }
 
     // MARK: - Registration & removal
@@ -198,13 +139,24 @@ struct HelperDiagnosticsView: View {
                 }
                 Spacer()
                 Button("Uninstall helper", role: .destructive) {
-                    registration.uninstall(using: helper, runIsActive: simulatedRunActive)
+                    // NFR-REL-5 / NFR-INST-3. The **real** run state since increment 5. The helper
+                    // is asked independently and has the final say; if it cannot be reached,
+                    // removal proceeds anyway so an unreachable privileged daemon never becomes
+                    // unremovable.
+                    registration.uninstall(using: helper, runIsActive: runIsActive)
                 }
                 // Deliberately NOT disabled on a protocol-version mismatch. An older
                 // registered daemon is exactly a case where removal must stay
                 // available (NFR-INST-3) — see UninstallPrecondition.
             }
             .disabled(registration.isBusy)
+
+            if runIsActive {
+                Label("A run is in progress, so uninstalling the helper will be refused.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
 
             Text(registration.lastActionMessage)
                 .font(.callout)
@@ -213,89 +165,27 @@ struct HelperDiagnosticsView: View {
         }
     }
 
-    // MARK: - Teardown guard
+    // MARK: - Pre-run controls (FR-FAIL-1; relocating in increment 6)
 
-    private var teardownSection: some View {
-        Section("Run-state stand-in") {
+    private var preRunControlsSection: some View {
+        Section("Pre-run controls") {
             Text("""
-                 There is no run engine yet — Step 11 builds the state machine — so this \
-                 toggle stands in for one. It does two things: uninstalling the helper is \
-                 refused while it is on (NFR-REL-5), and device discovery stops \
-                 refreshing (FR-DEV-7). The helper is asked independently about uninstall \
-                 and has the final say; if it cannot be reached, removal proceeds anyway \
-                 so an unreachable privileged daemon never becomes unremovable.
+                 Chosen before a run starts and fixed for its duration. The Start control itself is \
+                 in the main window, beside the drive it acts on.
                  """)
                 .font(.callout)
                 .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Toggle("Simulate an active run", isOn: $simulatedRunActive)
-
-            if simulatedRunActive {
-                Label("""
-                      Uninstall will be refused and the device list is frozen while this \
-                      is on.
-                      """, systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    // MARK: - Step 9's bounded cycle (scaffolding — Step 11 deletes this)
-
-    /// Starts one bounded pass so the live metrics panel has something to display.
-    ///
-    /// ## Everything about this is deliberately not configurable
-    ///
-    /// * **Block 0**, always. FR-TEST-4 says a run begins at the first addressable block, and
-    ///   FR-TEST-10 says every I/O begins on a 1 MiB boundary — block 0 satisfies both, and a
-    ///   start the user could influence would satisfy neither by construction.
-    /// * **4 MiB**, the FR-CTRL-8 default, hard-coded. The real dropdown is Step 11's, because
-    ///   its whole behaviour is defined in terms of pause and resume, which do not exist yet.
-    /// * **1 GiB**, `TesterProtocol.maximumBytesPerCall` — the most one uncancellable privileged
-    ///   call may cover. A whole-device run is a *sequence* of these, and sequencing them is
-    ///   Step 11's job, not something to improvise here.
-    ///
-    /// So this covers the first gibibyte and stops. It is not a run in the product's sense and
-    /// the wording says so, because a control that looks like Start on a tool that writes to
-    /// drives must not be mistaken for one.
-    private var boundedCycleSection: some View {
-        Section("Bounded cycle (Step 9 scaffolding)") {
-            // "above" until Step 9 moved this panel into its own window — the metrics are now in
-            // the main window, which is the whole reason this is not a modal sheet. Same class of
-            // stale spatial reference as the device panel's "diagnostics below".
-            Text("""
-                 Runs the read → write-back → verify cycle over the **first 1 GiB** of the held \
-                 device, at the 4 MiB default I/O size, so the metrics panel in the main window \
-                 has a live run to display — keep that window visible while this runs. This is \
-                 not the product's run: that covers the whole device and arrives with the run \
-                 controls in Step 11.
-                 """)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Label("""
-                  This writes to the drive. The cycle writes back exactly the bytes it read, \
-                  which is proven non-destructive in simulation and verified byte-for-byte on \
-                  hardware — but it is still a write, and it needs the device already acquired.
-                  """, systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
                 .fixedSize(horizontal: false, vertical: true)
 
             // FR-FAIL-1: the mode is chosen **before** the run, and FR-FAIL-4 makes log-and-continue
             // the default. Disabled while a run is in flight — the mode is fixed for the run's
             // duration, and a control that looks changeable mid-run would imply otherwise.
-            //
-            // Step 11 moves this to the main window's pre-run controls beside the I/O-size
-            // dropdown, where FR-CTRL-7 requires the choice before Start is enabled.
             Picker("On failure", selection: $failureMode) {
                 Text("Log and continue").tag(FailureModeCode.logAndContinue)
                 Text("Stop on first error").tag(FailureModeCode.stopOnFirstError)
             }
             .pickerStyle(.radioGroup)
-            .disabled(cycleIsRunning)
+            .disabled(runIsActive)
             .onChange(of: failureMode) { _, mode in RunReportLog.modeSelected(mode) }
 
             Text(failureMode == .stopOnFirstError
@@ -304,269 +194,13 @@ struct HelperDiagnosticsView: View {
                    untested** — which is not the same as passed.
                    """
                  : """
-                   Every failed block range is recorded and the rest of the range is still \
+                   Every failed block range is recorded and the rest of the drive is still \
                    refreshed. The default, and the safer choice for a drive already suspected of \
                    failing.
                    """)
                 .font(.callout)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-
-            HStack {
-                // Disabled until a device is actually held, rather than pressable-and-failing.
-                //
-                // Reported 2026-08-04 as "the button appears to do nothing": it was working
-                // exactly as written — the helper answered "no device is held" in 25 ms, the
-                // spinner flashed for a single frame, and a failure message was the only trace.
-                // Every other control here disables itself and names the corrective step
-                // (FR-SAFE-4, NFR-USE-5); this one stated its precondition in prose and then
-                // looked live. **Prose is not a precondition.**
-                // Raises the pre-run gate (FR-WARN-1/2/3, NFR-USE-4). It does **not** start a run:
-                // `runBoundedCycle(authorisedBy:)` needs a `PreRunOutcome`, which only the dialog's
-                // dismissal produces.
-                Button("Run one bounded cycle") { presentPreRunPrompt() }
-                    .disabled(isCalling || cycleIsRunning || !deviceIsHeld || !mayIssueNewWork)
-                if cycleIsRunning {
-                    ProgressView().controlSize(.small)
-                    Text("running…").font(.callout).foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-
-            // Named rather than left to the dimming, like every other refusal in this app
-            // (NFR-USE-5). Checked before the no-device message because it is the more specific
-            // reason: with a quit pending, acquiring a device would not make this pressable.
-            if !mayIssueNewWork {
-                Label("""
-                      The app has been asked to quit, so no new work can be started. Choose \
-                      “Continue Testing” in the main window to carry on.
-                      """, systemImage: "hourglass")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else if !deviceIsHeld {
-                Label("""
-                      No device is held. Select a drive in the main window, unmount its volumes, \
-                      then use “Acquire exclusive access” — only the helper can permit a run, and \
-                      it derives the geometry this needs from the descriptor it holds.
-                      """, systemImage: "info.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            resultRow(cycleResult)
-        }
-    }
-
-    /// The drive the report is about, as it was when the claim was taken.
-    ///
-    /// The drive is **passed in**, captured by `runBoundedCycle` at the moment the run was
-    /// authorised. It is not read from a stored property here, and that is a bug fix (2026-08-11).
-    ///
-    /// ## What went wrong, and why nothing caught it
-    ///
-    /// This used to read `reportedDevice`, which the window supplied from `AppModel.lastRunDevice`.
-    /// But `lastRunDevice` is written by `AppModel.cycleIsRunning`'s `didSet` — that is, *during*
-    /// `runBoundedCycle`, after the button was pressed. A SwiftUI `View` is a **struct**, and the
-    /// escaping completion handler below captured `self` by value, so it read the `reportedDevice`
-    /// this view instance was built with. On the first run after launch that value is `nil`, and
-    /// every report from a fresh launch named "Unidentified drive", 0 bytes, no serial.
-    ///
-    /// Reported in real use, and settled by the log rather than by reasoning — two lines, same
-    /// process, 93 seconds apart:
-    ///
-    ///     11:27:59  pre-run prompt raised: full warnings; drive serial 12345686DAA9
-    ///     11:29:32  run report: ... drive serial none
-    ///
-    /// The identity existed when the dialog named it and was gone when the report was written, which
-    /// excluded the other candidate (`helperHoldsDevice` true while `heldDevice` was never set —
-    /// that one would have logged `promptRaisedForAnUnnamedDrive`, and did not).
-    ///
-    /// **This is the worst class of defect this tool can have.** The exported report outlives the
-    /// session and is the artefact a drive's history is kept in; one that cannot say which drive it
-    /// is about is, in its own words, indistinguishable from a report about a different drive.
-    ///
-    /// The fix is to take the identity from the **same source the pre-run dialog uses**,
-    /// `heldDevice`, which is set by `acquire` *before* the button is even enabled. The dialog was
-    /// always right; the report was reading a different property that had not been written yet.
-    /// One source, captured once, at the point the run is authorised.
-    ///
-    /// - Parameter device: The drive the run was authorised against. `nil` should be unreachable —
-    ///   the button's precondition is a held device — so it is **logged as an error** rather than
-    ///   quietly becoming an unidentified report, which is how this defect stayed invisible.
-    private func makeReport(_ outcome: RunCycleOutcome,
-                            blockCount: UInt64,
-                            ioSize: Int,
-                            startedAt: Date,
-                            linkSpeedCode: Int,
-                            device runDevice: ReportedDevice?) -> RunReport? {
-        let device: ReportedDevice
-        if let runDevice {
-            device = runDevice
-        } else {
-            RunReportLog.reportBuiltWithNoHeldDevice()
-            device = ReportedDevice(modelDescription: "Unidentified drive",
-                                    usbSerialNumber: nil,
-                                    bsdNameAtRunTime: nil,
-                                    capacityBytes: 0,
-                                    logicalBlockSize: 512)
-        }
-        return RunReport(reply: outcome,
-                         startBlock: 0,
-                         blockCount: blockCount,
-                         // One size today. FR-CTRL-8's mid-run change is Step 11's, and the model
-                         // and renderer already handle a list of them.
-                         ioSizesUsed: [ioSize],
-                         device: device,
-                         startedAt: startedAt,
-                         finishedAt: Date(),
-                         usbLinkSpeedDescription: MetricsFormatting.linkSpeed(code: linkSpeedCode))
-    }
-
-    /// Ask for the device's geometry, then run one bounded pass over its first gibibyte.
-    ///
-    /// The profile call is not optional politeness: 1 GiB is a byte figure and the request is in
-    /// **blocks**, so converting it needs the device's logical block size. Assuming 512 would be
-    /// wrong on 4,096-byte geometry (NFR-COMPAT-5) and would silently ask for eight times the
-    /// intended range — which the helper would then refuse as over the per-call cap, reporting a
-    /// size error for what was really an assumption. The same call yields the negotiated link
-    /// speed the metrics panel shows beside measured throughput.
-    // MARK: - The pre-run gate (Step 14, increment 5)
-
-    /// Raise the dialog. **This is the only thing pressing Start does.**
-    private func presentPreRunPrompt() {
-        // Reset before every raise: a checkbox that remembered a previous dialog's tick would
-        // record a preference the user expressed about a run they then cancelled.
-        suppressionRequested = false
-
-        // The button's precondition is `deviceIsHeld`, so a missing record here means the app
-        // believes a device is held without knowing which. The dialog still appears — naming what
-        // it can and admitting what it cannot, which `ReportedDevice.identificationCaveat` already
-        // words — because a button that silently does nothing is the defect this panel was reported
-        // for in Step 9. The inconsistency is logged rather than absorbed.
-        let device: ReportedDevice
-        if let heldDevice {
-            device = heldDevice
-        } else {
-            PreRunWarningLog.promptRaisedForAnUnnamedDrive()
-            device = ReportedDevice(modelDescription: "Unidentified drive",
-                                    usbSerialNumber: nil,
-                                    bsdNameAtRunTime: nil,
-                                    capacityBytes: 0,
-                                    logicalBlockSize: 512)
-        }
-
-        let prompt = PreRunPrompt.forRun(warningsSuppressed: warningsSuppressed, device: device)
-        PreRunWarningLog.promptRaised(prompt)
-        pendingPrompt = prompt
-    }
-
-    /// The dialog was dismissed. Everything that follows from it is decided by
-    /// `PreRunWarningPolicy`, not here — this applies the decision and records it.
-    private func preRunPromptDismissed(_ button: PreRunButton) {
-        let outcome = PreRunWarningPolicy.outcome(button: button,
-                                                  suppressionRequested: suppressionRequested,
-                                                  mayIssueNewWork: mayIssueNewWork)
-        PreRunWarningLog.dismissed(button, outcome: outcome)
-
-        if outcome.persistsSuppression { warningsSuppressed = true }
-        pendingPrompt = nil
-        if outcome.issuesRun { runBoundedCycle(authorisedBy: outcome) }
-    }
-
-    /// Ask for the device's geometry, then run one bounded pass over its first gibibyte.
-    ///
-    /// - Parameter outcome: proof that the pre-run gate ran and the user proceeded.
-    ///
-    /// ## Why it takes an argument it barely uses
-    ///
-    /// `PreRunPrompt` has no "no dialog" case, so *the decision* cannot express skipping the
-    /// warnings. **A call site can always just not ask**, though, and increment 1 recorded that the
-    /// equivalent mutation therefore belongs here. This parameter is what makes that mutation
-    /// conspicuous rather than a one-word edit: wiring Start straight to a run now means
-    /// fabricating a `PreRunOutcome` that claims an acknowledgement which never happened, which is
-    /// a deliberate act visible in a diff instead of a slip. *Prevent, don't detect* — and where
-    /// prevention is not available, at least make the defect expensive to write by accident.
-    ///
-    /// The `guard` is not ceremony either: it is the second half of the same promise, so a
-    /// fabricated outcome that says `issuesRun == false` still issues nothing.
-    private func runBoundedCycle(authorisedBy outcome: PreRunOutcome) {
-        guard outcome.issuesRun else { return }
-
-        cycleResult = nil
-        cycleIsRunning = true
-
-        // Taken here, before the profile call, so the report's elapsed figure covers the whole
-        // operation the user waited through rather than only the privileged call inside it.
-        let startedAt = Date()
-        let ioSize = TesterProtocol.defaultIOSizeBytes
-        let mode = failureMode
-        // Captured HERE, with `startedAt` and `mode`, for the same reason they are: everything the
-        // report needs is taken at the moment the run is authorised, from a value that is already
-        // correct by then. `heldDevice` is set by `acquire` before this button is even enabled —
-        // it is what the pre-run dialog just named. Reading it later, or through the model, is what
-        // produced reports headed "Unidentified drive"; see `makeReport`.
-        let runDevice = heldDevice
-
-        helper.deviceProfile { profileResult in
-            guard case .success(let profile) = profileResult, profile.isAvailable,
-                  profile.logicalBlockSize > 0 else {
-                cycleIsRunning = false
-                cycleResult = ActionResult(
-                    ok: false,
-                    message: "Could not read the device's geometry. Acquire a device first — the "
-                           + "helper derives geometry from ioctls on the descriptor it holds, and "
-                           + "will not open one speculatively to answer a query.")
-                return
-            }
-
-            linkSpeedCode = profile.usbLinkSpeedCode
-
-            let blockCount = TesterProtocol.maximumBytesPerCall / UInt64(profile.logicalBlockSize)
-            helper.runRetentionCycle(startBlock: 0,
-                                     blockCount: blockCount,
-                                     ioSizeBytes: ioSize,
-                                     failureMode: mode) { result in
-                cycleIsRunning = false
-
-                // FR-RPT-1..5. `RunReport.init?` returns `nil` for a call the helper refused —
-                // which is not a run, and gets no report rather than a file describing a test
-                // that never touched the drive. The transport-failure case below likewise:
-                // there is no reply to build one from.
-                if case .success(let outcome) = result {
-                    reportProduced(makeReport(outcome,
-                                              blockCount: blockCount,
-                                              ioSize: ioSize,
-                                              startedAt: startedAt,
-                                              linkSpeedCode: profile.usbLinkSpeedCode,
-                                              device: runDevice))
-                } else {
-                    reportProduced(nil)
-                }
-
-                switch result {
-                case .success(let outcome):
-                    // "Completed" means every planned chunk was processed — NOT that they all
-                    // passed. A run that finds bad blocks and keeps going still completes
-                    // (FR-FAIL-3), so the failure count is what decides how this reads.
-                    var text = outcome.message
-                    if let overhead = outcome.hostOverheadFraction {
-                        text += String(format: "\n\nHost overhead: %.3f%% of device I/O time.",
-                                       overhead * 100)
-                    }
-                    if let core = outcome.helperCoreFraction {
-                        text += String(format: " Helper CPU: %.1f%% of one core.", core * 100)
-                    }
-                    cycleResult = ActionResult(
-                        ok: outcome.didComplete && outcome.failedRangeCount == 0,
-                        message: text)
-                case .failure(let error):
-                    cycleResult = ActionResult(ok: false,
-                                               message: "The cycle could not be run: "
-                                                   + error.localizedDescription)
-                }
-            }
         }
     }
 
@@ -620,8 +254,6 @@ struct HelperDiagnosticsView: View {
         }
     }
 
-    // MARK: - Boundary parameter validation
-
     // MARK: - Pre-run warnings (Step 14, decision 7)
 
     /// The way back from "Don't show this warning again".
@@ -668,6 +300,8 @@ struct HelperDiagnosticsView: View {
             }
         }
     }
+
+    // MARK: - Boundary parameter validation
 
     private var parameterSection: some View {
         Section("Parameter validation at the trust boundary") {

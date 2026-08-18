@@ -11,22 +11,106 @@
 //  reading, so the whole of this file is deterministic under `SteppingClock` and a convergence
 //  test needs no hardware and no wall-clock patience.
 //
-//  ## Three rates, and collapsing them is the easy mistake
+//  ## Five rates, two denominators, and picking the wrong denominator is the easy mistake
 //
 //  A cycle moves **three times** the range it covers: read the original, write it back, read it
-//  again. So there are three genuinely different rates here, and using the wrong one for the
-//  ETA would make every estimate about three times too optimistic:
+//  again. That alone makes several genuinely different rates, but the division that actually
+//  matters is *what each one is divided by*:
 //
 //  | Rate | Definition | What it is for |
 //  |---|---|---|
-//  | ``MetricsSnapshot/readBytesPerSecond`` | bytes read ÷ **time spent reading** | FR-METR-1. The device's read speed. |
-//  | ``MetricsSnapshot/writeBytesPerSecond`` | bytes written ÷ **time spent writing** | FR-METR-1. The device's write speed. |
+//  | ``MetricsSnapshot/readBytesPerSecond`` | bytes read ÷ **time spent reading** | The device's read speed while it is reading. Diagnostic; logged, never displayed. |
+//  | ``MetricsSnapshot/writeBytesPerSecond`` | bytes written ÷ **time spent writing** | The device's write speed while it is writing. Diagnostic; logged, never displayed. |
+//  | ``MetricsSnapshot/verifyBytesPerSecond`` | bytes verified ÷ **time spent verifying** | A verify much faster than the original read is what a drive-side cache looks like. |
+//  | ``MetricsSnapshot/sustainedReadBytesPerSecond`` | (bytes read + bytes verified) ÷ **wall-clock elapsed** | FR-METR-1. **What the app shows**, and what Activity Monitor shows. |
+//  | ``MetricsSnapshot/sustainedWriteBytesPerSecond`` | bytes written ÷ **wall-clock elapsed** | FR-METR-1. **What the app shows**, and what Activity Monitor shows. |
 //  | ``MetricsSnapshot/coverageBytesPerSecond`` | range bytes covered ÷ **wall-clock elapsed** | FR-METR-5. How fast the *run* is progressing, and the only correct ETA denominator. |
 //
-//  Each throughput divides bytes by the time that actually moved those bytes, which is why the
+//  The first three divide bytes by the time that actually moved those bytes, which is why the
 //  timing accumulators below separate successful phases from failed ones. A failed read
 //  transferred nothing; folding its duration into the read accumulator would quietly depress a
 //  number labelled "read speed" with time in which no reading happened.
+//
+//  ## The displayed rates divide by RUNNING time (2026-08-18)
+//
+//  ``runningNanoseconds`` — the wall clock from the run's start to the end of its last call,
+//  **minus the gaps between calls**. Not ``elapsedNanoseconds``, and not device-plus-host either.
+//  Both of those were tried on hardware and both were wrong, in opposite directions.
+//
+//  `metrics-check.sh` is what forced this, on hardware, and no unit test could have. Elapsed is
+//  `now - start` evaluated at snapshot time, so it keeps growing after a call ends. The gate
+//  polls after the reply and compares: the same bytes over a bigger denominator gave 270.5 MB/s
+//  in the reply and 258.2 MB/s from a poll 1.51 s later. Twelve failures, one cause.
+//
+//  Three things were wrong, and only the first was visible:
+//
+//    1. The reply and a later poll disagreed about the same run.
+//    2. A finished run's rate **decayed on screen** while the claim was held and nothing ran.
+//    3. A **paused** run's rate decayed and its ETA inflated — `elapsed x remaining / covered`
+//       grows without bound while paused. That one predates this change: the ETA has divided by
+//       live elapsed since Step 9, and nothing displayed coverage, so nobody could see it.
+//
+//  **Device-plus-host was the second attempt.** It is stable and it excludes a pause, so it very
+//  nearly worked — but it also excludes the scheduling inside a call that an outside observer
+//  does count, and on `disk10` that put it **1.35% above** the call's true wall-clock rate
+//  (161.1 MB/s covering against 159.0). Small, but in the direction this change exists to fix,
+//  and a figure that is high by construction will be high by more on slower hardware.
+//
+//  Read the three against **the reply's own wall clock on the first call**, where no inter-call
+//  gap yet exists and so the comparison is clean:
+//
+//      wall clock, at the reply        159.0 MB/s   —
+//      wall clock, at a later poll     133.2 MB/s   -16.2%   <- the defect
+//      device + host overhead          161.1 MB/s    +1.35%
+//      wall clock - inter-call gaps    158.8 MB/s    -0.11%   <- this
+//
+//  A warning about that table, because it cost a wrong conclusion: **133.2 is not a baseline.**
+//  It is the broken poll, inflated by the 1.31 s between the call ending and the poll being
+//  taken. Comparing against it made device-plus-host look 19% high when it was 1.35% high.
+//
+//  So the denominator excludes exactly one thing: **time between calls**. That is where a pause
+//  lives — a paused run's call returns and the next does not begin until the user resumes — and
+//  it is the only span in which the drive is genuinely doing nothing on this run's behalf.
+//  Everything inside a call stays in, so a rate means the same thing an outside observer's does.
+//
+//  Two properties follow, and `metrics-check.sh` asserts both:
+//
+//    * **Ask twice, get the same answer.** Once the last call ends the numerator and denominator
+//      are both fixed, so a reply and a poll after it agree bit-for-bit.
+//    * **A pause costs nothing.** The gap is subtracted when the next call starts, so a run that
+//      waited half an hour reports the throughput it actually achieved.
+//
+//  ``elapsedNanoseconds`` is kept as the true wall clock, because it is what makes
+//  ``unaccountedNanoseconds`` mean anything.
+//
+//  ## Why the app shows these figures and not the phase ones (2026-08-17)
+//
+//  Because a phase rate is not comparable to anything else the user can see, and it was reported
+//  as a **bug** the first time somebody checked. Measured on the 4 TB T5 EVO: the helper logged
+//  `read 375.8 MB/s, write 418.9 MB/s, covering 122.4 MB/s`, while DriveSpeed and Activity
+//  Monitor — which agreed with each other exactly — showed about 245 and 122. Our read looked
+//  53% high and our write **3.4×** high.
+//
+//  Nothing was wrong with the arithmetic. Every other tool on the machine divides by the wall
+//  clock, because that is the only denominator an outside observer has. We divided by phase time,
+//  so our "write speed" described the drive during the ~29% of the run it was writing, and
+//  silently omitted the rest. Both figures were correct answers to a question nobody asked.
+//
+//  The relationship is exact and worth knowing, because it is *itself* a check:
+//
+//      sustained read ≈ 2 × covering        (the original read and the verify read)
+//      sustained write ≈ 1 × covering       (one write per covered byte)
+//
+//  On the measurement above: 2 × 122.4 = 244.8 and 1 × 122.4 = 122.4, which is what the two
+//  independent tools showed. A sustained read that drifts below 2 × covering means reads are
+//  failing — `chunksFailed` says the same thing, and the two agreeing is the cheap confirmation
+//  that the accounting is whole.
+//
+//  The phase rates are kept, because "the drive is slow while it works" and "the drive spends a
+//  long time not working" are different faults and this tool exists to tell faults apart. They
+//  are logged every call by `RunCoordinator` and are deliberately **not** on the wire: a wire
+//  field nothing displays is how `coverageBytesPerSecond` came to be computed, tested and logged
+//  for a week without ever reaching a screen.
 //
 //  ## Progress advances on failure. It has to.
 //
@@ -178,6 +262,14 @@ public struct MetricsSnapshot: Equatable, Sendable {
     /// Host work — compare, metrics, bookkeeping. NFR-PERF-3's numerator.
     public let hostOverheadNanoseconds: UInt64
 
+    /// Wall clock in which **no call was running** — the gaps between one call and the next, and
+    /// therefore any time the run spent paused (FR-CTRL-3).
+    ///
+    /// Subtracted from ``elapsedNanoseconds`` to give ``runningNanoseconds``. Carried separately
+    /// rather than pre-subtracted so that a reader can still see the run's true wall clock, and
+    /// so ``unaccountedNanoseconds`` keeps meaning what it says.
+    public let idleNanoseconds: UInt64
+
     // MARK: Latency (FR-METR-3)
 
     public let readLatency: LatencySummary
@@ -200,6 +292,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
                 verifyNanoseconds: UInt64,
                 failedPhaseNanoseconds: UInt64,
                 hostOverheadNanoseconds: UInt64,
+                idleNanoseconds: UInt64 = 0,
                 readLatency: LatencySummary,
                 verifyLatency: LatencySummary) {
         self.chunksPlanned = chunksPlanned
@@ -219,6 +312,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
         self.verifyNanoseconds = verifyNanoseconds
         self.failedPhaseNanoseconds = failedPhaseNanoseconds
         self.hostOverheadNanoseconds = hostOverheadNanoseconds
+        self.idleNanoseconds = idleNanoseconds
         self.readLatency = readLatency
         self.verifyLatency = verifyLatency
     }
@@ -246,11 +340,32 @@ public struct MetricsSnapshot: Equatable, Sendable {
         Self.rate(bytes: bytesVerified, nanoseconds: verifyNanoseconds)
     }
 
+    /// **What the app displays as "Read"** (FR-METR-1): every byte this run read — the original
+    /// read *and* the verify read — divided by the wall clock.
+    ///
+    /// Both reads are counted because both are reads. The kernel counts them, Activity Monitor
+    /// counts them, and a figure that omitted the verify would be exactly half of what the user
+    /// can see in another window, which is the discrepancy this property exists to end.
+    ///
+    /// Divided by ``activeNanoseconds`` rather than by read time, so it is comparable to every
+    /// other throughput figure on the machine. About 2 × ``coverageBytesPerSecond`` on a healthy
+    /// drive; markedly less means reads are failing.
+    public var sustainedReadBytesPerSecond: Double? {
+        Self.rate(bytes: bytesRead &+ bytesVerified, nanoseconds: runningNanoseconds)
+    }
+
+    /// **What the app displays as "Write"** (FR-METR-1): bytes written ÷ the wall clock.
+    ///
+    /// About 1 × ``coverageBytesPerSecond``, because a cycle writes each covered byte once.
+    public var sustainedWriteBytesPerSecond: Double? {
+        Self.rate(bytes: bytesWritten, nanoseconds: runningNanoseconds)
+    }
+
     /// How fast the **run** is covering its range, against the wall clock. About a third of the
     /// read speed, because every covered byte is read, written and read again — and **this is
     /// the only correct ETA denominator**.
     public var coverageBytesPerSecond: Double? {
-        Self.rate(bytes: rangeBytesCovered, nanoseconds: elapsedNanoseconds)
+        Self.rate(bytes: rangeBytesCovered, nanoseconds: runningNanoseconds)
     }
 
     // MARK: - Derived: progress and ETA (FR-METR-5/6, NFR-PERF-6)
@@ -276,13 +391,35 @@ public struct MetricsSnapshot: Equatable, Sendable {
     public var estimatedRemainingNanoseconds: UInt64? {
         guard deviceBytesTotal > 0 else { return nil }
         guard rangeBytesCovered < deviceBytesTotal else { return 0 }
-        guard rangeBytesCovered > 0, elapsedNanoseconds > 0 else { return nil }
+        guard rangeBytesCovered > 0, runningNanoseconds > 0 else { return nil }
 
         let remaining = Double(deviceBytesTotal - rangeBytesCovered)
-        // `Double` rather than integer arithmetic: `elapsed × remaining` overflows `UInt64` on
+        // `Double` rather than integer arithmetic: `running × remaining` overflows `UInt64` on
         // any real device, and 53 bits of mantissa is exact to ~104 days of nanoseconds.
-        let estimate = Double(elapsedNanoseconds) * remaining / Double(rangeBytesCovered)
+        //
+        // Running time, not wall clock: an ETA built on elapsed grows without bound while a run
+        // is PAUSED, because the numerator keeps ticking and the denominator does not. It reads
+        // as "this run is getting slower" to somebody who simply stepped away. This estimates
+        // remaining **running** time, which is the only part this tool can predict.
+        let estimate = Double(runningNanoseconds) * remaining / Double(rangeBytesCovered)
         return estimate.isFinite && estimate >= 0 ? UInt64(estimate) : nil
+    }
+
+    // MARK: - Derived: the denominator the displayed rates use
+
+    /// **The denominator every displayed rate divides by**: wall clock, less the time between
+    /// calls.
+    ///
+    /// ``elapsedNanoseconds`` already stops at the end of the last call — the session observer
+    /// hands this type the effective reading, not the live one — so the only subtraction left is
+    /// ``idleNanoseconds``, the gaps in which no call was running.
+    ///
+    /// Everything inside a call counts, including the parts that are not a measured I/O phase,
+    /// because an outside observer counts them too. That is what keeps this comparable to
+    /// Activity Monitor, and it is where the device-plus-host denominator went wrong: it read
+    /// 19% high on hardware by excluding time the drive was genuinely occupied.
+    public var runningNanoseconds: UInt64 {
+        elapsedNanoseconds > idleNanoseconds ? elapsedNanoseconds - idleNanoseconds : 0
     }
 
     // MARK: - Derived: NFR-PERF-3
@@ -306,11 +443,16 @@ public struct MetricsSnapshot: Equatable, Sendable {
         return Double(hostOverheadNanoseconds) / Double(device)
     }
 
-    /// Wall-clock this run has not accounted for — scheduling, XPC, anything outside the
-    /// measured phases. Never negative: a clock that appeared to run backwards yields zero.
+    /// Wall-clock this run did not spend working — scheduling, XPC, the gap between one call and
+    /// the next, and any time the run was **paused**. Never negative: a clock that appeared to
+    /// run backwards yields zero.
     ///
-    /// Exposed because it is the honest completeness check on the two figures above. If this
-    /// were large, `hostOverheadFraction` would be measuring a fraction of the story.
+    /// This is ``elapsedNanoseconds`` minus the phases and the host work, and it is the honest
+    /// completeness check on the figures above: if it were large, `hostOverheadFraction` would be
+    /// measuring a fraction of the story. Measured at about 1.3% of a call on `disk10` — the
+    /// scheduling between one chunk and the next — and the displayed rates deliberately do **not**
+    /// subtract it, because an outside observer watching the same drive counts it too. See
+    /// ``runningNanoseconds``.
     public var unaccountedNanoseconds: UInt64 {
         let accounted = deviceNanoseconds &+ hostOverheadNanoseconds
         return elapsedNanoseconds > accounted ? elapsedNanoseconds - accounted : 0
@@ -391,6 +533,21 @@ public struct RunMetrics {
         chunksPlanned &+= chunks
     }
 
+    /// Wall clock in which no call was running, accumulated across the session.
+    ///
+    /// Fed by ``RunSessionObserver``, which is the only thing that can see a call boundary. The
+    /// accumulator itself has no clock, so it cannot notice a gap on its own.
+    public private(set) var idleNanoseconds: UInt64 = 0
+
+    /// Record a span in which no call was running — the gap between one call and the next, which
+    /// is where a **pause** lives.
+    ///
+    /// Additive rather than assigned: a session has as many gaps as it has calls, and the run's
+    /// throughput must be free of all of them, not just the last.
+    public mutating func noteIdle(nanoseconds: UInt64) {
+        idleNanoseconds &+= nanoseconds
+    }
+
     /// Fold one chunk's measurement in. Constant time, no allocation.
     ///
     /// Which numbers a measurement contributes to is decided by its ``ChunkMeasurement/outcome``
@@ -469,6 +626,7 @@ public struct RunMetrics {
                                verifyNanoseconds: verifyNanoseconds,
                                failedPhaseNanoseconds: failedPhaseNanoseconds,
                                hostOverheadNanoseconds: hostOverheadNanoseconds,
+                               idleNanoseconds: idleNanoseconds,
                                readLatency: LatencySummary(readLatency),
                                verifyLatency: LatencySummary(verifyLatency))
     }
@@ -542,6 +700,20 @@ public final class RunSessionObserver: RunObserver {
     /// so a test can drive both from one `SteppingClock` and get an exact elapsed time.
     private let clock: MonotonicClock
 
+    /// Is a call running right now?
+    ///
+    /// Decides which reading a snapshot is taken at. **While a call runs, the live clock**, so
+    /// progress and throughput move as they should. **Between calls, the reading the last call
+    /// ended at**, so a finished run's figures are the figures — a poll a minute later returns
+    /// what the reply returned, rather than the same bytes over a bigger denominator.
+    ///
+    /// `metrics-check.sh` is what forced this: it polls after a call's reply and compares the
+    /// two, and with a live clock in the denominator they disagreed by 19% (2026-08-18).
+    private var callInFlight = false
+
+    /// When the last call ended, or `nil` before any has.
+    private var lastCallEndedAtNanoseconds: UInt64?
+
     /// - Parameters:
     ///   - deviceBytesTotal: the held device's capacity. **Required, with no default**, for the
     ///     reason `control:` is required on the engine: a session that silently measured progress
@@ -559,12 +731,24 @@ public final class RunSessionObserver: RunObserver {
     }
 
     /// Begin the session on the first call, and **extend** it on every one after.
+    ///
+    /// Also closes the gap since the previous call. That gap is not the drive's fault and must
+    /// not be charged to its throughput: it is the app assembling the next call, and — the case
+    /// that matters — it is **a pause**, which can last as long as the user likes (FR-CTRL-3).
+    /// Charged to the rate, half an hour away from the keyboard would halve a healthy drive's
+    /// reported speed.
     public func runStarted(_ start: RunStart) {
+        let now = clock()
+        if let ended = lastCallEndedAtNanoseconds, now > ended {
+            metrics?.noteIdle(nanoseconds: now - ended)
+        }
+        callInFlight = true
+
         guard metrics != nil else {
             metrics = RunMetrics(chunksPlanned: start.chunkCount,
                                  deviceBytesTotal: deviceBytesTotal,
                                  startBlock: start.startBlock,
-                                 startedAtNanoseconds: clock())
+                                 startedAtNanoseconds: now)
             return
         }
         metrics?.extendPlan(byChunks: start.chunkCount)
@@ -593,6 +777,8 @@ public final class RunSessionObserver: RunObserver {
     /// call reports nothing. The session keeps the last verdict a completed call established.
     public func runFinished(_ summary: RunSummary) {
         cacheBypass = summary.cacheBypass
+        lastCallEndedAtNanoseconds = clock()
+        callInFlight = false
     }
 
     /// The run's failures as they stand, with the pending range closed.
@@ -608,7 +794,13 @@ public final class RunSessionObserver: RunObserver {
 
     /// What the run looks like now, or `nil` before its first call.
     public func snapshot() -> MetricsSnapshot? {
-        metrics?.snapshot(atNanoseconds: clock())
+        metrics?.snapshot(atNanoseconds: effectiveNanoseconds)
+    }
+
+    /// The reading a snapshot should be taken at: live while a call runs, frozen at the last
+    /// call's end otherwise. See ``callInFlight``.
+    private var effectiveNanoseconds: UInt64 {
+        callInFlight ? clock() : (lastCallEndedAtNanoseconds ?? clock())
     }
 
     /// What the run looked like at a given reading. For tests driving a deterministic clock.

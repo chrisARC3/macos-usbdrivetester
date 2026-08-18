@@ -4,9 +4,25 @@
 //
 //  The device list and the selected-device detail (FR-DEV-1/3/4/6, NFR-USE-3).
 //
-//  Unlike the Step 3/4 harness this replaces at the top of the window, this is intended
-//  to survive: Steps 9, 11 and 14 add run controls, metrics and the mandatory warnings
-//  *around* it, not instead of it.
+//  ## What left in Step 11 increment 5, and what that means for this file
+//
+//  The `Unmount All` / `Acquire exclusive access` / `Release` controls are **gone**, along with
+//  everything that served them: the mount/acquire actions, the in-flight flags, the outcome pane
+//  and the alert attached to it. Start owns unmount → acquire → run → release now, and the run
+//  controls live in `ContentView` (FR-SAFE-5 withdrawn, FR-SAFE-6 reversed, FR-SAFE-7 moot).
+//
+//  Two consequences worth stating, because both remove a class of defect rather than moving it:
+//
+//    * **The claim no longer follows the selection.** That rule existed only because the claim did
+//      not belong to a run; a run-owned claim removes the ambiguity at its source. This view no
+//      longer releases anything, and `AppModel.helperHoldsDevice` — a *per-device* answer read
+//      everywhere as an *any-device* one — is deleted rather than fixed. Do not reintroduce a
+//      selection-scoped flag.
+//    * **The failure alert moved with the sequence it reports on**, to `RunControlsView`. An alert
+//      attached to a deleted view is an error path with nowhere to surface.
+//
+//  What is left here is what this view was always for: *which drives are there, which one is
+//  chosen, and what is true about it.* Nothing in it acts on a drive any more.
 //
 //  ## Design notes
 //
@@ -27,20 +43,15 @@
 //
 
 import SwiftUI
-import os
-
-private nonisolated let log = Logger(subsystem: HelperIdentity.loggingSubsystem,
-                                     category: "safety")
 
 struct DeviceListView: View {
 
     let discovery: DeviceDiscovery
 
-    /// Shared with `HelperDiagnosticsView` rather than opened again here: one
-    /// `NSXPCConnection` to the daemon per app, so a connection dropping means one thing
-    /// and the helper sees one client. It also matters for Step 6 specifically — the
-    /// helper releases a claim when the connection that took it goes away, so two
-    /// connections would mean two different owners of the same device.
+    /// Shared with every other window rather than opened again here: one `NSXPCConnection` to the
+    /// daemon per app, so a connection dropping means one thing and the helper sees one client.
+    /// The helper releases a claim when the connection that took it goes away, so two connections
+    /// would mean two different owners of the same device.
     let helper: HelperConnection
 
     /// Approximate height of one two-line device row, scaled with the user's text size.
@@ -51,10 +62,6 @@ struct DeviceListView: View {
     /// remove (NFR-USE-8).
     @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 46
 
-    // MARK: - Step 6 state (FR-SAFE-3/4/5/7)
-
-    @State private var mounter = VolumeMounter()
-
     /// What the helper last said about the selected device. `nil` before the first check,
     /// or when the helper could not be reached.
     @State private var readiness: DeviceReadiness?
@@ -62,22 +69,6 @@ struct DeviceListView: View {
     /// Why the helper could not be asked, if it could not. Shown rather than swallowed:
     /// "no banner" and "the helper says everything is fine" must not look the same.
     @State private var readinessError: String?
-
-    /// Shared app state. This view is where a device is acquired and released, and the
-    /// diagnostics *window* needs to know whether one is held before it can offer to run a
-    /// cycle — so that fact cannot live in either view's `@State`.
-    @Environment(AppModel.self) private var model
-
-    /// Whether the helper holds exclusive access to the selected device. Changed immediately by
-    /// acquire and release rather than waiting for the next readiness check to come back.
-    ///
-    /// Read-only here and written through `model` so there is exactly one copy: a mirrored
-    /// `@State` would be a second answer to a question that already has one, and the two would
-    /// eventually disagree about whether a run may be offered.
-    private var helperHoldsDevice: Bool { model.helperHoldsDevice }
-
-    @State private var mountOperationInFlight = false
-    @State private var accessOperationInFlight = false
 
     /// Keyboard focus for the device list.
     ///
@@ -114,79 +105,6 @@ struct DeviceListView: View {
     /// the focus request is dropped.
     @FocusState private var deviceListHasFocus: Bool
 
-    /// The last mount/unmount or acquire/release result, shown verbatim.
-    @State private var lastOutcome: OutcomeMessage?
-
-
-    private struct OutcomeMessage: Equatable {
-        let ok: Bool
-        let text: String
-    }
-
-    /// The failure currently being shown modally, or `nil`.
-    ///
-    /// Separate from ``lastOutcome`` rather than derived from it: the dialog is dismissed while the
-    /// inline copy stays, so one value cannot represent both. Deriving the alert's presentation
-    /// from `lastOutcome != nil && !ok` would re-raise the dialog on the next unrelated redraw.
-    @State private var alert: OutcomeAlert?
-
-    private struct OutcomeAlert: Identifiable, Equatable {
-        let title: String
-        let text: String
-        var id: String { title + text }
-    }
-
-    // MARK: - The one place the user-visible outcome is written
-
-    /// Show `text` to the user, and record that it was shown (NFR-OBS-1).
-    ///
-    /// ## Why every write goes through here
-    ///
-    /// On 2026-08-09 the unmount rollback's error message was reported as **never appearing**,
-    /// across three test cases whose behaviour was otherwise exactly right. With ten scattered
-    /// assignments to `lastOutcome` and no logging anywhere near them, "never set" and "set, then
-    /// cleared a moment later" produce the identical observation — a blank pane — and the only
-    /// available instrument was a person watching the screen and trying to catch it.
-    ///
-    /// That is the same shape as every other defect this control has produced: a state that
-    /// cannot be distinguished from a different state by anything the project can measure. One
-    /// funnel with a log line in it makes the two distinguishable, and costs nothing.
-    /// - Parameter operation: what the outcome is about, so a failure's dialog can be headed with
-    ///   what failed rather than with a generic banner.
-    private func present(ok: Bool, _ text: String, from operation: OutcomeOperation) {
-        let route = OutcomePresentation.forOutcome(ok: ok, operation: operation)
-
-        // The inline copy is kept on every route that shows anything. The alert guarantees a
-        // failure is seen once; the inline copy is what lets it be re-read and text-selected after
-        // the dialog is dismissed.
-        //
-        // `.silent` leaves `lastOutcome` as the operation's own start already left it — nil — so
-        // nothing is displayed. It is NOT written and then hidden: a value on screen and a value
-        // in state that disagree is the defect this funnel exists to make impossible.
-        if route.showsInline {
-            lastOutcome = OutcomeMessage(ok: ok, text: text)
-        }
-
-        if case .interrupt(let title) = route {
-            alert = OutcomeAlert(title: title, text: text)
-        }
-
-        log.notice("""
-                   outcome shown (\(ok ? "ok" : "error", privacy: .public)) as \
-                   \(route.logName, privacy: .public): \(text, privacy: .public)
-                   """)
-    }
-
-    /// Clear the outcome, saying **why** — the half that makes a vanished message diagnosable.
-    ///
-    /// Silent when there was nothing to clear, so the log records erasures rather than every
-    /// no-op pass through a code path that happens to reset state.
-    private func clearOutcome(_ reason: String) {
-        guard lastOutcome != nil else { return }
-        log.notice("outcome cleared: \(reason, privacy: .public)")
-        lastOutcome = nil
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
@@ -198,60 +116,22 @@ struct DeviceListView: View {
         // The selected device changing invalidates everything below: a readiness answer
         // is about one device, and showing one device's mount state under another's name
         // is precisely the confusion NFR-USE-3 exists to prevent.
+        //
+        // **It no longer releases anything.** Until increment 5 the claim followed the selection,
+        // because the claim did not belong to a run; now it does, and the rule is gone with the
+        // controls that needed it.
         .onChange(of: discovery.selectedDeviceID) { _, _ in
             readiness = nil
             readinessError = nil
-            clearOutcome("the selected device changed")
-
-            // ## The claim follows the selection (2026-08-05, user decision)
-            //
-            // Holding exclusive access to a drive the UI does not name as selected is a mismatch
-            // between what the app shows and what it actually controls — so the claim is released
-            // the moment the selection stops naming it, whether that is a deselection or a switch
-            // to another drive.
-            //
-            // This also *removes* rather than works around the stale-claim defect noted earlier:
-            // `helperHoldsDevice` is written from `helperHoldsThisDevice`, a per-device answer,
-            // while every use site reads it as "the helper holds some device". Those two can only
-            // disagree when the held device and the selected device differ — which this rule makes
-            // impossible. It is no longer cleared speculatively here; `release()` clears it when
-            // the helper confirms, and `refreshReadiness()` sets it from the helper otherwise.
-            //
-            // Safe against releasing mid-write because the selection cannot change during a run.
-            // That guard is enforced in `DeviceDiscovery.select`/`deselect`, not here and not
-            // only in the view: it is the one thing standing between a stray ⌘-click and a claim
-            // dropped under an active write, so it belongs where every caller must pass through
-            // it and where a test can hold it.
-            if model.helperHoldsDevice,
-               model.heldDeviceName != discovery.selectedDevice?.bsdName.rawValue {
-                release()
-            }
-
             refreshReadiness()
         }
         // The mounted-volume set changing is the other input the banner depends on, and
         // it changes without the selection changing — the user unmounts in Disk Utility,
-        // or macOS remounts after a claim is released.
+        // or macOS remounts after a run releases the drive.
         .onChange(of: discovery.selectedDevice?.mountedVolumeNames ?? []) { _, _ in
             refreshReadiness()
         }
         .onAppear { refreshReadiness() }
-        // A failed mount/unmount/acquire/release interrupts (user decision 2026-08-09). The
-        // message it replaces was correct and never seen: it was the last element inside the
-        // detail pane's ScrollView, below the fold on a drive with several mounted volumes.
-        //
-        // **Step 11 must carry this with the sequence, not leave it here.** Start takes over
-        // unmount → acquire → run → release and deletes the pane this is attached to, and the
-        // failure it reports is exactly the one that strands a user with a half-unmounted drive.
-        // An alert attached to a deleted view is an error path with nowhere to surface.
-        .alert(alert?.title ?? "",
-               isPresented: Binding(get: { alert != nil },
-                                    set: { presented in if !presented { alert = nil } }),
-               presenting: alert) { _ in
-            Button("OK", role: .cancel) { }
-        } message: { alert in
-            Text(alert.text)
-        }
     }
 
     // MARK: - Header
@@ -312,9 +192,9 @@ struct DeviceListView: View {
                 List(discovery.devices, selection: selectionBinding) { device in
                     row(for: device)
                         .tag(device.registryEntryID)
-                        // Frozen during a run, for the same reason the list is (FR-DEV-7) and one
-                        // sharper one: the claim follows the selection, so a change mid-run would
-                        // release the device out from under an active write.
+                        // Frozen during a run (FR-DEV-7). The *reason* changed in increment 5 —
+                        // it used to be "a selection change would release the device", and is now
+                        // simply that **the run owns the device**. The refusal is still wanted.
                         //
                         // On the **row**, not on the `List`. `selectionDisabled` is a per-row
                         // modifier; applied to the container it compiles, renders, and silently
@@ -354,7 +234,7 @@ struct DeviceListView: View {
                 // the selection stays real, nothing is drawn by hand.
                 //
                 // Held off only while a run is active, because deselection is wanted the rest of
-                // the time: it releases the device (user decision 2026-08-05).
+                // the time.
                 .background(TableSelectionPolicy(allowsEmptySelection: !discovery.isRunActive))
             }
         }
@@ -479,210 +359,112 @@ struct DeviceListView: View {
 
     // MARK: - Selected-device detail
 
-    /// The selected-device panel, and below it the safety controls.
+    /// The selected-device panel.
     ///
-    /// The safety section renders whether or not anything is selected. FR-SAFE-5
-    /// specifies the no-selection state of the control — *disabled*, showing the default
-    /// label "Unmount All" — and a control that is absent is not a control that is
-    /// disabled. Showing it greyed out with a reason also answers the question a missing
-    /// button raises ("can this app even do that?") without the user having to select a
-    /// drive to find out.
-    /// ## The controls are PINNED OUTSIDE the scroll region, and that is a bug fix (2026-08-11)
-    ///
-    /// They used to sit inside it, below the device-identity block. Reported in real use: **"Run one
-    /// bounded cycle" stays disabled no matter what I do** — because its precondition is a held
-    /// device, holding one needs `Acquire exclusive access`, and at the window's own
-    /// `minHeight: 700` that button was **not on screen at all**. Measured, not inferred: rendered
-    /// at 640×700 the whole `Mounting & exclusive access` section is absent, and it appears at 760.
-    ///
-    /// **Raising `minHeight` would not have fixed it**, which is why this is a structural change
-    /// rather than a bigger constant. The identity block above grows with the drive — the number of
-    /// mounted volumes is unbounded, and the 4 TB T5 EVO carries three where the drive this was
-    /// measured against carries two. Any fixed height is a threshold some drive crosses, and the
-    /// constant that was already here (`minHeight: 700`, "measured … not guessed" in Step 9) is
-    /// itself an example: it was true when written and expired silently when Step 10 added the
-    /// mounted-volumes row and the readiness explanation to the pane above.
-    ///
-    /// This is the third time this project has paid for the same defect — a control below the fold
-    /// in a scroll region that does not advertise itself as scrollable. It cost Step 10 two of its
-    /// five rounds on this very pane, and `OutcomePresentation` exists because an error message did
-    /// the same thing. Increment 3 pinned the pre-run dialog's footer outside its `ScrollView` for
-    /// exactly this reason; this is that move, applied to the control the dialog gates.
+    /// The safety controls that used to be pinned below this are gone (increment 5). The run
+    /// controls that replace them live in `ContentView`, outside every scroll region — see that
+    /// file's header for why that placement is structural rather than a measured constant.
     private var detail: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) {
-                    if let device = discovery.selectedDevice {
-                        selectedDeviceIdentity(for: device)
-                    } else {
-                        Text(discovery.devices.isEmpty
-                             ? "Connect a drive to see its details here."
-                             : "No device is selected.")
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 10) {
+                if let device = discovery.selectedDevice {
+                    selectedDeviceIdentity(for: device)
+                } else {
+                    Text(discovery.devices.isEmpty
+                         ? "Connect a drive to see its details here."
+                         : "No device is selected.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
-
-            Divider()
-
-            safetySection(for: discovery.selectedDevice)
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
     @ViewBuilder
     private func selectedDeviceIdentity(for device: DiscoveredDevice) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-                // The selected device has to be unmistakable — this is the line that
-                // stands between the user and testing the wrong drive (NFR-USE-3).
-                HStack(spacing: 6) {
-                    // Decorative section marker, not a status — hidden so it is not read as one.
-                    Image(systemName: "checkmark.circle.fill")
-                        .accessibilityHidden(true)
-                    Text("Selected device")
-                        .font(.headline)
-                }
-
-                Text(device.displayTitle)
-                    .font(.title3.weight(.semibold))
-                    .textSelection(.enabled)
-
-                Grid(alignment: .leadingFirstTextBaseline,
-                     horizontalSpacing: 12,
-                     verticalSpacing: 6) {
-                    detailRow("Capacity", device.capacityDescription)
-                    detailRow("Exact size", device.exactCapacityDescription)
-                    detailRow("Geometry", device.geometryDescription)
-                    detailRow("Raw device", device.bsdName.rawDevicePath)
-                    detailRow("Serial number", device.serialDescription)
-                    if let medium = device.mediumType {
-                        detailRow("Medium", medium)
-                    }
-                    detailRow("Mounted volumes",
-                              device.mountedVolumesDescription ?? "None mounted")
-                }
-
-                if let problem = device.geometryProblem {
-                    Label(problem.description, systemImage: "xmark.octagon.fill")
-                        .font(.callout)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                // Advice, not a rule. The *rule* — that a run cannot start while volumes are
-                // mounted — is the helper's to state, and it does so in `readinessBanner` just
-                // below. This line used to say both, which meant the same refusal was written in
-                // two places from two sources: one computed here from IOKit's volume list, one
-                // answered by the process that actually enforces it (NFR-REL-7). Two statements of
-                // one fact are two things that can drift.
-                //
-                // **Unconditional since 2026-08-10** (user decision). It used to be drawn only when
-                // the drive had mounted volumes, which fitted the old wording — "testing a drive
-                // you are using is not advisable". That sentence was withdrawn as not necessarily
-                // true, and its replacement is about data loss, which a drive with nothing mounted
-                // has exactly as much of. Leaving the condition would have meant the one sentence
-                // that tells a user to back up appearing only on the drives already in use.
-                //
-                // The text is `PreRunWarningText.standingBackupAdvice`, not a literal here: it is
-                // the product's second place for "back up first" beside FR-WARN-1's full statement,
-                // and increment 2 exists because two copies of one message had already drifted.
-                Label(PreRunWarningText.standingBackupAdvice,
-                      systemImage: "exclamationmark.triangle.fill")
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // Moved here from the "Mounting & exclusive access" section (2026-08-05, user
-                // decision): whether this drive is ready **is** part of the drive's state, and
-                // having it in a second pane split one question across two headings while
-                // duplicating the mounted-volume fact shown above.
-                //
-                // It also fixes the stale-pane defect that prompted the merge. This banner now
-                // renders only inside `selectedDeviceIdentity(for:)`, which is called only with
-                // a device — so deselecting cannot leave a readiness answer on screen for a
-                // drive that is no longer named anywhere near it.
-                readinessBanner(for: device)
-
-                Text("""
-                     Block size and block count are as reported by IOKit. The helper \
-                     confirms them directly from the device before any run begins. The serial \
-                     number is the USB device's: an external enclosure keeps its own serial when \
-                     the drive inside it is swapped.
-                     """)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-
-    // MARK: - Safety: mount control and exclusive access (FR-SAFE-3/4/5/7)
-
-    @ViewBuilder
-    private func safetySection(for device: DiscoveredDevice?) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+            // The selected device has to be unmistakable — this is the line that
+            // stands between the user and testing the wrong drive (NFR-USE-3).
             HStack(spacing: 6) {
-                // Decorative section marker.
-                Image(systemName: "lock.shield")
+                // Decorative section marker, not a status — hidden so it is not read as one.
+                Image(systemName: "checkmark.circle.fill")
                     .accessibilityHidden(true)
-                Text("Mounting & exclusive access")
+                Text("Selected device")
                     .font(.headline)
             }
 
-            // The readiness banner moved into the Selected device pane on 2026-08-05. What is
-            // left here is only the controls that *act*, which is the split the merge was for:
-            // "what is this drive and is it ready" above, "do something to it" here.
+            Text(device.displayTitle)
+                .font(.title3.weight(.semibold))
+                .textSelection(.enabled)
+
+            Grid(alignment: .leadingFirstTextBaseline,
+                 horizontalSpacing: 12,
+                 verticalSpacing: 6) {
+                detailRow("Capacity", device.capacityDescription)
+                detailRow("Exact size", device.exactCapacityDescription)
+                detailRow("Geometry", device.geometryDescription)
+                detailRow("Raw device", device.bsdName.rawDevicePath)
+                detailRow("Serial number", device.serialDescription)
+                if let medium = device.mediumType {
+                    detailRow("Medium", medium)
+                }
+                detailRow("Mounted volumes",
+                          device.mountedVolumesDescription ?? "None mounted")
+            }
+
+            if let problem = device.geometryProblem {
+                Label(problem.description, systemImage: "xmark.octagon.fill")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            // Advice, not a rule. The *rule* — that a run cannot start while volumes are
+            // mounted — is the helper's to state, and it does so in `readinessBanner` just
+            // below. This line used to say both, which meant the same refusal was written in
+            // two places from two sources: one computed here from IOKit's volume list, one
+            // answered by the process that actually enforces it (NFR-REL-7). Two statements of
+            // one fact are two things that can drift.
             //
-            // These three controls are themselves scheduled for removal — user decision
-            // 2026-08-05, FR-SAFE-5 withdrawn and FR-SAFE-6 reversed. Step 11's Start owns
-            // unmount → acquire → run → release, with Step 14's warnings as the confirmation.
-            let control = mountControlState(for: device)
+            // **Unconditional since 2026-08-10** (user decision). It used to be drawn only when
+            // the drive had mounted volumes, which fitted the old wording — "testing a drive
+            // you are using is not advisable". That sentence was withdrawn as not necessarily
+            // true, and its replacement is about data loss, which a drive with nothing mounted
+            // has exactly as much of. Leaving the condition would have meant the one sentence
+            // that tells a user to back up appearing only on the drives already in use.
+            //
+            // The text is `PreRunWarningText.standingBackupAdvice`, not a literal here: it is
+            // the product's second place for "back up first" beside FR-WARN-1's full statement,
+            // and increment 2 exists because two copies of one message had already drifted.
+            Label(PreRunWarningText.standingBackupAdvice,
+                  systemImage: "exclamationmark.triangle.fill")
+                .font(.callout)
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(spacing: 10) {
-                // FR-SAFE-5: one control, whose label and action always agree. Both come
-                // from the same value, so the view cannot put them out of step.
-                Button(control.label) {
-                    if let device { performMountAction(control.direction, on: device) }
-                }
-                .disabled(!control.isEnabled)
-                .accessibilityLabel(control.accessibilityLabel)
+            // Moved here from the "Mounting & exclusive access" section (2026-08-05, user
+            // decision): whether this drive is ready **is** part of the drive's state, and
+            // having it in a second pane split one question across two headings while
+            // duplicating the mounted-volume fact shown above.
+            //
+            // It also fixes the stale-pane defect that prompted the merge. This banner now
+            // renders only inside `selectedDeviceIdentity(for:)`, which is called only with
+            // a device — so deselecting cannot leave a readiness answer on screen for a
+            // drive that is no longer named anywhere near it.
+            readinessBanner(for: device)
 
-                Spacer()
-
-                // Stand-in for Step 11's Start/Stop. The acquire is what actually decides
-                // whether a run could begin, and it is the only thing that can detect
-                // FR-SAFE-4(b) — so the gate for this step is driven from here until the
-                // run-control state machine exists.
-                Button("Acquire exclusive access") {
-                    if let device { acquire(device) }
-                }
-                .disabled(device == nil || accessOperationInFlight || helperHoldsDevice)
-
-                Button("Release") { release() }
-                    .disabled(accessOperationInFlight || !helperHoldsDevice)
-            }
-
-            // Dimming is not a message (NFR-USE-8) — a lesson from Step 4, where two
-            // disabled buttons were reported as missing entirely.
-            if let reason = control.disabledReason {
-                Label(reason, systemImage: "info.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let lastOutcome {
-                Label(lastOutcome.text,
-                      systemImage: lastOutcome.ok ? "checkmark.circle.fill"
-                                                  : "xmark.octagon.fill")
-                    .font(.callout)
-                    .textSelection(.enabled)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text("""
+                 Block size and block count are as reported by IOKit. The helper \
+                 confirms them directly from the device before any run begins. The serial \
+                 number is the USB device's: an external enclosure keeps its own serial when \
+                 the drive inside it is swapped.
+                 """)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     /// What the helper says about the given device, or why it could not be asked.
@@ -690,16 +472,10 @@ struct DeviceListView: View {
     /// - Parameter device: the drive this answer is about. Taking it as a parameter rather than
     ///   reading `discovery.selectedDevice` is what makes the no-selection case *unrepresentable*
     ///   rather than merely handled: there is no longer a code path that renders a readiness
-    ///   answer with nothing selected, so none can be left stale by a deselection. The previous
-    ///   `selectedDevice == nil` branch is gone with it — this is only ever called from
-    ///   `selectedDeviceIdentity(for:)`, which has a device by construction.
+    ///   answer with nothing selected, so none can be left stale by a deselection.
     @ViewBuilder
     private func readinessBanner(for device: DiscoveredDevice) -> some View {
         if let readinessError {
-            // "below" until Step 9 moved the diagnostics panel into its own window. An
-            // instruction that points somewhere the thing no longer is sends the user looking
-            // for a control that is not there — NFR-USE-5 asks for the corrective step, and a
-            // wrong one is worse than none.
             Label("""
                   The helper could not be asked whether this drive is ready: \
                   \(readinessError) Install and enable it in the Privileged Helper & \
@@ -709,9 +485,14 @@ struct DeviceListView: View {
                 .fixedSize(horizontal: false, vertical: true)
         } else if let readiness {
             VStack(alignment: .leading, spacing: 8) {
+                // **`readiness.helperHoldsThisDevice`, read directly.** It is a *per-device*
+                // answer, and this banner is rendered for exactly that device — which is the use
+                // it was always correct for. What was deleted in increment 5 is the model property
+                // it used to be copied into, because every *other* site read that copy as "the
+                // helper holds some device". The answer was never wrong; storing it was.
                 Label(readiness.message,
                       systemImage: readiness.needsFullDiskAccess ? "hand.raised.fill"
-                                 : helperHoldsDevice ? "lock.fill"
+                                 : readiness.helperHoldsThisDevice ? "lock.fill"
                                  : readiness.isReady ? "checkmark.shield"
                                                      : "exclamationmark.shield")
                     .font(.callout)
@@ -736,17 +517,6 @@ struct DeviceListView: View {
         }
     }
 
-    /// FR-SAFE-5/7, decided by pure logic in `MountControlPolicy` so the label, the
-    /// action and the enabled state are one decision rather than three conditionals.
-    private func mountControlState(for device: DiscoveredDevice?) -> MountControlState {
-        MountControlPolicy.state(
-            hasSelection: device != nil,
-            mountedVolumeCount: device?.mountedVolumeNames.count ?? 0,
-            isRunActive: discovery.isRunActive,
-            helperHoldsDevice: helperHoldsDevice,
-            isOperationInFlight: mountOperationInFlight)
-    }
-
     // MARK: - Actions
 
     private func refreshReadiness() {
@@ -763,126 +533,10 @@ struct DeviceListView: View {
             case .success(let value):
                 readiness = value
                 readinessError = nil
-                model.helperHoldsDevice = value.helperHoldsThisDevice
             case .failure(let error):
                 readiness = nil
                 readinessError = error.localizedDescription
             }
-        }
-    }
-
-    private func performMountAction(_ direction: MountControlDirection,
-                                    on device: DiscoveredDevice) {
-        mountOperationInFlight = true
-        clearOutcome("a mount or unmount was started")
-
-        let finish: (VolumeMountOutcome) -> Void = { outcome in
-            mountOperationInFlight = false
-            present(ok: outcome.isSuccess, outcome.message,
-                    from: direction == .unmountAll ? .unmount : .mount)
-            // The device list live-updates through the VolumeChangeWatcher, so the label
-            // re-evaluates itself; the readiness banner has to be asked again.
-            refreshReadiness()
-        }
-
-        switch direction {
-        case .unmountAll:
-            // **A failed unmount is undone** (user decision 2026-08-06). A whole-disk unmount
-            // dissents as a unit but leaves already-unmounted volumes unmounted, so a refusal by
-            // one busy volume otherwise strands the user with a half-dismounted drive — which is
-            // what happened, with the wrong drive selected.
-            //
-            // The sequencing is `VolumeMounter.restoringUnmount` rather than two nested calls
-            // here, because written here it was untestable: a mutation deleting the rollback
-            // outright was caught by nothing. `finish` runs once, at the end of whichever path
-            // was taken, so the control stays disabled through the remount.
-            // Captured before anything is unmounted: the restore puts back exactly these, and
-            // nothing else. EFI is absent from this list precisely because it was not mounted.
-            let before = Array(zip(device.mountedVolumeNames, device.mountedVolumeBSDNames))
-                .map { (name: $0.0, bsdName: $0.1) }
-
-            VolumeMounter.restoringUnmount(
-                unmount: { done in mounter.unmountAll(device, completion: done) },
-                mountedBefore: before,
-                // **The postcondition, read back** — `DADiskUnmount` can report success with a
-                // volume still mounted (measured 2026-08-06), which is why the first two versions
-                // of this were inert.
-                //
-                // Read from the **mount table alone**, not by re-enumerating. `before` already
-                // holds this device's volume nodes, from the enumerator's own IOKit subtree walk,
-                // so the attribution question is already answered and `getfsstat` is the whole
-                // remaining question. Calling `discovery.refresh()` here — as the first version
-                // did — rebuilds the device list underneath the `List` up to a dozen times during
-                // the settle, and a selection binding that round-trips fires
-                // `.onChange(of: selectedDeviceID)`, which clears `lastOutcome`. That would erase
-                // the very message this whole path exists to produce.
-                volumesStillMounted: {
-                    let mountedNodes = Set(MountTable.current().compactMap(\.bsdName))
-                    return before.filter { mountedNodes.contains($0.bsdName) }.map(\.name)
-                },
-                // 150 ms × 12 ≈ 1.8 s of grace for the table to catch up with the callback.
-                retry: { again in
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: again)
-                },
-                restore: { lost, done in mounter.mount(volumeBSDNames: lost, completion: done) },
-                completion: finish)
-
-        case .mountAll:
-            mounter.mountAll(device, completion: finish)
-        }
-    }
-
-    private func acquire(_ device: DiscoveredDevice) {
-        accessOperationInFlight = true
-        clearOutcome("an acquire was started")
-
-        helper.acquireDevice(bsdName: device.bsdName.rawValue) { result in
-            accessOperationInFlight = false
-            switch result {
-            case .success(let acquisition):
-                if case .acquired = acquisition {
-                    model.helperHoldsDevice = true
-                    // Identity captured at CLAIM time. The enumeration that produced it can
-                    // be gone by the time a report is written; the report is about the drive
-                    // the run touched, not whatever is present afterwards.
-                    model.heldDevice = ReportedDevice(device)
-                    present(ok: true, acquisition.message, from: .acquire)
-                } else {
-                    // A refusal is the *expected* outcome whenever a volume is mounted,
-                    // so it is reported as a refusal rather than as a malfunction — but
-                    // never as a success.
-                    present(ok: false, acquisition.message, from: .acquire)
-                }
-            case .failure(let error):
-                // No permissive reading: if the helper could not be reached, access was
-                // not granted. Unlike uninstall, there is nothing safe about proceeding.
-                present(ok: false, """
-                                   Exclusive access was NOT granted — the helper could not be \
-                                   reached: \(error.localizedDescription)
-                                   """, from: .acquire)
-            }
-            refreshReadiness()
-        }
-    }
-
-    private func release() {
-        accessOperationInFlight = true
-        clearOutcome("a release was started")
-
-        helper.releaseDevice { result in
-            accessOperationInFlight = false
-            model.helperHoldsDevice = false
-            // `lastRunDeviceName` and `lastRunDeviceSerial` are deliberately *not* cleared: the
-            // run they name happened, and its figures are still on screen.
-            model.heldDevice = nil
-            switch result {
-            case .success(let message):
-                present(ok: true, message
-                    + " macOS will normally remount the volumes shortly.", from: .release)
-            case .failure(let error):
-                present(ok: false, "Release failed: \(error.localizedDescription)", from: .release)
-            }
-            refreshReadiness()
         }
     }
 
@@ -906,10 +560,9 @@ struct DeviceListView: View {
 ///
 /// ## Why this reaches into AppKit at all
 ///
-/// The device list must not lose its selection while a run is active, because the helper's claim
-/// follows the selection and dropping it would release the drive under an active write. The
-/// *authoritative* guard for that is in `DeviceDiscovery.select`/`deselect`, which refuse outright
-/// and are unit-tested; this is only about the picture agreeing with the model.
+/// The device list must not lose its selection while a run is active. The *authoritative* guard for
+/// that is in `DeviceDiscovery.select`/`deselect`, which refuse outright and are unit-tested; this
+/// is only about the picture agreeing with the model.
 ///
 /// Three pure-SwiftUI attempts failed, each disproved by measurement rather than abandoned on a
 /// hunch (see the call site). The table changes its own selection before the binding is consulted,
@@ -923,9 +576,9 @@ struct DeviceListView: View {
 /// That SwiftUI's `List` is backed by an `NSTableView`. True on macOS 26; not contractual, and a
 /// future OS could change it.
 ///
-/// **It fails safe.** If no table is found, nothing is set and the behaviour degrades to exactly
-/// what shipped before this: a list that can *look* deselected during a run while the model holds
-/// firm. It cannot fail into releasing a device, because it is not what prevents that.
+/// **It fails safe.** If no table is found, nothing is set and the behaviour degrades to a list
+/// that can *look* deselected during a run while the model holds firm. It cannot fail into
+/// releasing a device, because it is not what prevents that.
 private struct TableSelectionPolicy: NSViewRepresentable {
 
     let allowsEmptySelection: Bool

@@ -75,11 +75,26 @@ nonisolated struct RunProgressSnapshot: Equatable {
     /// One past the last block reached (FR-METR-6).
     let currentBlock: UInt64
 
-    /// The device's read speed, or `nil` until a read has been timed (FR-METR-1).
-    let readBytesPerSecond: Double?
+    /// Bytes read per second of **wall clock** — the original read and the verify read together
+    /// — or `nil` until something has been read (FR-METR-1).
+    ///
+    /// Wall-clock, so it is directly comparable to Activity Monitor and to any other tool
+    /// watching the same drive. v11 sent a phase-isolated rate here instead, which was 53% higher
+    /// than what the user could see in another window and was reported as a defect on 2026-08-17.
+    let sustainedReadBytesPerSecond: Double?
 
-    /// The device's write speed, or `nil` until a write has been timed (FR-METR-1).
-    let writeBytesPerSecond: Double?
+    /// Bytes written per second of **wall clock**, or `nil` until something has been written
+    /// (FR-METR-1). v11's phase-isolated figure here read **3.4× high**.
+    let sustainedWriteBytesPerSecond: Double?
+
+    /// How fast the run is covering the drive, against the wall clock (FR-METR-5) — and the only
+    /// correct ETA denominator.
+    ///
+    /// Computed and unit-tested since Step 9 and logged every call, but not on the wire until
+    /// v12, so no screen could show it. Each covered byte is read, written and read again, so
+    /// ``sustainedReadBytesPerSecond`` runs at about 2 × this and
+    /// ``sustainedWriteBytesPerSecond`` at about 1 ×.
+    let coverageBytesPerSecond: Double?
 
     /// Remaining wall-clock from measured throughput, or `nil` until there is something to
     /// extrapolate from (FR-METR-5, NFR-PERF-6).
@@ -107,7 +122,8 @@ nonisolated struct RunProgressSnapshot: Equatable {
     /// Nothing has started.
     static let unavailable = RunProgressSnapshot(
         isAvailable: false, fractionComplete: 0, currentBlock: 0,
-        readBytesPerSecond: nil, writeBytesPerSecond: nil, estimatedRemaining: nil,
+        sustainedReadBytesPerSecond: nil, sustainedWriteBytesPerSecond: nil,
+        coverageBytesPerSecond: nil, estimatedRemaining: nil,
         readLatencySampleCount: 0, readLatencyMinimum: nil, readLatencyMaximum: nil,
         readLatencyP99UpperBound: nil, chunksFailed: 0)
 
@@ -121,8 +137,9 @@ nonisolated struct RunProgressSnapshot: Equatable {
     init(available: Bool,
          fractionComplete: Double,
          currentBlock: UInt64,
-         readBytesPerSecond: Double,
-         writeBytesPerSecond: Double,
+         sustainedReadBytesPerSecond: Double,
+         sustainedWriteBytesPerSecond: Double,
+         coverageBytesPerSecond: Double,
          estimatedRemainingSeconds: Double,
          readLatencySampleCount: UInt64,
          readLatencyMinimumNanoseconds: UInt64,
@@ -137,8 +154,9 @@ nonisolated struct RunProgressSnapshot: Equatable {
         self.isAvailable = available
         self.fractionComplete = Swift.min(Swift.max(fractionComplete, 0), 1)
         self.currentBlock = currentBlock
-        self.readBytesPerSecond = WireSentinel.rate(readBytesPerSecond)
-        self.writeBytesPerSecond = WireSentinel.rate(writeBytesPerSecond)
+        self.sustainedReadBytesPerSecond = WireSentinel.rate(sustainedReadBytesPerSecond)
+        self.sustainedWriteBytesPerSecond = WireSentinel.rate(sustainedWriteBytesPerSecond)
+        self.coverageBytesPerSecond = WireSentinel.rate(coverageBytesPerSecond)
         self.estimatedRemaining = WireSentinel.rate(estimatedRemainingSeconds)
         self.readLatencySampleCount = readLatencySampleCount
         self.readLatencyMinimum = latency(readLatencyMinimumNanoseconds)
@@ -151,8 +169,9 @@ nonisolated struct RunProgressSnapshot: Equatable {
     init(isAvailable: Bool,
          fractionComplete: Double,
          currentBlock: UInt64,
-         readBytesPerSecond: Double?,
-         writeBytesPerSecond: Double?,
+         sustainedReadBytesPerSecond: Double?,
+         sustainedWriteBytesPerSecond: Double?,
+         coverageBytesPerSecond: Double?,
          estimatedRemaining: TimeInterval?,
          readLatencySampleCount: UInt64,
          readLatencyMinimum: Duration?,
@@ -162,8 +181,9 @@ nonisolated struct RunProgressSnapshot: Equatable {
         self.isAvailable = isAvailable
         self.fractionComplete = fractionComplete
         self.currentBlock = currentBlock
-        self.readBytesPerSecond = readBytesPerSecond
-        self.writeBytesPerSecond = writeBytesPerSecond
+        self.sustainedReadBytesPerSecond = sustainedReadBytesPerSecond
+        self.sustainedWriteBytesPerSecond = sustainedWriteBytesPerSecond
+        self.coverageBytesPerSecond = coverageBytesPerSecond
         self.estimatedRemaining = estimatedRemaining
         self.readLatencySampleCount = readLatencySampleCount
         self.readLatencyMinimum = readLatencyMinimum

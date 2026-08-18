@@ -503,3 +503,82 @@ struct RunSessionMemoryTests {
         #expect(snapshot.chunksPlanned == 64)
     }
 }
+
+// MARK: - The denominator is stable, and a pause costs nothing (2026-08-18)
+
+/// **Both properties here were found missing by `metrics-check.sh`, not by a unit test**, and the
+/// reason is worth keeping: unit tests drove a deterministic clock and never asked the same run
+/// twice. The gate polls after a call's reply and compares, which is precisely the question no
+/// test was asking.
+///
+/// Two denominators were tried on hardware before this one. `now - start` made a finished run's
+/// throughput decay while nobody watched: on the first 1 GiB call the reply said 159.0 MB/s
+/// covering and a poll 1.31 s later said 133.2 — a 16% drop with no new work done.
+/// Device-plus-host fixed that and came within 1.35% (161.1), but it excludes the scheduling
+/// inside a call, which an outside observer counts.
+///
+/// What is left is wall clock less the gaps between calls: 158.8 MB/s, 0.11% from the call's own
+/// wall-clock rate, and free of the one span that is nobody's throughput.
+struct RunSessionStabilityTests {
+
+    /// Steps like `SteppingClock` so the engine measures real durations, but can also be jumped
+    /// forward by a lump — which is what a pause, or simply nobody polling for a minute, is.
+    private final class JumpableClock {
+        private var current: UInt64 = 0
+        private let step: UInt64
+        init(step: UInt64 = 1_000_000) { self.step = step }
+        func now() -> UInt64 { defer { current &+= step }; return current }
+        func jump(_ nanoseconds: UInt64) { current &+= nanoseconds }
+    }
+
+    /// Ask a finished run twice, an hour apart. It must answer the same thing.
+    @Test func aFinishedRunReportsTheSameRatesHoweverMuchLaterYouAsk() throws {
+        let clock = JumpableClock()
+        let device = try Session.device()
+        let session = Session.session(clock: clock.now)
+        try Session.call(device, blocks: 0 ..< Session.splitBlock, into: session, clock: clock.now)
+
+        let atTheReply = try #require(session.snapshot())
+        clock.jump(3_600 * 1_000_000_000)
+        let anHourLater = try #require(session.snapshot())
+
+        #expect(atTheReply.sustainedReadBytesPerSecond == anHourLater.sustainedReadBytesPerSecond)
+        #expect(atTheReply.sustainedWriteBytesPerSecond == anHourLater.sustainedWriteBytesPerSecond)
+        #expect(atTheReply.coverageBytesPerSecond == anHourLater.coverageBytesPerSecond)
+        #expect(atTheReply.estimatedRemainingNanoseconds == anHourLater.estimatedRemainingNanoseconds)
+        #expect(atTheReply.elapsedNanoseconds == anHourLater.elapsedNanoseconds,
+                "between calls the reading is frozen at the last call's end")
+    }
+
+    /// A pause between two calls must not change what the drive is reported to have achieved.
+    ///
+    /// FR-CTRL-3 lets a user pause for as long as they like. Charged to the denominator, half an
+    /// hour away from the keyboard would halve a healthy drive's reported throughput and inflate
+    /// its ETA to match — the run would look like it had degraded because somebody had lunch.
+    @Test func aPauseBetweenCallsChangesNeitherTheRateNorTheETA() throws {
+        let pause: UInt64 = 30 * 60 * 1_000_000_000
+        let device = try Session.device()
+
+        func rateAfterBothCalls(pausing: Bool) throws -> (Double, UInt64) {
+            let clock = JumpableClock()
+            let session = Session.session(clock: clock.now)
+            try Session.call(device, blocks: 0 ..< Session.splitBlock,
+                             into: session, clock: clock.now)
+            if pausing { clock.jump(pause) }
+            try Session.call(device, blocks: Session.splitBlock ..< Session.blocks,
+                             into: session, clock: clock.now)
+            let snapshot = try #require(session.snapshot())
+            return (try #require(snapshot.sustainedReadBytesPerSecond), snapshot.idleNanoseconds)
+        }
+
+        let (straightThrough, noIdle) = try rateAfterBothCalls(pausing: false)
+        let (withAPause, idle) = try rateAfterBothCalls(pausing: true)
+
+        #expect(withAPause == straightThrough,
+                "a pause changed the reported read rate: \(withAPause) vs \(straightThrough)")
+        // The pause is not lost — it is reported as time no call was running. Asserted so the
+        // expectation above cannot pass because the pause never happened.
+        #expect(idle >= pause, "the pause was not measured at all")
+        #expect(noIdle < pause, "the un-paused run should have next to no idle time")
+    }
+}

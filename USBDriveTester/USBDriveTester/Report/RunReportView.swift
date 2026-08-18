@@ -271,10 +271,12 @@ struct RunReportView: View {
     private func measurementRows(_ report: RunReport) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
-                labelled("Average read throughput",
-                         MetricsFormatting.throughput(report.readBytesPerSecond))
-                labelled("Average write throughput",
-                         MetricsFormatting.throughput(report.writeBytesPerSecond))
+                labelled("Read throughput",
+                         MetricsFormatting.throughput(report.sustainedReadBytesPerSecond))
+                labelled("Write throughput",
+                         MetricsFormatting.throughput(report.sustainedWriteBytesPerSecond))
+                labelled("Covering",
+                         MetricsFormatting.throughput(report.coverageBytesPerSecond))
                 if let linkSpeed = report.usbLinkSpeedDescription {
                     labelled("Negotiated USB link speed", linkSpeed)
                 }

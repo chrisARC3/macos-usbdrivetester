@@ -450,28 +450,6 @@ nonisolated final class VolumeMounter {
         }
     }
 
-    /// Mount every mountable volume of `device` (FR-SAFE-5).
-    func mountAll(_ device: DiscoveredDevice,
-                  completion: @escaping (VolumeMountOutcome) -> Void) {
-
-        // The one remaining whole-disk option, and it is correct here: the mount table cannot
-        // list the volumes that are NOT mounted, so this direction has nothing to enumerate and
-        // must let DiskArbitration work it out. See the file header for the asymmetry.
-        perform(on: device.bsdName.rawValue, verb: "mount", completion: completion) { disk, callback, context in
-            DADiskMount(disk, nil, DADiskMountOptions(kDADiskMountOptionWhole),
-                        callback, context)
-        } describeSuccess: {
-            // Deliberately does not claim anything was mounted. A device with nothing
-            // macOS can mount keeps the control enabled (decision 7) and has to report
-            // honestly rather than imply a result it did not produce.
-            "Asked macOS to mount every volume on \(device.bsdName). If nothing appears "
-          + "below, the drive has no volumes this Mac can mount — an unformatted drive, "
-          + "or a filesystem macOS does not read."
-        } describeFailure: { reason in
-            "Could not mount the volumes on \(device.bsdName): \(reason)"
-        }
-    }
-
     // MARK: - Plumbing
 
     /// Shared body of every direction: create a session, run the DiskArbitration call, and settle

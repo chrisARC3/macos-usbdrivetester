@@ -57,63 +57,205 @@ let appearanceName = CommandLine.arguments.count > 5 ? CommandLine.arguments[5] 
 // stayed; it is what settled the question.
 
 /// Wraps a view needing a `Binding` so it can be rendered standalone.
+///
+/// Step 11 increment 5 took the bounded-cycle control, the run-state stand-in and the pre-run
+/// dialog out of this panel, so the `deviceIsHeld` and `mayIssueNewWork` axes went with them —
+/// there is no longer a control here whose enabled state they decide. What is left that is worth
+/// rendering is the failure-mode picker (whose explanatory line changes with the selection), the
+/// way back from a suppressed warning, and the run-active state, where uninstall is refused.
 private struct DiagnosticsHost: View {
-    /// Rendered both ways: `held` shows the bounded-cycle control live, `false` shows the
-    /// disabled state and its corrective instruction — which is the state a user actually meets
-    /// first, and the one that was reported as "the button does nothing".
-    let deviceIsHeld: Bool
-    /// `false` renders the quit-pending refusal. Rendered because that state is only reachable in
-    /// the real app by starting a run and then asking to quit — and the corrective note is the
-    /// whole reason the disabled button is not simply a dead control.
-    var mayIssueNewWork = true
-    @State private var simulatedRunActive = false
-    // Step 9's bounded-cycle scaffolding reports run state and the negotiated link speed up to
-    // `ContentView`, so rendering this view standalone needs somewhere for them to go.
-    @State private var cycleIsRunning = false
-    @State private var linkSpeedCode = -1
+
+    /// `true` renders the uninstall refusal and the disabled mode picker — the state a user meets
+    /// while a run is going, and one that is otherwise reachable only by starting a real run.
+    var runIsActive = false
+
     /// Step 10's mode picker (FR-FAIL-1). Rendered in FR-FAIL-4's default position; the
     /// `diagnostics-stop-on-error` view is the same panel with the other one selected, because the
     /// explanatory line underneath changes with it and that line is the whole point of the
     /// control being a radio group rather than a checkbox.
     @State private var failureMode: FailureModeCode = .standard
+
     /// Applied on appear, because `@State` cannot be initialised from another stored property.
     var initialFailureMode: FailureModeCode = .standard
+
     /// Step 14's suppression flag. **Local `@State`, never the real store** — a render must not
     /// read or write the machine's actual preferences, and `diagnostics-warnings-suppressed`
     /// renders the restored-state control, which is otherwise reachable only by ticking a box in a
     /// sheet this probe cannot present.
     @State private var warningsSuppressed: Bool
-    init(deviceIsHeld: Bool,
-         mayIssueNewWork: Bool = true,
+
+    init(runIsActive: Bool = false,
          initialFailureMode: FailureModeCode = .standard,
          warningsSuppressed: Bool = false) {
-        self.deviceIsHeld = deviceIsHeld
-        self.mayIssueNewWork = mayIssueNewWork
+        self.runIsActive = runIsActive
         self.initialFailureMode = initialFailureMode
         _warningsSuppressed = State(initialValue: warningsSuppressed)
     }
+
     var body: some View {
-        HelperDiagnosticsView(simulatedRunActive: $simulatedRunActive,
-                              helper: HelperConnection(),
-                              cycleIsRunning: $cycleIsRunning,
-                              linkSpeedCode: $linkSpeedCode,
+        HelperDiagnosticsView(helper: HelperConnection(),
+                              runIsActive: runIsActive,
                               failureMode: $failureMode,
-                              warningsSuppressed: $warningsSuppressed,
-                              deviceIsHeld: deviceIsHeld,
-                              mayIssueNewWork: mayIssueNewWork,
-                              // So the pre-run dialog this panel raises has a drive to name.
-                              heldDevice: deviceIsHeld ? DiagnosticsHost.heldDevice : nil)
+                              warningsSuppressed: $warningsSuppressed)
             .frame(minWidth: 560, minHeight: 480)
             .onAppear { failureMode = initialFailureMode }
     }
+}
 
-    /// The drive the pre-run dialog would name. The scratch device, so a render shows the figures a
-    /// real run produces rather than placeholders.
-    static let heldDevice = ReportedDevice(modelDescription: "Samsung Portable SSD T5",
-                                           usbSerialNumber: "12345686DAA9",
-                                           bsdNameAtRunTime: "disk10",
-                                           capacityBytes: 1_000_204_886_016,
-                                           logicalBlockSize: 512)
+/// A run driven far enough to render, with no drive touched and no helper involved.
+///
+/// Every operation `RunController` performs is injected, so the probe reaches `running`, `paused`
+/// and `starting` through the **same transitions the app takes** rather than by assigning a state.
+/// That distinction is the same one `DeviceListHost` records: a render that poses as a state is
+/// indistinguishable from a render of it, right up until the pose is wrong.
+private enum ProbeRun {
+
+    /// The 4 TB T5 EVO fixture — three mounted volumes, so the identity block above the run
+    /// controls is as tall as it gets on this machine. That matters for the fold.
+    static let device = DeviceFixture.evo
+
+    static func model() -> AppModel {
+        let model = AppModel(suppressionStore: InMemoryPreRunWarningSuppression(),
+                             deviceSource: FixedDeviceSource(devices: [device]))
+        model.discovery.start()
+        model.runControl = RunController(
+            preconditions: { RunPreconditions(hasUsableSelection: true,
+                                              mayIssueNewWork: model.mayIssueNewWork) },
+            selectedDevice: { model.discovery.selectedDevice },
+            prepare: { _, done in
+                done(.ready(PreparedDeviceGeometry(logicalBlockSize: 512,
+                                                   deviceBlockCount: 7_814_037_168,
+                                                   usbLinkSpeedCode: 4)))
+            },
+            makeSequencer: { emit in ProbeSequencer(emit: emit) },
+            setRunControl: { _, done in done(.success(())) },
+            release: { done in done() },
+            ioSizeBytes: { TesterProtocol.defaultIOSizeBytes },
+            failureMode: { .standard },
+            onReport: { _ in })
+        return model
+    }
+
+    /// Press Start and answer the dialog — the two steps the UI takes.
+    static func start(_ model: AppModel) {
+        _ = model.runControl?.startRequested(warningsSuppressed: false)
+        model.runControl?.startAuthorised(
+            by: PreRunOutcome(issuesRun: true, persistsSuppression: false))
+    }
+
+    /// …and on to `paused`, which needs the helper's settle and not merely the request.
+    static func pause(_ model: AppModel) {
+        model.runControl?.pause()
+        ProbeSequencer.live?.emit(.pauseSettled(resumeBlock: 8_192))
+    }
+
+    /// The run came back, so the machine settles through `finishing` to `finished`.
+    static func finish(_ model: AppModel) {
+        ProbeSequencer.live?.emit(.runEnded(RunSequenceResult(outcome: .completed,
+                                                              finalReply: nil,
+                                                              ioSizesUsed: [],
+                                                              startBlock: 0,
+                                                              blockCount: 7_814_037_168)))
+    }
+}
+
+/// A sequencer that issues nothing and reports nothing until the probe says so.
+private final class ProbeSequencer: RunSequencing {
+    static var live: ProbeSequencer?
+    let emit: (RunSequencerEvent) -> Void
+    init(emit: @escaping (RunSequencerEvent) -> Void) {
+        self.emit = emit
+        ProbeSequencer.live = self
+    }
+    func start(logicalBlockSize: UInt32, deviceBlockCount: UInt64,
+               ioSizeBytes: Int, failureMode: FailureModeCode) -> Bool { true }
+    func resume() -> Bool { true }
+    func stop() -> Bool { true }
+}
+
+/// A device source that reports a fixed list, so a render does not depend on what is plugged in.
+private final class FixedDeviceSource: DeviceSource {
+    private let devices: [DiscoveredDevice]
+    init(devices: [DiscoveredDevice]) { self.devices = devices }
+    func enumerateDevices() -> [DiscoveredDevice] { devices }
+    func startObserving(onChange: @escaping () -> Void) {}
+    func stopObserving() {}
+}
+
+/// The fixture drive, as IOKit reports it.
+private enum DeviceFixture {
+    static let evo = DiscoveredDevice(
+        registryEntryID: 0x8000,
+        bsdName: BSDDeviceName("disk8"),
+        vendorName: "Samsung",
+        productName: "PSSD T5 EVO",
+        mediumType: "Solid State",
+        sizeBytes: 4_000_787_030_016,
+        logicalBlockSize: 512,
+        mountedVolumeNames: ["Vol_ExFAT", "Vol_APFS", "Vol_HFS"],
+        mountedVolumeBSDNames: ["disk8s2", "disk9s1", "disk8s4"],
+        usbSerialNumber: "00000S7CLNJ0WC02266P")
+}
+
+/// `ContentView` with the run controls in a given state.
+///
+/// Rendered per state because the controls, their disabled reasons and the status line all change
+/// together — and because this is where the "is anything below the fold?" question is answered.
+private struct RunStateHost: View {
+    enum Stage { case idle, starting, running, paused, noSelection, quitPending }
+    let stage: Stage
+    @State private var model = AppModel()
+
+    var body: some View {
+        ContentView().environment(model)
+            .onAppear { configure() }
+    }
+
+    private func configure() {
+        let live = ProbeRun.model()
+        live.terminateAction = {}
+        switch stage {
+        case .idle:
+            break
+        case .starting:
+            // The preparation is held open, so the drive is being unmounted for as long as the
+            // render lasts — the multi-second state a person would otherwise have to catch.
+            live.runControl = heldPreparationController(live)
+            ProbeRun.start(live)
+        case .running:
+            ProbeRun.start(live)
+        case .paused:
+            ProbeRun.start(live)
+            ProbeRun.pause(live)
+        case .noSelection:
+            live.discovery.deselect()
+        case .quitPending:
+            // **With no run in progress**, deliberately. During a run FR-CTRL-9's refusal is the
+            // more specific one and correctly wins, so the quit-pending sentence is never the one
+            // shown — a render of that state is indistinguishable from `content-running`. What is
+            // worth looking at is the state where the quit *is* the reason: the confirmation is up
+            // (in its own window, which this probe cannot capture) and Start is refused because of
+            // it. That refusal is the only thing on screen explaining why nothing can be started.
+            ProbeRun.start(live)
+            _ = live.quitRequested()
+            ProbeRun.finish(live)
+        }
+        model = live
+    }
+
+    /// A controller whose preparation never answers, so the machine stays in `starting`.
+    private func heldPreparationController(_ model: AppModel) -> RunController {
+        RunController(
+            preconditions: { RunPreconditions(hasUsableSelection: true, mayIssueNewWork: true) },
+            selectedDevice: { model.discovery.selectedDevice },
+            prepare: { _, _ in },
+            makeSequencer: { emit in ProbeSequencer(emit: emit) },
+            setRunControl: { _, done in done(.success(())) },
+            release: { done in done() },
+            ioSizeBytes: { TesterProtocol.defaultIOSizeBytes },
+            failureMode: { .standard },
+            onReport: { _ in })
+    }
 }
 
 /// `ContentView` with the app winding down toward a quit (user decision 2026-08-05).
@@ -132,15 +274,16 @@ private struct QuittingContentHost: View {
         ContentView().environment(model)
     }
 
-    /// Driven through the real sequence rather than assigned: ask, confirm, and leave a cycle in
-    /// flight so the model waits at exactly the point the banner describes. Reaching a state by
-    /// the route the user takes is the difference between rendering the app and rendering a pose.
+    /// Driven through the real sequence rather than assigned: start a run, ask, confirm, and leave
+    /// the run still coming back so the model waits at exactly the point the banner describes.
+    /// Reaching a state by the route the user takes is the difference between rendering the app and
+    /// rendering a pose.
     private static func windingDownModel() -> AppModel {
-        let model = AppModel()
+        let model = ProbeRun.model()
         model.terminateAction = {}        // belt and braces: a render must never quit the probe
-        model.cycleIsRunning = true       // a privileged call in flight, so the boundary is ahead
+        ProbeRun.start(model)             // → running, with a call outstanding
         _ = model.quitRequested()         // → the confirmation
-        model.cancelAndQuit()             // → winding down, waiting for that call to return
+        model.cancelAndQuit()             // → winding down, waiting for the run to settle
         return model
     }
 }
@@ -166,7 +309,6 @@ private struct EmptyDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: EmptyDeviceSource())
     var body: some View {
         DeviceListView(discovery: discovery, helper: HelperConnection())
-            .environment(AppModel())
             .onAppear { discovery.start() }
     }
 }
@@ -210,7 +352,6 @@ private struct DeviceListHost: View {
     @State private var discovery = DeviceDiscovery()
     var body: some View {
         DeviceListView(discovery: discovery, helper: HelperConnection())
-            .environment(AppModel())
             .onAppear { discovery.start() }
     }
 }
@@ -229,8 +370,13 @@ private struct MetricsHost: View {
                 available: true,
                 fractionComplete: 0.4237,
                 currentBlock: 1_953_525_168 / 2,
-                readBytesPerSecond: 492_870_060,
-                writeBytesPerSecond: 431_240_000,
+                // Measured figures, not invented ones: the 4 TB T5 EVO covers ~122.4 MB/s, and
+                // because every byte is read twice and written once that is ~244.8 read and
+                // ~122.4 write. Write sits a hair under covering, which is what this fixture's
+                // own three failed chunks would really do.
+                sustainedReadBytesPerSecond: 244_800_000,
+                sustainedWriteBytesPerSecond: 122_398_000,
+                coverageBytesPerSecond: 122_400_000,
                 estimatedRemainingSeconds: 10_620,
                 readLatencySampleCount: 101_004,
                 readLatencyMinimumNanoseconds: 8_100_000,
@@ -257,8 +403,9 @@ private struct MetricsIdleHost: View {
                 available: true,
                 fractionComplete: 0,
                 currentBlock: 0,
-                readBytesPerSecond: -1,             // the wire's "not measured yet"
-                writeBytesPerSecond: -1,
+                sustainedReadBytesPerSecond: -1,    // the wire's "not measured yet"
+                sustainedWriteBytesPerSecond: -1,
+                coverageBytesPerSecond: -1,
                 estimatedRemainingSeconds: -1,
                 readLatencySampleCount: 0,
                 readLatencyMinimumNanoseconds: 0,
@@ -295,8 +442,9 @@ private struct MetricsFinishedHost: View {
                 available: true,               // the helper still holds the finished run's figures
                 fractionComplete: 1,
                 currentBlock: 2_097_152,
-                readBytesPerSecond: 517_000_000,
-                writeBytesPerSecond: 491_000_000,
+                sustainedReadBytesPerSecond: 244_800_000,
+                sustainedWriteBytesPerSecond: 122_400_000,
+                coverageBytesPerSecond: 122_400_000,
                 estimatedRemainingSeconds: 0,
                 readLatencySampleCount: 256,
                 readLatencyMinimumNanoseconds: 1_100_000,
@@ -354,7 +502,13 @@ private struct RunReportHost: View {
                        mode: Int = 2,
                        bypass: Int = 1,
                        device: ReportedDevice = RunReportHost.device) -> RunReport {
-        let reply = RunCycleOutcome(didComplete: didComplete,
+        // **v10 replaced `didComplete` with an outcome code** (Step 11 increment 2) — FR-CTRL-2/4
+        // give a run four endings, so a boolean beside a separate "why" would be two statements of
+        // one fact. `didComplete` survives as a derived property, which is why `RunReport` needed
+        // no change; this call site did, and had not been touched since.
+        let reply = RunCycleOutcome(runOutcomeCode: (didComplete ? RunOutcomeCode.completed
+                                                                 : .stoppedOnFailure).rawValue,
+                                    interruptedAtBlock: 0,
                                     chunksProcessed: didComplete ? 256 : 2,
                                     failedRangeCount: rangeCount,
                                     failureSummary: "",
@@ -365,8 +519,9 @@ private struct RunReportHost: View {
                                     failureModeUsedCode: mode,
                                     failedRangesEncoded: encoded,
                                     failedBlockCount: blocks,
-                                    readBytesPerSecond: 517_000_000,
-                                    writeBytesPerSecond: 491_000_000,
+                                    sustainedReadBytesPerSecond: 244_800_000,
+                                    sustainedWriteBytesPerSecond: 122_400_000,
+                                    coverageBytesPerSecond: 122_400_000,
                                     readLatencySampleCount: 256,
                                     readLatencyMinimumNanoseconds: 1_100_000,
                                     readLatencyMaximumNanoseconds: 9_900_000,
@@ -483,7 +638,6 @@ private struct UnusableDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: UnusableDeviceSource())
     var body: some View {
         DeviceListView(discovery: discovery, helper: HelperConnection())
-            .environment(AppModel())
             .onAppear { discovery.start() }
     }
 }
@@ -493,7 +647,6 @@ private struct UnmountedDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: UnmountedDeviceSource())
     var body: some View {
         DeviceListView(discovery: discovery, helper: HelperConnection())
-            .environment(AppModel())
             .onAppear { discovery.start() }
     }
 }
@@ -547,27 +700,22 @@ private struct PreRunPromptHost: View {
 func makeRootView(_ name: String) -> NSView {
     switch name {
     case "diagnostics":
-        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: false))
-    case "diagnostics-held":
-        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true))
+        return NSHostingView(rootView: DiagnosticsHost())
+    case "diagnostics-run-active":
+        // Uninstall refused and the mode picker frozen. Replaces `diagnostics-held`, whose axis
+        // went with the bounded-cycle control in increment 5.
+        return NSHostingView(rootView: DiagnosticsHost(runIsActive: true))
     case "diagnostics-stop-on-error":
         // The same panel with FR-FAIL-2 selected. Worth its own render because the explanatory
         // line under the picker changes with the selection — it is what tells a user that everything past
         // the first failure is left **untested**, which is not the same as passed — and a control
         // whose only visible difference is which radio is filled would not need one.
-        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true,
-                                                       initialFailureMode: .stopOnFirstError))
+        return NSHostingView(rootView: DiagnosticsHost(initialFailureMode: .stopOnFirstError))
     case "diagnostics-warnings-suppressed":
         // The "Show pre-run warnings again" control with something to restore. Reaching this state
         // through the UI means ticking a checkbox in a sheet, and a sheet cannot be rendered — so
         // without this case the enabled half of the control could never be looked at.
-        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true,
-                                                       warningsSuppressed: true))
-    case "diagnostics-quitting":
-        // A device is held, so nothing else would disable the control: what this render checks is
-        // that the quit-pending refusal is the reason shown, and that it reads as one.
-        return NSHostingView(rootView: DiagnosticsHost(deviceIsHeld: true,
-                                                       mayIssueNewWork: false))
+        return NSHostingView(rootView: DiagnosticsHost(warningsSuppressed: true))
     case "content-quitting":
         return NSHostingView(rootView: QuittingContentHost())
     case "metrics":
@@ -588,7 +736,22 @@ func makeRootView(_ name: String) -> NSView {
         // started or this renders the no-devices state forever. See the note on the type.
         return NSHostingView(rootView: DeviceListHost())
     case "content":
-        return NSHostingView(rootView: ContentView().environment(AppModel()))
+        return NSHostingView(rootView: RunStateHost(stage: .idle))
+
+    // Step 11 increment 5. The run controls in every state they can be in, because the controls,
+    // their disabled reasons and the status line all change together — and because this is the
+    // render that answers "is anything below the fold?" for the controls that replaced the ones
+    // a user could not reach at the window's own minimum height.
+    case "content-starting":
+        return NSHostingView(rootView: RunStateHost(stage: .starting))
+    case "content-running":
+        return NSHostingView(rootView: RunStateHost(stage: .running))
+    case "content-paused":
+        return NSHostingView(rootView: RunStateHost(stage: .paused))
+    case "content-no-selection":
+        return NSHostingView(rootView: RunStateHost(stage: .noSelection))
+    case "content-quit-pending":
+        return NSHostingView(rootView: RunStateHost(stage: .quitPending))
 
     // Step 10. Every state the report window can be in.
     case "report":
@@ -645,8 +808,10 @@ func makeRootView(_ name: String) -> NSView {
 
     default:
         FileHandle.standardError.write(Data("""
-            ui-probe: unknown view '\(name)'; expected content, content-quitting, devices, \
-            diagnostics, diagnostics-held, diagnostics-quitting, diagnostics-stop-on-error, \
+            ui-probe: unknown view '\(name)'; expected content, content-quitting, \
+            content-starting, content-running, content-paused, content-no-selection, \
+            content-quit-pending, devices, \
+            diagnostics, diagnostics-run-active, diagnostics-stop-on-error, \
             empty, metrics, metrics-finished, metrics-idle, \
             report, report-empty, report-failures, report-qualified, report-stopped, \
             report-unidentified, devices-unmounted, diagnostics-warnings-suppressed, warnings, \

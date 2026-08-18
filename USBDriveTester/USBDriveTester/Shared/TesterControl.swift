@@ -302,10 +302,19 @@ import Foundation
     ///     a code-level inference — and on a healthy drive there is no failure to not-stop on, so
     ///     nothing would ever reveal it.
     ///
-    ///     **The final figures (FR-RPT-2/3)** — `readBytesPerSecond`, `writeBytesPerSecond`,
-    ///     `readLatencySampleCount`, and the three latency figures. **Cumulative over the whole
-    ///     run from v11**, and here rather than polled from ``runProgress(reply:)`` afterwards so
-    ///     that they belong to this run or do not exist.
+    ///     **The final figures (FR-RPT-2/3)** — `sustainedReadBytesPerSecond`,
+    ///     `sustainedWriteBytesPerSecond`, `coverageBytesPerSecond`, `readLatencySampleCount`,
+    ///     and the three latency figures. **Cumulative over the whole run from v11**, and here
+    ///     rather than polled from ``runProgress(reply:)`` afterwards so that they belong to this
+    ///     run or do not exist.
+    ///
+    ///     **All three rates divide by the wall clock, from v12.** The two that v11 carried
+    ///     divided by *phase* time — bytes read ÷ time spent reading — which made them
+    ///     incomparable to every other throughput figure on the machine and was reported as a
+    ///     defect the first time anybody checked (see `RunMetrics`). The phase rates still exist
+    ///     in Core and are still logged every call; they are simply not on this wire, because a
+    ///     wire field nothing displays is how `coverageBytesPerSecond` went a week without ever
+    ///     reaching a screen.
     ///
     ///     That property was v9's, and the mechanism behind it changed in v11 rather than
     ///     surviving. v9 read them from an observer installed *after* validation, so a refused
@@ -347,13 +356,14 @@ import Foundation
                                              Int,      // 11 failureModeUsedCode        (v9)
                                              String,   // 12 failedRangesEncoded        (v9)
                                              UInt64,   // 13 failedBlockCount           (v9)
-                                             Double,   // 14 readBytesPerSecond         (v9)
-                                             Double,   // 15 writeBytesPerSecond        (v9)
-                                             UInt64,   // 16 readLatencySampleCount     (v9)
-                                             UInt64,   // 17 readLatencyMinimumNs       (v9)
-                                             UInt64,   // 18 readLatencyMaximumNs       (v9)
-                                             UInt64,   // 19 readLatencyP99UpperBoundNs (v9)
-                                             String)   // 20 message
+                                             Double,   // 14 sustainedReadBytesPerSecond  (v12)
+                                             Double,   // 15 sustainedWriteBytesPerSecond (v12)
+                                             Double,   // 16 coverageBytesPerSecond       (v12)
+                                             UInt64,   // 17 readLatencySampleCount     (v9)
+                                             UInt64,   // 18 readLatencyMinimumNs       (v9)
+                                             UInt64,   // 19 readLatencyMaximumNs       (v9)
+                                             UInt64,   // 20 readLatencyP99UpperBoundNs (v9)
+                                             String)   // 21 message
                                             -> Void)
 
     /// Tell the helper what the run in flight should do at its next chunk boundary
@@ -430,15 +440,22 @@ import Foundation
     /// display at the end of one — and a caller that has not started a run has nothing to
     /// mistake them for.
     ///
-    /// - Parameter reply: `(available, fractionComplete, currentBlock, readBytesPerSecond,
-    ///   writeBytesPerSecond, estimatedRemainingSeconds, readLatencySampleCount,
-    ///   readLatencyMinimumNanoseconds, readLatencyMaximumNanoseconds,
-    ///   readLatencyP99UpperBoundNanoseconds, chunksFailed)`.
+    /// - Parameter reply: `(available, fractionComplete, currentBlock,
+    ///   sustainedReadBytesPerSecond, sustainedWriteBytesPerSecond, coverageBytesPerSecond,
+    ///   estimatedRemainingSeconds, readLatencySampleCount, readLatencyMinimumNanoseconds,
+    ///   readLatencyMaximumNanoseconds, readLatencyP99UpperBoundNanoseconds, chunksFailed)`.
     ///
     ///   `available` is `false` when no run has started since the daemon launched; every other
     ///   value is then meaningless and is zero.
     ///
-    ///   **The three `Double`s are `-1` when not yet known, never `0`.** A rate of zero means
+    ///   **The three rates all divide by the wall clock** (v12), which is what makes them
+    ///   comparable to Activity Monitor and to any other tool watching the same drive. Read
+    ///   counts the verify read as well as the original — both are reads, and the kernel counts
+    ///   both — so on a healthy drive read is about 2 × covering and write about 1 × covering.
+    ///   The phase-isolated rates v11 sent instead are still computed and logged by the helper;
+    ///   they are not sent, because nothing displays them.
+    ///
+    ///   **The four `Double`s are `-1` when not yet known, never `0`.** A rate of zero means
     ///   "stalled", which is a real and alarming condition; using it for "not measured yet"
     ///   would print an alarming number to mean nothing happened. `readLatencySampleCount` plays
     ///   the same role for the three latency figures, where `0` nanoseconds is a legitimate
@@ -453,7 +470,7 @@ import Foundation
     ///   indicates wear is the user's judgement, made against the manufacturer's advertised
     ///   sustained figure and the negotiated link speed — which the app already holds from
     ///   ``deviceProfile(reply:)``. This tool measures; it does not diagnose.
-    func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double,
+    func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double, Double,
                                        UInt64, UInt64, UInt64, UInt64, UInt64) -> Void)
 
     /// SHA-256 of a bounded range of the **held** device (Step 8, gate item 5).
@@ -947,6 +964,34 @@ public enum TesterProtocol {
     ///   `acquireDevice` opens the session and `releaseDevice` closes it. No lifecycle method was
     ///   added for it, which is the property Shape A was chosen for.
     ///
+    /// - **12** — Step 11 increment 6: **every throughput on this interface divides by the wall
+    ///   clock.** `readBytesPerSecond` and `writeBytesPerSecond` become
+    ///   `sustainedReadBytesPerSecond` and `sustainedWriteBytesPerSecond`, and both replies gain
+    ///   `coverageBytesPerSecond`. A **signature change on both replies** *and* a meaning change
+    ///   on two arguments, so the bump is doubly mandatory.
+    ///
+    ///   Reported by the user on 2026-08-17 as "our speed measurements are way off": against the
+    ///   4 TB T5 EVO the app claimed 375.8 MB/s read and 418.9 MB/s write while DriveSpeed and
+    ///   Activity Monitor — agreeing with each other exactly — showed about 245 and 122. Read was
+    ///   53% high; write was **3.4×** high.
+    ///
+    ///   Not a regression, and nothing was miscounted. v11's rates divided bytes by *phase* time,
+    ///   so "write speed" described the drive during the fraction of the run it was writing and
+    ///   omitted the rest. Every other tool divides by the wall clock, because that is the only
+    ///   denominator an outside observer has. We were answering a question nobody asked, in a
+    ///   field labelled as though we had answered theirs.
+    ///
+    ///   `coverageBytesPerSecond` was the one honest run-progress figure and it existed the whole
+    ///   time — computed, unit-tested, and logged every call since Step 9 — but it had never been
+    ///   put on the wire, so no screen could show it and no report could carry it. **That is the
+    ///   lesson worth keeping from this bump**: a measurement that is not on the wire does not
+    ///   exist as far as the user is concerned, however well tested it is.
+    ///
+    ///   Deriving the sustained rates app-side, to avoid a bump, was considered and rejected: a
+    ///   chunk that fails its read still advances `rangeBytesCovered` but contributes no
+    ///   `bytesRead`, so `2 × covered` breaks precisely on the failing drives this tool exists to
+    ///   find. The numbers must come from the side that counted the bytes.
+    ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
@@ -958,7 +1003,7 @@ public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 11
+    public static let version = 12
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

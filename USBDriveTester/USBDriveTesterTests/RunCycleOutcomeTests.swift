@@ -14,7 +14,7 @@
 //  Two things are done about it. `RunCycleOutcome.init` takes **labelled** parameters, so the
 //  untestable closure is a pass-through with each value's name beside it; and every test below
 //  uses values that are **distinguishable from one another**. A suite that decoded `1.0` into
-//  `readBytesPerSecond` and `1.0` into `writeBytesPerSecond` would pass with the two swapped,
+//  `sustainedReadBytesPerSecond` and `1.0` into `sustainedWriteBytesPerSecond` would pass with the two swapped,
 //  which is the same vacuity as comparing a buffer with itself.
 //
 //  The third thing is not here, because it cannot be: `scripts/metrics-check.sh` compares these
@@ -50,8 +50,9 @@ struct RunCycleOutcomeTests {
         failureModeUsedCode: Int = 2,
         failedRangesEncoded: String = "",
         failedBlockCount: UInt64 = 0,
-        readBytesPerSecond: Double = 517_000_000,
-        writeBytesPerSecond: Double = 491_000_000,
+        sustainedReadBytesPerSecond: Double = 517_000_000,
+        sustainedWriteBytesPerSecond: Double = 491_000_000,
+        coverageBytesPerSecond: Double = 245_000_000,
         readLatencySampleCount: UInt64 = 256,
         readLatencyMinimumNanoseconds: UInt64 = 1_100_000,
         readLatencyMaximumNanoseconds: UInt64 = 9_900_000,
@@ -70,8 +71,9 @@ struct RunCycleOutcomeTests {
                         failureModeUsedCode: failureModeUsedCode,
                         failedRangesEncoded: failedRangesEncoded,
                         failedBlockCount: failedBlockCount,
-                        readBytesPerSecond: readBytesPerSecond,
-                        writeBytesPerSecond: writeBytesPerSecond,
+                        sustainedReadBytesPerSecond: sustainedReadBytesPerSecond,
+                        sustainedWriteBytesPerSecond: sustainedWriteBytesPerSecond,
+                        coverageBytesPerSecond: coverageBytesPerSecond,
                         readLatencySampleCount: readLatencySampleCount,
                         readLatencyMinimumNanoseconds: readLatencyMinimumNanoseconds,
                         readLatencyMaximumNanoseconds: readLatencyMaximumNanoseconds,
@@ -95,8 +97,9 @@ struct RunCycleOutcomeTests {
         #expect(result.bufferBytesHeld == 8 << 20)
         #expect(result.hostOverheadFraction == 0.0255)
         #expect(result.helperCoreFraction == 0.0422)
-        #expect(result.readBytesPerSecond == 517_000_000)
-        #expect(result.writeBytesPerSecond == 491_000_000)
+        #expect(result.sustainedReadBytesPerSecond == 517_000_000)
+        #expect(result.sustainedWriteBytesPerSecond == 491_000_000)
+        #expect(result.coverageBytesPerSecond == 245_000_000)
         #expect(result.readLatencySampleCount == 256)
         #expect(result.readLatencyMinimum == .nanoseconds(1_100_000))
         #expect(result.readLatencyMaximum == .nanoseconds(9_900_000))
@@ -104,13 +107,20 @@ struct RunCycleOutcomeTests {
         #expect(result.message == "Cycle completed")
     }
 
-    /// The two rates are the pair most likely to be swapped and least likely to be noticed: both
-    /// `Double`, adjacent, and plausible in either slot. Stated on its own so the failure message
+    /// The rates are the group most likely to be transposed and least likely to be noticed: all
+    /// `Double`, adjacent, and plausible in any slot. Stated on its own so the failure message
     /// names the hazard.
-    @Test func theTwoThroughputRatesAreNotInterchangeable() {
-        let result = Self.outcome(readBytesPerSecond: 100, writeBytesPerSecond: 200)
-        #expect(result.readBytesPerSecond == 100, "read rate took the write rate's value")
-        #expect(result.writeBytesPerSecond == 200, "write rate took the read rate's value")
+    ///
+    /// **Three of them from v12**, and the third is the one a transposition would hide best: on a
+    /// healthy drive covering really is about half the read rate, so a reader seeing them swapped
+    /// would see two numbers that still look roughly right.
+    @Test func theThreeThroughputRatesAreNotInterchangeable() {
+        let result = Self.outcome(sustainedReadBytesPerSecond: 100,
+                                  sustainedWriteBytesPerSecond: 200,
+                                  coverageBytesPerSecond: 300)
+        #expect(result.sustainedReadBytesPerSecond == 100, "read rate took another rate's value")
+        #expect(result.sustainedWriteBytesPerSecond == 200, "write rate took another rate's value")
+        #expect(result.coverageBytesPerSecond == 300, "covering took another rate's value")
     }
 
     /// Likewise the three latency figures, which are adjacent `UInt64`s carrying the same unit.
@@ -138,19 +148,24 @@ struct RunCycleOutcomeTests {
     @Test func unmeasuredRatesBecomeNilRatherThanNegativeNumbers() {
         let result = Self.outcome(hostOverheadFraction: -1,
                                   helperCoreFraction: -1,
-                                  readBytesPerSecond: -1,
-                                  writeBytesPerSecond: -1)
-        #expect(result.readBytesPerSecond == nil)
-        #expect(result.writeBytesPerSecond == nil)
+                                  sustainedReadBytesPerSecond: -1,
+                                  sustainedWriteBytesPerSecond: -1,
+                                  coverageBytesPerSecond: -1)
+        #expect(result.sustainedReadBytesPerSecond == nil)
+        #expect(result.sustainedWriteBytesPerSecond == nil)
+        #expect(result.coverageBytesPerSecond == nil)
         #expect(result.hostOverheadFraction == nil)
         #expect(result.helperCoreFraction == nil)
     }
 
     /// A rate of zero is a **measurement** — the drive stalled — and must survive as one.
     @Test func aZeroRateIsAMeasurementAndNotASentinel() {
-        let result = Self.outcome(readBytesPerSecond: 0, writeBytesPerSecond: 0)
-        #expect(result.readBytesPerSecond == 0)
-        #expect(result.writeBytesPerSecond == 0)
+        let result = Self.outcome(sustainedReadBytesPerSecond: 0,
+                                  sustainedWriteBytesPerSecond: 0,
+                                  coverageBytesPerSecond: 0)
+        #expect(result.sustainedReadBytesPerSecond == 0)
+        #expect(result.sustainedWriteBytesPerSecond == 0)
+        #expect(result.coverageBytesPerSecond == 0)
     }
 
     /// A sample count of `0` is what makes the latency figures meaningless — not their value,
@@ -173,9 +188,12 @@ struct RunCycleOutcomeTests {
 
     /// A non-finite rate must not reach a formatter — "nan MB/s" and "inf MB/s" both read as data.
     @Test func nonFiniteRatesAreRefused() {
-        let result = Self.outcome(readBytesPerSecond: .nan, writeBytesPerSecond: .infinity)
-        #expect(result.readBytesPerSecond == nil)
-        #expect(result.writeBytesPerSecond == nil)
+        let result = Self.outcome(sustainedReadBytesPerSecond: .nan,
+                                  sustainedWriteBytesPerSecond: .infinity,
+                                  coverageBytesPerSecond: -.infinity)
+        #expect(result.sustainedReadBytesPerSecond == nil)
+        #expect(result.sustainedWriteBytesPerSecond == nil)
+        #expect(result.coverageBytesPerSecond == nil)
     }
 
     /// Both replies carrying these figures — `runProgress` for the live run and
@@ -185,22 +203,29 @@ struct RunCycleOutcomeTests {
     @Test func theCycleAndTheProgressReplyAgreeOnEverySentinel() {
         for value in [-1.0, 0.0, 517_000_000.0, Double.nan, .infinity, -0.5] {
             let live = RunProgressSnapshot(available: true, fractionComplete: 1, currentBlock: 0,
-                                           readBytesPerSecond: value, writeBytesPerSecond: value,
+                                           sustainedReadBytesPerSecond: value,
+                                           sustainedWriteBytesPerSecond: value,
+                                           coverageBytesPerSecond: value,
                                            estimatedRemainingSeconds: -1,
                                            readLatencySampleCount: 1,
                                            readLatencyMinimumNanoseconds: 5,
                                            readLatencyMaximumNanoseconds: 5,
                                            readLatencyP99UpperBoundNanoseconds: 5,
                                            chunksFailed: 0)
-            let finished = Self.outcome(readBytesPerSecond: value, writeBytesPerSecond: value)
-            #expect(live.readBytesPerSecond == finished.readBytesPerSecond,
+            let finished = Self.outcome(sustainedReadBytesPerSecond: value,
+                                        sustainedWriteBytesPerSecond: value,
+                                        coverageBytesPerSecond: value)
+            #expect(live.sustainedReadBytesPerSecond == finished.sustainedReadBytesPerSecond,
                     "the two replies disagree about \(value)")
-            #expect(live.writeBytesPerSecond == finished.writeBytesPerSecond)
+            #expect(live.sustainedWriteBytesPerSecond == finished.sustainedWriteBytesPerSecond)
+            #expect(live.coverageBytesPerSecond == finished.coverageBytesPerSecond)
         }
 
         for samples in [UInt64(0), 1, 999] {
             let live = RunProgressSnapshot(available: true, fractionComplete: 1, currentBlock: 0,
-                                           readBytesPerSecond: 1, writeBytesPerSecond: 1,
+                                           sustainedReadBytesPerSecond: 1,
+                                           sustainedWriteBytesPerSecond: 1,
+                                           coverageBytesPerSecond: 1,
                                            estimatedRemainingSeconds: -1,
                                            readLatencySampleCount: samples,
                                            readLatencyMinimumNanoseconds: 7,
@@ -309,8 +334,9 @@ struct RunCycleOutcomeTests {
                                    failureModeUsedCode: 0,
                                    failedRangesEncoded: "",
                                    failedBlockCount: 0,
-                                   readBytesPerSecond: -1,
-                                   writeBytesPerSecond: -1,
+                                   sustainedReadBytesPerSecond: -1,
+                                   sustainedWriteBytesPerSecond: -1,
+                                   coverageBytesPerSecond: -1,
                                    readLatencySampleCount: 0,
                                    readLatencyMinimumNanoseconds: 0,
                                    readLatencyMaximumNanoseconds: 0,
@@ -322,8 +348,8 @@ struct RunCycleOutcomeTests {
         #expect(refused.failureModeUsed == .unrecognised)
         #expect(refused.failedRanges == [])
         #expect(refused.failedBlockCount == 0)
-        #expect(refused.readBytesPerSecond == nil)
-        #expect(refused.writeBytesPerSecond == nil)
+        #expect(refused.sustainedReadBytesPerSecond == nil)
+        #expect(refused.sustainedWriteBytesPerSecond == nil)
         #expect(refused.readLatencySampleCount == 0)
         #expect(refused.readLatencyMinimum == nil)
         #expect(refused.readLatencyMaximum == nil)
@@ -355,8 +381,14 @@ struct ProtocolVersionTests {
     /// This test failing is the **intended** consequence of a protocol change, not an obstacle to
     /// one: it is here so that neither a signature edit nor a change to what an argument *means*
     /// can land without somebody deciding, in a diff, that the version should move with it.
-    @Test func theProtocolVersionIsEleven() {
-        #expect(TesterProtocol.version == 11)
+    ///
+    /// v12 is the throughput denominators: `readBytesPerSecond` and `writeBytesPerSecond` became
+    /// `sustainedReadBytesPerSecond` and `sustainedWriteBytesPerSecond`, both replies gained
+    /// `coverageBytesPerSecond`, and all three now divide by the wall clock. A signature change
+    /// *and* a meaning change — this test is what made the bump a decision rather than an
+    /// oversight.
+    @Test func theProtocolVersionIsTwelve() {
+        #expect(TesterProtocol.version == 12)
     }
 
     /// **The cap is unchanged by v10, and that is a measurement pending rather than a decision

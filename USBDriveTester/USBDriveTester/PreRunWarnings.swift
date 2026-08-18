@@ -41,16 +41,16 @@
 //
 //  ## What this deliberately does NOT own
 //
-//  Whether a run is permitted *at all* — a device being held, a call already in flight, a cycle
-//  already running. Those already gate the control that issues work, and a second copy of them here
-//  would be a second source of truth for one fact. That is precisely the defect BUILD-PLAN Step 11
-//  is documented as deleting rather than fixing: `AppModel.helperHoldsDevice` is written from a
-//  *per-device* answer and read everywhere as *some device*, and the two can disagree.
+//  Whether a run is permitted *at all* — a drive selected, a run already in progress. Those already
+//  gate the control that issues work (`RunControlPolicy`), and a second copy of them here would be
+//  a second source of truth for one fact. That is precisely the defect Step 11 increment 5 deleted
+//  rather than fixed: `AppModel.helperHoldsDevice` was written from a *per-device* answer and read
+//  everywhere as *some device*, and the two could disagree.
 //
 //  The **one** precondition this type does re-check is ``AppModel/mayIssueNewWork``, and only
 //  because it is the one that can change *while the sheet is up*: the quit confirmation is
-//  window-modal on the main window, so the diagnostics window — where this sheet is raised until
-//  Step 11 builds Start — stays clickable underneath it (measured, Step 9 increment 4). Step 11's
+//  window-modal on the main window, and the sheet can sit unanswered for far longer than the run it
+//  is asking about (measured, Step 9 increment 4). Step 11's
 //  inherited note is explicit that `mayIssueNewWork` is "a precondition, not a hint" to be checked
 //  **before every call issued**. Checking it at the moment the sheet was *raised* is not that.
 //
@@ -199,19 +199,6 @@ nonisolated enum PreRunWarningLog {
                           """)
     }
 
-    /// The gate could not name the drive it was about to warn for.
-    ///
-    /// Reachable only if the app believes a device is held while holding no record of which — the
-    /// `helperHoldsDevice` per-device/any-device ambiguity BUILD-PLAN Step 11 is documented as
-    /// deleting. The dialog still appears, naming what it can and admitting what it cannot, because
-    /// refusing silently would be a button that does nothing. Logged so the inconsistency is
-    /// visible rather than absorbed by a fallback that reads as normal.
-    static func promptRaisedForAnUnnamedDrive() {
-        warningLog.error("""
-                         pre-run prompt raised with no held-device record — the app believes a \
-                         device is held but cannot say which
-                         """)
-    }
 }
 
 // MARK: - Where the suppression lives

@@ -266,7 +266,7 @@ func performRun(ioSizeBytes: Int, pauseAfter: Double?) -> (report: RunOutcomeRep
         ioSizeBytes: ioSizeBytes,
         failureModeCode: FailureModeCode.logAndContinue.rawValue
     ) { runOutcomeCode, interruptedAtBlock, chunksProcessed, _, _,
-        _, _, _, _, _, _, _, _, _, _, _, _, _, _, message in
+        _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, message in
         report.repliedAt = nowNanoseconds()
         report.outcomeCode = runOutcomeCode
         report.interruptedAtBlock = interruptedAtBlock
