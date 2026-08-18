@@ -16,7 +16,7 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Scoped 2026-08-12; no code written yet
+## Step 11 — IN PROGRESS. Increments 1–5 written; 6 and 7 remain
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
@@ -110,8 +110,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **2 ✅** | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**, then the pre-flight. **No Xcode tick was needed** and the cap sweep was deferred — both differ from what this row predicted; see below. | **done 2026-08-12** — see below |
 | **3 ✅** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device. Protocol **v11**, which this row did not predict — nine reply arguments changed meaning. Two gate clients had to be rebuilt before the gate could run at all. | **done 2026-08-14** — see below |
 | **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
-| **5 ← NEXT** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | renders + the **nine-item human checklist** + the 4 TB T5 EVO fixture |
-| 6 | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. **Now also carries FR-CTRL-8's amendment** — a size change ends the run (decision 2026-08-14, below) | renders + unit |
+| **5 ⚠️** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **code done 2026-08-18 `1a10438`, GATE NOT PASSED** — the checklist was begun and stopped part way, numerous problems found and not yet enumerated |
+| 6 ← NEXT | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. **Now also carries FR-CTRL-8's amendment** — a size change ends the run (decision 2026-08-14, below) | renders + unit |
 | 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
 ### Increment 1 — done 2026-08-12, `c89ed5c`
@@ -394,6 +394,83 @@ third rejection ground, which lapsed with that amendment; and `RunReport.ioSizes
   simply be wrong, because percentiles do not compose. The two reply fields that are still *per
   call* and that a sequencer legitimately branches on are `runOutcomeCode` / `interruptedAtBlock`
   and `bufferBytesHeld`.
+
+### Unplanned, between increments 5 and 6 — the throughput denominator, protocol v12. 2026-08-18, `1a10438`
+
+**Not a planned increment.** A bug report interrupted increment 5's gate: *"our speed measurements
+are way off. Reported read speeds are about 50% above actual and reported write speeds are over 3x
+above actual."* Against the 4 TB T5 EVO the app claimed 375.8 MB/s read and 418.9 write where
+DriveSpeed and Activity Monitor — agreeing exactly — showed about 245 and 122.
+
+Not a regression and nothing miscounted. The rates divided by **phase** time, so "write speed"
+described the drive during the ~29% of the run it was writing. Every other tool divides by the wall
+clock, because that is the only denominator an outside observer has.
+
+**`coverageBytesPerSecond` had existed since Step 9** — computed, unit-tested, logged every call —
+and had never been put on the wire, so no screen could show it. *A measurement that is not on the
+wire does not exist as far as the user is concerned, however well tested it is.*
+
+| | |
+|---|---|
+| **Verified** | **959 tests, 0 failures, 122 suites** |
+| **Warnings** | zero from source across three clean builds. SwiftCompile Debug 83 / Release 2 / test 162 |
+| **Helper** | **hash moved to `a36c4f77…5a40`** (helper + `Shared`, `find … -name '*.swift' \| sort \| xargs cat \| shasum -a 256`). Step 10's three gates no longer apply; `metrics-check.sh` was re-run and passes, the other two are owed |
+| **Gate** | `metrics-check.sh` **120 PASS / 0 FAIL** on hardware |
+| **Mutations** | **10 introduced, 9 caught, 1 survived — predicted** (the panel row, whose only cover is a render) |
+
+**THREE DENOMINATORS, TWO REFUTED ON HARDWARE.** The gate is what refuted them, and no unit test
+could have: unit tests drive a deterministic clock and never ask the same run twice.
+
+| denominator | call 1 covering | vs. the reply's own wall clock |
+|---|---|---|
+| `now - start`, at the reply | 159.0 MB/s | — |
+| `now - start`, at a later poll | 133.2 MB/s | **-16.2%** ← the defect |
+| device + host overhead | 161.1 MB/s | +1.35% |
+| **wall clock − gaps between calls** | 158.8 MB/s | **-0.11%** ← shipped |
+
+`now - start` kept growing after a call ended, so a finished run's throughput **decayed on screen**
+and a reply disagreed with a poll 1.31 s later. Device-plus-host fixed that but excluded scheduling
+*inside* a call that an outside observer counts. What shipped subtracts exactly one span: time
+between calls — which is where a **pause** lives (FR-CTRL-3), and the only interval in which the
+drive does nothing on the run's behalf.
+
+**A correction worth keeping.** 133.2 was briefly treated as a "wall clock baseline" and it is not
+— it is the broken poll. That made device-plus-host look 19% high when it was 1.35% high, and drove
+one whole design iteration on a misreading. The table above is in the source for that reason.
+
+**Two findings from the tooling, both pre-existing:**
+
+- **`tools/nocache-probe` had not compiled since Step 9** (`c6ec234`, 2026-08-06) — a `//` at column
+  zero *inside* a multi-line string literal, so not a comment but string content indented less than
+  the closing delimiter. Same shape as `ui-probe`'s three-increment breakage. Found by the new
+  `scripts/build-tools.sh`, which type-checks all 13 gate clients against the current protocol in
+  seconds. **That script exists because this trap has now bitten three times.**
+- **`install-app.sh` does not reload the running daemon**, and two of four gate runs measured stale
+  code while returning entirely plausible numbers. The version handshake cannot catch it — v12 is
+  v12 either way. The script now compares the daemon's start time against the binary's and prints
+  the `launchctl kickstart` command.
+
+**Mutation M3 survived UNpredicted:** `idleNanoseconds = ` versus `&+=` is indistinguishable when a
+run has only one gap, and the pause test used two calls. A whole-device run is ~1,000 calls, so a
+user pausing twice would have had the first pause charged to the drive. Now killed by
+`idleAccumulatesAcrossEveryGapAndNotJustTheLast`.
+
+**A `/verify` pass found the exported report contradicting itself** about its own denominator —
+"the time the run spent working" in one paragraph, "against the wall clock" in the next. Visible
+only in the rendered artefact; the source read fine either side. Fixed.
+
+**For the docs pass (increment 7):**
+
+- **The helper source hash recipe is written down nowhere.** Eight derivations were tried and none
+  reproduced `b804178d…`. A token that gates whether three hardware gates still apply, and that
+  nobody can recompute, is not a check. The recipe is now stated wherever the new hash appears.
+- **The render harness pins appearance but not accent or activation.** The progress bar's fill
+  measured `#3e99fd` and then `#bdbdbd` across two runs on the same day with nothing in the diff
+  touching it — ambient machine state leaking into an offscreen render. Same family as the
+  2026-08-10 appearance bug that block was written to fix, incompletely closed. Render-to-render
+  **colour** comparisons are not currently trustworthy.
+
+**Full account: commit `1a10438`.**
 
 ---
 

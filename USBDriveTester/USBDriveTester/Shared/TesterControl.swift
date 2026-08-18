@@ -964,8 +964,12 @@ public enum TesterProtocol {
     ///   `acquireDevice` opens the session and `releaseDevice` closes it. No lifecycle method was
     ///   added for it, which is the property Shape A was chosen for.
     ///
-    /// - **12** — Step 11 increment 6: **every throughput on this interface divides by the wall
-    ///   clock.** `readBytesPerSecond` and `writeBytesPerSecond` become
+    /// - **12** — Step 11, between increments 5 and 6 (an unplanned fix, not a planned
+    ///   increment): **every throughput on this interface divides by the run's RUNNING time** —
+    ///   wall clock less the gaps between calls, which is where a pause lives. See
+    ///   `MetricsSnapshot.runningNanoseconds` for why it is not the raw wall clock and not
+    ///   device-plus-host either; both were tried and refuted on hardware.
+    ///   `readBytesPerSecond` and `writeBytesPerSecond` become
     ///   `sustainedReadBytesPerSecond` and `sustainedWriteBytesPerSecond`, and both replies gain
     ///   `coverageBytesPerSecond`. A **signature change on both replies** *and* a meaning change
     ///   on two arguments, so the bump is doubly mandatory.

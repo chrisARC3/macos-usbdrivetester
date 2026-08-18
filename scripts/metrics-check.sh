@@ -257,7 +257,8 @@ if [[ "$HELPER_PROTOCOL" == "$EXPECTED_PROTOCOL" && -n "$HELPER_PROTOCOL" ]]; th
     check pass "the running daemon implements protocol v${HELPER_PROTOCOL}"
 else
     check fail "protocol mismatch: daemon v${HELPER_PROTOCOL:-<none>}, expected v${EXPECTED_PROTOCOL:-?}"
-    echo "        v12 (Step 11 increment 6) reshaped BOTH replies: the two throughput arguments" >&2
+    echo "        v12 (Step 11, between increments 5 and 6) reshaped BOTH replies: the two" >&2
+    echo "        throughput arguments" >&2
     echo "        became wall-clock figures under new names, and coverageBytesPerSecond was added." >&2
     echo "        A v11 daemon sends twenty arguments where this expects twenty-one, so the decode" >&2
     echo "        fails outright — the loud failure. v11 before it was the quiet kind: it changed" >&2
