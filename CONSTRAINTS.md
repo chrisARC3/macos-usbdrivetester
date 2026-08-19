@@ -286,10 +286,22 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   **2,876 pt** when asked for 460. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
-- **24 view cases, and three of them render a state this machine cannot produce** — `empty` (no
+- **28 view cases, and three of them render a state this machine cannot produce** — `empty` (no
   drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
   drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
   the last was added in Step 14 for a row that had never been rendered in either appearance.
+- **A render cannot see the live metrics panel, the report body, or sheet modality — and all three
+  hid a defect on 2026-08-18.** The panel polls a real helper, so offscreen it always shows the
+  unavailable state whatever the run state is; the report body sits in a scroll region, so a render
+  stops at `## Measurements`; and a window-modal sheet answers ⌘Q before `QuitPolicy` is consulted,
+  so the policy's truth table is not what decides. **An acceptance criterion derived from model
+  code alone is a guess about the presentation layer** — 6.1 of the human checklist was predicted
+  from `QuitPolicy` and was wrong for exactly that reason. These are the checklist's territory, not
+  the harness's; see `progress/step-11-human-checklist.md`.
+- **`tools/ui-probe` is a gate client and belongs in the list rebuilt after a protocol bump.** It
+  went uncompilable for three increments because v10 → v11 rebuilt `metrics-probe` and
+  `mount-guard-client` and not it. `scripts/build-tools.sh` now type-checks all 13 in seconds, and
+  found `tools/nocache-probe` broken since Step 9 on its first run.
 - **Dynamic Type is NOT checkable here, and the axis that would have checked it was built and then
   deleted.** `.dynamicTypeSize` applied to an offscreen `NSHostingView` changes nothing on macOS —
   measured, and discriminated with two controls before it was believed. Confirmed independently at

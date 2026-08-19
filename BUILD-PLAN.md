@@ -13,7 +13,7 @@ Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Di
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
 
-> **The step in progress is Step 11, and the protocol is v11.** Anything below that names an
+> **The step in progress is Step 11 (increments 1–5 done), and the protocol is v12.** Anything below that names an
 > earlier protocol version is a dated record of what was true when it was written — the inherited
 > notes on Steps 11 and 12 especially. `PROGRESS.md` is the tracker; `CONSTRAINTS.md` is what binds.
 **Source documents:**
@@ -360,10 +360,19 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-08-11: Steps 1–10 and Step 14 are complete and committed. STEP 11 IS NEXT and has
-> not been started.** The suite stands at **801 tests / 93 suites / 0 failures**, protocol **v9**,
-> zero source warnings from three clean builds. The helper's source hash is
-> `737e6972…`, unchanged since Step 10's gates, so all three continue to apply.
+> **Status, 2026-08-18: Steps 1–10 and Step 14 are complete and committed. STEP 11 IS IN PROGRESS
+> — increments 1–5 are done, 6 and 7 remain.** The suite stands at **964 tests / 122 suites /
+> 0 failures**, protocol **v12**, zero source warnings from three clean builds. The helper's source
+> hash is `f983b4e5…`.
+>
+> **All three of Step 10's hardware gates were re-run on 2026-08-18 and pass** against the current
+> binary — `metrics-check.sh` 120/0, `retention-cycle-check.sh` 15/0, `xpc-concurrency-check.sh`
+> 8/0. They were owed because the helper binary moved, not because the write path changed.
+>
+> One unplanned change sits between increments 5 and 6: **protocol v12**, after the displayed
+> throughput figures were reported as "way off". They divided by phase time where every other tool
+> divides by the wall clock. See PROGRESS.md — the denominator took three attempts and two of them
+> were refuted on hardware.
 >
 > **The order is deliberate and is not the numbering.** Step 14 was built before Step 11 because
 > Step 11's deletion of the `Unmount All` / `Acquire` / `Release` controls was gated on Step 14's
