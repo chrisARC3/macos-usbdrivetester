@@ -110,7 +110,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **2 ✅** | Helper-side control: `RunControlSignal` in `Core/`, the engine's chunk-boundary check, new `RunOutcome` cases, protocol **v10**, then the pre-flight. **No Xcode tick was needed** and the cap sweep was deferred — both differ from what this row predicted; see below. | **done 2026-08-12** — see below |
 | **3 ✅** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device. Protocol **v11**, which this row did not predict — nine reply arguments changed meaning. Two gate clients had to be rebuilt before the gate could run at all. | **done 2026-08-14** — see below |
 | **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
-| **5 ⚠️** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **code done 2026-08-18 `1a10438`, GATE NOT PASSED** — the checklist was begun and stopped part way, numerous problems found and not yet enumerated |
+| **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | 6 ← NEXT | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. **Now also carries FR-CTRL-8's amendment** — a size change ends the run (decision 2026-08-14, below) | renders + unit |
 | 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
@@ -394,6 +394,36 @@ third rejection ground, which lapsed with that amendment; and `RunReport.ioSizes
   simply be wrong, because percentiles do not compose. The two reply fields that are still *per
   call* and that a sequencer legitimately branches on are `runOutcomeCode` / `interruptedAtBlock`
   and `bufferBytesHeld`.
+
+### Increment 5's gate — passed 2026-08-18, `0e09e5d`
+
+Run in **seven small chunks, one at a time**, because the first attempt ran the nine items in one
+go, hit "numerous problems", and stopped — and the problems were never enumerated. The full list
+is `progress/step-11-human-checklist.md`; it replaces the nine-item list in `step-14.md`, which
+increment 5 made partly unrunnable.
+
+**It found three defects after every automated instrument was green** — 964 tests, three
+zero-warning clean builds, 56 renders, 13 type-checked gate clients, 9 of 10 mutations caught.
+
+| | |
+|---|---|
+| **Pause blanked the measurements panel** | `paused` was grouped with the states that have nothing to show. It is the one where a claim is held and the figures are this run's. `isMeasuring` → `hasLiveSession` |
+| **⌘Q during a run ended the run** before the user answered | One flag answering two questions. Splitting out `mayContinueRun` is the fix; asking must not answer |
+| **Window and exported report disagreed** | Two literals, already drifted in one day — the defect `HonestFraming` exists to end, in the area it did not cover. `ThroughputFraming` now holds both paragraphs once |
+
+**Two checklist items were wrong rather than the app.** Old item 7 (a quit pending while the
+dialog is open) is now *unproducible*, because Start enters `starting` only when the dialog is
+answered — a consequence of increment 5 working. Old item 9 guarded a section increment 5 deleted;
+the hazard moved to the run controls and the check moved with it.
+
+**And 6.1 failed against a prediction I derived from `QuitPolicy`'s truth table** — which is never
+reached, because the sheet is window-modal and intercepts ⌘Q first. An acceptance criterion
+derived from model code alone carries that risk; the sheet's modality is now recorded as wanted
+(user decision) at `RunControlsView`.
+
+**What has no automated cover and will not get any:** the report body (inside a scroll region, so
+even a render stops at `## Measurements`), the live metrics panel (needs a real helper to poll),
+and sheet modality (the policy is never consulted). Three defects, three blind spots, one pass.
 
 ### Unplanned, between increments 5 and 6 — the throughput denominator, protocol v12. 2026-08-18, `1a10438`
 
