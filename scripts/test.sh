@@ -25,9 +25,28 @@
 # scheduling is not evidence. Verified to take effect rather than assumed: the suite runs in
 # a single process either way, and disabling this doubles the wall clock.
 #
+# THE COUNT IS PART OF THE RESULT (added 2026-08-18)
+#
+# On 2026-08-18 this script printed `✔ Test run with 624 tests in 98 suites passed` on a suite
+# of 964 tests in 122 suites. **340 tests did not run and the output said "passed".** The cause
+# was a build race: `install-app.sh` had built into the same DerivedData moments earlier, and
+# the test build picked up a bundle missing 24 suites. Re-running clean gave 964 twice.
+#
+# A green tick is therefore not evidence on its own — it means "everything that ran, passed",
+# which is a different claim from "the suite passed". The floor below closes that gap: the run
+# fails if fewer tests execute than the most this repo has ever seen.
+#
+# It RATCHETS UPWARD BY ITSELF. Adding tests raises the floor on the next green run, so nobody
+# has to remember to bump it and it cannot go stale-low, which is what would make it stop
+# catching anything. It only ever refuses to go DOWN.
+#
+# Deleting tests on purpose is the one case that needs a human: delete the floor file and the
+# next run re-establishes it. That is deliberate friction — a suite getting smaller should be
+# a decision somebody took, not something a script absorbs silently.
+#
 # Usage: scripts/test.sh [Debug|Release]
 #
-set -euo pipefail
+set -uo pipefail
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Development/Xcode.app/Contents/Developer}"
 
@@ -39,6 +58,12 @@ CONFIG="${1:-Debug}"
 echo "Using Xcode at: $DEVELOPER_DIR"
 echo "Testing scheme '$SCHEME' ($CONFIG), target USBDriveTesterTests…"
 
+FLOOR_FILE="$REPO_ROOT/scripts/.test-floor"
+OUTPUT="$(mktemp)"
+trap 'rm -f "$OUTPUT"' EXIT
+
+# `set -e` is off for this pipeline on purpose: a failing test run must still reach the count
+# check below, or a partial run that also failed would report only the failure and hide the gap.
 xcodebuild \
     -project "$PROJECT" \
     -scheme "$SCHEME" \
@@ -47,4 +72,43 @@ xcodebuild \
     -allowProvisioningUpdates \
     -only-testing:USBDriveTesterTests \
     -parallel-testing-enabled NO \
-    test
+    test 2>&1 | tee "$OUTPUT"
+STATUS="${PIPESTATUS[0]}"
+
+SUMMARY="$(grep -oE 'Test run with [0-9]+ tests? in [0-9]+ suites?' "$OUTPUT" | tail -1 || true)"
+COUNT="$(sed -nE 's/Test run with ([0-9]+) tests?.*/\1/p' <<< "$SUMMARY")"
+SUITES="$(sed -nE 's/.* in ([0-9]+) suites?/\1/p' <<< "$SUMMARY")"
+FLOOR="$(cat "$FLOOR_FILE" 2>/dev/null || echo 0)"
+
+echo
+if [[ -z "$COUNT" ]]; then
+    # No summary line at all. Not a pass and not a failure — an unknown, which is the one
+    # verdict that must never be mistaken for either.
+    echo "  ✖ INCONCLUSIVE: no test-run summary was printed. Nothing can be concluded from this"
+    echo "    run, including that it failed. Look for a build error above."
+    exit 1
+fi
+
+if (( COUNT < FLOOR )); then
+    echo "  ✖ INCOMPLETE RUN: ${COUNT} tests in ${SUITES} suites, but this repo has run ${FLOOR}."
+    echo "    $(( FLOOR - COUNT )) test(s) did not execute. A green tick here would mean"
+    echo "    \"everything that ran, passed\" — which is not the same as the suite passing."
+    echo
+    echo "    Most likely a build race: do not build and test into the same DerivedData"
+    echo "    back to back. Re-run this script on its own first."
+    echo
+    echo "    If tests were deleted deliberately: rm ${FLOOR_FILE}"
+    exit 1
+fi
+
+if (( COUNT > FLOOR )); then
+    echo "$COUNT" > "$FLOOR_FILE"
+    echo "  floor raised ${FLOOR} → ${COUNT} (${SUITES} suites)"
+fi
+
+if [[ "$STATUS" -ne 0 ]]; then
+    echo "  ✖ ${COUNT} tests in ${SUITES} suites ran; the run FAILED. See the failures above."
+    exit "$STATUS"
+fi
+
+echo "  ✔ ${COUNT} tests in ${SUITES} suites — complete and green."

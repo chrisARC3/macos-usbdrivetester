@@ -421,7 +421,7 @@ struct RunControllerStateWalkTests {
         #expect(bench.controller.state == .starting)
         #expect(bench.prepared == ["disk8"])
         #expect(bench.controller.isRunActive, "the list freezes and ⌘Q asks from here")
-        #expect(bench.controller.isMeasuring == false, "nothing has been written yet")
+        #expect(bench.controller.hasLiveSession == false, "nothing has been written yet")
     }
 
     @Test func aPreparedDriveEntersRunningAndStartsTheSequencerOnTheClaimsGeometry() {
@@ -433,8 +433,32 @@ struct RunControllerStateWalkTests {
                                                                    deviceBlockCount: 7_814_037_168,
                                                                    ioSizeBytes: 1 << 22,
                                                                    failureMode: .logAndContinue)])
-        #expect(bench.controller.isMeasuring)
+        #expect(bench.controller.hasLiveSession)
         #expect(bench.runBegans == 1, "the previous run's report is not this run's")
+    }
+
+    /// **A paused run still has a live session, and the panel must still show its figures.**
+    ///
+    /// Found by the human checklist on 2026-08-18, not by this suite: pressing Pause blanked the
+    /// entire measurements block, because `paused` was grouped with the states that have nothing
+    /// to show. It is not one of them — the claim is held and the figures are this run's — and
+    /// reading the numbers is one of the main reasons to pause.
+    ///
+    /// Every state is asserted rather than just the one that broke, so the next person to add a
+    /// state has to decide which side it falls on instead of inheriting a default.
+    @Test func everyStateAgreesOnWhetherThePanelHasSomethingToShow() {
+        let bench = Bench()
+        bench.runToPaused()          // start → proceed → pause → pauseSettled
+        #expect(bench.controller.state == .paused)
+        #expect(bench.controller.hasLiveSession,
+                "PAUSED: the claim is held and the figures are this run's — this is the one that blanked the panel")
+
+        bench.controller.resume()
+        #expect(bench.controller.state == .running, "resume must actually resume")
+        #expect(bench.controller.hasLiveSession, "running")
+
+        bench.controller.stop()
+        #expect(bench.controller.hasLiveSession, "stopping: still holding, still this run's")
     }
 
     /// A refused call is not a run: back to `idle`, **no report**, and the cause put in front of the

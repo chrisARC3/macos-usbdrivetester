@@ -157,6 +157,46 @@ struct AppModelQuitTests {
         #expect(bench.model.quitConfirmationIsPresented)
     }
 
+    /// **Asking must not answer.** The run keeps going while the confirmation is up.
+    ///
+    /// Found by the human checklist on 2026-08-18, not by this suite: pressing ⌘Q during a run
+    /// presented the dialog *and ended the run*, so the report appeared underneath a dialog still
+    /// asking whether to quit, and "Continue Testing" was offering to resume something dead.
+    ///
+    /// The cause was one flag answering two questions. `mayIssueNewWork` is false from the moment
+    /// a quit is pending — right for Start — and `RunSequencer` was consulting it before every
+    /// call, so presenting the dialog halted the run. The two are now separate, and this asserts
+    /// they disagree in exactly the state where they must.
+    @Test func askingWhetherToQuitDoesNotItselfEndTheRun() {
+        let bench = Bench()
+        bench.startARun()
+
+        #expect(bench.model.quitRequested() == .askFirst)
+        #expect(bench.model.quitState == .confirming)
+
+        #expect(bench.model.mayContinueRun,
+                "the run must keep issuing calls until the user actually chooses")
+        #expect(bench.model.mayIssueNewWork == false,
+                "but Start must still be refused while the question is open")
+
+        // Continue Testing puts everything back, with the run never having noticed.
+        bench.model.continueTesting()
+        #expect(bench.model.quitState == .idle)
+        #expect(bench.model.mayContinueRun)
+        #expect(bench.model.mayIssueNewWork)
+    }
+
+    /// And once the user HAS chosen, the run stops issuing calls.
+    @Test func choosingToQuitDoesStopTheRunIssuingFurtherCalls() {
+        let bench = Bench()
+        bench.startARun()
+        _ = bench.model.quitRequested()
+        bench.model.cancelAndQuit()
+
+        #expect(bench.model.quitState == .windingDown)
+        #expect(bench.model.mayContinueRun == false, "the user chose; issue nothing further")
+    }
+
     /// **A paused run counts.** The claim is held, the drive's volumes are unmounted, and an
     /// interrupted run cannot be resumed (FR-FAIL-7) — so a ⌘Q that took it without asking would
     /// cost the whole run.

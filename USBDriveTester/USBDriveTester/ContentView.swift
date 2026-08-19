@@ -64,10 +64,11 @@ struct ContentView: View {
 
             // Product surface (FR-METR-2/4/5/6). What a user must be able to *see* during a run.
             LiveRunMetricsPanel(helper: model.helper,
-                                // Narrower than `isRunActive`: during `starting` the drive is being
-                                // unmounted and claimed and **nothing has been written**, so a
-                                // panel calling itself running would label an empty session live.
-                                isRunning: model.runControl?.isMeasuring ?? false,
+                                // Narrower than `isRunActive` at both ends: `starting` has written
+                                // nothing, and from `finishing` the figures belong to the report.
+                                // `paused` IS included — the claim is held and the figures are this
+                                // run's, and hiding them was the defect found on 2026-08-18.
+                                isRunning: model.runControl?.hasLiveSession ?? false,
                                 linkSpeedCode: model.runControl?.linkSpeedCode ?? -1,
                                 deviceName: model.runControl?.lastRunDevice?.bsdNameAtRunTime,
                                 deviceSerial: model.runControl?.lastRunDevice?.usbSerialNumber,

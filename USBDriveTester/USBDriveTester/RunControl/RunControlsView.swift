@@ -95,6 +95,23 @@ struct RunControlsView: View {
         // FR-WARN-1/2/3 and NFR-USE-4. A sheet rather than an `alert` because decision 5 puts a
         // `Toggle` in it, which an alert cannot hold. `item:` rather than `isPresented:` so the
         // prompt and its presentation are one value — two would be a state pair that can disagree.
+        //
+        // ## The sheet is modal to the window, and that GATES QUITTING (user decision 2026-08-18)
+        //
+        // Observed on hardware: while this sheet is up, **neither ⌘Q nor File ▸ Quit does
+        // anything**. The sheet intercepts them before `applicationShouldTerminate` is reached, so
+        // `QuitPolicy.disposition` — which would answer `.quitImmediately`, there being no run
+        // active — is never consulted at all. The user must answer or Cancel first.
+        //
+        // **This is wanted, and is not to be "fixed".** The sheet is the last thing standing
+        // between a selected drive and a write; making it dismissable by a keystroke that means
+        // something else would be the wrong direction. Cancel is one click away, and nothing is
+        // claimed while the sheet is up, so nothing can be stranded by refusing the quit.
+        //
+        // Worth knowing that no test can see this: `AppModelQuitTests` exercises the policy, and
+        // the policy is not the thing deciding. It is the same blind spot that hid the paused
+        // panel — presentation-layer behaviour that the model tests cannot reach — and it is why
+        // the human checklist covers it.
         .sheet(item: $pendingPrompt) { prompt in
             PreRunPromptSheet(prompt: prompt,
                               suppressFutureWarnings: $suppressionRequested,

@@ -10,7 +10,7 @@
 //
 //  Four properties are load-bearing and each looks like a formality:
 //
-//    * **`mayIssueNewWork` is consulted before EVERY call**, not once at the start. A run became a
+//    * **`mayContinueRun` is consulted before EVERY call**, not once at the start. A run became a
 //      sequence in this increment, and that is exactly where "issue no further work" quietly stops
 //      being kept. Pinned from three directions: before the first call, between two calls, and at
 //      a resume.
@@ -136,7 +136,7 @@ private final class FakeCaller: RunCycleIssuing {
 private final class Harness {
 
     let caller = FakeCaller()
-    var mayIssueNewWork = true
+    var mayContinueRun = true
     private(set) var events: [RunSequencerEvent] = []
 
     private let cap: UInt64
@@ -145,7 +145,7 @@ private final class Harness {
 
     lazy var sequencer = RunSequencer(
         caller: caller,
-        mayIssueNewWork: { [unowned self] in self.mayIssueNewWork },
+        mayContinueRun: { [unowned self] in self.mayContinueRun },
         maximumBytesPerCall: cap,
         onEvent: { [unowned self] event in self.events.append(event) })
 
@@ -241,14 +241,14 @@ struct RunSequencerRunTests {
     }
 }
 
-// MARK: - `mayIssueNewWork` is a precondition, not a hint
+// MARK: - `mayContinueRun` is a precondition, not a hint
 
 @MainActor
 struct RunSequencerQuitTests {
 
     @Test func aQuitAlreadyPendingIssuesNoCallAtAll() {
         let harness = Harness()
-        harness.mayIssueNewWork = false
+        harness.mayContinueRun = false
         harness.start()
 
         #expect(harness.caller.requests.isEmpty)
@@ -269,7 +269,7 @@ struct RunSequencerQuitTests {
         harness.caller.answer(reply(.completed))        // call 1 done, call 2 issued
         #expect(harness.caller.requests.count == 2)
 
-        harness.mayIssueNewWork = false
+        harness.mayContinueRun = false
         harness.caller.answer(reply(.completed))        // call 2 done — call 3 must not be issued
 
         #expect(harness.caller.requests.count == 2)
@@ -282,7 +282,7 @@ struct RunSequencerQuitTests {
         harness.caller.answer(reply(.pausedByUser, interruptedAtBlock: 8_192))
         #expect(harness.caller.requests.count == 1)
 
-        harness.mayIssueNewWork = false
+        harness.mayContinueRun = false
         #expect(harness.sequencer.resume())
 
         #expect(harness.caller.requests.count == 1)
@@ -302,7 +302,7 @@ struct RunSequencerQuitTests {
         harness.caller.answer(reply(.completed))        // call 4 — the last — now in flight
         #expect(harness.caller.requests.count == 4)
 
-        harness.mayIssueNewWork = false
+        harness.mayContinueRun = false
         harness.caller.answer(reply(.completed))
 
         #expect(harness.result?.outcome == .completed)

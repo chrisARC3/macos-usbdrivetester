@@ -228,14 +228,7 @@ nonisolated enum RunReportMarkdown {
         // Activity Monitor reported them as a defect (2026-08-17) — correctly. The report is the
         // copy that gets forwarded and re-read months later, detached from any screen, so it is
         // the artefact that most needs to say what it measured.
-        lines.append("All three rates are measured over **the time the run spent working** — "
-                   + "time paused, and time between one call and the next, is excluded. While a "
-                   + "run is going they are therefore directly comparable to Activity Monitor or "
-                   + "any other tool watching this drive, and a pause does not make the drive "
-                   + "look slower than it is. Read counts the verify read as well as the "
-                   + "original read, because both are reads. Covering is how fast the run worked "
-                   + "through the drive itself: every byte is read, written back and read again, "
-                   + "so Read runs at about twice Covering and Write at about the same.")
+        lines.append(ThroughputFraming.definition.markdown)
         lines.append("")
 
         // Throughput is reported and never graded (user decision 2026-08-04). Saying so in the
@@ -246,12 +239,7 @@ nonisolated enum RunReportMarkdown {
         // saying it twice is how the two came to disagree. Found by reading the rendered report
         // rather than the source — this said "against the wall clock" while the paragraph above
         // it said "the time the run spent working" (2026-08-18).
-        lines.append("Throughput is **reported, not graded**. These figures describe a mixed "
-                   + "read-write-verify workload, so they are **not** "
-                   + "comparable to a manufacturer's sequential-read or sequential-write rating, "
-                   + "which is measured doing one thing at a time. Reading them as a fraction of "
-                   + "an advertised figure would make every healthy drive look worn. "
-                   + "It measures; it does not diagnose.")
+        lines.append(ThroughputFraming.notGraded.markdown)
         lines.append("")
 
         if report.readLatencySampleCount > 0 {

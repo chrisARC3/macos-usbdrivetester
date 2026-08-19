@@ -291,10 +291,11 @@ struct RunReportView: View {
                          MetricsFormatting.blockOffset(report.readLatencySampleCount))
             }
 
-            prose("Throughput is reported, not graded. Whether a rate indicates wear is a "
-                + "judgement against the manufacturer's advertised sustained figure for this "
-                + "model and the negotiated link speed above — neither of which this tool knows. "
-                + "It measures; it does not diagnose.")
+            // Both from `ThroughputFraming`, never literals here. The screen carried its own
+            // copy until 2026-08-18 and it was the STALE one — still naming the advertised figure
+            // as the comparison basis after the exported report had stopped doing so.
+            prose(ThroughputFraming.definition.plain)
+            prose(ThroughputFraming.notGraded.plain)
 
             if report.latencySpansMultipleIOSizes {
                 callout("The I/O size changed during this run and the latency statistics "

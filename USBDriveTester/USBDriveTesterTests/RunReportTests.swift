@@ -549,13 +549,43 @@ struct ReportMeasurementTests {
     ///
     /// The report matters more than the screen here: it is the copy that gets forwarded and
     /// re-read months later, detached from whatever was on screen at the time.
+    /// **Asserted against the shared constant, not against a copy of its words.**
+    ///
+    /// A test spelling the sentence out again would be a third place it exists, and would pass
+    /// while the report window showed something else — which is exactly what happened on
+    /// 2026-08-18: the export was updated, the screen kept the stale text naming the
+    /// manufacturer's advertised figure, and nothing failed. Comparing against
+    /// `ThroughputFraming` is what makes this a check on the single definition rather than on a
+    /// duplicate of it.
     @Test func theReportStatesWhatItsThroughputFiguresMean() {
         let document = Fixture.markdown(Fixture.report())
-        #expect(document.contains("**the time the run spent working**"))
-        #expect(document.contains("time paused"))
-        #expect(document.contains("Activity Monitor"))
-        #expect(document.contains("counts the verify read as well as the original read"))
-        #expect(document.contains("about twice Covering"))
+        #expect(document.contains(ThroughputFraming.definition.markdown),
+                "the export no longer carries the shared definition verbatim")
+        #expect(document.contains(ThroughputFraming.notGraded.markdown),
+                "the export no longer carries the shared not-graded framing verbatim")
+    }
+
+    /// The plain rendering a non-Markdown surface uses is *derived*, so it cannot say something
+    /// different from the Markdown one.
+    @Test func thePlainRenderingIsTheSameSentenceWithoutTheAsterisks() {
+        for claim in [ThroughputFraming.definition, ThroughputFraming.notGraded] {
+            #expect(claim.plain.contains("**") == false, "emphasis markers reached a plain surface")
+            #expect(claim.plain == claim.markdown.replacingOccurrences(of: "**", with: ""))
+        }
+    }
+
+    /// The advertised-rate comparison is gone from BOTH surfaces, and must stay gone.
+    ///
+    /// It was dropped on 2026-08-18: these rates describe a mixed read-write-verify workload and
+    /// an advertised rating is pure sequential, so inviting the comparison makes a healthy drive
+    /// look worn — the exact bias the FR document warns against.
+    @Test func neitherSurfaceInvitesAComparisonAgainstTheAdvertisedRate() {
+        let document = Fixture.markdown(Fixture.report())
+        for surface in [document, ThroughputFraming.definition.plain,
+                        ThroughputFraming.notGraded.plain] {
+            #expect(surface.lowercased().contains("advertised sustained") == false)
+            #expect(surface.lowercased().contains("compare these against") == false)
+        }
     }
 
     /// D9, in the artefact where it matters most: a bare pair of numbers in a file invites the

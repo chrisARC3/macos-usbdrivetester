@@ -180,6 +180,30 @@ final class AppModel {
     /// before every call it issues.
     var mayIssueNewWork: Bool { quitState == .idle }
 
+    /// Whether a run **already in flight** may issue its next call.
+    ///
+    /// **Not the same question as ``mayIssueNewWork``, and conflating them killed runs.** That one
+    /// is false from the moment a quit is *pending* — correctly, because Start must be refused
+    /// while the confirmation is up. This one is false only once the user has actually **chosen**
+    /// to quit.
+    ///
+    /// Found by the human checklist on 2026-08-18: pressing ⌘Q during a run presented the
+    /// confirmation and *simultaneously ended the run*, showing the report before any button was
+    /// touched. `RunSequencer` consults its precondition before every call, `.confirming` made it
+    /// false, and so merely **asking** the question answered it. "Continue Testing" was offering
+    /// to resume something already dead.
+    ///
+    /// Nothing is weakened by letting the run continue through `.confirming`: a call is bounded,
+    /// so the most a pending quit can wait is one call, and `cancelAndQuit()` does the real work
+    /// with an explicit `stop()` that settles at a chunk boundary. The halt was never what kept
+    /// that promise.
+    var mayContinueRun: Bool {
+        switch quitState {
+        case .idle, .confirming: return true
+        case .windingDown, .terminating: return false
+        }
+    }
+
     /// True while the app is waiting for the call boundary so it can quit.
     var isWindingDown: Bool { quitState == .windingDown }
 

@@ -29,14 +29,21 @@
 //  `runOutcomeCode` / `resumeBlock`. `bufferBytesHeld` is the third per-call field; nothing here
 //  reads it.
 //
-//  ## `mayIssueNewWork` is a precondition, not a hint
+//  ## `mayContinueRun` is a precondition, not a hint
 //
-//  It is `false` from the moment a quit is *pending*, and the quit confirmation is window-modal on
-//  the main window, so other windows stay clickable underneath it — this is not a guard against an
-//  unreachable state. It is consulted **before every call this type issues**, not once when the run
-//  starts: "issue no further work" is the first half of the stop-at-the-call-boundary promise, and
-//  a run that became a sequence rather than a single call is exactly where that half quietly stops
-//  being kept.
+//  It is consulted **before every call this type issues**, not once when the run starts: "issue no
+//  further work" is the first half of the stop-at-the-call-boundary promise, and a run that became
+//  a sequence rather than a single call is exactly where that half quietly stops being kept.
+//
+//  **It is deliberately NOT `AppModel.mayIssueNewWork`**, which was what it consulted until
+//  2026-08-18. That flag is false from the moment a quit is *pending* — right for Start, wrong
+//  here. The quit confirmation is window-modal, so presenting it flipped the flag, this guard
+//  fired, and the run ended before the user had touched a button: the report appeared underneath
+//  the dialog still asking whether to quit. Asking a question must not answer it.
+//
+//  `mayContinueRun` goes false only once the user has **chosen** to quit. Nothing is lost by
+//  waiting: a call is bounded, so a pending quit waits at most one call, and `cancelAndQuit()`
+//  issues a real `stop()` which is what settles at the boundary.
 //
 //  It arrives as a closure rather than a captured value for the reason the engine's `control:` and
 //  `grant:` are closures: a value read once would be the answer as it stood when the run started,
@@ -160,7 +167,7 @@ final class RunSequencer {
     private enum Phase: Equatable { case notStarted, callInFlight, paused, ended }
 
     private let caller: RunCycleIssuing
-    private let mayIssueNewWork: () -> Bool
+    private let mayContinueRun: () -> Bool
     private let maximumBytesPerCall: UInt64
     private let onEvent: (RunSequencerEvent) -> Void
 
@@ -179,15 +186,15 @@ final class RunSequencer {
     private var stopRequested = false
 
     /// - Parameters:
-    ///   - mayIssueNewWork: `AppModel.mayIssueNewWork`. A closure, not a value — see the header.
+    ///   - mayContinueRun: `AppModel.mayContinueRun`. A closure, not a value — see the header.
     ///   - maximumBytesPerCall: the per-call cap. Required with no default, so the suite can slice
     ///     with a ragged one and make ``RunSlicing``'s whole-MiB rounding observable.
     init(caller: RunCycleIssuing,
-         mayIssueNewWork: @escaping () -> Bool,
+         mayContinueRun: @escaping () -> Bool,
          maximumBytesPerCall: UInt64,
          onEvent: @escaping (RunSequencerEvent) -> Void) {
         self.caller = caller
-        self.mayIssueNewWork = mayIssueNewWork
+        self.mayContinueRun = mayContinueRun
         self.maximumBytesPerCall = maximumBytesPerCall
         self.onEvent = onEvent
     }
@@ -292,7 +299,7 @@ final class RunSequencer {
                 return
             }
             // **Before every call, not once at the start.**
-            guard mayIssueNewWork() else {
+            guard mayContinueRun() else {
                 log.notice("run sequencer: a quit is pending, issuing no further calls")
                 finish(.haltedForQuit)
                 return

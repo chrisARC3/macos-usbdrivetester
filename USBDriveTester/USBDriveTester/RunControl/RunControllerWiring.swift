@@ -57,9 +57,9 @@ extension RunController {
             },
             makeSequencer: { emit in
                 RunSequencer(caller: model.helper,
-                             // A closure, not a value: `mayIssueNewWork` goes false underneath a
+                             // A closure, not a value: this goes false underneath a
                              // run already in flight, which is the whole point of it.
-                             mayIssueNewWork: { model.mayIssueNewWork },
+                             mayContinueRun: { model.mayContinueRun },
                              maximumBytesPerCall: TesterProtocol.maximumBytesPerCall,
                              onEvent: emit)
             },

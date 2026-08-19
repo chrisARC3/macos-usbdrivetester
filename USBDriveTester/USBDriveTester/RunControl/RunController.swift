@@ -164,14 +164,29 @@ final class RunController {
     /// uninstall (NFR-INST-3) and make a quit ask first.
     var isRunActive: Bool { state.isRunActive }
 
-    /// Whether the helper is actually moving bytes, which is a narrower question than
-    /// ``isRunActive``: during `starting` a drive is being unmounted and claimed and **nothing has
-    /// been written**, so a metrics panel that called itself running would be labelling an empty
-    /// session as a live one.
-    var isMeasuring: Bool {
+    /// Whether a claim is held **and the session has issued at least one call**, so the figures
+    /// `runProgress` returns belong to this run rather than to the last one.
+    ///
+    /// Narrower than ``isRunActive`` at the front: during `starting` a drive is being unmounted
+    /// and claimed and **nothing has been written**, so a panel calling itself live would be
+    /// labelling an empty session. Narrower at the back too: from `finishing` the run is over and
+    /// its figures belong in the report, not on a panel that would otherwise show them for ever.
+    ///
+    /// **`paused` is included, and was not until 2026-08-18.** It was grouped with the states
+    /// that show nothing, which hid the entire measurements block the moment the user pressed
+    /// Pause — reported by the human checklist as *"pause clears all test progress information
+    /// from the main window"*. A paused run is not stale: the claim is held, the session is
+    /// alive, and the figures are this run's. Pausing to read the numbers is one of the main
+    /// reasons to pause, and it was the one moment they vanished.
+    ///
+    /// **This was called `isMeasuring`**, which is why `paused` looked like it belonged with the
+    /// others — a paused run genuinely is not measuring. The name was answering a different
+    /// question from the one its only caller asked, and the rename is the fix; including `paused`
+    /// under the old name would have made the name a lie instead.
+    var hasLiveSession: Bool {
         switch state {
-        case .running, .pausing, .stopping: return true
-        case .idle, .starting, .paused, .finishing, .finished: return false
+        case .running, .pausing, .paused, .stopping: return true
+        case .idle, .starting, .finishing, .finished: return false
         }
     }
 

@@ -533,9 +533,13 @@ enum RunCoordinator {
         }
 
         metricsLog.notice("""
-                          run metrics: read \(rate(snapshot.readBytesPerSecond), privacy: .public), \
-                          write \(rate(snapshot.writeBytesPerSecond), privacy: .public), \
+                          run metrics — DISPLAYED (over running time, what the app shows): \
+                          read \(rate(snapshot.sustainedReadBytesPerSecond), privacy: .public), \
+                          write \(rate(snapshot.sustainedWriteBytesPerSecond), privacy: .public), \
                           covering \(rate(snapshot.coverageBytesPerSecond), privacy: .public); \
+                          DEVICE-ONLY (over time in that phase, never displayed, ~1.5x and ~3x \
+                          the figures above): reading \(rate(snapshot.readBytesPerSecond), privacy: .public), \
+                          writing \(rate(snapshot.writeBytesPerSecond), privacy: .public); \
                           read latency min \(milliseconds(snapshot.readLatency.minimumNanoseconds), privacy: .public) \
                           max \(milliseconds(snapshot.readLatency.maximumNanoseconds), privacy: .public) \
                           p99 <= \(milliseconds(snapshot.readLatency.p99?.upperBoundNanoseconds), privacy: .public) \
