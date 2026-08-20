@@ -11,7 +11,7 @@
 # real app (scripts/install-app.sh).
 #
 # Usage:
-#   scripts/render-ui.sh [output.png] [width] [height] [view] [light|dark]
+#   scripts/render-ui.sh [output.png] [width] [height] [view] [light|dark] [drives]
 #
 # APPEARANCE IS PINNED TO `light` BY DEFAULT, AND THAT IS A BUG FIX (2026-08-10).
 #   Renders used to inherit whatever the machine was set to. When this Mac switched to dark
@@ -32,7 +32,7 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of the 29 cases below, grouped by family so the list can be counted against
+# `view` is one of the 30 cases below, grouped by family so the list can be counted against
 #   `makeRootView` in tools/ui-probe/main.swift.
 #
 #   THIS LIST HAS NOW DRIFTED FROM THE PROBE TWICE. In 2026-08-11 it was missing
@@ -46,6 +46,7 @@
 #     content              content-starting     content-running            content-paused
 #     content-finished     content-stop-on-error
 #     content-no-selection content-quit-pending content-quitting
+#     content-selection-below-fold
 #     devices              devices-unmounted    devices-unusable           empty
 #     diagnostics          diagnostics-run-active
 #                          diagnostics-warnings-suppressed
@@ -75,6 +76,13 @@
 #   gets its own window and can therefore never be captured *in place* — so it is written as a
 #   standalone view precisely so these renders can exist. They check its layout; a person still
 #   has to confirm the sheet presents at all.
+# WHAT A RENDER CANNOT ANSWER, and what to use instead (Step 11 increment 7). A render shows a view
+#   at a size you chose. It cannot say what sizes the WINDOW is willing to be — which is the
+#   question behind whether this app fits a 13.3-inch Mac, and which is answered by
+#   `ui-probe --limits <view> <width> <drives>` and, with a screen budget beside it, by
+#   `scripts/window-fit-check.sh`. Reach for that gate rather than eyeballing a render at a small
+#   height: a render at 500 pt looks fine right up until you learn the window refuses to be 500 pt.
+#
 # `empty` renders the device list with NO drives connected — the FR-SAFE-5 no-selection
 # state, which cannot otherwise be reached on a machine that has drives attached.
 # Rendering a sub-view matters once one is behind a disclosure — the composition root
@@ -148,6 +156,19 @@ HEIGHT="${3:-1000}"
 VIEW="${4:-content}"
 APPEARANCE="${5:-light}"
 
+# How many drives the fixture presents, for the `content-*` family (Step 11 increment 7).
+#
+# THIS AXIS FOUND A DEFECT THE MOMENT IT EXISTED. Until it was added, every render this project
+# had ever taken showed exactly ONE drive — so `DeviceListView`'s list, which grows to a 260 pt cap
+# with the number attached, had never been looked at anywhere near that cap. The first six-drive
+# render showed two rows of six beside a live-metrics panel spending 265 pt on one sentence: the
+# panel and the device detail are both `ScrollView`s, both were greedy, and spare height was
+# splitting evenly between them. Fixed by making the metrics ceiling conditional on there being
+# measurements to show.
+#
+# 6 is where the cap saturates, so it is the number worth rendering alongside 1.
+DRIVES="${6:-1}"
+
 mkdir -p "$BUILD_DIR" "$(dirname "$OUT")"
 
 # Every app-target Swift file except USBDriveTesterApp.swift, whose @main would clash
@@ -175,4 +196,4 @@ xcrun swiftc \
     "${SOURCES[@]}" \
     "$REPO_ROOT/tools/ui-probe/main.swift"
 
-"$BUILD_DIR/ui-probe" "$OUT" "$WIDTH" "$HEIGHT" "$VIEW" "$APPEARANCE"
+"$BUILD_DIR/ui-probe" "$OUT" "$WIDTH" "$HEIGHT" "$VIEW" "$APPEARANCE" "$DRIVES"

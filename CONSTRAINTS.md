@@ -285,13 +285,38 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   regions where SwiftUI draws no background of its own would land in the PNG transparent. The probe
   now supplies an opaque layer. This was diagnosed wrongly **twice** before anyone read the capture
   code.
+- **A render cannot answer "what sizes will this window be".** It shows a view at a size *you*
+  chose; the window's own limits are a different question, and it is the one behind whether the app
+  fits a small Mac. `ui-probe --limits <view> <width> <drives>` asks the real view hierarchy — it
+  sets `NSHostingView.sizingOptions` so SwiftUI's minimum and maximum propagate to the window,
+  exactly as a `Window` scene arranges — and `scripts/window-fit-check.sh` is that with a screen
+  budget beside it. **Added Step 11 increment 7, because four defects had been sitting in plain
+  sight of 29 render cases**: the window opened at screen height, `starting` clipped at the window's
+  own minimum, the minimum swung 168 pt with the number of attached drives, and the live metrics
+  panel clipped instead of scrolling.
+- **Drive count is a render axis** (sixth argument, default 1). Until it existed, **every render
+  this project had ever taken showed exactly one drive**, so `DeviceListView`'s list — which grows
+  to a 260 pt cap with the number attached — had never been looked at near that cap. The first
+  six-drive render found a live defect immediately: two greedy `ScrollView`s, the metrics panel and
+  the device detail, splitting spare height evenly, so a 700 pt window showed two drives of six
+  beside a metrics panel spending 265 pt on one sentence. 6 saturates the cap.
+- **The fixture's selection was on row 1 in every render ever taken, until 2026-08-20.**
+  `DeviceFixture.fleet(of:)` puts `evo` first and the store selects the first usable drive, so the
+  selected row was always at the top of the list and always visible — which made the whole harness
+  structurally blind to *"is the chosen drive on screen at all?"*. `content-selection-below-fold`
+  selects the **last** drive instead, and it is the only case that can see it. Render it near the
+  window's minimum with **two** drives, not six: at six the required scroll saturates at the end of
+  the content and succeeds regardless of whether the mechanism is right. An axis is only as good as
+  the value you vary it to.
 - **Render only as tall as you need — but the height argument is a FLOOR, not a ceiling** (measured
   2026-08-11, correcting a header note that had called it "the lever"). `NSHostingView` sizes to its
   content, so a view with no intrinsic cap ignores the number: the `metrics*` family returned
-  **2,876 pt** when asked for 460. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
+  **2,876 pt** when asked for 460. Step 11 increment 7 named the cause — `--limits` reports
+  `max=infxinf` for the main window, and an unbounded maximum is also why the window opened at
+  screen height while the scene declared no `.defaultSize`. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
-- **29 view cases, and three of them render a state this machine cannot produce** — `empty` (no
+- **30 view cases, and three of them render a state this machine cannot produce** — `empty` (no
   drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
   drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
   the last was added in Step 14 for a row that had never been rendered in either appearance.
@@ -436,6 +461,20 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   chunk regardless — so Shape A stands on the four properties above, not on the cap.
 
   *Full account: commit `e13d3e8`; the measurement that backs it, `scripts/run-control-check.sh`.*
+- **THE MAIN WINDOW'S MINIMUM HEIGHT IS NOT WRITTEN DOWN ANYWHERE, AND THAT IS THE DESIGN**
+  (NFR-USE-9, Step 11 increment 7). Each pane that scrolls declares its own floor in
+  `WindowMetrics`; SwiftUI sums those with the blocks that cannot scroll; nothing states the total.
+  The literal this replaced lived in `ContentView` and **expired three times, silently each time** —
+  a measured constant is only true until the content above it changes, and nothing recomputes a
+  literal. Do not reintroduce a total, including "as documentation": a number that is right today
+  and unwatched is the exact failure being designed out. `scripts/window-fit-check.sh` is what
+  checks it, by measurement, against a screen budget.
+- **POINTS, NOT PIXELS.** A 13.3-inch Apple Silicon Mac is 2560x1600 **pixels** and **1440x900
+  points** at default scaling. Every window measurement in this project is in points. Reasoning from
+  the pixel number inflates the budget by a factor of 1.8 and makes a window that does not fit look
+  comfortable — which is how this question was first framed, and it would have closed with the
+  defect still present. Measured chrome: title bar **32 pt**, menu bar **30 pt**, default bottom
+  Dock **~70 pt**.
 - **A RUN USES ONE I/O SIZE, AND BOTH PRE-RUN CONTROLS ARE FIXED FOR THE WHOLE OF IT** (FR-CTRL-8
   revised 2026-08-14 and again **2026-08-19**; FR-CTRL-7 amended to match). The I/O-size dropdown
   and the failure-mode picker are live in `idle` and `finished` and **dead in the six states where a
@@ -489,6 +528,20 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   distinguish a working unreachable mechanism from a broken one, which is as true on a machine
   nobody else will ever see. It read *"nothing untriggerable **ships**"* until 2026-08-14, resting a
   live rule on a premise that is now explicitly false.
+- **`defaults` addressed by domain does not reach this app's preferences — for reads OR writes.** A
+  stale sandbox container under `~/Library/Containers/com.arc3solutions.USBDriveTester` (7 July,
+  from before App Sandbox was turned off) makes the CLI prefer a container path that the app has
+  never written. It reports *"does not exist"* on a read and **succeeds silently on a delete having
+  done nothing**. Cost time twice: increment 6 (a read, diagnosed as a missing preference) and
+  increment 7 (a delete, diagnosed as `.defaultSize` not working, and a checklist item recorded as
+  failed). Address the plist by **path**. The first write-up called it a read problem, which is what
+  let it happen again.
+- **A requirement you are about to cite may not exist.** Step 11 increment 7 was built, measured and
+  gated against "the window must fit a 13.3-inch Mac" — and the docs pass found that **nothing in
+  either requirements document said what it had to fit**. Three source citations of `NFR-USE-8` had
+  been written by then, pointing at an *accessibility* requirement that says nothing about window
+  size. Check the ID resolves to the thing you mean before writing it down; a wrong citation is
+  worse than none, because it reads as having been checked. NFR-USE-9 now exists.
 - **Commit straight to `main`**, never a branch unless said in advance, message `Step N: <title>`,
   and **only when asked**.
 - **The ADR's 16 checkboxes are never ticked.** It is a decision record; BUILD-PLAN is the tracker.
@@ -569,3 +622,13 @@ Every defect this project has produced came from trusting a substitute for the r
   `__TEXT,__cstring` does answer it — byte-identical across 1.63 MB of instruction text is proof
   the compiled behaviour is unchanged, and it is what let a post-gate comment rewrite stand without
   re-running the gate.
+- **The bigger case is often the weaker test, and it is the one you will reach for.** Keeping the
+  drive list scrolled to the selected row worked at six drives and failed at two. The reason is
+  saturation: at six, the scroll runs into the end of the content and clamps — and a clamp does not
+  care that it was computed from a viewport height which had already changed, so the large case
+  comes out right whether the mechanism is right or not. At two drives the correct answer is a few
+  points wide, and only a correct mechanism finds it. **Choose the input where the right answer is
+  narrow**, not the one where the effect is largest; a visible effect is not a discriminating one.
+  The defect underneath was a third instance of a shape `DeviceListView` had already recorded twice
+  — a handler running before the layout it reasons about has settled — and it was one deferred
+  run-loop turn away from correct.

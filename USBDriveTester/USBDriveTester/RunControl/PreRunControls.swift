@@ -206,8 +206,11 @@ nonisolated final class InMemoryIOSize: IOSizeStore {
 /// **helper** persisting anything, because it runs as root and its settings would silently apply
 /// to every account on the machine.
 ///
-/// - Note: **`defaults read com.arc3solutions.USBDriveTester` does not find this** (measured
-///   2026-08-19). A stale sandbox container from 7 July still exists under `~/Library/Containers/`,
+/// - Note: **No `defaults` command addressed by DOMAIN reaches this file** — not `read`, and not
+///   `write` or `delete` either (measured 2026-08-19, and the write half the hard way on
+///   2026-08-20, when a `defaults delete` of a saved window frame silently did nothing and a
+///   checklist item was recorded as failing because of it). Address the plist **by path**, or use
+///   `plutil -p`. A stale sandbox container from 7 July still exists under `~/Library/Containers/`,
 ///   and the `defaults` CLI prefers a container path whenever that directory is present — so it
 ///   reads a file this app has never written and reports *"does not exist"*, which is
 ///   indistinguishable from the preference not having been saved. Read the plist by path instead;

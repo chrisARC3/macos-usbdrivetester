@@ -21,13 +21,42 @@
 //  signed, installed app bundle and cannot talk to a real daemon.
 //
 //  Usage (via scripts/render-ui.sh):
-//      ui-probe <output.png> [width] [height] [view]
+//      ui-probe <output.png> [width] [height] [view] [light|dark] [drives]
+//      ui-probe --limits [view] [width] [drives]
 //
 //  `view` selects what to render — `content` (the whole window, the default) or a named
 //  sub-view. Added in Step 5: once a view is behind a disclosure or a tab, rendering
 //  only the composition root cannot show it, and "it compiled" is not evidence that a
 //  Form nested inside a DisclosureGroup inside a VStack lays out at a sane height.
 //  Steps 9, 11 and 14 add more such views.
+//
+//  `drives` is how many drives the fixture presents (default 1), added in Step 11
+//  increment 7. It is not decoration: `DeviceListView.listHeight` grows with the count
+//  to a 260 pt cap, and it moved the whole window's minimum height by **168 pt** between
+//  one drive and six. Until this axis existed, no render had ever shown this app with
+//  more than one drive attached — so the capped list, which is what a person with a hub
+//  full of drives sees, had never been looked at once.
+//
+//  ## `--limits` — what the window can actually be resized to
+//
+//  A render answers "does this look right at this size". It cannot answer "what sizes is
+//  this window willing to be", and that is the question behind whether the app fits a
+//  13.3-inch Mac. `--limits` asks the real view hierarchy instead: it sets
+//  `NSHostingView.sizingOptions` so the view propagates its SwiftUI minimum and maximum
+//  up to the window, exactly as a `Window` scene does, and prints them.
+//
+//  It answers three things a render cannot:
+//
+//    * the **enforced minimum** — how small a user can drag the window, which is what has
+//      to fit inside `NSScreen.visibleFrame` on the smallest supported Mac;
+//    * the **maximum**, which is `inf` here and is why the window opened at screen height
+//      for as long as the scene declared no `.defaultSize`. It is also what `render-ui.sh`
+//      is describing when it says the height argument behaves as "a floor, not a ceiling";
+//    * the **intrinsic** size, which is what a scene with no declared size opens at.
+//
+//  `scripts/window-fit-check.sh` is the gate built on this. Prefer it to calling `--limits`
+//  by hand — it carries the screen budget, and a number without a budget beside it is
+//  just a number.
 //
 //  ImageRenderer is deliberately NOT used: macOS's grouped Form style is AppKit-backed
 //  and renders blank through it. A real hosting window is required.
@@ -36,10 +65,37 @@
 import SwiftUI
 import AppKit
 
-let outputPath = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "ui-probe.png"
-let width = CommandLine.arguments.count > 2 ? (Double(CommandLine.arguments[2]) ?? 600) : 600
-let height = CommandLine.arguments.count > 3 ? (Double(CommandLine.arguments[3]) ?? 1000) : 1000
-let viewName = CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "content"
+/// `--limits` reports the window size limits instead of capturing a PNG. Its argument order is
+/// its own — `--limits [view] [width] [drives]` — because the render arguments it does not use
+/// (output path, height, appearance) would be noise a caller had to supply anyway.
+let wantsLimits = CommandLine.arguments.count > 1 && CommandLine.arguments[1] == "--limits"
+
+let outputPath = wantsLimits
+    ? "/dev/null"
+    : (CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "ui-probe.png")
+
+/// In limits mode the width still matters and the height does not: heights are what is being
+/// measured, but the required height depends on how the sentences wrap, and **that depends on the
+/// width**. Measured 2026-08-19: `content-starting` needs 629 pt at 640 pt wide and 92 pt less at
+/// 700, because three disabled-reason sentences each gain a line. A limits number quoted without
+/// its width is not a fact.
+let width = wantsLimits
+    ? (CommandLine.arguments.count > 3 ? (Double(CommandLine.arguments[3]) ?? 640) : 640)
+    : (CommandLine.arguments.count > 2 ? (Double(CommandLine.arguments[2]) ?? 600) : 600)
+
+let height = CommandLine.arguments.count > 3 && !wantsLimits
+    ? (Double(CommandLine.arguments[3]) ?? 1000)
+    : 1000
+
+let viewName = wantsLimits
+    ? (CommandLine.arguments.count > 2 ? CommandLine.arguments[2] : "content")
+    : (CommandLine.arguments.count > 4 ? CommandLine.arguments[4] : "content")
+
+/// How many drives the fixture presents. See the header — this axis moved the window's minimum
+/// height by 168 pt and had never been rendered.
+let driveCount = max(1, Int(CommandLine.arguments.count > (wantsLimits ? 4 : 6)
+                            ? CommandLine.arguments[wantsLimits ? 4 : 6]
+                            : "1") ?? 1)
 
 /// `light` (the default) or `dark`. **Not** "whatever the machine is set to" — see the pinning
 /// note below the scene switch, which is where the reason lives.
@@ -111,7 +167,7 @@ private enum ProbeRun {
                              // appearance bug, and a progress bar that measured two different
                              // fills on one day with nothing in the diff touching it.
                              ioSizeStore: InMemoryIOSize(),
-                             deviceSource: FixedDeviceSource(devices: [device]))
+                             deviceSource: FixedDeviceSource(devices: DeviceFixture.fleet(of: driveCount)))
         model.discovery.start()
         model.runControl = RunController(
             preconditions: { RunPreconditions(hasUsableSelection: true,
@@ -190,6 +246,34 @@ private enum DeviceFixture {
         mountedVolumeNames: ["Vol_ExFAT", "Vol_APFS", "Vol_HFS"],
         mountedVolumeBSDNames: ["disk8s2", "disk9s1", "disk8s4"],
         usbSerialNumber: "00000S7CLNJ0WC02266P")
+
+    /// `count` drives, so the device list's height cap can be **rendered** rather than reasoned
+    /// about.
+    ///
+    /// `DeviceListView.listHeight` is `min(max(count * rowHeight + 16, rowHeight * 2), 260)`, so
+    /// the count is load-bearing for layout in a way nothing else here is: it moved the whole
+    /// window's minimum height by 168 pt between one drive and six, and saturates at six. Before
+    /// this existed, every render this project has ever taken showed exactly one drive.
+    ///
+    /// ``evo`` is always first, so a render at the default count of 1 is byte-for-byte the render
+    /// it was before this axis was added, and the selected device is the same drive in every case.
+    /// The copies differ in the three fields that have to be distinct — the registry ID is the
+    /// list's identity, and the BSD name and serial are both shown in the row.
+    static func fleet(of count: Int) -> [DiscoveredDevice] {
+        guard count > 1 else { return [evo] }
+        return [evo] + (1..<count).map { i in
+            DiscoveredDevice(registryEntryID: evo.registryEntryID + UInt64(i),
+                             bsdName: BSDDeviceName("disk\(8 + i)"),
+                             vendorName: evo.vendorName,
+                             productName: evo.productName,
+                             mediumType: evo.mediumType,
+                             sizeBytes: evo.sizeBytes,
+                             logicalBlockSize: evo.logicalBlockSize,
+                             mountedVolumeNames: evo.mountedVolumeNames,
+                             mountedVolumeBSDNames: evo.mountedVolumeBSDNames,
+                             usbSerialNumber: "00000S7CLNJ0WC0226\(i)P")
+        }
+    }
 }
 
 /// `ContentView` with the run controls in a given state.
@@ -197,7 +281,10 @@ private enum DeviceFixture {
 /// Rendered per state because the controls, their disabled reasons and the status line all change
 /// together — and because this is where the "is anything below the fold?" question is answered.
 private struct RunStateHost: View {
-    enum Stage { case idle, starting, running, paused, finished, stopOnFirstError, noSelection, quitPending }
+    enum Stage {
+        case idle, starting, running, paused, finished, stopOnFirstError, noSelection, quitPending
+        case selectionBelowFold
+    }
     let stage: Stage
 
     /// Replaced by `configure()` on appear. Constructed with throwaway stores all the same: a
@@ -251,6 +338,23 @@ private struct RunStateHost: View {
             ProbeRun.start(live)
             _ = live.quitRequested()
             ProbeRun.finish(live)
+        case .selectionBelowFold:
+            // The **last** drive selected rather than the first, and the only render in this
+            // project where the selection is not on row 1.
+            //
+            // `DeviceFixture.fleet(of:)` puts `evo` first and the store selects the first usable
+            // drive, so every render ever taken here has had its selection at the top of the list
+            // — visible at any pane height, and therefore structurally blind to the defect fixed
+            // on 2026-08-20: a list shrunk to `deviceListFloor` shows whichever row its scroll
+            // offset lands on, which need not be the chosen drive.
+            //
+            // Meaningless at the default of one drive, deliberately rather than by oversight. A
+            // render of this view is worth looking at only with `drives` well above 1 and a height
+            // near the window's minimum; at any comfortable height the whole list fits and there
+            // is nothing for the scroll to do.
+            if let last = live.discovery.devices.last {
+                live.discovery.select(last.registryEntryID)
+            }
         }
         model = live
     }
@@ -765,6 +869,8 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: RunStateHost(stage: .noSelection))
     case "content-quit-pending":
         return NSHostingView(rootView: RunStateHost(stage: .quitPending))
+    case "content-selection-below-fold":
+        return NSHostingView(rootView: RunStateHost(stage: .selectionBelowFold))
 
     // Step 10. Every state the report window can be in.
     case "report":
@@ -908,6 +1014,27 @@ if let appearance = window.appearance {
     }
 }
 
+/// Reaches `NSHostingView.sizingOptions` without naming the generic's `Content` parameter.
+///
+/// `makeRootView` is typed `NSView` — it returns a different `NSHostingView<…>` per case, so there
+/// is no single concrete type to cast to. A protocol the generic conforms to is the way in.
+protocol SizingOptionsSettable: AnyObject {
+    var sizingOptions: NSHostingSizingOptions { get set }
+}
+extension NSHostingView: SizingOptionsSettable {}
+
+// **This is what makes `--limits` measure the shipped behaviour rather than an approximation.**
+// Without `sizingOptions`, an `NSHostingView` keeps its SwiftUI size constraints to itself and the
+// window's `contentMinSize` stays at AppKit's default — so the numbers printed below would be the
+// window's own, not the view's, and would agree with the app only by accident. Setting it makes
+// the view propagate its minimum and maximum upward, which is what a `Window` scene arranges.
+//
+// Only in limits mode: a render wants the window at the size it was asked for, and propagating a
+// minimum would let the content refuse to be rendered small.
+if wantsLimits, let hosting = rootView as? any SizingOptionsSettable {
+    hosting.sizingOptions = [.minSize, .maxSize, .intrinsicContentSize]
+}
+
 window.contentView = rootView
 
 // Ordered front so SwiftUI lays out and draws, but positioned far offscreen so it
@@ -917,6 +1044,27 @@ window.makeKeyAndOrderFront(nil)
 
 // Give SwiftUI a beat to lay out and draw before capturing.
 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+    if wantsLimits {
+        // `inf` rather than a ten-digit number: the maximum being unbounded is a *fact about the
+        // design* — it is why the window opened at screen height for as long as the scene declared
+        // no `.defaultSize` — and printing `10000000` invites it to be read as a large limit that
+        // somebody chose.
+        func pt(_ value: CGFloat) -> String {
+            value > 100_000 ? "inf" : String(Int(value.rounded()))
+        }
+        let minimum = window.contentMinSize
+        let maximum = window.contentMaxSize
+        let intrinsic = rootView.intrinsicContentSize
+        print("""
+              ui-probe: limits view=\(viewName) drives=\(driveCount) atWidth=\(Int(width)) \
+              min=\(pt(minimum.width))x\(pt(minimum.height)) \
+              max=\(pt(maximum.width))x\(pt(maximum.height)) \
+              intrinsic=\(pt(intrinsic.width))x\(pt(intrinsic.height)) \
+              appearance=\(appearanceName)
+              """)
+        exit(0)
+    }
+
     guard let content = window.contentView,
           let rep = content.bitmapImageRepForCachingDisplay(in: content.bounds) else {
         FileHandle.standardError.write(Data("ui-probe: capture failed\n".utf8))

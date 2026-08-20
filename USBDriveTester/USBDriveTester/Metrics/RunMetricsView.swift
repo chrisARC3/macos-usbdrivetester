@@ -120,8 +120,22 @@ struct RunMetricsView: View {
             // disturbed by a vertical scroll region. Checked rather than assumed — a `Spacer` that
             // had been expanding vertically would collapse to nothing here, and the panel would
             // have lost its spacing the moment it stopped clipping.
-            ScrollView {
-                if Self.showsMeasurements(snapshot: snapshot, isRunning: isRunning) {
+            // **The scroll region wraps the figures and NOT the placeholder**, and that asymmetry
+            // is a bug fix rather than an economy (2026-08-20).
+            //
+            // Wrapping both, then asking the whole panel for `fixedSize` when idle, gave SwiftUI
+            // two contradictory answers: a `ScrollView` has no meaningful minimum height — it will
+            // compress to nothing — while `fixedSize` asks the same view for a definite ideal. The
+            // window's reported `contentMinSize` came out **10-15 pt short of the truth**, so at
+            // the window's own minimum the placeholder's second line was cut in half. Measured at
+            // 720x455, and visible at the top of the window too: the content overflowed its frame
+            // and was centred, clipping both ends.
+            //
+            // Two lines of copy never needed a scroll region. Without one the `GroupBox` sizes to
+            // the placeholder, and that height propagates into the window's minimum the way every
+            // other block's does.
+            if Self.showsMeasurements(snapshot: snapshot, isRunning: isRunning) {
+                ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         progress
                         Divider()
@@ -135,20 +149,55 @@ struct RunMetricsView: View {
                         unidentifiedDriveWarning
                     }
                     .padding(.vertical, 4)
-                } else {
-                    idlePlaceholder
                 }
+            } else {
+                idlePlaceholder
             }
         } label: {
             Label(heading, systemImage: "gauge.with.needle")
                 .font(.callout.weight(.semibold))
         }
-        // Floor, ideal and ceiling rather than "whatever it wants". The floor keeps the heading on
-        // screen at any window height; the ideal asks for the progress row as well, so the bar is
-        // visible without scrolling at every height above the minimum. See `WindowMetrics`.
+        // **Two different size policies, chosen by whether there is anything to show.**
+        //
+        // WITH FIGURES: a floor, an ideal and no ceiling. The floor keeps the heading on screen at
+        // any window height; the ideal asks for the progress row as well, so FR-METR-5's bar is
+        // visible without scrolling above the minimum; and the content scrolls when the window
+        // cannot give it all 400-odd points.
+        //
+        // WITHOUT FIGURES: the same floor, no ideal and **no ceiling** — and no `ScrollView`, which
+        // is what makes the ceiling unnecessary. With nothing greedy inside it the `GroupBox` sizes
+        // to the placeholder and stops, at any window height.
+        //
+        // The idle case arrived in two steps, and the first was not enough. Rendering six drives
+        // for the first time (2026-08-19) showed this panel and the device detail — both
+        // `ScrollView`s, both greedy — splitting spare height evenly, so a 700 pt window spent
+        // **265 pt on a box containing one sentence** while the drive list showed two rows of six.
+        // Capping the idle panel at `metricsIdeal` fixed the worst of that and still left ~140 pt
+        // of empty box, which is what the user saw on hardware and asked to remove
+        // (2026-08-20): *finding and choosing a drive is the first thing a user does, so the
+        // drive panes get the height.*
+        //
+        // **A false economy was tried in between, and it is worth recording because it measured
+        // well.** Dropping the idle floor as well took 30 pt off every state's reported minimum —
+        // 485 to 455 — and `window-fit-check.sh` passed on the new number. It was wrong: with no
+        // floor this became the only pane without one, so at the window's own minimum it absorbed
+        // the entire shortfall and the placeholder's second line was cut in half. A smaller
+        // reported minimum is not automatically a better one; it can mean the window is now
+        // permitted to be too small. **The gate cannot see this** — it checks that the minimum is
+        // small enough to fit a screen, never that it is large enough to fit the content — and
+        // chunk 9.2 of the human checklist is what caught it, at the keyboard, in about a minute.
+        //
+        // The idle panel therefore cannot scroll and does not need to: it holds `metricsFloor`,
+        // which covers the placeholder even at the narrowest width, where it wraps to three lines.
         .frame(minHeight: WindowMetrics.metricsFloor,
-               idealHeight: WindowMetrics.metricsIdeal,
-               maxHeight: .infinity)
+               idealHeight: showsFigures ? WindowMetrics.metricsIdeal : nil,
+               maxHeight: showsFigures ? .infinity : nil)
+    }
+
+    /// Whether there are figures to show, hoisted out of `body` because the panel's **size policy**
+    /// now turns on it as well as its content (user decision 2026-08-20).
+    private var showsFigures: Bool {
+        Self.showsMeasurements(snapshot: snapshot, isRunning: isRunning)
     }
 
     /// Whether the panel shows figures at all, as a decision rather than a condition buried in

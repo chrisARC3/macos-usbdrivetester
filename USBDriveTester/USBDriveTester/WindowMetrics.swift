@@ -18,7 +18,13 @@
 //  minimum. Adding a row moves the minimum by construction. What is left in this file is the three
 //  floors and a default size — design choices, not measurements of the current layout.
 //
-//  ## The budget it exists to satisfy (user decision 2026-08-19)
+//  ## The budget it exists to satisfy — NFR-USE-9 (user decision 2026-08-19)
+//
+//  The requirement did not exist when this file was written. Investigating the window's size found
+//  that **nothing in either requirements document said what it had to fit**, so there was nothing
+//  to be in breach of; NFR-USE-9 was added in the docs pass of this increment to record the
+//  decision. It asks for two things, and the second is the unusual one: that the window fit, and
+//  that its minimum be **derived** rather than asserted.
 //
 //  The window must fit a **13.3-inch Apple Silicon Mac** — the smallest Apple Silicon laptop —
 //  at every scaled resolution it offers, with the Dock showing.
@@ -57,6 +63,14 @@
 //  content in that space. It claimed to fit and then clipped — observed on hardware at minimum
 //  height, with the bottom three lines of a run in progress cut off (user, 2026-08-19).
 //
+//  A pane that can fall to one row also has to keep the *right* row on screen, which is a separate
+//  problem from how much height it gets. `DeviceListView` scrolls the list the minimum distance
+//  needed to keep the selected drive visible whenever this pane's height changes — added
+//  2026-08-20, after chunk 9.3 found the chosen drive off screen altogether at the minimum, with
+//  the "Selected device" pane naming a drive the list was not showing. It costs no height at all,
+//  which is why ``deviceListFloor`` did not have to move for it: the selection capsule measures
+//  45 pt against the 46 pt floor, so one whole row already fits at the bottom of the range.
+//
 //  `nonisolated` for the reason `RunControlState.swift` records: the app target compiles with
 //  SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor, which would otherwise make even these constants
 //  main-actor-isolated and unreachable from the non-isolated test target.
@@ -64,7 +78,7 @@
 
 import CoreGraphics
 
-/// The main window's size policy (NFR-USE-8).
+/// The main window's size policy (NFR-USE-9).
 ///
 /// Only floors and a default size. **The minimum height is not here** — see this file's header for
 /// why deriving it is the whole point.
@@ -74,9 +88,19 @@ nonisolated enum WindowMetrics {
 
     /// The drive list's floor: **one row**.
     ///
-    /// `DeviceListView.rowHeight` is 46 pt and `@ScaledMetric`, so this tracks the body text size
-    /// the same way the rows do — a user at a larger text size gets a taller floor, which is the
-    /// intent, not drift.
+    /// 46 pt is `DeviceListView.rowHeight`'s value at the default text size.
+    ///
+    /// **It does not scale with it, and that is worth stating rather than leaving to be assumed.**
+    /// `rowHeight` is `@ScaledMetric`; this is a plain constant, so at a larger text size the rows
+    /// grow past it and the floor stops being exactly one row. The consequence is bounded — the
+    /// list scrolls, so a floor slightly under one row costs a sliver of a row and not a feature —
+    /// and it is preferred to the alternative, which is a floor that grows the window's minimum
+    /// height on the machines least able to spare it.
+    ///
+    /// It is also, today, moot: CONSTRAINTS section 1 records that Dynamic Type moves no font in
+    /// this app on macOS — measured offscreen, then confirmed at the keyboard with the System
+    /// Settings slider. `@ScaledMetric` here would be a lever that looks live and does nothing,
+    /// which is the specific trap the deleted `dynamicTypeSize` render axis was removed to avoid.
     ///
     /// One row rather than two is a consequence of two user decisions taken together (2026-08-19):
     /// cover every 13.3-inch scaling, and let the list yield before the detail pane. Two rows cost
@@ -92,7 +116,15 @@ nonisolated enum WindowMetrics {
     /// was a declared floor, so it was the only thing absorbing every squeeze in the window.
     static let deviceDetailFloor: CGFloat = 104
 
-    /// The live metrics panel's floor: its heading, with the figures scrolling beneath.
+    /// The live metrics panel's floor, in **both** its states: its heading, with the figures
+    /// scrolling beneath when there are figures, and the placeholder's two lines when there are not.
+    ///
+    /// - Important: it was briefly removed for the idle panel on 2026-08-20, on the theory that a
+    ///   97 pt floor to show two lines of copy was making every window taller than it needed to be.
+    ///   **Every state's reported minimum did fall by 30 pt, and every one of those windows
+    ///   clipped**: with no floor, this panel became the only pane without one, so it absorbed the
+    ///   whole shortfall at the window's minimum and its second line was cut in half. The floor was
+    ///   never the reason for the empty box the user asked to remove — the *ceiling* was.
     ///
     /// Measured as the panel's own chrome — the `GroupBox` label and padding — with every
     /// measurement section removed: 97 pt at the body text size. The panel's *ideal* height is
@@ -105,7 +137,8 @@ nonisolated enum WindowMetrics {
     /// on screen with nothing saying what they are.
     static let metricsFloor: CGFloat = 97
 
-    /// The metrics panel's ideal: heading plus the progress row (FR-METR-5).
+    /// The metrics panel's ideal **while it has figures to show**: heading plus the progress row
+    /// (FR-METR-5).
     ///
     /// Declared so the panel asks for the progress bar rather than merely tolerating it. Between
     /// this and ``metricsFloor`` the panel compresses; above it, it grows with the window like the

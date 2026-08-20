@@ -112,7 +112,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
-| 7 ← IN PROGRESS | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | full — **not yet gated**; part-committed at `321a820` |
+| **7 ✅ (uncommitted)** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. Part-committed at `321a820`; the rest is **uncommitted** |
 | 8 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); the Run Report window becomes **modal to the main window** (user, 2026-08-19); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
@@ -529,10 +529,116 @@ omission. The literal it carried had expired three times, silently each time, be
 recomputes a literal. The floors belong to the panes that can scroll (`WindowMetrics`) and SwiftUI
 sums them.
 
-**Not done, and this commit is therefore not a gate:** no `WindowMetricsTests`; no `--limits` mode
-promoted into `tools/ui-probe` and no `scripts/window-fit-check.sh`, which is what would turn the
-budget into something that fails when a future row breaks it; no drive-count or combined-state
-render axis; no three clean builds; no docs pass; no human checklist chunk.
+### The gate — `321a820` was the halfway point
+
+**`scripts/window-fit-check.sh` is the part that lasts.** It asks the real view hierarchy, through
+the new `ui-probe --limits`, for the size limits it hands a window, and compares them to the screen
+budget for every state at 1 and 6 attached drives. Four mutations: raising a pane floor was caught
+as TOO TALL; raising it *slightly* was caught as REGRESSED against the recorded allowance and
+nothing else, so the ratchet isolates; an unknown view name was caught by a guard that had to be
+fixed first (under `set -e` the failing assignment aborted before the diagnostic could print);
+and **lowering** a floor survived, as predicted — this is a ceiling check, not a floor check.
+
+`WindowMetricsTests` — 6 tests, 2 suites, floor ratcheted 985 → 991. Its header says plainly what it
+is not: a unit test cannot lay out SwiftUI, so it cannot check the thing the increment is about, and
+a test asserting `metricsFloor == 97` would restate the source while making the file look like cover
+it is not. What it pins is the relationships — a default below the minimum, an ideal below its own
+floor, a zero length. Six mutations, each caught by exactly the intended test.
+
+**A defect found by the new drive-count axis, within minutes of it existing.** The metrics panel and
+the device detail are both `ScrollView`s and both were greedy, so spare height split evenly between
+them: at 700 pt with six drives the window showed **two drives of six** beside a metrics panel
+spending 265 pt on a single sentence. The ceiling is now conditional on `showsMeasurements` — greed
+is right when there are figures worth over 400 pt and wrong when there is one sentence.
+
+**Three clean builds**, DerivedData wiped before **each** rather than once before the three:
+Debug **86** SwiftCompile tasks (85 + `WindowMetrics`), Release **2**, test **167**. Zero source
+warnings in all three. 991 tests green.
+
+The test figure was recorded as 81 the first time round and is not a regression — 81 is the test
+target alone, which is what a test build costs when it can reuse a Debug build's app-target objects.
+Wiped first, it recompiles both: 86 + 81 = 167, exactly. Release is 2 because whole-module
+optimisation compiles each target in a single task — app and helper. Worth writing down because
+"the number went up" is otherwise indistinguishable from something having been added.
+
+**The docs pass found that the requirement did not exist.** This increment was built against "the
+window must fit a 13.3-inch Mac", and neither requirements document said what it had to fit — while
+three source citations of `NFR-USE-8` had already been written, pointing at an *accessibility*
+requirement that says nothing about window size. **NFR-USE-9** now exists, with an amendment
+recording the decision, the points-versus-pixels correction and the known shortfall. The citations
+are corrected. A second wrong claim went with it: `deviceListFloor`'s comment said it tracked the
+body text size, which a plain `CGFloat` does not — and CONSTRAINTS already records that Dynamic Type
+moves no font in this app on macOS.
+
+### 2026-08-20 — two corrections from running the checklist
+
+**9.1 was recorded as failed, and had never run.** The setup step told the user to clear the saved
+window frame with `defaults delete com.arc3solutions.USBDriveTester "NSWindow Frame main"`. That
+form resolves to a **stale sandbox container** under `~/Library/Containers/` (7 July, from before
+App Sandbox was turned off): it deleted nothing, reported nothing, and the window restored its old
+frame — which was then read as `.defaultSize` not working. Increment 6 had already been bitten by
+the same container on a `defaults READ` and written it up as a read problem; it is not. It applies
+to every `defaults` operation on this bundle ID. The checklist now addresses the plist by path and
+verifies with `plutil -p` before launching. Re-run: **9.1 passes**, the window opens at 720 x 700.
+
+**The idle metrics panel is now sized to its content** (user decision, on seeing it). It was capped
+at `metricsIdeal` and still showed ~140 pt of empty box; finding and choosing a drive is the first
+thing a user does, so the drive panes get the height. The fix is that the idle branch has **no
+`ScrollView`** — with nothing greedy inside it, the `GroupBox` sizes to the placeholder and stops,
+at any window height. The running panel's policy is unchanged, and both `metrics` probe cases report
+identical limits before and after.
+
+**A false economy went with it and was reverted the same day — worth recording because it
+measured well.** Dropping the idle *floor* as well took 30 pt off every state's reported minimum
+(485 -> 455) and `window-fit-check.sh` passed on the new number. It was wrong: with no floor this
+became the only pane without one, so at the window's own minimum it absorbed the whole shortfall and
+the placeholder's second line was cut in half. **A smaller reported minimum is not automatically a
+better one** — it can mean the window is now permitted to be too small.
+
+**The gate cannot see that class of defect at all.** `window-fit-check.sh` checks the minimum is
+small enough to fit a screen; nothing checks it is large enough to fit the content. Chunk 9.2 caught
+it at the keyboard in about a minute, which is the clearest justification the human checklist has
+had this step.
+
+**The list can fall to one row, so it has to keep the right one on screen** (user request,
+2026-08-20, out of 9.3). At the window's minimum the drive list showed whichever row its scroll
+offset happened to land on, and the "Selected device" pane below it could name a drive that was
+nowhere in the list. `DeviceListView` now scrolls the minimum distance needed to bring the
+selection into view whenever that pane's height changes — no anchor, so it does nothing when the
+row is already visible, and unanimated, because a drag changes the height on every frame.
+
+It costs **no height at all**: every state's minimum is unchanged at 485 / 535 / 629. The selection
+capsule measures 45 pt against the 46 pt floor, so one whole row already fitted at the bottom of the
+range and `deviceListFloor` did not have to move — which matters, because moving it would have
+pushed `starting` past its recorded allowance and failed the ratchet.
+
+This is increment 7's own doing rather than something it merely uncovered. Until this increment the
+list was rigid at up to 260 pt, so losing the selection needed six drives and an already-scrolled
+list; making the list the pane that yields height first is what put it one drag away with two.
+
+**The large case passed for the wrong reason and nearly hid the real bug.** Called straight from the
+geometry action, the scroll runs against the *pre-change* viewport — so a row needing only a few
+points of movement reads as already visible and nothing happens. Six drives did not show this: the
+scroll needed there is large enough to saturate at the content's maximum offset, and a clamp does
+not care which viewport height produced it. Two drives did show it. The fix is a one-run-loop-turn
+deferral, the **third** instance of that shape in `DeviceListView` alone, after the focus request at
+`onAppear` and `TableSelectionPolicy`'s search for its table.
+
+**New render case `content-selection-below-fold`**, which selects the *last* drive rather than the
+first. Every render this project has ever taken had its selection on row 1 — visible at any pane
+height, and therefore structurally blind to this. Mutation-tested at two drives x 485 pt: deleting
+the geometry trigger is **caught**, scrolling to the wrong row is **caught**, deleting the deferral
+is **caught**. Deleting the *selection* trigger is a **deliberate survivor** — a render establishes
+its layout once, so the geometry trigger always fires — and is recorded in the checklist's no-cover
+list rather than left to be discovered.
+
+**Chunk 9 passed in full on 2026-08-20**, all six items, including 9.6 — the drive-list auto-scroll
+added the same day, which had no cover before it. Nothing is outstanding but the commit.
+
+**Two things carried forward, neither a defect.** `starting` is 41 pt over the tightest budget, and
+at a very tall window the *selected-device* pane now holds the leftover height — the waste moved
+rather than went, which is inherent: at 1200 pt something has to absorb 400 pt, and the only
+question is which pane absorbs it.
 
 **Still over budget in one state.** `starting` needs 629 — a 661 pt window — against 620 available
 on a 13.3-inch at its smallest scaling. The remaining 41 pt sits in the run controls'

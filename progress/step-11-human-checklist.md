@@ -210,6 +210,111 @@ Item 7 is what stops the whole chunk being a test of the *control* rather than o
 dropdown that moves, logs, persists and is correctly dimmed, but whose value never reaches the
 report, would pass 1–6.
 
+### Chunk 9 — the window's size (increment 7)
+
+**Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either,
+every check here is idle except 9.3.
+
+**First, clear the saved window frame.** AppKit's frame autosave beats `.defaultSize`, so a window
+that was once screen-height stays that way for that user until the saved frame is removed. With the
+app **quit**:
+
+```
+/usr/bin/defaults delete /Users/<you>/Library/Preferences/com.arc3solutions.USBDriveTester "NSWindow Frame main"
+```
+
+**BY PATH, NOT BY DOMAIN, AND THAT IS NOT A STYLE PREFERENCE (measured 2026-08-20).** The obvious
+form — `defaults delete com.arc3solutions.USBDriveTester "NSWindow Frame main"` — resolves to a
+**stale sandbox container** left under `~/Library/Containers/` since 7 July. The `defaults` CLI
+prefers a container path whenever that directory exists, so the domain form reads and writes a plist
+this app has never touched. It **deleted nothing and reported nothing**, and the window restored its
+old frame; 9.1 was recorded as a failure before anyone noticed the delete had never happened.
+
+This is the same trap as increment 6's `defaults read`, which is why chunk 8 reads by path — but it
+was written up as a *read* problem, and it is not. It applies to every `defaults` operation on this
+bundle ID. See `UserDefaultsIOSize`'s note.
+
+Verify before launching, rather than trusting it:
+
+```
+/usr/bin/plutil -p /Users/<you>/Library/Preferences/com.arc3solutions.USBDriveTester.plist
+```
+
+No `NSWindow Frame main` line should remain. `runIOSizeBytes` and `preRunWarningsSuppressed` live in
+the same file and must still be there — if they have gone, the wrong thing was deleted.
+
+1. **Launch. The window opens at roughly 720 x 700 and not full height.** This is the whole of the
+   original report — it opened at 1328 pt on a 1410 pt display against content that wanted 675,
+   because the scene declared no `.defaultSize` and the content's maximum height is unbounded. No
+   render can see this: a render is given a size, and the question here is what size the app *asks*
+   for.
+
+2. **Drag the bottom edge up as far as it will go.** It should stop at about **517 pt** tall, and at
+   that height **nothing is cut off** — the drive list, the selected-device pane and the metrics
+   panel each shrink and scroll rather than clipping. Watch which one gives way first: **the drive
+   list should shrink before the selected-device pane does**. That ordering is a deliberate
+   decision (2026-08-19) — the list is a picker you have finished with by then, the detail is what
+   stands between you and testing the wrong drive.
+
+3. **Start a run and, while it is running, drag the window down to its minimum again.** The live
+   metrics panel must **scroll**, not clip. This is the defect reported on 2026-08-19: the bottom
+   three lines were cut off and unreachable by any means, which for FR-METR-2/4/5/6 is the
+   requirement silently unmet rather than merely cramped. The heading stays pinned while the
+   figures move under it.
+
+   Note the window will refuse to go quite as small as it did in 9.2 — `starting` and `running` need
+   more height than idle. That is expected, and `starting` briefly needs the most.
+
+4. **With two drives attached, at a comfortable window height, check the idle metrics panel is
+   exactly its two lines of copy** — no empty box beneath them — and that the spare height has gone
+   to the drive list and the selected-device pane instead.
+
+   This took two goes. The drive-count render axis found both panes greedy and splitting spare
+   height evenly, so six drives at 700 pt showed two of them beside **265 pt of empty panel**;
+   capping the idle panel helped and still left ~140 pt of blank box, which is what was seen on
+   hardware and removed on 2026-08-20. The panel is now sized to its content when idle.
+
+   The panel keeps its floor. Removing that as well was tried on 2026-08-20 and reverted the same
+   day: it appeared to take 30 pt off every state's minimum, and every one of those windows clipped
+   this placeholder's second line. **9.2 is what caught it** — the fit gate had passed on the
+   smaller number, because it checks that the minimum is small enough to fit a screen and never
+   that it is large enough to fit the content.
+
+   At a very tall window (1200 pt+) the *selected-device* pane holds the leftover height instead,
+   since it is the remaining flexible pane. That is known and is not a defect to report.
+
+5. **Stop the run. Resize the window taller and shorter a few times.** Nothing should jump, flicker,
+   or leave a pane stranded at the wrong size, and the three panes should give and take height
+   smoothly rather than one absorbing everything.
+
+   **The drive list scrolling under the drag is the intended behaviour, not a jump** (added
+   2026-08-20, after the auto-scroll landed). It moves only far enough to keep the selected drive
+   visible and only while that drive would otherwise leave the pane; a list that stays put through
+   the whole drag means the selection was never in danger, which is equally correct. What would be
+   a defect is the list scrolling somewhere the selection is *not*, or scrolling while the window
+   is not being resized at all.
+
+6. **Click the *last* drive in the list, then drag the window down to its minimum.** The list must
+   scroll so the selected drive stays **fully** visible — both of its lines, not the top half of
+   one. Reported from 9.3 on 2026-08-20: at the minimum the chosen drive went off screen
+   altogether, leaving a one-row list above a "Selected device" pane naming a drive that was
+   nowhere on it.
+
+   Then drag taller and shorter again a few times. The selection should stay in view the whole
+   way, and the list should not animate — the scroll is deliberately unanimated, because a drag
+   changes the height on every frame and an animation would spend the drag chasing it.
+
+   **Two drives is the real test here, and six is not.** With six the scroll needed is large
+   enough to run into the bottom of the list and saturate, which comes out right even when the
+   mechanism is wrong; with two it is a few points, and only a correct implementation finds them.
+   That is measured rather than supposed — the one-run-loop-turn deferral in `scrollToSelection`
+   exists *because* six drives passed without it and two did not.
+
+**Known, and not a defect to report:** on a 13.3-inch Mac at its *smallest* scaling, the window
+grows by about 41 pt for the few seconds a run is in `starting`. The run controls print up to four
+sentences there that all mean "a run is in progress". It is recorded in
+`scripts/.window-fit-exceptions` and reported by `scripts/window-fit-check.sh` on every run.
+
 ## What has no automated cover, and will not get any
 
 * **The report body.** It sits in a scroll region, so even a render stops at `## Measurements`.
@@ -222,5 +327,20 @@ report, would pass 1–6.
   or presses a button in an `.alert`, so the *wiring* between the two pre-run controls and the
   model is reachable only by a person. The decision and every word of the dialog are pure types
   and are pinned; what is not pinned is that they are called at all. Chunk 8 is the cover.
+
+* **The selection half of the drive list's auto-scroll.** The list scrolls to the selected drive
+  on two triggers and only one of them can be seen. A render establishes its layout once, so the
+  height trigger always fires, and deleting the selection trigger changes no render at all
+  (mutation M2, 2026-08-20 — run as a predicted survivor and confirmed as one). The case it is
+  there for is a *programmatic* re-selection at a **stable** window height — what a hot-plug
+  produces — and neither a render nor 9.6 stages that. The reverse mutation is caught, which is
+  what says the pair is not simply redundant: a selection applied while the layout is still
+  settling scrolls against a viewport that has already gone.
+
+* **Window sizing, entirely.** Nothing automated can see what size a window *opens* at, that a
+  saved frame overrides `.defaultSize`, or that dragging an edge feels right. `window-fit-check.sh`
+  covers the one part that is a number — the limits the view hands the window — and chunk 9 covers
+  the rest. The four defects increment 7 fixed had all been sitting in plain sight of 29 render
+  cases, because a render is given a size and never asks for one.
 
 Three defects, three blind spots, one pass. Any rebuild of this area runs this list again.

@@ -84,6 +84,7 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-USE-6 | The honest-framing messaging shall be presented such that a clean pass cannot reasonably be mistaken for a health certificate. | M | PB What the Test Does and Does Not Prove; FR-WARN-3/4 |
 | NFR-USE-7 | The exported Markdown report shall be well-structured and human-readable (headings, a clear pass/fail outcome, and tabulated bad-block ranges and statistics). | S | FR-RPT-5 |
 | NFR-USE-8 | The GUI should follow macOS accessibility expectations on a best-effort basis — leveraging SwiftUI's built-in accessibility (Dynamic Type, sufficient color contrast) and, in particular, never conveying pass/fail status by color alone. A full accessibility audit is not a v1 release gate. **Screen-reader (VoiceOver) support is out of scope — removed 2026-08-11; see Amendments.** | S | Derived (macOS HIG); user decision 2026-06-25; **VoiceOver removed 2026-08-11** |
+| NFR-USE-9 | The main window shall fit on the smallest supported Apple Silicon Mac display — a 13.3-inch panel at any scaled resolution it offers, with the Dock showing — without clipping content and without requiring the user to resize it. Its minimum size shall be **derived** from the declared floors of the panes that scroll, rather than asserted as a constant. | S | user decision 2026-08-19; Step 11 increment 7; see Amendments |
 
 ## NFR-COMPAT — Platform & Device Compatibility
 
@@ -288,6 +289,45 @@ them and no future step inherits an obligation to.
 this tool works for them, and if that is ever revisited the work is larger than re-adding a line to
 this table: it would need the audit this amendment cancels, on every surface, with a person at the
 keyboard each time.
+
+### 2026-08-19 — NFR-USE-9 added: the main window has to fit the smallest supported Mac
+
+**Why this is a new requirement rather than a bug fix.** The window opened at screen height and its
+minimum did not fit a 13.3-inch Mac, and when that was investigated it turned out **nothing in
+either requirements document said what it had to fit**. There was no requirement to be in breach
+of. Step 11 increment 7 was built against a user decision, and a commitment with no requirement
+behind it is one nobody can check later — so the decision is written down here.
+
+**The correction the decision turned on: points, not pixels.** A 13.3-inch Apple Silicon Mac has a
+2560x1600 **pixel** panel, and the first framing of this question used 1600 as the vertical budget.
+macOS lays windows out in **points**, and that machine is **1440x900 points** at its default
+scaling. Reasoning from the pixel number makes every figure look comfortable by a factor of 1.8,
+and would have closed this question with the window still not fitting.
+
+Measured on the development Mac rather than recalled: the title bar costs **32 pt**, the menu bar
+takes **30 pt** out of `NSScreen.visibleFrame`, and a bottom Dock at the default tile size takes
+roughly **70** more. So:
+
+| scaling offered by a 13.3-inch Mac | points tall | budget for a window |
+|---|---|---|
+| 1440x900 (default) | 900 | 800 |
+| 1280x800 | 800 | 700 |
+| 1152x720 | 720 | 620 |
+
+**What the requirement asks for beyond fitting.** That the minimum be *derived*. The number this
+replaced was a literal in `ContentView` that expired **three times**, silently each time, because
+nothing recomputes a literal and nothing was watching. The requirement therefore constrains how the
+answer is arrived at and not only what it is — which is unusual for an NFR and is deliberate.
+`scripts/window-fit-check.sh` is the check: it asks the real view hierarchy, through
+`ui-probe --limits`, for the limits it hands a window.
+
+**Known and recorded as not yet met.** The `starting` state needs a 631 pt window against the 620 pt
+budget of the tightest scaling — over by **41 pt**. Every other state fits every scaling. The 41 pt
+are the run controls' disabled-reason block, which renders up to four sentences all meaning "a run
+is in progress"; collapsing them by cause is worth about 80 pt. That was left alone because it
+changes what the app *says* during a run, which is a product decision rather than a layout one. The
+shortfall is recorded in `scripts/.window-fit-exceptions` as a ratchet, so it is reported on every
+run of the gate and cannot quietly widen.
 
 ## Assumptions
 

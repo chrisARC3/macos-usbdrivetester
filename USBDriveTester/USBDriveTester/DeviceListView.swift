@@ -189,53 +189,101 @@ struct DeviceListView: View {
             if discovery.devices.isEmpty {
                 emptyState
             } else {
-                List(discovery.devices, selection: selectionBinding) { device in
-                    row(for: device)
-                        .tag(device.registryEntryID)
-                        // Frozen during a run (FR-DEV-7). The *reason* changed in increment 5 —
-                        // it used to be "a selection change would release the device", and is now
-                        // simply that **the run owns the device**. The refusal is still wanted.
-                        //
-                        // On the **row**, not on the `List`. `selectionDisabled` is a per-row
-                        // modifier; applied to the container it compiles, renders, and silently
-                        // does nothing — which is exactly what happened, and the run-state
-                        // stand-in went straight through it.
-                        //
-                        // `selectionDisabled` rather than `disabled`: the latter would also stop
-                        // scrolling, and NFR-PERF-4 requires the window to stay scrollable
-                        // throughout a run.
-                        .selectionDisabled(discovery.isRunActive)
+                // `ScrollViewReader` exists only so the two modifiers below have a
+                // proxy to scroll with. Nothing else moves this list programmatically.
+                ScrollViewReader { proxy in
+                    List(discovery.devices, selection: selectionBinding) { device in
+                        row(for: device)
+                            .tag(device.registryEntryID)
+                            // Frozen during a run (FR-DEV-7). The *reason* changed in increment 5 —
+                            // it used to be "a selection change would release the device", and is now
+                            // simply that **the run owns the device**. The refusal is still wanted.
+                            //
+                            // On the **row**, not on the `List`. `selectionDisabled` is a per-row
+                            // modifier; applied to the container it compiles, renders, and silently
+                            // does nothing — which is exactly what happened, and the run-state
+                            // stand-in went straight through it.
+                            //
+                            // `selectionDisabled` rather than `disabled`: the latter would also stop
+                            // scrolling, and NFR-PERF-4 requires the window to stay scrollable
+                            // throughout a run.
+                            .selectionDisabled(discovery.isRunActive)
+                    }
+                    .listStyle(.inset)
+                    // So FR-DEV-3's default selection reads as selected from the first frame rather
+                    // than as a grey maybe. See `deviceListHasFocus`.
+                    .focused($deviceListHasFocus)
+                    .onAppear {
+                        // Deferred by one run-loop turn deliberately. At `onAppear` the view is not
+                        // yet in a key window, and a focus request made then is dropped on the floor
+                        // — measured, not assumed: `.defaultFocus($deviceListHasFocus, true)` left
+                        // `window.firstResponder` as the NSWindow itself.
+                        DispatchQueue.main.async { deviceListHasFocus = true }
+                    }
+                    // ## Preventing the deselection instead of undoing it (2026-08-05)
+                    //
+                    // Two attempts to *restore* the highlight after the store declined both failed,
+                    // and the log convicted each in turn:
+                    //
+                    // 1. Bump an observable token and read it in the body, expecting the re-render to
+                    //    make `List` re-apply its binding. It does not — `List` pushes selection down
+                    //    only when the bound *value* changes, and a refusal does not change it.
+                    // 2. Drive `.id()` from that token to force a rebuild. Also no: with the trigger
+                    //    provably firing, ⌘-click still left the row deselected.
+                    //
+                    // So the highlight cannot be put back after the fact. It has to not leave.
+                    // `allowsEmptySelection` is the AppKit switch that makes ⌘-click and clicks below
+                    // the last row unable to clear a selection, and it is genuine table behaviour —
+                    // the selection stays real, nothing is drawn by hand.
+                    //
+                    // Held off only while a run is active, because deselection is wanted the rest of
+                    // the time.
+                    .background(TableSelectionPolicy(allowsEmptySelection: !discovery.isRunActive))
+                    // ## Keeping the chosen drive in view when the pane shrinks (2026-08-20)
+                    //
+                    // A `List` keeps its scroll offset when its frame changes, so a pane that can
+                    // fall to `deviceListFloor` — **one row** — shows whichever row that offset
+                    // lands on, and not necessarily the selected one. Reported at the keyboard on
+                    // 2026-08-20: at the window's minimum height the selected drive was off screen
+                    // entirely, which for the pane that answers "which drive am I about to write
+                    // to?" is the same class of problem NFR-USE-3 exists for.
+                    //
+                    // This is increment 7's to fix rather than something it merely uncovered. Until
+                    // this increment the list was rigid at up to 260 pt, so losing the selection
+                    // needed six drives and an already-scrolled list; making the list the pane that
+                    // yields height first is what put it one drag away with two.
+                    //
+                    // **No anchor, deliberately.** `scrollTo(_:)` without one scrolls the minimum
+                    // distance needed to make the row visible, so it does nothing when the
+                    // selection is already on screen and never yanks a list out from under someone
+                    // reading it. That is also what makes it safe to fire on *every* height change
+                    // rather than tracking the direction: growth is a no-op in practice, and a
+                    // selection that was already out of view heals rather than staying lost.
+                    //
+                    // Unanimated for the same reason — dragging the window edge changes this
+                    // height on every frame, and an animated scroll would spend the whole drag
+                    // chasing it.
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { _ in
+                        scrollToSelection(proxy)
+                    }
+                    // The other way the selection ends up out of view, and this half **predates
+                    // increment 7**: a click or an arrow key scrolls the table itself, but a
+                    // *programmatic* selection does not — and FR-DEV-3's default at launch and
+                    // `DeviceSelectionPolicy`'s re-selection after a hot-plug are both programmatic.
+                    //
+                    // **Uncovered, and knowingly so.** Deleting this changes no render: a render
+                    // establishes its layout once, so the geometry action above always fires and
+                    // does the same work (mutation M2, 2026-08-20 — a deliberate survivor). The
+                    // reverse is *not* true, which is the part worth knowing: deleting the
+                    // geometry action is caught, because a selection set while the layout is still
+                    // settling scrolls against a viewport that no longer exists, and this modifier
+                    // cannot stand in for it. What has no cover is the one case a render cannot
+                    // stage — a re-selection at a **stable** height, which is what a hot-plug
+                    // produces and what chunk 9.6 checks by hand.
+                    .onChange(of: discovery.selectedDeviceID) { _, _ in
+                        scrollToSelection(proxy)
+                    }
                 }
-                .listStyle(.inset)
-                // So FR-DEV-3's default selection reads as selected from the first frame rather
-                // than as a grey maybe. See `deviceListHasFocus`.
-                .focused($deviceListHasFocus)
-                .onAppear {
-                    // Deferred by one run-loop turn deliberately. At `onAppear` the view is not
-                    // yet in a key window, and a focus request made then is dropped on the floor
-                    // — measured, not assumed: `.defaultFocus($deviceListHasFocus, true)` left
-                    // `window.firstResponder` as the NSWindow itself.
-                    DispatchQueue.main.async { deviceListHasFocus = true }
-                }
-                // ## Preventing the deselection instead of undoing it (2026-08-05)
-                //
-                // Two attempts to *restore* the highlight after the store declined both failed,
-                // and the log convicted each in turn:
-                //
-                // 1. Bump an observable token and read it in the body, expecting the re-render to
-                //    make `List` re-apply its binding. It does not — `List` pushes selection down
-                //    only when the bound *value* changes, and a refusal does not change it.
-                // 2. Drive `.id()` from that token to force a rebuild. Also no: with the trigger
-                //    provably firing, ⌘-click still left the row deselected.
-                //
-                // So the highlight cannot be put back after the fact. It has to not leave.
-                // `allowsEmptySelection` is the AppKit switch that makes ⌘-click and clicks below
-                // the last row unable to clear a selection, and it is genuine table behaviour —
-                // the selection stays real, nothing is drawn by hand.
-                //
-                // Held off only while a run is active, because deselection is wanted the rest of
-                // the time.
-                .background(TableSelectionPolicy(allowsEmptySelection: !discovery.isRunActive))
             }
         }
         // **A range, not a height** (Step 11 increment 7). `listHeight` is now the *ideal* and the
@@ -266,6 +314,36 @@ struct DeviceListView: View {
         guard !discovery.devices.isEmpty else { return 160 }
         let content = CGFloat(discovery.devices.count) * rowHeight + 16
         return min(max(content, rowHeight * 2), 260)
+    }
+
+    /// Scrolls the list the minimum distance needed to bring the selected row into view, and does
+    /// nothing at all when that row is already visible.
+    ///
+    /// Pulled out of its two call sites so that both provably do the same thing. A height change
+    /// and a selection change are different events with one correct response, and two inline copies
+    /// of one response is how they drift apart.
+    ///
+    /// Nothing to do with no selection: `deselect()` is a real state (⌘-click, or a click below
+    /// the last row), and scrolling somewhere arbitrary because there is nothing to scroll to would
+    /// be worse than leaving the list where the user left it.
+    ///
+    /// ## Deferred one run-loop turn, and the deferral is load-bearing (measured 2026-08-20)
+    ///
+    /// Called directly from the geometry action, this scrolls against the viewport the list had
+    /// **before** the height change — so a row needing only a few points of movement reads as
+    /// already visible and nothing happens at all. Measured with two drives at the window's
+    /// minimum: the call ran, and the selected row stayed cut off by about ten points.
+    ///
+    /// Six drives *appeared* to work without the deferral, and that is the part worth recording.
+    /// The scroll needed there is large enough to saturate at the content's maximum offset, and a
+    /// clamp does not care which viewport height produced it — so the case that looks like the
+    /// stronger test is the one that cannot fail. The small case is the real one.
+    ///
+    /// Third instance of this shape in this file, after the focus request at `onAppear` and
+    /// `TableSelectionPolicy`'s search for its table: ran too early to see what it needed to see.
+    private func scrollToSelection(_ proxy: ScrollViewProxy) {
+        guard let id = discovery.selectedDeviceID else { return }
+        DispatchQueue.main.async { proxy.scrollTo(id) }
     }
 
     /// Bridges the store's `select(_:)` to a `List` selection binding. The store owns
