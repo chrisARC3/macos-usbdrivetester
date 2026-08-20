@@ -111,8 +111,14 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **3 ✅** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device. Protocol **v11**, which this row did not predict — nine reply arguments changed meaning. Two gate clients had to be rebuilt before the gate could run at all. | **done 2026-08-14** — see below |
 | **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
-| **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted; FR-CTRL-8's amendment built — a size change ends the run, **and is confirmed first**, which this row did not predict | **done 2026-08-19** — see below |
-| 7 ← NEXT | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
+| **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
+| 7 ← IN PROGRESS | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | full — **not yet gated**; part-committed at `321a820` |
+| 8 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); the Run Report window becomes **modal to the main window** (user, 2026-08-19); three clean builds; all three Step 10 gates re-run; the docs pass | full |
+
+> **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
+> *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
+> **8**. The scattered references are left for the docs pass to sweep rather than half-corrected
+> here, which would leave no single place saying what happened.
 
 ### Increment 1 — done 2026-08-12, `c89ed5c`
 
@@ -370,7 +376,7 @@ amendment; the metrics bullet in CONSTRAINTS section 1 that assumed a mid-run si
 third rejection ground, which lapsed with that amendment; and `RunReport.ioSizesUsed`'s comment.
 **Increments 2 and 3's items are still owed** — see their entries above.
 
-### Increment 6 — done 2026-08-19
+### Increment 6 — done 2026-08-19, `321a820`
 
 The two pre-run controls moved to the main window: the I/O-size dropdown built for the first time
 (FR-CTRL-8) and the failure-mode picker relocated from the diagnostics window (FR-CTRL-7).
@@ -488,9 +494,51 @@ Every one of the 16 runs executed the full **998** tests: no INCONCLUSIVE, no bu
 partial run. All four mutated files were confirmed byte-identical to their saved pristine copies
 afterwards, and the helper source hash re-derived to `058fb2c0…`.
 
-**Worth knowing for increment 7:** the report's outcome wording for a run ended this way is
-FR-RPT-4's *"stopped by user"*, which increment 7 owns. Until then a size change reports as whatever
-a Stop press reports as — the same path, correctly, because it is the same act.
+**Worth knowing for increment 8** (this paragraph said 7 before the renumber): the report's outcome
+wording for a run ended this way is FR-RPT-4's *"stopped by user"*, which that increment owns. Until
+then a size change reports as whatever a Stop press reports as — the same path, correctly, because
+it is the same act.
+
+### Increment 7 — IN PROGRESS, part-committed at `321a820`
+
+**Unplanned, and it exists because increment 6 was looked at on hardware.** The window opened far
+larger than it needed to, and the question that followed was whether it fits a 13.3-inch Mac at all.
+
+**Full account: commit `321a820`.** What is worth carrying here is the shape of the answer and the
+part that is not done.
+
+The measurements, taken with a width-constrained variant of `ui-probe` that asks the real view
+hierarchy for the limits it hands a window:
+
+| | before | after |
+|---|---|---|
+| enforced minimum, idle | 760 | 485 |
+| enforced minimum, running | 760 | 535 |
+| enforced minimum, `starting` | 760 — **and the content wanted 775, so it clipped** | 629 |
+| swing with attached drive count | 168 pt | none |
+| swing with failure mode selected | 15 pt | none |
+| declared maximum | infinite, with no `.defaultSize` — so it opened at screen height | unchanged maximum, `.defaultSize` declared |
+
+**macOS lays windows out in points, not pixels.** A 13.3-inch Apple Silicon Mac is 2560x1600 pixels
+but **1440x900 points** at its default scaling, so the budget is 900 and not 1600. Measured on the
+development Mac rather than recalled: title bar 32 pt, menu bar 30 pt, bottom Dock ~70. Getting this
+wrong by a factor of 1.8 would have made every number on this page look comfortable.
+
+`ContentView` now declares **no minimum height at all**, and that is the point rather than an
+omission. The literal it carried had expired three times, silently each time, because nothing
+recomputes a literal. The floors belong to the panes that can scroll (`WindowMetrics`) and SwiftUI
+sums them.
+
+**Not done, and this commit is therefore not a gate:** no `WindowMetricsTests`; no `--limits` mode
+promoted into `tools/ui-probe` and no `scripts/window-fit-check.sh`, which is what would turn the
+budget into something that fails when a future row breaks it; no drive-count or combined-state
+render axis; no three clean builds; no docs pass; no human checklist chunk.
+
+**Still over budget in one state.** `starting` needs 629 — a 661 pt window — against 620 available
+on a 13.3-inch at its smallest scaling. The remaining 41 pt sits in the run controls'
+disabled-reason block, which renders up to **four** sentences all meaning "a run is in progress":
+`disabledReasons` dedupes by exact string rather than by cause. Left alone deliberately — it changes
+what the app says, not how it is sized.
 
 ### What this step must not lose
 
