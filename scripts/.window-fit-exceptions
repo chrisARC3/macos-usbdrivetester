@@ -7,25 +7,20 @@
 # gate pass defeats the only thing the file does. Removing a line when the state starts fitting is
 # the intended end state.
 #
-# content-starting — 661 pt against a 620 pt budget, over by 41.
+# ## Empty since 2026-08-20, and that is the intended end state
 #
-#   Briefly recorded as 631 on 2026-08-20 and PUT BACK the same day. Removing the idle metrics
-#   panel's floor appeared to take 30 pt off every state's minimum; it did not. It stopped the
-#   window RESERVING room the panel still needed, so at the reported minimum the placeholder's
-#   second line was cut in half. A smaller reported minimum is not automatically a better one.
+# `content-starting` was listed here at 661 against a 620 pt budget. Both numbers are gone, for two
+# separate reasons on the same day:
 #
-#   All 41 pt are the run controls' disabled-reason block, which renders up to FOUR sentences that
-#   all mean "a run is in progress": `disabledReasons` deduplicates by exact string rather than by
-#   cause, so three differently-worded refusals from Start, Pause and Stop all draw, and the
-#   pre-run controls' own sentence is deliberately separate from them. Collapsing them by cause is
-#   worth ~80 pt and would clear the budget with 39 pt to spare.
+#   * the **instrument was wrong**. The gate read SwiftUI's declared minimum, which was 58 pt short
+#     in every state because `WindowMetrics.deviceListFloor` asks the drive list for 46 pt and the
+#     AppKit table backing it will not lay out below about 104. `starting` was really 718, not 661.
+#   * the **duplicate refusals were collapsed**, which is the fix this entry said was worth ~80 pt
+#     and deferred. It was: `starting` went 718 -> 638. In the four transient states the run state
+#     is itself the reason every control refuses, and the status line already says so, so one
+#     sentence draws instead of three.
 #
-#   NOT a sizing problem, which is why increment 7 did not take it: it changes what the app SAYS
-#   during a run, and that is a product decision rather than a layout one. Recorded here so it is
-#   visible on every run of the gate instead of living in a comment nobody opens.
-#
-#   `starting` is also transient — unmount, verify, acquire, read geometry — so the window grows
-#   for a few seconds and shrinks back. That makes it less bad, not fine: macOS enforces a content
-#   minimum, so a user at 600 pt on a small screen has the window jump when a run starts.
-#
-content-starting 661
+# With the committed budget at 700 (user decision, 2026-08-20) every state fits with at least 62 pt
+# to spare, so nothing needs an allowance. **Adding a line here is a decision, not a fix** — the
+# format is `<view> <maximum allowed window height in pt>`, it is a ratchet, and raising a number
+# to make the gate pass defeats the only thing the file does.

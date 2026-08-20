@@ -213,7 +213,7 @@ report, would pass 1–6.
 ### Chunk 9 — the window's size (increment 7)
 
 **Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either,
-every check here is idle except 9.3.
+every check here is idle except 9.3 and 9.7.
 
 **First, clear the saved window frame.** AppKit's frame autosave beats `.defaultSize`, so a window
 that was once screen-height stays that way for that user until the saved frame is removed. With the
@@ -249,8 +249,8 @@ the same file and must still be there — if they have gone, the wrong thing was
    render can see this: a render is given a size, and the question here is what size the app *asks*
    for.
 
-2. **Drag the bottom edge up as far as it will go.** It should stop at about **517 pt** tall, and at
-   that height **nothing is cut off** — the drive list, the selected-device pane and the metrics
+2. **Drag the bottom edge up as far as it will go.** It should stop at **563–574 pt** tall
+   depending on how many drives are attached, and at that height **nothing is cut off** — the drive list, the selected-device pane and the metrics
    panel each shrink and scroll rather than clipping. Watch which one gives way first: **the drive
    list should shrink before the selected-device pane does**. That ordering is a deliberate
    decision (2026-08-19) — the list is a picker you have finished with by then, the detail is what
@@ -262,8 +262,9 @@ the same file and must still be there — if they have gone, the wrong thing was
    requirement silently unmet rather than merely cramped. The heading stays pinned while the
    figures move under it.
 
-   Note the window will refuse to go quite as small as it did in 9.2 — `starting` and `running` need
-   more height than idle. That is expected, and `starting` briefly needs the most.
+   Note the window will refuse to go quite as small as it did in 9.2 — `running` needs **613–624**
+   against idle's 563–574, and `starting` briefly needs the most at **627–638**. That is expected:
+   the window grows a little at the moment you press Start and settles back when the run begins.
 
 4. **With two drives attached, at a comfortable window height, check the idle metrics panel is
    exactly its two lines of copy** — no empty box beneath them — and that the spare height has gone
@@ -310,10 +311,26 @@ the same file and must still be there — if they have gone, the wrong thing was
    That is measured rather than supposed — the one-run-loop-turn deferral in `scrollToSelection`
    exists *because* six drives passed without it and two did not.
 
-**Known, and not a defect to report:** on a 13.3-inch Mac at its *smallest* scaling, the window
-grows by about 41 pt for the few seconds a run is in `starting`. The run controls print up to four
-sentences there that all mean "a run is in progress". It is recorded in
-`scripts/.window-fit-exceptions` and reported by `scripts/window-fit-check.sh` on every run.
+7. **While a run is starting, count the sentences under the buttons.** There should be **one**
+   refusal — "The drive is already being prepared." — under a status line that already reads
+   "Preparing the drive — unmounting its volumes and taking exclusive access." Not three.
+
+   Until 2026-08-20 all three drew: Start's, Pause's and Stop's, each a differently-worded version
+   of the same fact, which is why exact-string deduplication never caught them. **Each one costs
+   40 pt of window height**, and together they were what pushed the window past what a small Mac
+   can show.
+
+   `starting` is transient — unmount, verify, acquire, read geometry — so you may have only a few
+   seconds. If you miss it, `pausing` and `stopping` collapse the same way and are easier to catch.
+
+   No test reaches this: `disabledReasons` is private to its view. The `content-starting` render
+   and this item are the whole of its cover.
+
+**Known, and not a defect to report:** a 13.3-inch Mac at its *smallest* scaling (1152x720) has
+620 pt for a window, and `starting` needs 638. The project commits to **1280x800** with the Dock —
+a 700 pt budget — which every state clears by at least 62 pt (user decision, 2026-08-20). At the
+smallest scaling the window fits at rest and grows behind the Dock for the few seconds a run spends
+starting. `scripts/window-fit-check.sh` reports all three scalings on every run.
 
 ## What has no automated cover, and will not get any
 

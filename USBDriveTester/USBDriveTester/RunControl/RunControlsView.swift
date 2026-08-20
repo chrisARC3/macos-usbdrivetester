@@ -323,8 +323,45 @@ struct RunControlsView: View {
         for reason in candidates.compactMap({ $0 }) where !seen.contains(reason) {
             seen.append(reason)
         }
-        return seen
+
+        // ## One sentence while the run state is itself the reason (2026-08-20)
+        //
+        // Exact-string deduplication only catches sentences that are *identical*, and in the
+        // transient states the three are merely **the same fact in three phrasings**. In
+        // `starting`: "The drive is already being prepared", then "The drive is still being
+        // prepared, and nothing has been written yet. Pause becomes available once the run
+        // starts", then the same again with "Stop". Three sentences under a status line that
+        // already reads "Preparing the drive — unmounting its volumes and taking exclusive
+        // access. Nothing has been written yet."
+        //
+        // **Each one costs 40 pt of window height**, measured with `ui-probe --limits` on
+        // 2026-08-20: `content-starting` needs 686 pt of content with three, 646 with two, 606
+        // with one. That is what made this worth doing now rather than later — `starting` was the
+        // state pushing the window past what a 13.3-inch Mac can show.
+        //
+        // Restricted to the four states where the cause **is** the state, and where
+        // `statusDescription` is a sentence explaining a transition rather than a bare label. In
+        // `idle`, `running`, `paused` and `finished` the status line reads "Idle", "Running",
+        // "Paused…" or "Finished" and explains nothing about why a control refuses, so every
+        // distinct sentence is still printed there.
+        //
+        // **The surviving sentence is Start's, and that is the invariant rather than a
+        // coincidence.** The wider rule tried in increment 5 — suppress when no control is enabled
+        // — put `content-quit-pending` on screen with Start disabled and nothing saying why, which
+        // is the Step 4 defect this whole block exists to prevent. Keeping "Start's refusal is
+        // always shown" true by construction means this narrowing cannot reach that state: it
+        // drops only sentences that follow Start's, and only where the status line above has
+        // already given the cause.
+        return Self.statesTheStatusLineExplains.contains(state) ? Array(seen.prefix(1)) : seen
     }
+
+    /// The states in which every control refuses for one reason — the state itself — and the
+    /// status line has already named it.
+    ///
+    /// An array rather than a `Set` because `RunControlState` is `Equatable` and not `Hashable`,
+    /// and four elements is not a lookup worth a conformance.
+    private static let statesTheStatusLineExplains: [RunControlState] =
+        [.starting, .pausing, .stopping, .finishing]
 
     // MARK: - Actions
 

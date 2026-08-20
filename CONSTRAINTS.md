@@ -294,6 +294,16 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   sight of 29 render cases**: the window opened at screen height, `starting` clipped at the window's
   own minimum, the minimum swung 168 pt with the number of attached drives, and the live metrics
   panel clipped instead of scrolling.
+- **`--limits` reports the larger of two numbers, and reading only the first was wrong by 58 pt.**
+  What SwiftUI *declares* (`NSWindow.contentMinSize`) is built from the `.frame(minHeight:)` each
+  pane asks for, and **a control can ignore the floor it is given** — see the lesson below. What
+  the *layout* does is the smallest height at which the content stops overflowing the space it is
+  handed, found by driving the window down. Each can be too small: the declared one when a floor is
+  fiction, the measured one for a view whose whole body is a scroll region and so never overflows
+  (`report` bottoms out at 24 pt against a declared 560). Neither can be too large, so the answer is
+  the max. Until this was fixed the **width argument was inert** — `content-starting` reported the
+  same height at 640, 700 and 900 — and the figures the gate's own header quoted for it had never
+  been produced by the gate.
 - **Drive count is a render axis** (sixth argument, default 1). Until it existed, **every render
   this project had ever taken showed exactly one drive**, so `DeviceListView`'s list — which grows
   to a 260 pt cap with the number attached — had never been looked at near that cap. The first
@@ -468,7 +478,10 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   a measured constant is only true until the content above it changes, and nothing recomputes a
   literal. Do not reintroduce a total, including "as documentation": a number that is right today
   and unwatched is the exact failure being designed out. `scripts/window-fit-check.sh` is what
-  checks it, by measurement, against a screen budget.
+  checks it, by measurement, against a screen budget — **the laid-out hierarchy, not SwiftUI's
+  declared minimum**, which was wrong by 58 pt until 2026-08-20. The budget is **700 pt**: a
+  13.3-inch at 1280x800 with the Dock (user decision, 2026-08-20, replacing a one-day commitment to
+  every scaling that was chosen from the broken figures).
 - **POINTS, NOT PIXELS.** A 13.3-inch Apple Silicon Mac is 2560x1600 **pixels** and **1440x900
   points** at default scaling. Every window measurement in this project is in points. Reasoning from
   the pixel number inflates the budget by a factor of 1.8 and makes a window that does not fit look
@@ -622,6 +635,20 @@ Every defect this project has produced came from trusting a substitute for the r
   `__TEXT,__cstring` does answer it — byte-identical across 1.63 MB of instruction text is proof
   the compiled behaviour is unchanged, and it is what let a post-gate comment rewrite stand without
   re-running the gate.
+- **A FLOOR A CONTROL IGNORES IS INDISTINGUISHABLE FROM A FLOOR THAT WORKS, AND EVERYTHING BUILT
+  ON IT INHERITS THE LIE.** `WindowMetrics.deviceListFloor` asks the drive list for 46 pt. The
+  AppKit table behind SwiftUI's `List` will not lay out below about **104** whatever it is told, so
+  the constant is a request that is accepted and has no effect. Nothing warned; the modifier
+  compiled, rendered, and was believed — **including by SwiftUI itself**, which is what made it
+  expensive. `contentMinSize` is computed *from* the declared floors, so the window's declared
+  minimum came out 58 pt below any height the content can occupy, `window-fit-check.sh` was built
+  on that number, and for a day the gate reported the window fitting screens it does not fit while
+  a render at the reported minimum visibly clipped its header.
+  **The instrument inherited the defect it existed to catch.** Found only by driving the shipped
+  window with accessibility scripting and comparing — which is the general lesson: when a gate and
+  the app disagree, the app is the fact, and a gate that has never been calibrated against the
+  running thing is an assertion wearing a measurement's clothes. Verify a floor by measuring what
+  the layout does with it, never by reading it back.
 - **The bigger case is often the weaker test, and it is the one you will reach for.** Keeping the
   drive list scrolled to the selected row worked at six drives and failed at two. The reason is
   saturation: at six, the scroll runs into the end of the content and clamps — and a clamp does not

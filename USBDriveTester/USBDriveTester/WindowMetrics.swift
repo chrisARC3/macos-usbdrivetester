@@ -26,8 +26,10 @@
 //  decision. It asks for two things, and the second is the unusual one: that the window fit, and
 //  that its minimum be **derived** rather than asserted.
 //
-//  The window must fit a **13.3-inch Apple Silicon Mac** — the smallest Apple Silicon laptop —
-//  at every scaled resolution it offers, with the Dock showing.
+//  The window must fit a **13.3-inch Apple Silicon Mac** — the smallest Apple Silicon laptop — at
+//  **1280x800** with the Dock showing (user decision, 2026-08-20). It was every scaling that
+//  machine offers for one day, chosen from figures the gate was producing incorrectly; see the
+//  correction below.
 //
 //  That machine's panel is 2560x1600 **pixels**, which is the number to be careful with: macOS
 //  lays windows out in **points**, and the panel is 2x, so its default "looks like" setting is
@@ -41,14 +43,25 @@
 //      | 1280x800            |  800   |  700                         |
 //      | 1152x720            |  720   |  620                         |
 //
-//  With the floors below, the enforced minimum measures ~567 pt of content — a **599 pt window**,
-//  which clears the tightest of those by 21 pt.
+//  The enforced minimum measures **531–542 pt of content** depending on how many drives are
+//  attached — a 563–574 pt window — which clears the 700 pt budget by more than 120 pt. The
+//  `starting` state is the tallest at 638, and it clears it by 62.
 //
-//  **That 567 is an observation, not an assertion**, and it is deliberately not a constant here:
-//  writing it down would recreate exactly the literal this file exists to delete. It is checked by
-//  `scripts/window-fit-check.sh`, which asks the real view hierarchy for the limits it hands a
-//  window and fails if they no longer fit the budget. A row added three steps from now moves the
-//  measured minimum and the gate says so.
+//  **Those are observations, not assertions**, and deliberately not constants here: writing one
+//  down would recreate exactly the literal this file exists to delete. `scripts/window-fit-check.sh`
+//  is what checks them, and a row added three steps from now moves the measured minimum and the
+//  gate says so.
+//
+//  ## The correction of 2026-08-20, and why the numbers above are not the ones first recorded
+//
+//  This file originally reported ~567 pt of content and a 599 pt window. Both came from
+//  `NSWindow.contentMinSize` — what SwiftUI **declares** — and that number was **58 pt short in
+//  every state**, for the reason ``deviceListFloor`` now records at length: a floor this file asks
+//  for and the control ignores. A render at the declared minimum clips its header, and the shipped
+//  app clamps 58 pt higher than the gate was reporting.
+//
+//  The gate now measures the laid-out hierarchy rather than reading the declaration, so the figures
+//  above are the ones a user actually meets by dragging the window's edge.
 //
 //  ## What scrolls, and in what order (user decision 2026-08-19)
 //
@@ -86,7 +99,28 @@ nonisolated enum WindowMetrics {
 
     // MARK: - Floors for the panes that scroll
 
-    /// The drive list's floor: **one row**.
+    /// The drive list's floor: **one row** — as far as this file is concerned, which is not as far
+    /// as the list is concerned.
+    ///
+    /// - Warning: **the control does not honour it, and nothing announced that.** The `List` in
+    ///   `DeviceListView` is backed by an AppKit table, and that table will not lay out below
+    ///   roughly **104 pt** whatever `minHeight` it is handed. This constant is therefore a request
+    ///   that is accepted and has no effect below 104 — the exact shape CONSTRAINTS records under
+    ///   "SwiftUI modifiers fail silently" and "an API accepting a request is not the request
+    ///   having had its intended effect".
+    ///
+    ///   It went unnoticed for a day because SwiftUI's own `contentMinSize` believes it: the
+    ///   declared window minimum came out **58 pt** below any height the content can occupy, the
+    ///   gate built on that number reported the window fitting screens it does not fit, and a
+    ///   render at the reported minimum clipped its header. Found on 2026-08-20 by resizing the
+    ///   shipped window with accessibility scripting; confirmed by setting this constant to 104,
+    ///   which moves the declared minimum onto the enforced one exactly.
+    ///
+    ///   **It is left at 46 deliberately.** Raising it to 104 would make the declaration honest at
+    ///   the cost of *asserting* a number measured from today's AppKit, which is the kind of
+    ///   constant this whole file exists to delete — and it would change nothing on screen, because
+    ///   the table already refuses. `scripts/window-fit-check.sh` now measures the layout instead
+    ///   of trusting any floor, so the gap is covered rather than papered over.
     ///
     /// 46 pt is `DeviceListView.rowHeight`'s value at the default text size.
     ///

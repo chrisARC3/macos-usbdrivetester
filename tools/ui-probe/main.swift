@@ -1014,6 +1014,71 @@ if let appearance = window.appearance {
     }
 }
 
+/// The smallest content height at which SwiftUI's laid-out content still fits the space it is
+/// given — the number a user finds by dragging the window's edge up until it stops.
+///
+/// - Parameters:
+///   - ceiling: a height known to be comfortable. Doubled if it turns out not to be, so a view
+///     that needs more than its unconstrained intrinsic height cannot silently peg the search.
+///
+/// ## How "does it fit" is decided
+///
+/// `NSHostingView` lays its SwiftUI content out into a single child view. When the content cannot
+/// compress into the height it was handed, that child is **taller than the hosting view's bounds**
+/// and the excess is what gets clipped on screen. Comparing the two is therefore the same question
+/// the eye asks of a render, asked arithmetically.
+///
+/// The child is measured rather than walked for. Every depth from 1 to 5 was checked on 2026-08-20
+/// and reported the identical height at every candidate — nested scroll content is not exposed as a
+/// taller `NSView` here — so a depth-limited walk would add a tunable with nothing to tune.
+///
+/// ## Why the advertised minimum has to be cleared first
+///
+/// `contentMinSize` is exactly what is under suspicion, and while it stands the window refuses to
+/// go below it — the search would bottom out at the wrong answer and confirm it. Measured: asking
+/// for 420 pt with the advertised minimum in place returns 485 and overflow, which reads as
+/// "485 does not fit" without ever testing anything smaller.
+///
+/// Nothing is restored afterwards. `--limits` exits at the end of this pass, and a mode that
+/// captures nothing has no state worth putting back.
+func measuredMinimumHeight(window: NSWindow,
+                           rootView: NSView,
+                           width: CGFloat,
+                           ceiling: CGFloat) -> CGFloat {
+    window.contentMinSize = NSSize(width: 1, height: 1)
+    window.minSize = NSSize(width: 1, height: 1)
+
+    func overflows(at height: CGFloat) -> Bool {
+        window.setContentSize(NSSize(width: width, height: height))
+        window.layoutIfNeeded()
+        rootView.layoutSubtreeIfNeeded()
+        let laidOut = rootView.subviews.first?.frame.height ?? 0
+        // Half a point of slack: these are CGFloats off a layout pass, and an exact `>` would turn
+        // a rounding artefact into a one-point difference in the answer.
+        return laidOut > rootView.bounds.height + 0.5
+    }
+
+    var high = ceiling
+    var guardCount = 0
+    while overflows(at: high) && guardCount < 4 {
+        high *= 2
+        guardCount += 1
+    }
+    // A view that will not fit at sixteen times a comfortable height is broken in a way this
+    // function cannot describe. Report the ceiling rather than loop, and let the number be absurd
+    // enough to be noticed.
+    guard !overflows(at: high) else { return high }
+
+    var low: CGFloat = 1
+    guard overflows(at: low) else { return low }
+
+    while high - low > 1 {
+        let mid = ((low + high) / 2).rounded()
+        if overflows(at: mid) { low = mid } else { high = mid }
+    }
+    return high
+}
+
 /// Reaches `NSHostingView.sizingOptions` without naming the generic's `Content` parameter.
 ///
 /// `makeRootView` is typed `NSView` — it returns a different `NSHostingView<…>` per case, so there
@@ -1052,12 +1117,61 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
         func pt(_ value: CGFloat) -> String {
             value > 100_000 ? "inf" : String(Int(value.rounded()))
         }
-        let minimum = window.contentMinSize
+        let advertised = window.contentMinSize
         let maximum = window.contentMaxSize
         let intrinsic = rootView.intrinsicContentSize
+
+        // ## The advertised minimum is not the enforced one, and the gap was 58 pt
+        //
+        // `window.contentMinSize` is what SwiftUI *declares*, and it is computed from the
+        // `.frame(minHeight:)` each pane asks for. **The `List` in `DeviceListView` does not
+        // honour the one it is given.** `deviceListFloor` declares 46 pt — one row — and the
+        // AppKit table backing that pane will not lay out below about 104 whatever it is told.
+        //
+        // So the declared total came out 58 pt short of any height the content can actually
+        // occupy: `--limits` reported 485 for `content` where the shipped app clamps at 543, and
+        // the difference is exactly the 58 pt the list refuses to give up. It was found by
+        // resizing the real window with accessibility scripting on 2026-08-20 and confirmed by
+        // raising `deviceListFloor` to 104, which moves the advertised number to 543 on the nose.
+        //
+        // A render at the advertised number **clips**, which is what makes this the gate's
+        // problem rather than a curiosity: `window-fit-check.sh` was answering "does it fit"
+        // with a height at which it demonstrably does not.
+        //
+        // ## So measure the layout instead of the declaration
+        //
+        // `measuredMinimumHeight` drives the window down and asks, at each height, whether
+        // SwiftUI's laid-out content is taller than the space it was given. The smallest height
+        // where it is not is the honest minimum, and it agrees with the shipped app exactly.
+        //
+        // This is the project's own rule applied to its own instrument: verify the postcondition,
+        // not the return value. A floor a control ignores is a request that was accepted and had
+        // no effect, and nothing announced it.
+        // ## Neither number alone, and the two fail in opposite directions
+        //
+        // The declared minimum can be **too small** — a pane whose control ignores the floor it
+        // was given, which is this whole note's subject. It is never too large: SwiftUI does not
+        // invent constraints nobody asked for.
+        //
+        // The measured one can also be too small, for an unrelated reason: it only sees content
+        // that overflows the hosting view, and a view that is *entirely* a scroll region never
+        // does. Measured 2026-08-20 — `report` bottoms out at 24 pt against a declared 560, and
+        // `devices` at 1 pt against 210, because in both the whole body is inside a `ScrollView`
+        // that clips internally and never reports a size it could not honour.
+        //
+        // So the enforced minimum is **at least both**, and neither can overstate it. Taking the
+        // larger is right for the same reason on both sides rather than by luck.
+        let measured = measuredMinimumHeight(window: window,
+                                             rootView: rootView,
+                                             width: width,
+                                             ceiling: max(intrinsic.height, 1_200))
+        let enforced = max(advertised.height, measured)
+
         print("""
               ui-probe: limits view=\(viewName) drives=\(driveCount) atWidth=\(Int(width)) \
-              min=\(pt(minimum.width))x\(pt(minimum.height)) \
+              min=\(pt(advertised.width))x\(pt(enforced)) \
+              declared=\(pt(advertised.width))x\(pt(advertised.height)) \
+              overflowAt=\(pt(measured)) \
               max=\(pt(maximum.width))x\(pt(maximum.height)) \
               intrinsic=\(pt(intrinsic.width))x\(pt(intrinsic.height)) \
               appearance=\(appearanceName)

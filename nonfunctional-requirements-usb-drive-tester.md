@@ -84,7 +84,7 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-USE-6 | The honest-framing messaging shall be presented such that a clean pass cannot reasonably be mistaken for a health certificate. | M | PB What the Test Does and Does Not Prove; FR-WARN-3/4 |
 | NFR-USE-7 | The exported Markdown report shall be well-structured and human-readable (headings, a clear pass/fail outcome, and tabulated bad-block ranges and statistics). | S | FR-RPT-5 |
 | NFR-USE-8 | The GUI should follow macOS accessibility expectations on a best-effort basis — leveraging SwiftUI's built-in accessibility (Dynamic Type, sufficient color contrast) and, in particular, never conveying pass/fail status by color alone. A full accessibility audit is not a v1 release gate. **Screen-reader (VoiceOver) support is out of scope — removed 2026-08-11; see Amendments.** | S | Derived (macOS HIG); user decision 2026-06-25; **VoiceOver removed 2026-08-11** |
-| NFR-USE-9 | The main window shall fit on the smallest supported Apple Silicon Mac display — a 13.3-inch panel at any scaled resolution it offers, with the Dock showing — without clipping content and without requiring the user to resize it. Its minimum size shall be **derived** from the declared floors of the panes that scroll, rather than asserted as a constant. | S | user decision 2026-08-19; Step 11 increment 7; see Amendments |
+| NFR-USE-9 | The main window shall fit a 13.3-inch Apple Silicon Mac at **1280x800 with the Dock showing** — a 700 pt window — without clipping content and without requiring the user to resize it. Its minimum size shall be **derived by measuring the laid-out view hierarchy**, rather than asserted as a constant or taken from a declared minimum that a control may not honour. | S | user decisions 2026-08-19 and 2026-08-20; Step 11 increment 7; see Amendments |
 
 ## NFR-COMPAT — Platform & Device Compatibility
 
@@ -290,6 +290,51 @@ this tool works for them, and if that is ever revisited the work is larger than 
 this table: it would need the audit this amendment cancels, on every surface, with a person at the
 keyboard each time.
 
+### 2026-08-20 — NFR-USE-9 corrected: the instrument was wrong, and the budget with it
+
+**The gate was answering "does it fit" with a height at which it demonstrably does not.**
+`window-fit-check.sh` read `NSWindow.contentMinSize` — what SwiftUI *declares* — and that number is
+built from the `.frame(minHeight:)` each pane asks for. `WindowMetrics.deviceListFloor` asks the
+drive list for **46 pt**, one row, and **the AppKit table backing that pane will not lay out below
+about 104 whatever it is told**. SwiftUI believed the 46, so the declared total described a height
+the content cannot occupy, and it was short by **58 pt** in every state.
+
+Found by driving the shipped window with accessibility scripting: the real app clamps at **575 pt**
+where the gate reported 517. Confirmed two further ways — a render at the declared minimum clips its
+header, and raising `deviceListFloor` to 104 moves the declared number to 543 exactly, which is what
+the app enforces.
+
+**The gate now measures the layout instead of the declaration.** `--limits` reports the larger of
+the declared minimum and the smallest height at which the laid-out content stops overflowing the
+space it is given. Each can be too small — a declared floor a control ignores, or a view whose whole
+body is a scroll region and so never overflows — and neither can be too large. This is why the
+requirement above now constrains *how* the minimum is measured and not only that it is derived.
+
+**Two consequences, and the second is the reason this amendment exists.**
+
+First, the run controls' duplicate refusals were finally collapsed — the fix the 2026-08-19
+amendment described as worth ~80 pt and deferred. It was worth exactly that: `starting` went from
+718 to **638**. In the four transient states (`starting`, `pausing`, `stopping`, `finishing`) the
+run state is itself the reason every control refuses, and the status line already names it, so one
+sentence draws where three did. Each sentence measures 40 pt.
+
+Second, **the committed budget moves from 620 to 700** (user decision, 2026-08-20) — a 13.3-inch at
+**1280x800** with the Dock showing, rather than at every scaling it offers.
+
+That is not a retreat from a met commitment. The 620 target was chosen on 2026-08-19 *from the
+broken numbers*, which showed every state but one fitting it. None of them did: corrected, `running`
+and `paused` miss 620 by 4 pt with six drives attached, and `starting` missed it by 98. 700 is where
+the decision started before the wrong figures made a tighter target look free, and against it every
+state fits with at least **62 pt to spare** — with `scripts/.window-fit-exceptions` empty for the
+first time since it was created. A user at 1152x720 gets a window that fits at rest and grows behind
+the Dock for the few seconds a run spends starting.
+
+**The drive-count dependency is back, and it is small.** Increment 7 recorded the window's minimum
+as independent of how many drives are attached. That was an artefact of the declared number, which
+ignored drive count too. Measured honestly it swings **11 pt** between one drive and six, because
+the list's real floor tracks its content where its declared floor does not. The gate checks both
+ends, so the worst case is the one reported.
+
 ### 2026-08-19 — NFR-USE-9 added: the main window has to fit the smallest supported Mac
 
 **Why this is a new requirement rather than a bug fix.** The window opened at screen height and its
@@ -322,12 +367,12 @@ answer is arrived at and not only what it is — which is unusual for an NFR and
 `ui-probe --limits`, for the limits it hands a window.
 
 **Known and recorded as not yet met.** The `starting` state needs a 631 pt window against the 620 pt
-budget of the tightest scaling — over by **41 pt**. Every other state fits every scaling. The 41 pt
-are the run controls' disabled-reason block, which renders up to four sentences all meaning "a run
-is in progress"; collapsing them by cause is worth about 80 pt. That was left alone because it
-changes what the app *says* during a run, which is a product decision rather than a layout one. The
-shortfall is recorded in `scripts/.window-fit-exceptions` as a ratchet, so it is reported on every
-run of the gate and cannot quietly widen.
+budget of the tightest scaling — over by **41 pt**. Every other state fits every scaling.
+
+> **Superseded 2026-08-20, and every figure in the paragraph above is wrong.** The gate producing
+> them was reading a declared minimum that was 58 pt short in every state; `starting` really needed
+> 718. The scaling this amendment committed to was never met by any state. See the amendment
+> below.
 
 ## Assumptions
 

@@ -43,9 +43,39 @@
 # ## The width matters, and 640 is not arbitrary
 #
 # Required height depends on how the explanatory sentences wrap, and that depends on width. The
-# `starting` state needs 629 pt at 640 wide and 92 pt less at 700, because three disabled-reason
-# sentences each gain a line. 640 is `WindowMetrics.minimumContentWidth` — the narrowest the window
-# goes, and therefore the worst case. Measuring at any other width would flatter the result.
+# `starting` state needs 675 pt at 640 wide, 645 at 700 and 631 at 900, because three
+# disabled-reason sentences each gain a line as the window narrows. 640 is
+# `WindowMetrics.minimumContentWidth` — the narrowest the window goes, and therefore the worst
+# case. Measuring at any other width would flatter the result.
+#
+# **Until 2026-08-20 this paragraph was aspirational**: the number came from `contentMinSize`,
+# which reported the same height at 640, 700 and 900. The width argument was inert and the figures
+# quoted here (629, and "92 pt less at 700") were never produced by this script.
+#
+# ## What "the minimum" means here, after the 58 pt correction (2026-08-20)
+#
+# `--limits` reports **the larger of two numbers**, because each can be too small and neither can
+# be too large:
+#
+#   * what SwiftUI **declares** (`window.contentMinSize`), which is built from the
+#     `.frame(minHeight:)` each pane asks for; and
+#   * the smallest height at which the laid-out content **stops overflowing** the space it is
+#     given, found by driving the window down and measuring.
+#
+# The declared number was short by **58 pt** for every `content-*` state. `WindowMetrics`
+# `deviceListFloor` asks the drive list for 46 pt — one row — and **the AppKit table backing that
+# pane will not lay out below about 104 whatever it is told**. SwiftUI believed the 46, so the
+# declared total described a height the content could not occupy; a render at it clips.
+#
+# Found by resizing the shipped window with accessibility scripting: the real app clamps at
+# **575 pt** (543 of content plus a 32 pt title bar, both measured), where this script had been
+# reporting 517. Confirmed by raising `deviceListFloor` to 104, which moves the declared number to
+# 543 exactly. The gate now reports 542 for the same state — one point under the shipped clamp,
+# which is AppKit rounding and is recorded rather than papered over.
+#
+# The overflow measurement alone is not enough either, and in the opposite direction: a view whose
+# whole body is a scroll region never overflows, so `report` bottoms out at 24 pt against a
+# declared 560. Hence the max.
 #
 # ## Drive count is an axis because it moved the answer by 168 pt
 #
@@ -83,8 +113,22 @@ SCALINGS=(
     "13.3\" @ 1152x720|720|620"
 )
 
-# The tightest one is what the project committed to covering (user decision, 2026-08-19).
-COMMITTED_BUDGET=620
+# What the project commits to covering: **1280x800 with the Dock showing** (user decision,
+# 2026-08-20), which is a 700 pt window.
+#
+# ## Why this moved, and why it is not backsliding
+#
+# It was 620 — the tightest scaling a 13.3-inch offers — from 2026-08-19 until the day after. That
+# decision was taken on numbers this script was producing **incorrectly**: the declared minimum it
+# read was 58 pt short in every state, so 620 looked met everywhere except `starting`. It never
+# was. Corrected, `running` and `paused` miss 620 by 4 pt with six drives attached, and the honest
+# figure for `starting` was 718 rather than the 661 recorded against it.
+#
+# 700 is where the decision started on 2026-08-19, before the broken numbers made a tighter target
+# look free. Against it every state fits with at least 62 pt to spare, `.window-fit-exceptions` is
+# empty, and NFR-USE-9 is a requirement the app meets rather than one carrying a standing
+# allowance. A 1152x720 user gets a window that mostly fits and grows past the Dock during a run.
+COMMITTED_BUDGET=700
 
 EXCEPTIONS="$REPO_ROOT/scripts/.window-fit-exceptions"
 

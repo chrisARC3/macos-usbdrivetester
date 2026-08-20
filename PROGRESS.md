@@ -510,13 +510,17 @@ answer, and the two things it leaves standing on purpose.
 The measurements, taken with a width-constrained variant of `ui-probe` that asks the real view
 hierarchy for the limits it hands a window:
 
-| | before | after |
-|---|---|---|
-| enforced minimum, idle | 760 | 485 |
-| enforced minimum, running | 760 | 535 |
-| enforced minimum, `starting` | 760 — **and the content wanted 775, so it clipped** | 629 |
-| swing with attached drive count | 168 pt | none |
-| swing with failure mode selected | 15 pt | none |
+The middle column is what increment 7 reported on the day. **It was wrong by 58 pt in every row**
+— see the correction below — so the honest figures are carried beside it rather than quietly
+substituted.
+
+| | before | as reported 2026-08-19 | measured 2026-08-20 |
+|---|---|---|---|
+| enforced minimum, idle | 760 | 485 | **531–542** |
+| enforced minimum, running | 760 | 535 | **581–592** |
+| enforced minimum, `starting` | 760 — **and the content wanted 775, so it clipped** | 629 | 675–686, then **595–606** once the duplicate refusals were collapsed |
+| swing with attached drive count | 168 pt | none | **11 pt** — the declared number ignored drive count too |
+| swing with failure mode selected | 15 pt | none | none |
 | declared maximum | infinite, with no `.defaultSize` — so it opened at screen height | unchanged maximum, `.defaultSize` declared |
 
 **macOS lays windows out in points, not pixels.** A 13.3-inch Apple Silicon Mac is 2560x1600 pixels
@@ -633,18 +637,55 @@ its layout once, so the geometry trigger always fires — and is recorded in the
 list rather than left to be discovered.
 
 **Chunk 9 passed in full on 2026-08-20**, all six items, including 9.6 — the drive-list auto-scroll
-added the same day, which had no cover before it. Committed at `5a4a76f`.
+added the same day, which had no cover before it. Committed at `5a4a76f`. **A 9.7 was added after
+that commit**, covering the collapsed refusals, and has not been walked yet.
 
-**Two things carried forward, neither a defect.** `starting` is 41 pt over the tightest budget, and
-at a very tall window the *selected-device* pane now holds the leftover height — the waste moved
-rather than went, which is inherent: at 1200 pt something has to absorb 400 pt, and the only
-question is which pane absorbs it.
+**One thing carried forward, and it is not a defect.** At a very tall window the *selected-device*
+pane holds the leftover height — the waste moved rather than went, which is inherent: at 1200 pt
+something has to absorb 400 pt, and the only question is which pane absorbs it.
 
-**Still over budget in one state.** `starting` needs 629 — a 661 pt window — against 620 available
-on a 13.3-inch at its smallest scaling. The remaining 41 pt sits in the run controls'
-disabled-reason block, which renders up to **four** sentences all meaning "a run is in progress":
-`disabledReasons` dedupes by exact string rather than by cause. Left alone deliberately — it changes
-what the app says, not how it is sized.
+The `starting` overage that used to sit here is **gone**: it was 41 pt against a budget that state
+never met, it was really 98, and collapsing the duplicate refusals plus moving the committed budget
+to 700 clears it by 62. `scripts/.window-fit-exceptions` is empty.
+
+### The 58 pt correction (2026-08-20) — the gate was measuring the wrong thing
+
+**`window-fit-check.sh` was answering "does it fit" with a height at which it demonstrably does
+not.** It read `NSWindow.contentMinSize`, which SwiftUI builds from the `.frame(minHeight:)` each
+pane asks for. `WindowMetrics.deviceListFloor` asks the drive list for 46 pt — one row — and **the
+AppKit table backing that pane will not lay out below about 104 whatever it is told.** SwiftUI
+believed the 46, so the declared total was 58 pt short of any height the content can occupy.
+
+Found by driving the shipped window with accessibility scripting: the app clamps at **575 pt**
+where the gate said 517. Confirmed twice more — a render at the declared minimum clips its header,
+and setting `deviceListFloor` to 104 moves the declared number to 543, which is the app's clamp on
+the nose.
+
+**The gate now measures the layout rather than the declaration.** `--limits` reports the larger of
+the declared minimum and the smallest height at which the laid-out content stops overflowing the
+space it is given. Both can be too small in different ways — a floor a control ignores, or a view
+whose whole body is a scroll region and so never overflows, which bottoms `report` out at 24 pt
+against a declared 560 — and neither can be too large.
+
+A side effect worth having: **the width argument now bites.** `starting` measures 675 at 640 wide,
+645 at 700 and 631 at 900. It was inert before, and the figures the gate's own header quoted for it
+had never been produced by the gate.
+
+**The duplicate refusals were collapsed**, which the 2026-08-19 write-up called worth ~80 pt and
+deferred. It was worth exactly that: `starting` 718 → **638**. In the four transient states
+(`starting`, `pausing`, `stopping`, `finishing`) the run state is itself the reason every control
+refuses and the status line already names it, so one sentence draws where three did. Each sentence
+measures 40 pt. The surviving one is Start's, which keeps "Start's refusal is always shown" true by
+construction — the invariant that stops this narrowing reaching `content-quit-pending`, where the
+wider rule tried in increment 5 left Start disabled with nothing saying why.
+
+**The committed budget moved 620 → 700** (user decision, 2026-08-20): a 13.3-inch at 1280x800 with
+the Dock, rather than every scaling it offers. Not a retreat from a met commitment — 620 was chosen
+from the broken numbers and no state ever met it. Against 700 every state fits with at least 62 pt
+to spare, and `scripts/.window-fit-exceptions` is **empty for the first time since it was created**.
+
+Uncovered by the suite: `disabledReasons` is private to its view, so no test reaches the collapse.
+The `content-starting` render is its only cover, and chunk 9.7 is the keyboard check.
 
 ### What this step must not lose
 
