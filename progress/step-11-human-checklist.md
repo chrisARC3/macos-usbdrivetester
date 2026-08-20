@@ -212,6 +212,10 @@ report, would pass 1–6.
 
 ### Chunk 9 — the window's size (increment 7)
 
+> **Status: 9.1–9.6 passed at the keyboard on 2026-08-20. 9.7 has never been walked** — it was
+> written after the rest were signed off, to cover the refusals collapsed in `faf9a93`. It is the
+> one item in this chunk still owed, and it is owed to **increment 8**.
+
 **Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either,
 every check here is idle except 9.3 and 9.7.
 

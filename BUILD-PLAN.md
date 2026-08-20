@@ -13,7 +13,7 @@ Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Di
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
 
-> **The step in progress is Step 11 (increments 1–5 done), and the protocol is v12.** Anything below that names an
+> **The step in progress is Step 11 (increments 1–7 done, increment 8 next), and the protocol is v12.** Anything below that names an
 > earlier protocol version is a dated record of what was true when it was written — the inherited
 > notes on Steps 11 and 12 especially. `PROGRESS.md` is the tracker; `CONSTRAINTS.md` is what binds.
 **Source documents:**

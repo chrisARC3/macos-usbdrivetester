@@ -16,7 +16,7 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–5 written; 6 and 7 remain
+## Step 11 — IN PROGRESS. Increments 1–7 done; **increment 8 remains**
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
@@ -120,6 +120,60 @@ Raised during scoping and not contradicted, so they stand until they are:
 > **8**. The scattered references are left for the docs pass to sweep rather than half-corrected
 > here, which would leave no single place saying what happened.
 
+### Where increment 8 starts
+
+Re-derived on 2026-08-20 rather than quoted. **No tree hash is named on purpose** — it would be
+stale by the next commit, which is the failure mode this project keeps paying for. `git log
+--oneline -6` shows increment 7's three commits.
+
+| | |
+|---|---|
+| **Tree** | clean, on `main` |
+| **Verified** | **991 tests, 0 failures, 129 suites**; zero source warnings across three clean builds with DerivedData wiped before **each** — Debug 86 SwiftCompile tasks, Release 2, test 167 |
+| **Helper** | source hash `058fb2c0767af72a38299e4f133d98053e2b42b73958437813dc1b0420202781`, **unchanged since increment 6** |
+| **Protocol** | **v12** |
+| **Gates** | `window-fit-check.sh` passes against a 700 pt budget with an **empty** `.window-fit-exceptions` |
+| **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`). **The 1 TB T5's `/dev/urandom` fill file must be kept** |
+
+**How to re-derive the helper hash**, which was recorded in a commit message and nowhere a cold
+start would look:
+
+```
+find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared \
+     -name '*.swift' | sort | xargs cat | shasum -a 256
+```
+
+Helper **plus `Shared/`**. The recipe behind hashes recorded before 2026-08-19 is not written down
+anywhere and does not reproduce; only hashes from `a36c4f77…` onward are checkable.
+
+### What increment 8 owes
+
+1. **FR-RPT-4** — "Stopped by user" in the report. Deferred out of Step 10 (user decision
+   2026-08-06); Step 10's gate carries it struck through.
+2. **FR-CTRL-5** — Restart. Per the scoping decisions above it **re-uses the held claim** rather
+   than releasing and re-acquiring.
+3. **The Run Report window becomes modal to the main window** (user decision 2026-08-19). A sheet on
+   the main window, which is what forces the report closed before a new run can start — the reason
+   being that a run starting under an open report cleared its contents, observed on hardware.
+4. **All three Step 10 hardware gates re-run** — `xpc-concurrency-check.sh`, `metrics-check.sh`,
+   `retention-cycle-check.sh` — because the helper binary moved in increment 6 and none has run
+   since.
+5. **Three clean builds**, and **the docs pass**.
+
+**Debts the docs pass must clear.** Each is recorded where it was found as well as here, so this
+list is a checklist rather than the only witness:
+
+* **Chunk 9.7 has never been walked.** It covers the refusals collapsed in `faf9a93` and was written
+  after chunk 9 was signed off. `disabledReasons` is private to its view, so no test reaches it and
+  the `content-starting` render is its only automated cover.
+* **The renumbering of 2026-08-19** left the words "increment 7" in documents that now mean
+  increment 8. The note under the increments table is deliberately the only correction made so far;
+  sweeping the rest is this pass's job.
+* **BUILD-PLAN is wrong about why increment 2 needed no Xcode tick** — see increment 2 below for
+  what `project.pbxproj` actually says.
+* **`starting` misses the 1152x720 scaling by 18 pt.** A stated non-goal since the budget moved to
+  700 on 2026-08-20, not a breach — but the NFR should say so rather than leave it silent.
+
 ### Increment 1 — done 2026-08-12, `c89ed5c`
 
 `RunControl/RunControlState.swift` + `RunControlPolicyTests.swift`. App target and test target only,
@@ -156,7 +210,7 @@ Helper-side pause/stop at the chunk boundary, and protocol **v10**.
 | | |
 |---|---|
 | **Verified** | **855 tests, 0 failures, 96 suites**; app and helper build clean on v10 |
-| **Helper** | **hash moved to `c0ec07ae6cf746fb105446064ad584e391769a706e451ed1435a23c076f19702`.** Step 10's three hardware gates (`xpc-concurrency-check.sh`, `metrics-check.sh`, `retention-cycle-check.sh`) **no longer apply** and must be re-run before this step closes (increment 7) |
+| **Helper** | **hash moved to `c0ec07ae6cf746fb105446064ad584e391769a706e451ed1435a23c076f19702`.** Step 10's three hardware gates (`xpc-concurrency-check.sh`, `metrics-check.sh`, `retention-cycle-check.sh`) **no longer apply** and must be re-run before this step closes (**increment 8** — renumbered) |
 | **Mutations** | **12 introduced, 11 caught, 1 survived — and the survivor was predicted** |
 | **Xcode work** | **none.** See the note below; BUILD-PLAN's summary of this is imprecise |
 
