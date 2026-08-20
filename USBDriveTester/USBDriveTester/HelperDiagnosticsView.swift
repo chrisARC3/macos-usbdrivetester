@@ -11,7 +11,23 @@
 //    * Round-trip    — live XPC through the *registered* daemon; also discharged the
 //                      ping deferred out of Step 1.
 //    * Parameters    — the helper rejecting misaligned / out-of-range requests.
-//    * Pre-run       — the failure mode (FR-FAIL-1) and the way back from a suppressed warning.
+//    * Pre-run       — the way back from a suppressed warning (Step 14, decision 7).
+//
+//  ## What Step 11 increment 6 took out of here
+//
+//  **The failure-mode picker is gone**, to the main window's pre-run controls beside the I/O-size
+//  dropdown, where FR-CTRL-7 wants it. It was only ever here as scaffolding: Step 10 built
+//  FR-FAIL-1's two modes when there was no Start control to put the picker next to, and a mode
+//  nobody can select is a mode nobody has checked.
+//
+//  **The value did not move with it.** It has been `AppModel.failureMode` since Step 10 — chosen
+//  in one window, used by a run issued from a second, named in a report shown in a third — so the
+//  relocation was a view change and nothing else.
+//
+//  What is left of "pre-run" here is the **way back** from a suppressed warning, which belongs in
+//  this window rather than the main one for the reason recorded on it: the checkbox that sets the
+//  preference lives in the pre-run dialog, and a setting with no way back is one the user cannot
+//  undo without editing a plist.
 //
 //  ## What Step 11 increment 5 took out of here
 //
@@ -59,15 +75,6 @@ struct HelperDiagnosticsView: View {
     /// exactly as it covers a wrong mount belief; the collapse fixes it at the source.
     let runIsActive: Bool
 
-    /// FR-FAIL-1's mode for the next run, chosen **before** it starts.
-    ///
-    /// A binding into `AppModel` rather than local state: the run is issued from the main window
-    /// and the report that names the mode is shown in a third one. **Increment 6 relocates this
-    /// control** to the pre-run controls beside the I/O-size dropdown, where FR-CTRL-7 wants it; it
-    /// stays here until then so `stopOnFirstError` remains reachable, and a run outcome nobody can
-    /// trigger is one nobody has checked.
-    @Binding var failureMode: FailureModeCode
-
     /// Whether the user has suppressed the pre-run **warning text** (Step 14, decision 5).
     ///
     /// A binding into `AppModel`, which writes it through to `UserDefaults`. It is here rather than
@@ -89,7 +96,6 @@ struct HelperDiagnosticsView: View {
         Form {
             registrationSection
             connectionSection
-            preRunControlsSection
             preRunWarningsSection
             parameterSection
         }
@@ -161,45 +167,6 @@ struct HelperDiagnosticsView: View {
             Text(registration.lastActionMessage)
                 .font(.callout)
                 .textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    // MARK: - Pre-run controls (FR-FAIL-1; relocating in increment 6)
-
-    private var preRunControlsSection: some View {
-        Section("Pre-run controls") {
-            Text("""
-                 Chosen before a run starts and fixed for its duration. The Start control itself is \
-                 in the main window, beside the drive it acts on.
-                 """)
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            // FR-FAIL-1: the mode is chosen **before** the run, and FR-FAIL-4 makes log-and-continue
-            // the default. Disabled while a run is in flight — the mode is fixed for the run's
-            // duration, and a control that looks changeable mid-run would imply otherwise.
-            Picker("On failure", selection: $failureMode) {
-                Text("Log and continue").tag(FailureModeCode.logAndContinue)
-                Text("Stop on first error").tag(FailureModeCode.stopOnFirstError)
-            }
-            .pickerStyle(.radioGroup)
-            .disabled(runIsActive)
-            .onChange(of: failureMode) { _, mode in RunReportLog.modeSelected(mode) }
-
-            Text(failureMode == .stopOnFirstError
-                 ? """
-                   The run halts at the first failed block range. **Everything past it is left \
-                   untested** — which is not the same as passed.
-                   """
-                 : """
-                   Every failed block range is recorded and the rest of the drive is still \
-                   refreshed. The default, and the safer choice for a drive already suspected of \
-                   failing.
-                   """)
-                .font(.callout)
-                .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

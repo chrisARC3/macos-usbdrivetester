@@ -32,17 +32,36 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of the 24 cases below, grouped by family so the list can be counted against
-#   `makeRootView` in tools/ui-probe/main.swift. `diagnostics-stop-on-error` and `metrics-finished`
-#   were missing here until 2026-08-11 — the probe had them, this list did not.
-#     content              content-quitting
+# `view` is one of the 29 cases below, grouped by family so the list can be counted against
+#   `makeRootView` in tools/ui-probe/main.swift.
+#
+#   THIS LIST HAS NOW DRIFTED FROM THE PROBE TWICE. In 2026-08-11 it was missing
+#   `diagnostics-stop-on-error` and `metrics-finished`; by increment 6 it still named
+#   `diagnostics-held` and `diagnostics-quitting`, which the probe had **stopped accepting** in
+#   increment 5, and it was missing all six `content-*` run-state cases that replaced them — so it
+#   listed 24 where the probe had 28, and two of the 24 would have been refused with exit 2.
+#   Re-derive rather than hand-edit; the probe is authoritative:
+#     grep -oE '^    case "[a-z0-9-]+":' tools/ui-probe/main.swift | sed 's/.*"\(.*\)":/\1/' | sort
+#
+#     content              content-starting     content-running            content-paused
+#     content-finished     content-stop-on-error
+#     content-no-selection content-quit-pending content-quitting
 #     devices              devices-unmounted    devices-unusable           empty
-#     diagnostics          diagnostics-held     diagnostics-stop-on-error
-#                          diagnostics-warnings-suppressed                 diagnostics-quitting
+#     diagnostics          diagnostics-run-active
+#                          diagnostics-warnings-suppressed
 #     metrics              metrics-finished     metrics-idle
 #     report               report-empty         report-failures
 #                          report-qualified     report-stopped             report-unidentified
 #     warnings             warnings-ticked      warnings-confirm           warnings-unidentified
+#
+#   The `content-*` family is Step 11's. Increment 5 added the run states; increment 6 added
+#   `content-finished` (FR-CTRL-8's "or stopped" window, which no render reached on its own) and
+#   `content-stop-on-error`, which replaces `diagnostics-stop-on-error` — the failure-mode picker
+#   moved to the main window and the panel that render pointed at no longer has one.
+#
+#   `content-paused` is the one that earns its place twice over: it is the only state where the
+#   two pre-run controls disagree — the I/O-size dropdown live, the failure-mode picker not — and
+#   both disabled reasons have to make that legible rather than arbitrary.
 #
 #   THREE OF THESE RENDER A STATE THIS MACHINE CANNOT PRODUCE, and each exists because a state
 #   nobody can observe is a state nobody has checked:

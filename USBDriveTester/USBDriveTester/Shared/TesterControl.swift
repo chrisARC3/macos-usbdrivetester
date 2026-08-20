@@ -872,7 +872,20 @@ nonisolated public enum FailedRangeCoding {
 /// Purely additive changes that an older peer simply never calls do not require a
 /// bump, but bumping is cheap and a mismatch is far easier to diagnose than a
 /// silently missing method.
-public enum TesterProtocol {
+///
+/// `nonisolated` for the reason the six wire enums above it are, and added in Step 11 increment 6
+/// when the first `nonisolated` type needed to read one of these constants. The **app** target
+/// compiles with `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which otherwise makes even a
+/// namespace of immutable `static let`s main-actor-isolated — so `IOSizeSelection.permitted(_:)`,
+/// which must know `permittedIOSizes` to validate a stored preference against it, could not read
+/// one without a warning.
+///
+/// **This changes nothing for the helper**, whose target does not set that flag, so these
+/// constants were already nonisolated there. Verified rather than argued: the helper binary's
+/// `__TEXT,__text` and `__TEXT,__cstring` are byte-identical across the change, which is the
+/// comparison CONSTRAINTS names for *"did this change behaviour"* — and the reason the source
+/// hash moving here does not put Step 10's three hardware gates back into question.
+nonisolated public enum TesterProtocol {
 
     /// History:
     /// - **1** — Step 3: `ping`, `protocolVersion`, `validateRunParameters`.

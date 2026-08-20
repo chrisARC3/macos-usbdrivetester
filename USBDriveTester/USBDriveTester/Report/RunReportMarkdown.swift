@@ -136,7 +136,7 @@ nonisolated enum RunReportMarkdown {
     private static func ioSizes(_ report: RunReport) -> String {
         let sizes = report.ioSizesUsed
         guard !sizes.isEmpty else { return MetricsFormatting.unknown }
-        let names = sizes.map { "\($0 / (1 << 20)) MiB" }
+        let names = sizes.map(IOSizeSelection.label)
         guard report.latencySpansMultipleIOSizes else { return names[0] }
         return names.joined(separator: ", then ")
              + " — the read-latency figures below span all of them"

@@ -238,7 +238,21 @@ struct DeviceListView: View {
                 .background(TableSelectionPolicy(allowsEmptySelection: !discovery.isRunActive))
             }
         }
-        .frame(height: listHeight)
+        // **A range, not a height** (Step 11 increment 7). `listHeight` is now the *ideal* and the
+        // ceiling rather than a fixed size, so this pane can give up height when the window is
+        // shorter than the content wants — and it is the pane that gives up height **first**, ahead
+        // of the selected-device detail below (user decision 2026-08-19).
+        //
+        // The order is the point. A rigid list meant every squeeze landed on the detail, which is
+        // the block that stands between the user and testing the wrong drive (NFR-USE-3); the list
+        // is a picker they have finished with by the time height is scarce. The ordering is not
+        // asked for with `layoutPriority` — it falls out of the ranges. This pane's is bounded
+        // (`deviceListFloor`…`listHeight`) and the detail's is not (`deviceDetailFloor`…∞), and a
+        // `VStack` sizes its least flexible child first. `scripts/window-fit-check.sh` and the
+        // `devices-*` renders check that this holds rather than trusting the reasoning.
+        .frame(minHeight: WindowMetrics.deviceListFloor,
+               idealHeight: listHeight,
+               maxHeight: listHeight)
     }
 
     /// Sized to its content, floored so the empty state has room and capped so a
@@ -381,6 +395,12 @@ struct DeviceListView: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
+        // The floor this pane never had (Step 11 increment 7). It was already a `ScrollView`, so it
+        // could always compress — with nothing saying how far, which is why it was the only thing
+        // absorbing every squeeze in the window and why the identity block could be reduced to
+        // nothing. `deviceDetailFloor` keeps the line that says *which drive this is* on screen at
+        // any window height; the rest scrolls.
+        .frame(minHeight: WindowMetrics.deviceDetailFloor, maxHeight: .infinity)
     }
 
     @ViewBuilder

@@ -60,23 +60,17 @@ let appearanceName = CommandLine.arguments.count > 5 ? CommandLine.arguments[5] 
 ///
 /// Step 11 increment 5 took the bounded-cycle control, the run-state stand-in and the pre-run
 /// dialog out of this panel, so the `deviceIsHeld` and `mayIssueNewWork` axes went with them —
-/// there is no longer a control here whose enabled state they decide. What is left that is worth
-/// rendering is the failure-mode picker (whose explanatory line changes with the selection), the
-/// way back from a suppressed warning, and the run-active state, where uninstall is refused.
+/// there is no longer a control here whose enabled state they decide. Increment 6 took the
+/// failure-mode picker to the main window, so `initialFailureMode` went the same way; the render
+/// that shows the other mode selected is now `content-stop-on-error`.
+///
+/// What is left worth rendering is the way back from a suppressed warning, and the run-active
+/// state, where uninstall is refused.
 private struct DiagnosticsHost: View {
 
-    /// `true` renders the uninstall refusal and the disabled mode picker — the state a user meets
-    /// while a run is going, and one that is otherwise reachable only by starting a real run.
+    /// `true` renders the uninstall refusal — the state a user meets while a run is going, and one
+    /// that is otherwise reachable only by starting a real run.
     var runIsActive = false
-
-    /// Step 10's mode picker (FR-FAIL-1). Rendered in FR-FAIL-4's default position; the
-    /// `diagnostics-stop-on-error` view is the same panel with the other one selected, because the
-    /// explanatory line underneath changes with it and that line is the whole point of the
-    /// control being a radio group rather than a checkbox.
-    @State private var failureMode: FailureModeCode = .standard
-
-    /// Applied on appear, because `@State` cannot be initialised from another stored property.
-    var initialFailureMode: FailureModeCode = .standard
 
     /// Step 14's suppression flag. **Local `@State`, never the real store** — a render must not
     /// read or write the machine's actual preferences, and `diagnostics-warnings-suppressed`
@@ -84,21 +78,16 @@ private struct DiagnosticsHost: View {
     /// sheet this probe cannot present.
     @State private var warningsSuppressed: Bool
 
-    init(runIsActive: Bool = false,
-         initialFailureMode: FailureModeCode = .standard,
-         warningsSuppressed: Bool = false) {
+    init(runIsActive: Bool = false, warningsSuppressed: Bool = false) {
         self.runIsActive = runIsActive
-        self.initialFailureMode = initialFailureMode
         _warningsSuppressed = State(initialValue: warningsSuppressed)
     }
 
     var body: some View {
         HelperDiagnosticsView(helper: HelperConnection(),
                               runIsActive: runIsActive,
-                              failureMode: $failureMode,
                               warningsSuppressed: $warningsSuppressed)
             .frame(minWidth: 560, minHeight: 480)
-            .onAppear { failureMode = initialFailureMode }
     }
 }
 
@@ -116,6 +105,12 @@ private enum ProbeRun {
 
     static func model() -> AppModel {
         let model = AppModel(suppressionStore: InMemoryPreRunWarningSuppression(),
+                             // **Never the real store.** A render must not read or write the
+                             // machine's preferences: ambient machine state leaking into an
+                             // offscreen render has cost this project twice — the 2026-08-10
+                             // appearance bug, and a progress bar that measured two different
+                             // fills on one day with nothing in the diff touching it.
+                             ioSizeStore: InMemoryIOSize(),
                              deviceSource: FixedDeviceSource(devices: [device]))
         model.discovery.start()
         model.runControl = RunController(
@@ -130,8 +125,8 @@ private enum ProbeRun {
             makeSequencer: { emit in ProbeSequencer(emit: emit) },
             setRunControl: { _, done in done(.success(())) },
             release: { done in done() },
-            ioSizeBytes: { TesterProtocol.defaultIOSizeBytes },
-            failureMode: { .standard },
+            ioSizeBytes: { model.ioSizeBytes },
+            failureMode: { model.failureMode },
             onReport: { _ in })
         return model
     }
@@ -202,9 +197,13 @@ private enum DeviceFixture {
 /// Rendered per state because the controls, their disabled reasons and the status line all change
 /// together — and because this is where the "is anything below the fold?" question is answered.
 private struct RunStateHost: View {
-    enum Stage { case idle, starting, running, paused, noSelection, quitPending }
+    enum Stage { case idle, starting, running, paused, finished, stopOnFirstError, noSelection, quitPending }
     let stage: Stage
-    @State private var model = AppModel()
+
+    /// Replaced by `configure()` on appear. Constructed with throwaway stores all the same: a
+    /// bare `AppModel()` reads the real `UserDefaults`, and a render must not.
+    @State private var model = AppModel(suppressionStore: InMemoryPreRunWarningSuppression(),
+                                        ioSizeStore: InMemoryIOSize())
 
     var body: some View {
         ContentView().environment(model)
@@ -227,6 +226,19 @@ private struct RunStateHost: View {
         case .paused:
             ProbeRun.start(live)
             ProbeRun.pause(live)
+        case .finished:
+            // FR-CTRL-8's other live window: "before a run starts and while a run is **stopped**".
+            // The one terminal state, and until increment 6 nothing rendered it on its own — the
+            // only render that reached it had a quit pending on top, where Start's refusal is the
+            // quit's rather than anything about the run.
+            ProbeRun.start(live)
+            ProbeRun.finish(live)
+        case .stopOnFirstError:
+            // FR-FAIL-2 selected, at the control's new home. Replaces `diagnostics-stop-on-error`,
+            // whose panel no longer has the picker in it. Worth its own render for the reason that
+            // one was: what changes with the selection is not which item is chosen, it is the line
+            // underneath saying everything past the first failure is left **untested**.
+            live.failureMode = .stopOnFirstError
         case .noSelection:
             live.discovery.deselect()
         case .quitPending:
@@ -252,8 +264,8 @@ private struct RunStateHost: View {
             makeSequencer: { emit in ProbeSequencer(emit: emit) },
             setRunControl: { _, done in done(.success(())) },
             release: { done in done() },
-            ioSizeBytes: { TesterProtocol.defaultIOSizeBytes },
-            failureMode: { .standard },
+            ioSizeBytes: { model.ioSizeBytes },
+            failureMode: { model.failureMode },
             onReport: { _ in })
     }
 }
@@ -705,12 +717,6 @@ func makeRootView(_ name: String) -> NSView {
         // Uninstall refused and the mode picker frozen. Replaces `diagnostics-held`, whose axis
         // went with the bounded-cycle control in increment 5.
         return NSHostingView(rootView: DiagnosticsHost(runIsActive: true))
-    case "diagnostics-stop-on-error":
-        // The same panel with FR-FAIL-2 selected. Worth its own render because the explanatory
-        // line under the picker changes with the selection — it is what tells a user that everything past
-        // the first failure is left **untested**, which is not the same as passed — and a control
-        // whose only visible difference is which radio is filled would not need one.
-        return NSHostingView(rootView: DiagnosticsHost(initialFailureMode: .stopOnFirstError))
     case "diagnostics-warnings-suppressed":
         // The "Show pre-run warnings again" control with something to restore. Reaching this state
         // through the UI means ticking a checkbox in a sheet, and a sheet cannot be rendered — so
@@ -747,7 +753,14 @@ func makeRootView(_ name: String) -> NSView {
     case "content-running":
         return NSHostingView(rootView: RunStateHost(stage: .running))
     case "content-paused":
+        // Increment 6's one render where the two pre-run controls disagree: the I/O-size dropdown
+        // is live here and the failure-mode picker is not, and both disabled reasons have to make
+        // that legible rather than arbitrary.
         return NSHostingView(rootView: RunStateHost(stage: .paused))
+    case "content-finished":
+        return NSHostingView(rootView: RunStateHost(stage: .finished))
+    case "content-stop-on-error":
+        return NSHostingView(rootView: RunStateHost(stage: .stopOnFirstError))
     case "content-no-selection":
         return NSHostingView(rootView: RunStateHost(stage: .noSelection))
     case "content-quit-pending":
@@ -809,9 +822,10 @@ func makeRootView(_ name: String) -> NSView {
     default:
         FileHandle.standardError.write(Data("""
             ui-probe: unknown view '\(name)'; expected content, content-quitting, \
-            content-starting, content-running, content-paused, content-no-selection, \
+            content-starting, content-running, content-paused, content-finished, \
+            content-stop-on-error, content-no-selection, \
             content-quit-pending, devices, \
-            diagnostics, diagnostics-run-active, diagnostics-stop-on-error, \
+            diagnostics, diagnostics-run-active, \
             empty, metrics, metrics-finished, metrics-idle, \
             report, report-empty, report-failures, report-qualified, report-stopped, \
             report-unidentified, devices-unmounted, diagnostics-warnings-suppressed, warnings, \

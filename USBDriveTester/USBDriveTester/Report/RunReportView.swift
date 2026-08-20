@@ -213,7 +213,7 @@ struct RunReportView: View {
             labelled("Finished", MetricsFormatting.runTimestamp(report.finishedAt))
             labelled("Failure-handling mode", modeName(report.failureMode))
             labelled("I/O size", report.ioSizesUsed
-                        .map { "\($0 / (1 << 20)) MiB" }
+                        .map(IOSizeSelection.label)
                         .joined(separator: ", then "))
             labelled("Range tested",
                      "blocks \(MetricsFormatting.blockOffset(report.startBlock))–"

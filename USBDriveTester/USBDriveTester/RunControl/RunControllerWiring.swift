@@ -77,9 +77,11 @@ extension RunController {
             release: { finished in
                 model.helper.releaseDevice { _ in finished() }
             },
-            // One size for the whole run, and the dropdown that sets it is increment 6's
-            // (FR-CTRL-8). Until then it is the documented default rather than a hidden constant.
-            ioSizeBytes: { TesterProtocol.defaultIOSizeBytes },
+            // One size for the whole run (FR-CTRL-8), from the dropdown increment 6 put in the
+            // pre-run controls. A closure like the rest, but read **once** — `RunController`
+            // captures it onto the pending start when the gate is answered, so the size the log
+            // names and the size the run uses are one value read at one instant.
+            ioSizeBytes: { model.ioSizeBytes },
             failureMode: { model.failureMode },
             onReport: { report in
                 model.lastRunReport = report

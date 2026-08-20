@@ -2,7 +2,24 @@
 //  RunControlsView.swift
 //  USBDriveTester (app target — unprivileged)
 //
-//  Step 11, increment 5. The run controls, and the pre-run gate they raise.
+//  Step 11, increments 5 and 6. The run controls, the pre-run gate they raise, and — from
+//  increment 6 — the two pre-run controls above them (FR-CTRL-7/8).
+//
+//  ## What increment 6 brought in
+//
+//  The **I/O-size dropdown**, which had never existed anywhere: the size was hardcoded at the
+//  wiring seam, because until increment 4 nothing app-side chose one. And the **failure-mode
+//  picker**, relocated from the diagnostics window where Step 10 parked it as scaffolding for want
+//  of a Start control to put it beside.
+//
+//  When they are live is `PreRunControls.swift`'s decision, and it is **one rule for both**: chosen
+//  before a run, fixed for the whole of it, `paused` included.
+//
+//  This increment first built the other shape — the size live while paused, changing it ending the
+//  run behind a confirmation, per FR-CTRL-8 as it read from 2026-08-04. Seen on hardware, paused,
+//  two adjacent controls with different rules read as one of them being broken, and the requirement
+//  was reversed (user decision 2026-08-19). The confirmation alert went with it: with the control
+//  dead for the whole run, no change here can end anything, and *nothing untriggerable is built*.
 //
 //  ## Pinned outside every scroll region, and that is a bug fix rather than a layout choice
 //
@@ -55,6 +72,8 @@ struct RunControlsView: View {
 
     private var controls: RunControls? { model.runControl?.controls }
 
+    private var state: RunControlState { model.runControl?.state ?? .idle }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
@@ -66,6 +85,8 @@ struct RunControlsView: View {
                 Spacer()
                 statusLabel
             }
+
+            preRunControls
 
             HStack(spacing: 10) {
                 Button("Start") { startPressed() }
@@ -131,6 +152,110 @@ struct RunControlsView: View {
         } message: { failure in
             Text(failure.text)
         }
+    }
+
+    // MARK: - The pre-run controls (FR-CTRL-7/8)
+
+    /// The I/O size and the failure mode, chosen before a run and fixed for the whole of it.
+    ///
+    /// Above Start rather than below it: these are what Start acts *with*, and a user reads down.
+    /// They are inside this view — and therefore inside `ContentView`, which has no `ScrollView` at
+    /// all — so "not below the fold" holds by construction. That is the fourth control on this
+    /// screen placed with that in mind and it is a bug fix, not a preference; see this file's header.
+    ///
+    /// **One availability for both**, and therefore one sentence when they are dead. An earlier
+    /// version of this increment gave them different rules — the size live while paused, the mode
+    /// not — and rendered a reason for each. Seen on real hardware, paused, that read as one
+    /// control being broken rather than as two requirements differing (user decision 2026-08-19).
+    @ViewBuilder
+    private var preRunControls: some View {
+        @Bindable var model = model
+
+        let availability = PreRunControls.availability(in: state)
+
+        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
+            GridRow {
+                Text("I/O size")
+                    .frame(minWidth: 110, alignment: .leading)
+                // Not bound to `model.ioSizeBytes` directly: the setter consults the policy, so a
+                // change issued while a run is under way is refused and logged rather than written.
+                // The `get` still reads the model, so the control always shows the truth.
+                Picker("I/O size", selection: ioSizeBinding) {
+                    ForEach(TesterProtocol.permittedIOSizes, id: \.self) { size in
+                        Text(IOSizeSelection.label(size)).tag(size)
+                    }
+                }
+                .labelsHidden()
+                .frame(width: 110)
+                .disabled(!availability.isEnabled)
+            }
+            GridRow {
+                Text("On failure")
+                    .frame(minWidth: 110, alignment: .leading)
+                // FR-FAIL-1, relocated from the diagnostics window in this increment. The value
+                // never moved — it has been `AppModel.failureMode` since Step 10 — which is what
+                // made this a view change rather than a state change.
+                Picker("On failure", selection: $model.failureMode) {
+                    Text("Log and continue").tag(FailureModeCode.logAndContinue)
+                    Text("Stop on first error").tag(FailureModeCode.stopOnFirstError)
+                }
+                .labelsHidden()
+                .frame(width: 200)
+                .disabled(!availability.isEnabled)
+                .onChange(of: model.failureMode) { _, mode in RunReportLog.modeSelected(mode) }
+            }
+        }
+
+        // The consequence of the selected mode. This line is why the control is worth rendering at
+        // all: what changes between the two selections is not which item is chosen, it is that
+        // everything past the first failure is left **untested**, which is not the same as passed.
+        //
+        // **Both branches cut to one line in increment 7** (user, 2026-08-19). They carried the
+        // wording from the diagnostics window, where the panel had a window to itself and height
+        // was free; here each wrapped line costs 15 pt of the main window's minimum, and a
+        // 13.3-inch Mac at its smallest scaling has none to give. Trimming them also made the two
+        // branches cost the **same** height, which matters more than the 15 pt: until then the
+        // window had to reserve room for whichever caption was taller, so choosing a failure mode
+        // silently moved the minimum window size.
+        //
+        // The stop-on-error branch lost its trailing gloss, *"which is not the same as passed"*.
+        // The other was rewritten rather than trimmed: it used to end *"and the rest of the drive
+        // is still refreshed"*, which stated the contrast with the other branch outright. Saying
+        // the run **continues** implies it, and what a user can still do about it is answered by
+        // the Pause and Stop buttons directly below — a caption that lists the controls under it
+        // is describing the screen rather than the choice.
+        //
+        // *Untested is not the same as passed* is not lost with it: it is `HonestFraming`'s, it is
+        // in the **report**, and it is asserted there by `RunReportTests`. That is the surface
+        // where the distinction has to survive being read months later — a picker's caption is
+        // read once, at the moment of choosing, with the choice itself right beside it.
+        Text(model.failureMode == .stopOnFirstError
+             ? """
+               The run halts at the first failed block range. **Everything past it is left \
+               untested**.
+               """
+             : """
+               Every failed block range is recorded while the test continues to run.
+               """)
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
+        // **Dimming is not a message** (NFR-USE-8). One sentence for both controls, because there
+        // is one rule — printing it twice would be the "saying the same thing four times" defect
+        // `disabledReasons` below already exists to avoid.
+        if let reason = availability.disabledReason {
+            Label(reason, systemImage: "info.circle")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The dropdown's binding. **Reads the model, and writes only what the policy allows.**
+    private var ioSizeBinding: Binding<Int> {
+        Binding(get: { model.ioSizeBytes },
+                set: { requested in ioSizeRequested(requested) })
     }
 
     /// What the run is doing, in words. The two transient states say *why* they are transient —
@@ -239,6 +364,25 @@ struct RunControlsView: View {
         // fabricating an acknowledgement that never happened, which is a deliberate act visible in
         // a diff rather than a one-word edit.
         model.runControl?.startAuthorised(by: outcome)
+    }
+
+    /// The dropdown was changed. Whether that is allowed is ``PreRunControls``' decision, not this
+    /// view's — the control is dimmed with the same sentence, so a change arriving here while a run
+    /// is under way came from a caller that did not consult it (a menu item, a keyboard shortcut).
+    ///
+    /// **No confirmation, because there is nothing to confirm.** The controls are dead for the
+    /// whole of a run, `paused` included (user decision 2026-08-19), so no change here can end a
+    /// run or discard a measurement. Changing the size mid-run is Stop → change → Start, and the
+    /// Stop is the deliberate act.
+    private func ioSizeRequested(_ requested: Int) {
+        let availability = PreRunControls.availability(in: state)
+        guard availability.isEnabled else {
+            IOSizeLog.changeRefused(availability.disabledReason ?? "a run is in progress")
+            return
+        }
+        let previous = model.ioSizeBytes
+        model.ioSizeBytes = requested
+        IOSizeLog.changed(from: previous, to: requested)
     }
 
     private func pausePressed(_ command: RunCommand) {

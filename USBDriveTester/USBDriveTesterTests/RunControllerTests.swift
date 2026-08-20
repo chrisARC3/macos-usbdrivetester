@@ -163,6 +163,12 @@ private final class Bench {
     var holdPreparation = false
     private var pendingPreparation: ((DevicePreparationOutcome) -> Void)?
 
+    /// The same, for the release at the end of a run — which is the whole of `finishing`. Without
+    /// it that state cannot be sat in, and a walk over "every state" would have to skip one and
+    /// call itself complete.
+    var holdRelease = false
+    private var pendingRelease: (() -> Void)?
+
     // Recorded.
     private(set) var steps: [String] = []
     private(set) var prepared: [String] = []
@@ -203,7 +209,7 @@ private final class Bench {
         release: { done in
             self.steps.append("release")
             self.releases += 1
-            done()
+            if self.holdRelease { self.pendingRelease = done } else { done() }
         },
         ioSizeBytes: { self.ioSize },
         failureMode: { self.mode },
@@ -236,6 +242,59 @@ private final class Bench {
         done?(outcome ?? preparationOutcome)
     }
 
+    /// Finish a release that was being held.
+    func finishRelease() {
+        let done = pendingRelease
+        pendingRelease = nil
+        done?()
+    }
+
+    /// Drive the machine to `target` **through the transitions the app takes**, never by assigning.
+    ///
+    /// A test that posed as a state would be indistinguishable from one that reached it, right up
+    /// until the pose was wrong — the same reasoning `tools/ui-probe` records for its render hosts.
+    ///
+    /// - Returns: `true` if the machine is now in `target`. A caller must treat `false` as a
+    ///   failure rather than as a state to skip: a walk that quietly covered seven of eight rows
+    ///   is the number-that-did-not-move trap wearing a green hat.
+    @discardableResult
+    func driveTo(_ target: RunControlState) -> Bool {
+        switch target {
+        case .idle:
+            break
+        case .starting:
+            holdPreparation = true
+            startAndProceed()
+        case .running:
+            startAndProceed()
+        case .pausing:
+            startAndProceed()
+            controller.pause()
+        case .paused:
+            runToPaused()
+        case .stopping:
+            startAndProceed()
+            controller.stop()
+        case .finishing:
+            // The release is held open, so the machine sits between the run ending and the drive
+            // being let go.
+            holdRelease = true
+            startAndProceed()
+            emit(.runEnded(Bench.completedRun))
+        case .finished:
+            startAndProceed()
+            emit(.runEnded(Bench.completedRun))
+        }
+        return controller.state == target
+    }
+
+    /// A run that finished cleanly, for the walks above.
+    static let completedRun = RunSequenceResult(outcome: .completed,
+                                                finalReply: nil,
+                                                ioSizesUsed: [1 << 22],
+                                                startBlock: 0,
+                                                blockCount: 7_814_037_168)
+
     /// Press Start and answer the dialog with Proceed — the ordinary path to a running run.
     @discardableResult
     func startAndProceed() -> RunStartRequest {
@@ -256,6 +315,64 @@ private final class Bench {
         startAndProceed()
         controller.pause()                                   // → .pausing (the daemon is told)
         emit(.pauseSettled(resumeBlock: 8_192))              // → .paused (the run has settled)
+    }
+}
+
+// MARK: - The I/O size, captured once (Step 11, increment 6)
+
+@MainActor
+struct RunControllerIOSizeTests {
+
+    /// **The size is read when the gate is answered, not when the drive comes back prepared.**
+    ///
+    /// The two moments are separated by the whole unmount-and-claim sequence — the mount table's
+    /// settle budget alone is twelve looks at 150 ms — and until increment 6 the controller called
+    /// the `ioSizeBytes` closure at *both*. That was harmless only while the closure returned a
+    /// constant. With a live dropdown behind it, it is two properties naming one fact at two
+    /// instants: the exact shape of the defect that headed every first-run report *"Unidentified
+    /// drive"*.
+    ///
+    /// `IOSizeSelection` refusing the control during `starting` is the other guard on this, and it
+    /// is the weaker one — it depends on a table staying right, where this depends on nothing.
+    @Test func theSizeIsCapturedWhenTheGateIsAnsweredAndNotWhenTheDriveIsReady() {
+        let bench = Bench()
+        bench.ioSize = 1 << 20
+        bench.holdPreparation = true
+        bench.startAndProceed()
+
+        // The dropdown moves while the drive is being prepared — which the control forbids, but a
+        // guard that depends on a control is not a guard.
+        bench.ioSize = 8 << 20
+        bench.finishPreparation()
+
+        #expect(bench.sequencer?.started.first?.ioSizeBytes == 1 << 20,
+                "the run must use the size it was authorised at")
+    }
+
+    /// The ordinary path still reads the dropdown — a capture that always returned the default
+    /// would pass the test above and break the feature.
+    @Test func aRunUsesWhicheverSizeWasSelectedWhenItStarted() {
+        for size in TesterProtocol.permittedIOSizes {
+            let bench = Bench()
+            bench.ioSize = size
+            bench.startAndProceed()
+            #expect(bench.sequencer?.started.first?.ioSizeBytes == size)
+        }
+    }
+
+    /// FR-CTRL-8: *"a run uses exactly one I/O size for its whole life"*. One call to the
+    /// sequencer, one size, and nothing re-reads it afterwards.
+    @Test func aRunIsStartedWithOneSizeAndOnlyOne() {
+        let bench = Bench()
+        bench.ioSize = 2 << 20
+        bench.startAndProceed()
+        bench.ioSize = 8 << 20
+        bench.controller.pause()
+        bench.emit(.pauseSettled(resumeBlock: 8_192))
+        bench.controller.resume()
+
+        #expect(bench.sequencer?.started.map(\.ioSizeBytes) == [2 << 20],
+                "a resume must not re-read the dropdown")
     }
 }
 
@@ -459,6 +576,23 @@ struct RunControllerStateWalkTests {
 
         bench.controller.stop()
         #expect(bench.controller.hasLiveSession, "stopping: still holding, still this run's")
+    }
+
+    /// **Every one of the eight states is reachable by real transitions.**
+    ///
+    /// *A state nobody can observe is a state nobody has checked* (CONSTRAINTS section 2), and this
+    /// step has already had one row go quietly unproducible: increment 5 made "a quit pending while
+    /// the pre-run dialog is open" unreachable, and the checklist item guarding it had to be
+    /// retired rather than run. That was found by a person at a keyboard. This finds the next one.
+    ///
+    /// It also earns `Bench.driveTo`, which drives the machine through the transitions the app
+    /// takes rather than assigning a state — the difference between testing the machine and
+    /// testing a pose.
+    @Test func everyStateIsReachableByRealTransitions() {
+        for state in RunControlState.allCases {
+            let bench = Bench()
+            #expect(bench.driveTo(state), "the machine cannot reach \(state)")
+        }
     }
 
     /// A refused call is not a run: back to `idle`, **no report**, and the cause put in front of the

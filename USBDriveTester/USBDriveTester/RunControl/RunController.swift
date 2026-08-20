@@ -247,6 +247,21 @@ final class RunController {
         /// report's, and the metrics panel's.
         let identity: ReportedDevice
         var authorisedAt: Date?
+
+        /// FR-CTRL-8's size for this run, **captured once when the gate was answered** rather than
+        /// read from the dropdown each time it is wanted (increment 6).
+        ///
+        /// The closure used to be called twice — once for the log line at authorisation and once
+        /// for `sequencer.start` when the drive came back prepared — with a multi-second unmount
+        /// between them. That was harmless only while the size was a constant. With a real control
+        /// it is two properties naming one fact at two instants, which is the exact shape of the
+        /// defect that headed every first-run report *"Unidentified drive"*: one source, captured
+        /// once, at the point of decision.
+        ///
+        /// `IOSizeSelection` refusing the control during `starting` is the *other* guard on this,
+        /// and it is the weaker one — it depends on a table staying right, where this depends on
+        /// nothing.
+        var ioSizeBytes: Int = TesterProtocol.defaultIOSizeBytes
     }
 
     private var pending: PendingStart?
@@ -343,11 +358,15 @@ final class RunController {
         // Taken here, before anything is unmounted, so the report's elapsed figure covers the whole
         // operation the user waited through rather than only the privileged calls inside it.
         pending.authorisedAt = Date()
+        // **The one read of the dropdown for this whole run** (FR-CTRL-8, increment 6). Everything
+        // downstream — the log line below and the sequencer, several seconds of unmounting later —
+        // takes it from here. See `PendingStart.ioSizeBytes`.
+        pending.ioSizeBytes = ioSizeBytes()
         self.pending = pending
         state = next
 
         RunControlLog.runStarting(device: pending.identity,
-                                  ioSizeBytes: ioSizeBytes(),
+                                  ioSizeBytes: pending.ioSizeBytes,
                                   failureMode: failureMode())
 
         prepare(pending.device) { [weak self] outcome in
@@ -386,7 +405,10 @@ final class RunController {
             self.sequencer = sequencer
             sequencer.start(logicalBlockSize: geometry.logicalBlockSize,
                             deviceBlockCount: geometry.deviceBlockCount,
-                            ioSizeBytes: ioSizeBytes(),
+                            // From the pending start, **not** from the dropdown. The unmount and
+                            // the claim happened between the two, and the size this run was
+                            // authorised at is the one it must use.
+                            ioSizeBytes: pending.ioSizeBytes,
                             failureMode: failureMode())
         }
     }

@@ -93,16 +93,23 @@ final class AppModel {
     /// Where the suppression preference is kept. See ``warningsSuppressed``.
     private let suppressionStore: PreRunWarningSuppressionStore
 
+    /// Where the selected I/O size is kept between launches. See ``ioSizeBytes``.
+    private let ioSizeStore: IOSizeStore
+
     /// - Parameters:
     ///   - suppressionStore: injected by tests and by `tools/ui-probe` so neither touches the real
     ///     user's preferences. The default is the only one the app ever uses.
+    ///   - ioSizeStore: injected for the same reason and by the same two consumers (increment 6).
     ///   - deviceSource: injected for the same two consumers, so a render and a test can present a
     ///     known device list with no hardware attached.
     init(suppressionStore: PreRunWarningSuppressionStore = UserDefaultsPreRunWarningSuppression(),
+         ioSizeStore: IOSizeStore = UserDefaultsIOSize(),
          deviceSource: DeviceSource = IOKitDeviceEnumerator()) {
         self.suppressionStore = suppressionStore
+        self.ioSizeStore = ioSizeStore
         self.discovery = DeviceDiscovery(source: deviceSource)
         self.warningsSuppressed = suppressionStore.warningsSuppressed
+        self.ioSizeBytes = ioSizeStore.ioSizeBytes
         mainWindowCloseGuard.model = self
     }
 
@@ -142,10 +149,27 @@ final class AppModel {
 
     /// FR-FAIL-1's mode for the next run, chosen before it starts. FR-FAIL-4's default.
     ///
-    /// The control that sets it is still in the diagnostics window; increment 6 relocates it to the
-    /// pre-run controls beside the I/O-size dropdown, where FR-CTRL-7 requires it. The value does
-    /// not move with the control.
+    /// The control that sets it is the main window's pre-run controls (increment 6), beside the
+    /// I/O-size dropdown, where FR-CTRL-7 wants it. It lived in the diagnostics window from Step 10
+    /// until then, as scaffolding — there was no Start control to put it beside. **The value never
+    /// moved**, which is what made the relocation a view change rather than a state change.
     var failureMode: FailureModeCode = .standard
+
+    /// FR-CTRL-8's I/O size for the next run. Always one of `TesterProtocol.permittedIOSizes`.
+    ///
+    /// **Stored here and written through to the store**, for the reason ``warningsSuppressed``
+    /// gives at length: `@Observable` tracks stored properties, and a computed property reading a
+    /// plain object would leave SwiftUI with nothing to observe — a correct value nobody can see,
+    /// which is the defect this step has already paid for twice. The two cannot drift because this
+    /// is the only writer and it writes through on every set.
+    ///
+    /// **Nothing enforces here that a run is not under way**, deliberately. That decision is
+    /// `IOSizeSelection`'s table and the control is what consults it; a second copy of the rule on
+    /// the property would be two statements of one fact — and the property is also what a
+    /// *confirmed* change writes, after the run it ended. A guard here would refuse that write.
+    var ioSizeBytes: Int {
+        didSet { ioSizeStore.ioSizeBytes = ioSizeBytes }
+    }
 
     /// Whether anything is happening that must freeze the device list (FR-DEV-7), block an
     /// uninstall (NFR-INST-3) and make a quit ask first.

@@ -108,8 +108,8 @@ This document specifies the **functional requirements** — the observable behav
 | FR-CTRL-4 | The user shall be able to stop a running or paused test. | M | PB Features |
 | FR-CTRL-5 | The user shall be able to restart a test from the beginning. | M | PB Features |
 | FR-CTRL-6 | The system shall enforce valid control transitions via a defined run-control state machine (e.g., resume only from paused, pause only while running). | M | ADR Action Item 10 |
-| FR-CTRL-7 | The system shall require the user to select the failure-handling mode (FR-FAIL-1) before a run can be started. | M | PB Handling I/O Failures |
-| FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable before a run starts and while a run is paused or stopped, and fixed while a run is actively running. **Changing the size while paused ends the run**; there is no resume across a size change, and a run uses exactly one I/O size for its whole life. | M | user decision 2026-06-25; revised 2026-08-04; **revised again 2026-08-14** |
+| FR-CTRL-7 | The system shall require the user to select the failure-handling mode (FR-FAIL-1) before a run can be started, and shall keep it **fixed for the whole of the run, including while it is paused** — the same rule as FR-CTRL-8's I/O size. | M | PB Handling I/O Failures; **amended 2026-08-19** |
+| FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable **before a run starts and once one has finished**, and **fixed for the whole of a run, including while it is paused**. A run uses exactly one I/O size for its whole life; testing at a different size is a new run from block 0. | M | user decision 2026-06-25; revised 2026-08-04, 2026-08-14; **revised again 2026-08-19** |
 | FR-CTRL-9 | The system shall test only one device at a time; a new run shall not be startable while another run is in progress. | M | user decision 2026-06-25 |
 
 ## FR-METR — Metrics Capture & Live Monitoring
@@ -676,6 +676,62 @@ must report the fraction of the *drive* it covered.
 
 **Built in:** the control is Step 11 increment 6; the sequencer that takes one fixed size per run is
 increment 4 (`c8bcc2a`).
+
+---
+
+### 2026-08-19 — FR-CTRL-8 revised a third time: the pre-run controls are fixed for the WHOLE run
+
+**Trigger.** The controls were built to FR-CTRL-8 as it read after 2026-08-14 — the I/O-size
+dropdown live while paused, changing it ending the run behind a confirmation — and then **looked at
+on real hardware, with a run actually paused**, during Step 11 increment 6's human checklist.
+
+> *"Having seen it in real life, I no longer like the idea of those two controls having different
+> behavior after pausing the test. The user should either be able to change both or neither."*
+> — user, 2026-08-19
+
+**FR-CTRL-8 — revised.** The dropdown is configurable **before a run starts and once one has
+finished**, and is **fixed for the whole of a run, `paused` included**. The clause *"and while a run
+is paused"*, added 2026-08-04 and kept by the 2026-08-14 revision, is **withdrawn**.
+
+**FR-CTRL-7 — amended to match**, which is the point of the change: the failure-handling mode
+already behaved this way (FR-FAIL-1: *"chosen before a run starts"*), and now the two controls state
+one rule instead of two.
+
+**Why both went to the DEAD side rather than both to the live side.** Making them agree the other
+way was considered and costed first, and it does not work:
+
+- **The I/O size cannot resume across a change.** Percentiles do not compose and a minimum cannot be
+  un-seen, so a run spanning two sizes reports figures describing neither. That is the whole of the
+  2026-08-14 amendment and it is unaffected by this one.
+- **The failure mode *can* resume across a change** — measured against the code, not assumed: it is
+  passed per call, it is a stored property on `RunSequencer` set once at `start()`, and it
+  contaminates no measurement, because it changes what happens *on* a failure rather than how bytes
+  are read or written. Two things stop it anyway. `RunReport.failureMode` is a **single field taken
+  from the last call's reply**, so a run that logged-and-continued for hours and then switched would
+  be reported as `stopOnFirstError` throughout — the `ioSizesUsed` problem again, fixable only by
+  widening the report. And **`stopOnFirstError` selected after failures already exist has no defined
+  meaning**: stop now, because errors exist, or stop at the next one? A control whose meaning depends
+  on run history is worse than one that is unavailable.
+
+So "both live" meant either one control ending the run and the other not — the asymmetry that
+prompted the change — or buying an ambiguity with no principled answer and paying for it with a
+wider report. **Both dead is the consistency that costs nothing.**
+
+**What it costs the user.** Changing either control mid-run becomes **Stop → change → Start** rather
+than change-then-confirm. Three deliberate acts instead of two, and the Stop is itself the
+deliberate act that the confirmation was standing in for.
+
+**What it deleted.** The confirmation dialog built earlier in the same increment — `IOSizeChangePrompt`,
+its alert, `RunController.endRunForIOSizeChange()`, two log routes, and three test suites — because
+with the control dead for the whole run **no state can reach it**. *Nothing untriggerable is built in
+advance*: a sound mechanism behind a trigger that never fires looks exactly like a broken one.
+
+**What is unaffected.** The 2026-08-14 amendment's substance — a run uses exactly one I/O size for
+its whole life, and testing at another size is a new run from block 0 — is unchanged and is now
+enforced by a simpler mechanism. `RunReport.latencySpansMultipleIOSizes` stays permanently `false`.
+Byte-denominated progress is untouched.
+
+**Built in:** Step 11 increment 6.
 
 ---
 

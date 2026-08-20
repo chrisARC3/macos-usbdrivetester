@@ -93,6 +93,21 @@ struct USBDriveTesterApp: App {
                 // right — no run can be in flight before the UI that starts one exists.
                 .onAppear { lifecycle.model = model }
         }
+        // **The main window had no declared size at all until Step 11 increment 7**, and that is
+        // why it opened enormous. A scene with no `.defaultSize` opens at its content's ideal
+        // size, and this content's *maximum* height is unbounded — which is also what
+        // `render-ui.sh` is recording when it says the probe's height argument behaves as "a
+        // floor, not a ceiling". The result was a window sized to the screen: measured at 1328 pt
+        // tall on a 1410 pt display, against content that wanted 675.
+        //
+        // Set to the comfortable height rather than the minimum, so nothing scrolls on opening at
+        // one attached drive; macOS constrains it down on a display that cannot spare it.
+        //
+        // **It is only consulted when no frame has been saved.** AppKit's frame autosave wins
+        // afterwards — the `NSWindow Frame main` key in the app's preferences — so a window that
+        // was once screen-height stays that way for that user until the saved frame is cleared.
+        .defaultSize(width: WindowMetrics.defaultContentWidth,
+                     height: WindowMetrics.defaultContentHeight)
         .commands {
             CommandGroup(after: .windowList) {
                 RunReportWindowCommand()
@@ -170,12 +185,12 @@ private struct HelperDiagnosticsWindow: View {
 
     var body: some View {
         @Bindable var model = model
-        // Six arguments fewer than before increment 5. The run, the report and the pre-run dialog
-        // all left this window when Start took ownership of the sequence — what is left here needs
-        // the helper, the real run state, and two settings.
+        // Seven arguments fewer than before increment 5. The run, the report and the pre-run dialog
+        // left when Start took ownership of the sequence; the failure-mode picker left in
+        // increment 6, to the pre-run controls beside the I/O-size dropdown. What is left needs the
+        // helper, the real run state, and one setting.
         HelperDiagnosticsView(helper: model.helper,
                               runIsActive: model.runIsActive,
-                              failureMode: $model.failureMode,
                               warningsSuppressed: $model.warningsSuppressed)
             .frame(minWidth: 560, minHeight: 480)
     }

@@ -212,13 +212,18 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   app aggregating per-call p99s cannot produce a whole-run one; that is why the accumulator had to
   move rather than the app doing arithmetic — and it is also why *"reset the figures on a size
   change"* could never have been an app-side subtraction.
-  **A run no longer spans two I/O sizes at all** (FR-CTRL-8 revised 2026-08-14): a size change ends
-  the run. So the bimodal-distribution caveat this entry used to carry is retired, and
+  **A run no longer spans two I/O sizes at all** (FR-CTRL-8 revised 2026-08-14, and enforced more
+  simply since 2026-08-19 — the size is fixed for the whole run, so there is no mid-run change left
+  to handle). The bimodal-distribution caveat this entry used to carry is retired, and
   `RunReport.latencySpansMultipleIOSizes` is permanently `false` — correctly, because the product
   cannot produce a run that would make it true.
-- **Progress is byte-denominated, never chunk-denominated** — which is what makes a mid-run size
-  change expressible at all. `chunkMeasured` fires **once per chunk on every path**, including the
-  three failure branches, so a display keeps advancing on a failing drive instead of freezing.
+- **Progress is byte-denominated, never chunk-denominated.** The justification this entry used to
+  give — *"which is what makes a mid-run size change expressible at all"* — **has lapsed**: there is
+  no mid-run size change as of 2026-08-19. The requirement stands on its other reason, which was
+  always the load-bearing one and is stated two sentences below: a bounded run must report the
+  fraction of the **drive** it covered. `chunkMeasured` fires **once per chunk on every path**,
+  including the three failure branches, so a display keeps advancing on a failing drive instead of
+  freezing.
   The denominator is the **whole device**, from the claim's authoritative ioctl geometry, stated
   once when the session opens. A bounded diagnostic run therefore reports the fraction of the
   *drive* it covered, not 100% of the piece it asked for — which is the true statement.
@@ -286,10 +291,15 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   **2,876 pt** when asked for 460. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
-- **28 view cases, and three of them render a state this machine cannot produce** — `empty` (no
+- **29 view cases, and three of them render a state this machine cannot produce** — `empty` (no
   drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
   drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
   the last was added in Step 14 for a row that had never been rendered in either appearance.
+  **The probe is authoritative and `render-ui.sh`'s header list has drifted from it twice** —
+  once caught 2026-08-11, and again by Step 11 increment 6, which found the script listing 24
+  cases against the probe's 28, naming two (`diagnostics-held`, `diagnostics-quitting`) the probe
+  would refuse with exit 2 and omitting all six `content-*` run states. Re-derive the list, never
+  hand-edit it; the one-line `grep` is in the script's header.
 - **A render cannot see the live metrics panel, the report body, or sheet modality — and all three
   hid a defect on 2026-08-18.** The panel polls a real helper, so offscreen it always shows the
   unavailable state whatever the run state is; the report body sits in a scroll region, so a render
@@ -426,25 +436,34 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   chunk regardless — so Shape A stands on the four properties above, not on the cap.
 
   *Full account: commit `e13d3e8`; the measurement that backs it, `scripts/run-control-check.sh`.*
-- **A RUN USES ONE I/O SIZE, AND CHANGING IT ENDS THE RUN** (FR-CTRL-8 revised 2026-08-14). The
-  dropdown is live before a run and while one is paused or stopped, and dead while it is running —
-  that half is unchanged since 2026-08-04. What changed is the other half: changing the size while
-  paused **ends** the run instead of resuming it at the new size, so testing at a different size is
-  a new run from block 0.
+- **A RUN USES ONE I/O SIZE, AND BOTH PRE-RUN CONTROLS ARE FIXED FOR THE WHOLE OF IT** (FR-CTRL-8
+  revised 2026-08-14 and again **2026-08-19**; FR-CTRL-7 amended to match). The I/O-size dropdown
+  and the failure-mode picker are live in `idle` and `finished` and **dead in the six states where a
+  run is under way, `paused` included**. One rule, one disabled sentence, both controls. Testing at
+  a different size is a new run from block 0, reached by **Stop → change → Start**.
 
-  **This is the cheap way to get "clear the figures and start fresh", and the only one that does not
-  cost a protocol bump.** It cannot be done app-side — percentiles do not compose and a minimum
-  cannot be un-seen. It cannot be done by releasing and re-acquiring mid-pause — macOS remounts
-  ~4 ms after a release. The remaining alternative was a v12 method resetting the session's
-  accumulators, plus a session split into two accumulator lifetimes (failures and progress span the
-  run; throughput and latency span the size), which would put two scopes in every report. Ending the
-  run instead gets clean accumulators **by construction**, which is the property Shape A was chosen
-  for.
+  **A run using one size is what gets clean accumulators by construction**, and it cannot be had any
+  other way: not app-side, because percentiles do not compose and a minimum cannot be un-seen; not
+  by releasing and re-acquiring mid-pause, because macOS remounts ~4 ms after a release. The
+  alternative was a protocol method resetting the session's accumulators plus a session split into
+  two accumulator lifetimes, which would put two scopes in every report.
 
-  It reverses 2026-08-04's *"the statistics keep accumulating across a size change"*, whose reasoning
-  was answered rather than overlooked: a p99 over two populations describes neither, and the
-  evidence is not deleted — it belongs to a run that ended and was reported. Full account in the FR
-  document's 2026-08-14 amendment.
+  **The paused window is gone, and this is the third revision — do not re-derive it from the second.**
+  2026-08-04 made the dropdown live while paused with the statistics accumulating across a change;
+  2026-08-14 kept it live and made a change *end* the run; 2026-08-19 made it dead. What settled it
+  was **looking at the built control on hardware with a run paused**: the size was live and the
+  failure-mode picker beside it was not, and two adjacent controls with different rules read as one
+  being broken. *"The user should either be able to change both or neither."*
+
+  **Both went to the dead side because they could not be made to agree on the live side.** The size
+  cannot resume across a change (above). The **mode can** — it is per call, a stored property on
+  `RunSequencer`, and it contaminates no measurement — but `RunReport.failureMode` is a single field
+  taken from the **last call's reply**, and `stopOnFirstError` selected *after* failures already
+  exist has no defined meaning. So "both live" bought an ambiguity with no principled answer.
+
+  **It deleted a mechanism built earlier the same increment**: the size-change confirmation, its
+  alert, `RunController.endRunForIOSizeChange()` and three test suites, all untriggerable once no
+  state can reach them. Full account in the FR document's 2026-08-19 amendment.
 - **NFR-USE-4 qualified 2026-08-09.** The pre-run warning **text** is suppressible per logged-in
   user; the **deliberate act is not** — a suppressed run still raises a confirmation naming the drive
   by model and USB serial.

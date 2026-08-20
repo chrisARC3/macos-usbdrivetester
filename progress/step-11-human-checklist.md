@@ -1,7 +1,10 @@
-# Step 11, increment 5 — the human checklist
+# Step 11 — the human checklist
 
-**ALL SEVEN CHUNKS PASSED 2026-08-18.** Replaces the nine-item list in `progress/step-14.md`,
-which increment 5 made partly unrunnable.
+**CHUNKS 1–7 PASSED 2026-08-18** (increment 5). Replaces the nine-item list in
+`progress/step-14.md`, which increment 5 made partly unrunnable.
+
+**CHUNK 8 IS NEW AND UNRUN** — added by increment 6 for the two pre-run controls. It is the only
+cover the dropdown's and the confirmation's wiring has: both survive the whole 998-test suite.
 
 ## Why this exists, in one paragraph
 
@@ -24,7 +27,7 @@ Chunks are run **one at a time**, reporting back between each. That is not cerem
 attempt ran the nine items in one go, hit "numerous problems", and stopped — and the problems were
 never enumerated. Small chunks make a partial pass reportable.
 
-Non-destructive chunks come first. Only 2, 4, 5, 6 and 7 start a run.
+Non-destructive chunks come first. Only 2, 4, 5, 6, 7 and 8 start a run.
 
 ### Prerequisites
 
@@ -139,6 +142,74 @@ raised once one has. The guard in `promptDismissed` now defends an unreachable s
 as *"Run one bounded cycle stays disabled no matter what I do."* The controls now sit outside any
 scroll region **by construction**, and this is the check on that claim.
 
+### 8 — the pre-run controls (increment 6) *(one short run)*
+
+**Added by increment 6, and it is not optional: a mutation survives the whole suite here.** No test
+drives a SwiftUI binding, so M15 — *the dropdown does nothing at all* — passes the entire suite.
+This chunk is its only cover.
+
+**Items 1 and 2 passed 2026-08-19.** Item 3 was run and is what produced the 2026-08-19 reversal:
+the controls were rebuilt to one rule, so 3–6 below are new and unrun.
+
+1. **Before a run**, change the I/O size to 8 MiB. The log says
+   `I/O size changed: 4 MiB -> 8 MiB`. **Start**, and `run authorised: … I/O size 8388608 bytes`
+   names the size you chose — not 4 MiB. *(This is M15: a dropdown that moves on screen and changes
+   nothing would look identical without the second half.)*
+2. **Quit and relaunch.** The dropdown still reads 8 MiB. Set it back to 4 MiB before continuing.
+
+   Confirm it independently of the app, after quitting, by reading the file:
+
+       /usr/libexec/PlistBuddy -c "Print :runIOSizeBytes" /Users/christopherkarr/Library/Preferences/com.arc3solutions.USBDriveTester.plist
+
+   **Do NOT use `defaults read com.arc3solutions.USBDriveTester`** — measured 2026-08-19. A **stale
+   sandbox container from 7 July** still exists at
+   `~/Library/Containers/com.arc3solutions.USBDriveTester/`, and the `defaults` CLI prefers a
+   container path whenever that directory is present. The App Sandbox is **off** for this app (and
+   must stay off), so it writes to `~/Library/Preferences/<bundle-id>.plist` — as
+   `UserDefaultsPreRunWarningSuppression`'s own header says. `defaults` therefore reads a file the
+   app has never written and reports *"does not exist"*, which is indistinguishable from the
+   preference genuinely not having been saved. **An empty result is not a finding.**
+   `preRunWarningsSuppressed` lives in the same plist and is the cross-check: if it is there, the
+   path is right.
+3. **Start a run, Pause it.** Wait for `run paused and settled at block N` — the settle, not the
+   request. **Both** controls are now dimmed, with one sentence beneath them: *"I/O size and
+   failure handling are fixed for the whole run — stop it to change them."*
+
+   > Shortened in increment 7. The original ran to two sentences and cost 15 pt of window height
+   > that a 13.3-inch Mac at its smallest scaling does not have. Same rule, fewer words.
+
+   One sentence for both, not two — there is one rule. This is the row the 2026-08-19 reversal
+   created, and the reason it exists is that the *first* build of this increment had the size live
+   here and the mode dead, which read as one control being broken.
+
+4. **Try the dropdown anyway** while paused. It should not open. Nothing appears in the log — a
+   dimmed control that is never asked cannot refuse.
+
+5. **Resume**, let it run, and confirm both stay dimmed while running. **Stop.**
+
+6. With the run stopped, **both controls are live again** and the log shows
+   `I/O size changed: …` when you move the dropdown. This is FR-CTRL-8's *"once one has finished"*
+   window, and it is the whole of how you change size between runs: Stop → change → Start.
+
+7. **Start that run** at the new size and let it finish, or Stop it after a few seconds. Open the
+   report. **`I/O size` names the size you chose**, on screen **and** in the exported `.md`,
+   identically.
+
+   This is the only check that closes the loop end to end — dropdown → captured at the gate → passed
+   to every call → reported. It needs a person for two reasons: the report body sits in a scroll
+   region, so even a render stops at `## Measurements`, and the exported file is a separate surface
+   from the window (the 7.2 defect of 2026-08-18 was exactly those two disagreeing). It also
+   exercises `IOSizeSelection.label`, which since increment 6 is the single spelling shared by the
+   dropdown, the window and the export.
+
+Items 3 and 6 are the pair that matters. Together they are the whole of FR-CTRL-8 as revised
+2026-08-19: fixed for the whole of a run, live once it is over. A dropdown that stayed live while
+paused would be the shape this increment built first and the user rejected on sight.
+
+Item 7 is what stops the whole chunk being a test of the *control* rather than of the *product*. A
+dropdown that moves, logs, persists and is correctly dimmed, but whose value never reaches the
+report, would pass 1–6.
+
 ## What has no automated cover, and will not get any
 
 * **The report body.** It sits in a scroll region, so even a render stops at `## Measurements`.
@@ -147,5 +218,9 @@ scroll region **by construction**, and this is the check on that claim.
   the unavailable state regardless of run state. That is why 4.2's defect was invisible.
 * **Sheet modality.** `AppModelQuitTests` exercises `QuitPolicy`, and in 6.1 the policy is never
   reached — the sheet answers first.
+* **Any SwiftUI binding, and the alert increment 6 added.** No test drives a `Picker`'s selection
+  or presses a button in an `.alert`, so the *wiring* between the two pre-run controls and the
+  model is reachable only by a person. The decision and every word of the dialog are pure types
+  and are pinned; what is not pinned is that they are called at all. Chunk 8 is the cover.
 
 Three defects, three blind spots, one pass. Any rebuild of this area runs this list again.

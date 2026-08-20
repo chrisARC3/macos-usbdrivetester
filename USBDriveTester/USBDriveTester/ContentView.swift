@@ -76,13 +76,31 @@ struct ContentView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
         }
-        // 700 is where the idle window's content stops being clipped — measured with
-        // `scripts/render-ui.sh`, not guessed. **A measured constant is only true until the content
-        // above it changes**, and this one has already expired once: it was true when written and
-        // stopped being true when Step 10 added the mounted-volumes row. It is re-measured in this
-        // increment because the run controls replaced the mount controls; what makes the controls
-        // reachable is not this number but their being outside the scroll region.
-        .frame(minWidth: 640, minHeight: 700)
+        // **There is no minimum height here any more, and its absence is the point** (Step 11
+        // increment 7).
+        //
+        // What stood here was `minHeight: 760`, measured once against the three-volume fixture and
+        // then asserted. The comment it carried recorded that the number had **expired twice** —
+        // 700 was true when written and false once Step 10 added the mounted-volumes row;
+        // re-measured in increment 5; false again the moment increment 6 put two picker rows above
+        // Start. Each expiry was silent, because nothing recomputes a literal. It had expired a
+        // third time before it was removed: at 760 the `starting` state wanted 775 and clipped.
+        //
+        // Now each pane that can scroll declares **its own floor** — `WindowMetrics` — and SwiftUI
+        // sums them with the blocks that cannot scroll to get the window's minimum. Adding a row
+        // moves that minimum by construction. `scripts/window-fit-check.sh` asks the real view
+        // hierarchy what limits it hands a window and fails if they stop fitting a 13.3-inch Mac,
+        // so the number is checked without ever being written down.
+        //
+        // Worth being clear about what this did and did not do. It was **never** what made the run
+        // controls reachable: that is their being outside every scroll region, which still holds
+        // by construction — this view has no `ScrollView` of its own, and `RunControlsView` is a
+        // direct child of the stack rather than content inside either neighbouring pane. A height
+        // minimum could not have delivered that anyway, since any fixed number is a threshold some
+        // drive crosses: the block above grows with the selected drive's mounted-volume count, and
+        // the list above *that* grows with how many drives are attached (measured at 168 pt
+        // between one drive and six).
+        .frame(minWidth: WindowMetrics.minimumContentWidth)
         .onAppear {
             // Built here rather than in `AppModel.init` because its dependencies close over the
             // model, and a class cannot hand `self` to something it is still constructing. `nil`

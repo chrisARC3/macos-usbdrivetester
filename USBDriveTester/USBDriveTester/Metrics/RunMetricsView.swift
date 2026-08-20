@@ -103,27 +103,52 @@ struct RunMetricsView: View {
             // What stays is the live half, which is neither redundant nor optional:
             // FR-METR-2/4/5/6 require throughput, latency, progress and ETA to be displayed
             // **during** a run, and no report exists while one is under way.
-            if Self.showsMeasurements(snapshot: snapshot, isRunning: isRunning) {
-                VStack(alignment: .leading, spacing: 12) {
-                    progress
-                    Divider()
-                    throughput
-                    Divider()
-                    latency
-                    if snapshot.chunksFailed > 0 {
+            //
+            // **The scroll region is a bug fix (Step 11 increment 7).** This panel had none: at
+            // the window's minimum height it did not compress, it **clipped** — observed on
+            // hardware with a run in progress and the bottom three lines cut off (user,
+            // 2026-08-19). Figures below the fold were not reachable by any means, which for
+            // FR-METR-2/4/5/6 — throughput, latency, progress and ETA, all required to be visible
+            // *during* a run — is the requirement silently unmet rather than merely cramped.
+            //
+            // Inside the `GroupBox` rather than around it, so the heading stays pinned while the
+            // figures move. `DeviceListView` keeps its header outside its own `ScrollView` for the
+            // same reason: a panel that scrolls its title away leaves numbers on screen with
+            // nothing left saying what they are.
+            //
+            // Every `Spacer()` below is **horizontal**, inside an `HStack`, so none of them is
+            // disturbed by a vertical scroll region. Checked rather than assumed — a `Spacer` that
+            // had been expanding vertically would collapse to nothing here, and the panel would
+            // have lost its spacing the moment it stopped clipping.
+            ScrollView {
+                if Self.showsMeasurements(snapshot: snapshot, isRunning: isRunning) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        progress
                         Divider()
-                        failures
+                        throughput
+                        Divider()
+                        latency
+                        if snapshot.chunksFailed > 0 {
+                            Divider()
+                            failures
+                        }
+                        unidentifiedDriveWarning
                     }
-                    unidentifiedDriveWarning
+                    .padding(.vertical, 4)
+                } else {
+                    idlePlaceholder
                 }
-                .padding(.vertical, 4)
-            } else {
-                idlePlaceholder
             }
         } label: {
             Label(heading, systemImage: "gauge.with.needle")
                 .font(.callout.weight(.semibold))
         }
+        // Floor, ideal and ceiling rather than "whatever it wants". The floor keeps the heading on
+        // screen at any window height; the ideal asks for the progress row as well, so the bar is
+        // visible without scrolling at every height above the minimum. See `WindowMetrics`.
+        .frame(minHeight: WindowMetrics.metricsFloor,
+               idealHeight: WindowMetrics.metricsIdeal,
+               maxHeight: .infinity)
     }
 
     /// Whether the panel shows figures at all, as a decision rather than a condition buried in

@@ -111,8 +111,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **3 ✅** | The run session scoped to the claim; cumulative figures in the cycle reply; `runProgress` reports the whole device. Protocol **v11**, which this row did not predict — nine reply arguments changed meaning. Two gate clients had to be rebuilt before the gate could run at all. | **done 2026-08-14** — see below |
 | **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
-| 6 ← NEXT | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. **Now also carries FR-CTRL-8's amendment** — a size change ends the run (decision 2026-08-14, below) | renders + unit |
-| 7 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
+| **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8) and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted; FR-CTRL-8's amendment built — a size change ends the run, **and is confirmed first**, which this row did not predict | **done 2026-08-19** — see below |
+| 7 ← NEXT | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
 ### Increment 1 — done 2026-08-12, `c89ed5c`
 
@@ -369,6 +369,128 @@ Step 11; FR-CTRL-8 and its 2026-08-04 consequences in the FR document, with a ne
 amendment; the metrics bullet in CONSTRAINTS section 1 that assumed a mid-run size change; Shape A's
 third rejection ground, which lapsed with that amendment; and `RunReport.ioSizesUsed`'s comment.
 **Increments 2 and 3's items are still owed** — see their entries above.
+
+### Increment 6 — done 2026-08-19
+
+The two pre-run controls moved to the main window: the I/O-size dropdown built for the first time
+(FR-CTRL-8) and the failure-mode picker relocated from the diagnostics window (FR-CTRL-7).
+`RunControl/PreRunControls.swift` + `PreRunControlsTests.swift`.
+
+| | |
+|---|---|
+| **Verified** | **985 tests, 0 failures, 127 suites**. Down from 964, deliberately: see the reversal below, where the arithmetic is reconciled |
+| **Warnings** | zero from source across three clean builds, DerivedData wiped before each — **re-run after the reversal**. SwiftCompile Debug 85 / Release 2 / test 165 |
+| **Helper** | **hash moved `f983b4e5…` → `058fb2c0…`** — and Step 10's three gates **still apply**, proven rather than argued; see below |
+| **Protocol** | **v12, unchanged.** No helper logic was touched |
+| **Mutations** | **two rounds.** Round 1 against the first shape: 16 introduced, 14 caught, 2 survived, both predicted. Round 2 against the shipped shape: **10 introduced, 8 caught, 2 survived, both predicted** |
+| **Xcode work** | **none**, read from `project.pbxproj` rather than assumed: neither new file is named in it, so both joined through their synchronized root groups |
+| **Renders** | 29 view cases, both appearances. `diagnostics-stop-on-error` replaced by `content-stop-on-error`; `content-finished` added |
+
+**The user decisions taken at scoping, before a line was written.** Both controls sit **inside
+`RunControlsView`** above Start, and the I/O size **persists across launches**. Two further
+decisions — that the size stayed live while paused, and that changing it there was confirmed first —
+**were reversed on 2026-08-19 after the built control was looked at on hardware**; see below.
+
+**THE SHAPE CHANGED HALF-WAY THROUGH, AND THE TRIGGER WAS A PERSON LOOKING AT IT.** The increment
+was first built to FR-CTRL-8 as it read after 2026-08-14: the size live while paused, the mode dead,
+and a size change ending the run behind a confirmation. All of that passed 998 tests, three clean
+builds, both appearances and a 16-mutation pass. **Then chunk 8 item 3 of the human checklist put a
+real paused run on screen**:
+
+> *"Having seen it in real life, I no longer like the idea of those two controls having different
+> behavior after pausing the test. The user should either be able to change both or neither."*
+> — user, 2026-08-19
+
+**Both went to the dead side, and the analysis of why is worth keeping**, because "make them agree
+on the live side" was the obvious answer and it does not work. The size cannot resume across a
+change — percentiles do not compose. The **mode can**, and that was checked against the code rather
+than assumed: it is passed per call, it is a stored property on `RunSequencer` set once at
+`start()`, and it contaminates no measurement, because it changes what happens *on* a failure
+rather than how bytes are read or written. What stops it is not mechanism. It is that
+`RunReport.failureMode` is a **single field taken from the last call's reply**, so a run that
+logged-and-continued for hours and then switched would be reported as `stopOnFirstError` throughout;
+and that **`stopOnFirstError` selected after failures already exist has no defined meaning** — stop
+now, or stop at the next one? So "both live" bought an ambiguity with no principled answer and a
+report that would have to be widened to stay honest. **Both dead is the consistency that costs
+nothing.** Full account in the FR document's 2026-08-19 amendment; FR-CTRL-7 was amended to match.
+
+**What the reversal deleted, and why that is the right outcome rather than waste.**
+`IOSizeChangePrompt`, its alert, `IOSizeChangeDisposition`, `IOSizeControlRule`,
+`RunController.endRunForIOSizeChange()`, two log routes and **three test suites** — all
+untriggerable the moment no state could reach them. *Nothing untriggerable is built in advance*: a
+sound mechanism behind a trigger that never fires looks exactly like a broken one. The two controls'
+rules collapsed into **one** `PreRunControls.availability(in:)`, derived from
+`RunControlState.isRunActive` rather than restating it, and the two disabled sentences became one.
+**The increment ended smaller than its first version**, which is the signal that the simpler product
+was also the simpler build.
+
+**The test count went DOWN, and the floor caught it** — 998 → 985, 130 → 127 suites. That is
+`test.sh`'s one case needing a human, and the arithmetic was reconciled before the floor was reset
+rather than after: 22 tests removed across five suites, 9 added across two, net −13; five suites
+removed, two added, net −3. Both numbers land exactly, which is the check that what was deleted is
+what was meant to be.
+
+**The size is captured once, onto `PendingStart`, when the gate is answered.** The closure was being
+called twice — for the log line at authorisation and for `sequencer.start` when the drive came back
+prepared, with the whole unmount-and-claim sequence in between. Harmless while it returned a
+constant; with a live control it is two properties naming one fact at two instants, which is the
+shape of the *"Unidentified drive"* defect. Mutation M10 pins it. **This survived the reversal
+unchanged** and is the one piece of the first shape that is strictly better for having been built.
+
+#### Three findings, none of them on the increment's list
+
+- **`TesterProtocol` had to become `nonisolated`, and that moved the helper source hash.** It is the
+  first `nonisolated` type in the app target to need one of its constants, and the app target's
+  `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` made that six warnings. Six sibling enums in the same
+  file already carry the keyword; the helper target does not set that flag, so the constants were
+  already nonisolated there. **Verified rather than asserted**, with the comparison CONSTRAINTS
+  names for *"did this change behaviour"*: the helper binary's `__TEXT,__text` is **byte-identical
+  across 709,012 bytes** of instruction text and `__TEXT,__cstring` is identical, while the whole
+  binary differs — which is exactly what a debug build does for an annotation-only edit. **So
+  `metrics-check.sh`, `retention-cycle-check.sh` and `xpc-concurrency-check.sh` still apply.**
+- **`scripts/render-ui.sh`'s view list had drifted from the probe for the second time, and worse
+  than the first.** It listed **24** cases against the probe's **28**, named two
+  (`diagnostics-held`, `diagnostics-quitting`) that increment 5 had made the probe **refuse with
+  exit 2**, and omitted all six `content-*` run states. The header already records this exact drift
+  being fixed on 2026-08-11. Corrected, diffed clean against the probe, and the re-derivation
+  one-liner is now in the header so the next person does not hand-edit it.
+- **`ContentView`'s `minHeight` had expired again**, for the second time silently. Re-measured
+  rather than adjusted by eye: 740 cuts the device-detail paragraph mid-sentence, 760 does not. Now
+  **760**, with the caveat written at the site that this number is not what makes the run controls
+  reachable — being outside the scroll region is, and it holds by construction.
+
+#### The mutation pass, twice
+
+**Round 1, against the first shape: 16 introduced, 14 caught, 2 survived, both predicted.** The
+reversal then deleted the code six of them targeted, so the round is evidence about a shape that no
+longer exists and cannot stand as this increment's cover.
+
+**Round 2, against what shipped: 10 introduced, 8 caught, 2 survived — both declared in advance.**
+The survivors are in `RunControlsView`: N9 makes the dropdown do nothing at all, N10 makes a change
+issued *during* a run be applied instead of refused. No test drives a SwiftUI binding, so the suite
+provably cannot reach either — the same category as increment 2's M12 and increment 4's M13. Their
+cover is the renders and human-checklist chunk 8, and running them is what confirms the hole is
+where the code says it is rather than somewhere nobody has looked.
+
+**N5 was killed by four tests, two of which this increment did not write.** Mutating
+`IOSizeSelection.label` to divide by 1 << 10 failed `aSingleSizeIsNamedPlainly` and
+`severalSizesAreNamedAndTheDistributionIsFlaggedAsSpanningThem` — pre-existing *report* suites. That
+is the retrofit of the report window and the Markdown export onto the shared label paying for
+itself: one spelling of "N MiB", covered in all three places that render it, where before there were
+three literals and the report's two were the only ones under test.
+
+**The anchor-uniqueness guard earned its place before a single mutation ran.** M10's anchor was a
+28-space argument line that is a **substring** of the 34-space one six lines above it in the log
+call, so `count(old) == 1` failed and nothing was applied — increment 3's false-survivor trap,
+stopped by the check that exists because of it. Re-anchored on unique surrounding text.
+
+Every one of the 16 runs executed the full **998** tests: no INCONCLUSIVE, no build failure, no
+partial run. All four mutated files were confirmed byte-identical to their saved pristine copies
+afterwards, and the helper source hash re-derived to `058fb2c0…`.
+
+**Worth knowing for increment 7:** the report's outcome wording for a run ended this way is
+FR-RPT-4's *"stopped by user"*, which increment 7 owns. Until then a size change reports as whatever
+a Stop press reports as — the same path, correctly, because it is the same act.
 
 ### What this step must not lose
 
