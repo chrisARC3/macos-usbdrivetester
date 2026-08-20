@@ -112,8 +112,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **4 ✅** | The whole-device sequencer, app-side. The I/O size ended up **fixed for the run** and the per-call cap **injected**, neither of which this row predicted; and a documented justification for FR-TEST-10 was measured and found wrong. | **done 2026-08-14** — see below |
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
-| **7 ✅ (uncommitted)** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. Part-committed at `321a820`; the rest is **uncommitted** |
-| 8 | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); the Run Report window becomes **modal to the main window** (user, 2026-08-19); three clean builds; all three Step 10 gates re-run; the docs pass | full |
+| **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + **`5a4a76f`** |
+| 8 ← NEXT | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); the Run Report window becomes **modal to the main window** (user, 2026-08-19); three clean builds; all three Step 10 gates re-run; the docs pass | full |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -499,13 +499,13 @@ wording for a run ended this way is FR-RPT-4's *"stopped by user"*, which that i
 then a size change reports as whatever a Stop press reports as — the same path, correctly, because
 it is the same act.
 
-### Increment 7 — IN PROGRESS, part-committed at `321a820`
+### Increment 7 ✅ — done 2026-08-20, `5a4a76f` (first half at `321a820`)
 
 **Unplanned, and it exists because increment 6 was looked at on hardware.** The window opened far
 larger than it needed to, and the question that followed was whether it fits a 13.3-inch Mac at all.
 
-**Full account: commit `321a820`.** What is worth carrying here is the shape of the answer and the
-part that is not done.
+**Full account: commits `321a820` and `5a4a76f`.** What is worth carrying here is the shape of the
+answer, and the two things it leaves standing on purpose.
 
 The measurements, taken with a width-constrained variant of `ui-probe` that asks the real view
 hierarchy for the limits it hands a window:
@@ -633,7 +633,7 @@ its layout once, so the geometry trigger always fires — and is recorded in the
 list rather than left to be discovered.
 
 **Chunk 9 passed in full on 2026-08-20**, all six items, including 9.6 — the drive-list auto-scroll
-added the same day, which had no cover before it. Nothing is outstanding but the commit.
+added the same day, which had no cover before it. Committed at `5a4a76f`.
 
 **Two things carried forward, neither a defect.** `starting` is 41 pt over the tightest budget, and
 at a very tall window the *selected-device* pane now holds the leftover height — the waste moved
