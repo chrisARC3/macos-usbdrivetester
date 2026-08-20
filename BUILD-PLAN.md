@@ -160,8 +160,17 @@ are **process**, not history.
     itself the cheap way to avoid the tick. **Check `project.pbxproj` before assuming either way.**
 - `SMAppService` records the **registering app's path**, so always install to `/Applications` with
   `scripts/install-app.sh` and register from there. That script **only copies files**: after
-  installing you must unregister and re-register in the app, then confirm with **Check version**,
-  or the running daemon is still the old one. It refuses to overwrite a running app — quit it first.
+  installing you must reload the daemon yourself, or the running one is still the old one. **This
+  has cost real time twice** — a helper fix that appeared not to work, twice, because the old daemon
+  was still answering. Either kick it directly:
+
+  ```
+  sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
+  ```
+
+  or unregister and re-register in the app's Step 3 panel, then confirm with **Check version**.
+  `install-app.sh` prints the kickstart line itself when it finishes. It refuses to overwrite a
+  running app — quit it first.
 - This repo lives on an **external volume**, and macOS gates daemon access to removable volumes:
   anything the root helper must read has to live outside the repo (`/tmp`).
 
