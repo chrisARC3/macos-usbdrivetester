@@ -101,6 +101,13 @@ struct RunControlsView: View {
                 Button("Stop") { model.runControl?.stop() }
                     .disabled(!(controls?.stop.isEnabled ?? false))
 
+                // **FR-CTRL-5, built in increment 8.** Last in the row on purpose: it is the only
+                // control here that destroys work, and the reading order puts it after the three
+                // that do not. It costs no height — the row is one `HStack` — and its refusal is
+                // suppressed at rest along with Pause's and Stop's, below.
+                Button("Restart") { restartPressed() }
+                    .disabled(!(controls?.restart.isEnabled ?? false))
+
                 Spacer()
             }
 
@@ -278,6 +285,10 @@ struct RunControlsView: View {
         case .pausing:   return "pause.circle"
         case .paused:    return "pause.circle.fill"
         case .stopping:  return "stop.circle"
+        // Distinct from `stopping`'s, which is the one it sits closest to in meaning. A shared
+        // glyph would leave the status text as the only thing separating "the drive is going
+        // back" from "a new run is coming".
+        case .restarting: return "arrow.clockwise.circle"
         case .finishing: return "externaldrive.badge.checkmark"
         case .finished:  return "checkmark.circle.fill"
         }
@@ -314,7 +325,14 @@ struct RunControlsView: View {
 
         var candidates = [controls.start.disabledReason]
         if state.isRunActive {
-            candidates += [controls.pause.disabledReason, controls.stop.disabledReason]
+            // Restart joins Pause and Stop here rather than beside Start, and for the same reason
+            // they are here: at rest its refusal is *"There is no run to restart. Use Start."*,
+            // which a live Start button and a status line reading "Idle" already say between them.
+            // While a run IS active it can refuse for reasons nothing else on screen explains —
+            // "Still pausing", "The run is stopping" — and those are worth printing.
+            candidates += [controls.pause.disabledReason,
+                           controls.stop.disabledReason,
+                           controls.restart.disabledReason]
         }
 
         // Deduplicated: Start and Stop refuse for the same reason in several states, and printing
@@ -360,8 +378,18 @@ struct RunControlsView: View {
     ///
     /// An array rather than a `Set` because `RunControlState` is `Equatable` and not `Hashable`,
     /// and four elements is not a lookup worth a conformance.
+    ///
+    /// **`restarting` was missing from this list when it was added, and the render caught it in one
+    /// look** (increment 8). `content-restarting` printed *four* sentences — Start's, Pause's,
+    /// Stop's and Restart's — each a rephrasing of a status line already reading "Restarting —
+    /// finishing the current chunk, then starting again from the beginning." At the 40 pt a
+    /// sentence measured on 2026-08-20 that is 160 pt of window height to say one thing four
+    /// times, which is precisely what `faf9a93` was written to end.
+    ///
+    /// A new transient state belongs here. Nothing enforces that — the list is a list — so the
+    /// render for the new state is the check, and it is why one is added with the state.
     private static let statesTheStatusLineExplains: [RunControlState] =
-        [.starting, .pausing, .stopping, .finishing]
+        [.starting, .pausing, .stopping, .restarting, .finishing]
 
     // MARK: - Actions
 
@@ -385,8 +413,33 @@ struct RunControlsView: View {
         }
     }
 
+    /// **FR-CTRL-5.** Like Start, this only raises the dialog — the run carries on underneath it.
+    ///
+    /// One sheet, not two. The discard warning rides on the pre-run prompt rather than preceding
+    /// it with a confirmation of its own: that prompt already names the drive by model and serial
+    /// and already *is* the deliberate act NFR-USE-4 requires, so putting the consequence on it
+    /// keeps one surface answerable for the whole acknowledgement (user decision 2026-08-21).
+    private func restartPressed() {
+        guard let runControl = model.runControl else { return }
+
+        suppressionRequested = false
+
+        switch runControl.restartRequested(warningsSuppressed: model.warningsSuppressed) {
+        case .prompt(let prompt):
+            pendingPrompt = prompt
+        case .refused(let reason):
+            model.runFailure = RunFailureMessage(title: "The run could not be restarted",
+                                                 text: reason)
+        }
+    }
+
     /// The dialog was dismissed. Everything that follows is decided by `PreRunWarningPolicy`, not
     /// here — this applies the decision and records it.
+    ///
+    /// **Which controller call it makes is decided by the prompt's own purpose**, not by a second
+    /// flag this view would have to keep in step with the prompt it raised. `PreRunPrompt` carries
+    /// what the acknowledgement was *for*; asking it is what stops a Restart being applied as a
+    /// Start, which would release the drive and start over on whatever is selected.
     private func promptDismissed(_ button: PreRunButton) {
         let outcome = PreRunWarningPolicy.outcome(button: button,
                                                   suppressionRequested: suppressionRequested,
@@ -394,13 +447,20 @@ struct RunControlsView: View {
         PreRunWarningLog.dismissed(button, outcome: outcome)
 
         if outcome.persistsSuppression { model.warningsSuppressed = true }
+
+        // Read before the sheet is dismissed — `pendingPrompt` is what carries the purpose, and
+        // clearing it first would leave nothing to ask.
+        let purpose = pendingPrompt?.purpose ?? .newRun
         pendingPrompt = nil
 
-        // The gate, relocated rather than re-implemented. `startAuthorised(by:)` takes the outcome
-        // as proof the gate ran and re-checks it — so wiring Start straight to a run means
-        // fabricating an acknowledgement that never happened, which is a deliberate act visible in
-        // a diff rather than a one-word edit.
-        model.runControl?.startAuthorised(by: outcome)
+        // The gate, relocated rather than re-implemented. `startAuthorised(by:)` and
+        // `restartAuthorised(by:)` both take the outcome as proof the gate ran and re-check it — so
+        // wiring either straight to a run means fabricating an acknowledgement that never happened,
+        // which is a deliberate act visible in a diff rather than a one-word edit.
+        switch purpose {
+        case .newRun:  model.runControl?.startAuthorised(by: outcome)
+        case .restart: model.runControl?.restartAuthorised(by: outcome)
+        }
     }
 
     /// The dropdown was changed. Whether that is allowed is ``PreRunControls``' decision, not this

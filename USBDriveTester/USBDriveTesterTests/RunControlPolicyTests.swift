@@ -80,7 +80,7 @@ struct RunControlPolicyTests {
             (.running,   .pause,   .pausing),
             (.running,   .resume,  nil),
             (.running,   .stop,    .stopping),
-            (.running,   .restart, .starting),
+            (.running,   .restart, .restarting),
 
             (.pausing,   .start,   nil),
             (.pausing,   .pause,   nil),
@@ -92,13 +92,21 @@ struct RunControlPolicyTests {
             (.paused,    .pause,   nil),
             (.paused,    .resume,  .running),
             (.paused,    .stop,    .stopping),
-            (.paused,    .restart, .starting),
+            (.paused,    .restart, .restarting),
 
             (.stopping,  .start,   nil),
             (.stopping,  .pause,   nil),
             (.stopping,  .resume,  nil),
             (.stopping,  .stop,    nil),
             (.stopping,  .restart, nil),
+
+            // FR-CTRL-5, increment 8. Every command refuses here, Stop included — see
+            // `RunControlPolicy.stop`'s note for why that is deliberate rather than an omission.
+            (.restarting, .start,   nil),
+            (.restarting, .pause,   nil),
+            (.restarting, .resume,  nil),
+            (.restarting, .stop,    nil),
+            (.restarting, .restart, nil),
 
             (.finishing, .start,   nil),
             (.finishing, .pause,   nil),
@@ -194,7 +202,12 @@ struct RunControlPolicyTests {
             #expect(reason != nil, "state=\(state) must refuse")
             guard let reason else { continue }
             #expect(reason.contains("one drive is tested at a time")
-                    || reason.contains("already being prepared"),
+                    || reason.contains("already being prepared")
+                    // `restarting` gets its own sentence, and that is the point of the state
+                    // existing: the general FR-CTRL-9 wording ends "Stop it before starting
+                    // another", which here is both wrong and impossible — a new run is already
+                    // coming and Stop is refused too.
+                    || reason.contains("run is restarting"),
                     "state=\(state) reason=\(reason)")
         }
     }
@@ -291,6 +304,17 @@ struct RunControlPolicyTests {
             (.stopping,  .runEnded,         .finishing),
             (.stopping,  .deviceReleased,   nil),
 
+            // **The two rows that carry the whole of Restart.** `runEnded` is a SELF-transition —
+            // the old sequence settled and the restart is not over — and `deviceReleased` is what
+            // begins the new run's preparation rather than ending anything. Routing either the
+            // ordinary way (to `finishing`, to `finished`) would unfreeze the device list and fire
+            // a pending quit's wind-down in the middle of a restart.
+            (.restarting, .claimEstablished, nil),
+            (.restarting, .startAborted,     nil),
+            (.restarting, .pauseSettled,     nil),
+            (.restarting, .runEnded,         .restarting),
+            (.restarting, .deviceReleased,   .starting),
+
             (.finishing, .claimEstablished, nil),
             (.finishing, .startAborted,     nil),
             (.finishing, .pauseSettled,     nil),
@@ -381,7 +405,11 @@ struct RunControlPolicyTests {
     /// or a ⌘Q that took it without asking, would each cost the whole run.
     @Test func everyStateBetweenStartAndFinishCountsAsActive() {
         let active = Set(RunControlState.allCases.filter(\.isRunActive))
-        #expect(active == Set([.starting, .running, .pausing, .paused, .stopping, .finishing]))
+        // `restarting` counts: the claim is held, the volumes are down, and a device list that
+        // rebuilt or a ⌘Q that took the app without asking would each cost the run — which is the
+        // whole of what this flag is for.
+        #expect(active == Set([.starting, .running, .pausing, .paused, .stopping, .restarting,
+                               .finishing]))
         #expect(!RunControlState.idle.isRunActive)
         #expect(!RunControlState.finished.isRunActive)
     }

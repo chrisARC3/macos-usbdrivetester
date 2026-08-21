@@ -44,6 +44,7 @@ struct RunReportExportTests {
                                     readLatencyP99UpperBoundNanoseconds: 2_195_000,
                                     message: "")
         return RunReport(reply: reply,
+                         endedBy: .completed,
                          startBlock: 0,
                          blockCount: 2_097_152,
                          ioSizesUsed: [4 << 20],

@@ -133,7 +133,7 @@ COMMITTED_BUDGET=700
 EXCEPTIONS="$REPO_ROOT/scripts/.window-fit-exceptions"
 
 VIEWS=(content content-starting content-running content-paused
-       content-finished content-stop-on-error content-no-selection)
+       content-restarting content-finished content-stop-on-error content-no-selection)
 DRIVE_COUNTS=(1 6)
 WIDTH=640
 

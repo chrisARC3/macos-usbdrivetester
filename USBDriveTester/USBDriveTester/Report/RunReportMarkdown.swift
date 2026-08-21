@@ -114,18 +114,23 @@ nonisolated enum RunReportMarkdown {
         lines.append(row("Elapsed", elapsed(report.duration)))
         lines.append(row("Failure-handling mode", modeName(report.failureMode)))
         lines.append(row("I/O size", ioSizes(report)))
-        lines.append(row("Range tested", "blocks \(grouped(report.startBlock))–"
+        lines.append(row("Range requested", "blocks \(grouped(report.startBlock))–"
                                        + "\(grouped(report.startBlock + report.blockCount - 1)) "
                                        + "(\(grouped(report.blockCount)) blocks, "
                                        + "\(CapacityFormatting.humanReadable(report.rangeByteCount)))"))
         lines.append(row("Chunks processed", grouped(report.chunksProcessed)))
         lines.append("")
 
-        // A bounded range is not the whole drive, and a report that did not say so would invite
-        // being read as a whole-device pass. Whole-device runs arrive with Step 11.
-        if report.blockCount * UInt64(report.device.logicalBlockSize) < report.device.capacityBytes {
-            lines.append("> This run covered the range above, **not the whole drive**. Blocks "
-                       + "outside it were not tested.")
+        // **Requested, not tested** (increment 8). This row said "Range tested" until FR-CTRL-4's
+        // Stop control made the two different things, at which point a run stopped at 2% of a 4 TB
+        // drive printed "Range tested | blocks 0–7,814,037,167 (4.00 TB)" under an outcome saying
+        // the rest had not been tested. One document, two answers.
+        //
+        // The caveats below are `RunReport.rangeCaveats` — one decision, one wording, both
+        // surfaces. This renderer used to hold its own literal AND its own copy of the condition,
+        // spelled differently from the view's copy of the same arithmetic.
+        for caveat in report.rangeCaveats {
+            lines.append("> \(caveat.markdown)")
             lines.append("")
         }
 
@@ -282,8 +287,11 @@ nonisolated enum RunReportMarkdown {
         for claim in HonestFraming.claims {
             lines.append("- \(claim.markdown)")
         }
-        if report.outcome == .stoppedOnError {
-            lines.append("- \(HonestFraming.rangeBeyondTheFailureWasNotTested.markdown)")
+        // Which sentence an outcome adds is `HonestFraming`'s decision, not this renderer's — it
+        // was an `if` here and a matching `if` in `RunReportView`, which is the two-places-one-rule
+        // shape that produced the 7.2 defect. See `HonestFraming.claim(addedBy:)`.
+        if let added = HonestFraming.claim(addedBy: report.outcome) {
+            lines.append("- \(added.markdown)")
         }
         lines.append("")
 

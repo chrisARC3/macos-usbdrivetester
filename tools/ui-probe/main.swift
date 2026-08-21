@@ -200,6 +200,15 @@ private enum ProbeRun {
         ProbeSequencer.live?.emit(.pauseSettled(resumeBlock: 8_192))
     }
 
+    /// …and on to `restarting` (FR-CTRL-5, increment 8), which is where the run is being wound
+    /// down so another can take its place. The run is deliberately NOT ended here: `restarting` is
+    /// exactly the interval before `runEnded` arrives, and ending it would render `starting`.
+    static func restart(_ model: AppModel) {
+        _ = model.runControl?.restartRequested(warningsSuppressed: false)
+        model.runControl?.restartAuthorised(
+            by: PreRunOutcome(issuesRun: true, persistsSuppression: false))
+    }
+
     /// The run came back, so the machine settles through `finishing` to `finished`.
     static func finish(_ model: AppModel) {
         ProbeSequencer.live?.emit(.runEnded(RunSequenceResult(outcome: .completed,
@@ -283,7 +292,7 @@ private enum DeviceFixture {
 private struct RunStateHost: View {
     enum Stage {
         case idle, starting, running, paused, finished, stopOnFirstError, noSelection, quitPending
-        case selectionBelowFold
+        case selectionBelowFold, restarting
     }
     let stage: Stage
 
@@ -313,6 +322,13 @@ private struct RunStateHost: View {
         case .paused:
             ProbeRun.start(live)
             ProbeRun.pause(live)
+        case .restarting:
+            // The ninth state, and the one whose whole job is being told apart from `stopping`.
+            // What is worth looking at is the status line — it must say the progress is discarded
+            // and that a new run is coming, where `stopping` says the drive is going back — and
+            // that every control including Stop is refused with one sentence rather than four.
+            ProbeRun.start(live)
+            ProbeRun.restart(live)
         case .finished:
             // FR-CTRL-8's other live window: "before a run starts and while a run is **stopped**".
             // The one terminal state, and until increment 6 nothing rendered it on its own — the
@@ -612,18 +628,40 @@ private struct RunReportHost: View {
                                                   logicalBlockSize: 512)
 
     static func report(didComplete: Bool = true,
+                       endedBy: RunSequenceOutcome? = nil,
                        rangeCount: Int = 0,
                        encoded: String = "",
                        blocks: UInt64 = 0,
                        mode: Int = 2,
                        bypass: Int = 1,
                        device: ReportedDevice = RunReportHost.device) -> RunReport {
+        // **How the RUN ended, which from increment 8 is what decides the outcome** (FR-RPT-4).
+        // Optional here, unlike on `RunReport.init?` where it is required with no default: this is
+        // a fixture factory, and every case below states its own ending or takes the one implied
+        // by `didComplete`. What the "no default" rule is defending — a *production* call site
+        // silently producing a plausible wrong sentence — has no analogue in a probe whose whole
+        // output is looked at by a person.
+        let ending = endedBy ?? (didComplete ? .completed : .stoppedOnFailure)
+
         // **v10 replaced `didComplete` with an outcome code** (Step 11 increment 2) — FR-CTRL-2/4
         // give a run four endings, so a boolean beside a separate "why" would be two statements of
         // one fact. `didComplete` survives as a derived property, which is why `RunReport` needed
         // no change; this call site did, and had not been touched since.
-        let reply = RunCycleOutcome(runOutcomeCode: (didComplete ? RunOutcomeCode.completed
-                                                                 : .stoppedOnFailure).rawValue,
+        //
+        // Derived from `ending` rather than taken separately, so the reply and the run agree by
+        // construction: a fixture whose last call says "completed" while the run says "stopped by
+        // the user" is reachable in reality (a stop racing a finishing call) but is a *different*
+        // case from this one, and it belongs in a test rather than in a render.
+        let replyCode: RunOutcomeCode
+        switch ending {
+        case .completed:        replyCode = .completed
+        case .stoppedOnFailure: replyCode = .stoppedOnFailure
+        case .stoppedByUser:    replyCode = .stoppedByUser
+        case .haltedForQuit:    replyCode = .completed
+        case .callFailed:       replyCode = .unrecognised
+        }
+
+        let reply = RunCycleOutcome(runOutcomeCode: replyCode.rawValue,
                                     interruptedAtBlock: 0,
                                     chunksProcessed: didComplete ? 256 : 2,
                                     failedRangeCount: rangeCount,
@@ -644,6 +682,7 @@ private struct RunReportHost: View {
                                     readLatencyP99UpperBoundNanoseconds: 2_195_000,
                                     message: "")
         return RunReport(reply: reply,
+                         endedBy: ending,
                          startBlock: 0,
                          blockCount: 2_097_152,
                          ioSizesUsed: [4 << 20],
@@ -861,6 +900,8 @@ func makeRootView(_ name: String) -> NSView {
         // is live here and the failure-mode picker is not, and both disabled reasons have to make
         // that legible rather than arbitrary.
         return NSHostingView(rootView: RunStateHost(stage: .paused))
+    case "content-restarting":
+        return NSHostingView(rootView: RunStateHost(stage: .restarting))
     case "content-finished":
         return NSHostingView(rootView: RunStateHost(stage: .finished))
     case "content-stop-on-error":
@@ -884,6 +925,18 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: RunReportHost(
             report: RunReportHost.report(didComplete: false, rangeCount: 1,
                                          encoded: "200:2:3", blocks: 2, mode: 1)))
+    case "report-stopped-by-user":
+        // FR-RPT-4's fourth outcome, which had no trigger until increment 8 gave it one.
+        //
+        // **With a failed range in it, deliberately.** A user can stop a run that has already
+        // logged bad blocks, so `RunReportOutcome.foundFailures` says nothing either way for this
+        // case and the failed-range table is the only thing that does. A fixture with no failures
+        // would render a page on which that distinction cannot be seen at all — and this is the
+        // one outcome where "the headline does not mention failures" and "there were none" are
+        // different statements.
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(didComplete: false, endedBy: .stoppedByUser,
+                                         rangeCount: 1, encoded: "200:2:3", blocks: 2)))
     case "report-qualified":
         // FR-TEST-9's verdict is not `bypassed`. The one render that has to show the
         // qualification **in the headline** — where a reader skimming for the verdict meets it —
@@ -910,33 +963,57 @@ func makeRootView(_ name: String) -> NSView {
     // Step 14. The pre-run dialog, in each of its forms.
     case "warnings":
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice)))
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice, purpose: .newRun)))
     case "warnings-ticked":
         // The suppression checkbox in its ticked state, which is otherwise never rendered — and
         // which is the state that changes what the *next* run shows.
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice), suppress: true))
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice, purpose: .newRun),
+            suppress: true))
+    case "warnings-restart":
+        // FR-CTRL-5's dialog in full. The discard warning sits in the **pinned header**, not in
+        // the scroll region — a sentence below an unadvertised fold has cost this project three
+        // times, and this is the one with the least room for that to be survivable.
+        return NSHostingView(rootView: PreRunPromptHost(
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice, purpose: .restart)))
+    case "warnings-confirm-restart":
+        // The case suppression cannot reach. A user who has turned the standing warnings off still
+        // has to be told that this press destroys the run — it is a consequence of the press, not
+        // advice about the tool.
+        return NSHostingView(rootView: PreRunPromptHost(
+            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice, purpose: .restart)))
     case "warnings-confirm":
         // What a user sees after suppressing. This render is the one that matters most: it is the
         // whole of what stands between a click and a write for anyone who ticked the box.
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice)))
+            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice, purpose: .newRun)))
     case "warnings-unidentified":
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .briefConfirmation(PreRunPromptHost.unidentifiedDevice)))
+            prompt: .briefConfirmation(PreRunPromptHost.unidentifiedDevice, purpose: .newRun)))
 
     default:
+        // **This list is hand-maintained and had drifted from the switch above — for the third
+        // time in this project, and the first time inside the probe itself.** CONSTRAINTS records
+        // `render-ui.sh`'s header list drifting twice (2026-08-11 and again in increment 6) and
+        // names the probe as the authority that settles it. The authority's own error message was
+        // meanwhile missing `content-selection-below-fold` and `devices-unusable`, so a typo in
+        // either name was answered by a message implying the view had never existed.
+        //
+        // Restored in increment 8, in the switch's own order so the two can be read side by side.
+        // If you add a case above, add it here: the compiler cannot, because a `default` accepts
+        // everything by definition.
         FileHandle.standardError.write(Data("""
-            ui-probe: unknown view '\(name)'; expected content, content-quitting, \
-            content-starting, content-running, content-paused, content-finished, \
-            content-stop-on-error, content-no-selection, \
-            content-quit-pending, devices, \
-            diagnostics, diagnostics-run-active, \
-            empty, metrics, metrics-finished, metrics-idle, \
-            report, report-empty, report-failures, report-qualified, report-stopped, \
-            report-unidentified, devices-unmounted, diagnostics-warnings-suppressed, warnings, \
-            warnings-ticked, warnings-confirm or \
-            warnings-unidentified\n
+            ui-probe: unknown view '\(name)'; expected diagnostics, diagnostics-run-active, \
+            diagnostics-warnings-suppressed, content-quitting, \
+            metrics, metrics-finished, metrics-idle, \
+            empty, devices, devices-unmounted, devices-unusable, \
+            content, content-starting, content-running, content-paused, content-finished, \
+            content-stop-on-error, content-no-selection, content-quit-pending, \
+            content-selection-below-fold, content-restarting, \
+            report, report-failures, report-stopped, report-stopped-by-user, report-qualified, \
+            report-unidentified, report-empty, \
+            warnings, warnings-ticked, warnings-restart, warnings-confirm, \
+            warnings-confirm-restart or warnings-unidentified\n
             """.utf8))
         exit(2)
     }

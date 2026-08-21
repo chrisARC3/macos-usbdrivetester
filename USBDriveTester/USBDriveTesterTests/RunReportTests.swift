@@ -89,11 +89,13 @@ private enum Fixture {
     }
 
     static func report(_ reply: RunCycleOutcome = Fixture.reply(),
+                       endedBy: RunSequenceOutcome? = nil,
                        device: ReportedDevice = Fixture.device(),
                        ioSizesUsed: [Int] = [4 << 20],
                        blockCount: UInt64 = 2_097_152,
                        linkSpeed: String? = "10 Gb/s (USB 3.1 Gen 2)") -> RunReport {
         RunReport(reply: reply,
+                  endedBy: endedBy ?? ranTo(reply),
                   startBlock: 0,
                   blockCount: blockCount,
                   ioSizesUsed: ioSizesUsed,
@@ -101,6 +103,25 @@ private enum Fixture {
                   startedAt: started,
                   finishedAt: finished,
                   usbLinkSpeedDescription: linkSpeed)!
+    }
+
+    /// **The ordinary case: a run that ended the way its last call did.**
+    ///
+    /// A fixture convenience and nothing more. It is deliberately the inference that
+    /// ``RunReport/init(reply:endedBy:startBlock:blockCount:ioSizesUsed:device:startedAt:finishedAt:usbLinkSpeedDescription:)``
+    /// **stopped** making in increment 8 — which is safe here and was not there, because a test
+    /// that cares about the two diverging says so by passing `endedBy:` explicitly, and a test
+    /// that does not is asserting about a run whose last call is the whole story.
+    ///
+    /// Its existence is what lets the tests written before increment 8 keep meaning exactly what
+    /// they meant: they describe replies, and each one's run ended as that reply says.
+    static func ranTo(_ reply: RunCycleOutcome) -> RunSequenceOutcome {
+        switch reply.outcome {
+        case .completed:                    return .completed
+        case .stoppedOnFailure:             return .stoppedOnFailure
+        case .pausedByUser, .stoppedByUser: return .stoppedByUser
+        case .unrecognised:                 return .callFailed(reason: reply.message)
+        }
     }
 
     static func markdown(_ report: RunReport) -> String {
@@ -125,7 +146,8 @@ struct ReportExistenceTests {
                                     sustainedWriteBytesPerSecond: -1,
                                     coverageBytesPerSecond: -1,
                                     readLatencySampleCount: 0)
-        #expect(RunReport(reply: refused, startBlock: 0, blockCount: 2_097_152,
+        #expect(RunReport(reply: refused, endedBy: .callFailed(reason: "refused"),
+                          startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
                           startedAt: Fixture.started, finishedAt: Fixture.finished) == nil)
     }
@@ -139,14 +161,16 @@ struct ReportExistenceTests {
                                     failedRangesEncoded: "200:2:3",
                                     failedBlockCount: 2,
                                     failureModeUsedCode: 1)
-        #expect(RunReport(reply: stopped, startBlock: 0, blockCount: 2_097_152,
+        #expect(RunReport(reply: stopped, endedBy: .stoppedOnFailure,
+                          startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
                           startedAt: Fixture.started, finishedAt: Fixture.finished) != nil)
     }
 
     @Test func aReplyFromANewerHelperWithAnUnknownModeProducesNoReport() {
         let strange = Fixture.reply(failureModeUsedCode: 99)
-        #expect(RunReport(reply: strange, startBlock: 0, blockCount: 2_097_152,
+        #expect(RunReport(reply: strange, endedBy: .completed,
+                          startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
                           startedAt: Fixture.started, finishedAt: Fixture.finished) == nil)
     }
@@ -213,11 +237,161 @@ struct ReportOutcomeTests {
         #expect(explanation.contains("not tested"))
     }
 
+    /// Walked over `allCases`, **not over a hand-written list**, which is what it was until
+    /// increment 8. `RunReportOutcome` has been `CaseIterable` since 2026-08-11 precisely so a new
+    /// outcome cannot arrive uncovered — and this test was written the same week with the four
+    /// cases spelled out, which gave that conformance away in the one place it was for.
     @Test func everyOutcomeCarriesAHeadlineAndAnExplanation() {
-        for outcome: RunReportOutcome in [.completedClean, .completedWithFailures,
-                                          .stoppedOnError, .incomplete] {
+        for outcome in RunReportOutcome.allCases {
             #expect(outcome.headline.isEmpty == false)
             #expect(outcome.explanation.count > 40, "\(outcome) has no real explanation")
+        }
+    }
+}
+
+// MARK: - FR-RPT-4: "stopped by user", and where the outcome comes from
+
+/// **Increment 8.** The outcome is decided by how the *run* ended, not by how its last *call* did.
+///
+/// A run is a sequence of bounded calls (CONSTRAINTS section 2), so "the user stopped it" is a fact
+/// no single reply holds. Inferring it from the last one was wrong in three ways, and these are
+/// those three ways written down.
+struct StoppedByUserOutcomeTests {
+
+    /// The ordinary Stop press, from `running`: the helper acts on the level at its next chunk
+    /// boundary and the call comes back saying so.
+    @Test func aRunTheUserStoppedIsReportedAsStoppedByUser() {
+        let reply = Fixture.reply(outcome: .stoppedByUser, chunksProcessed: 12)
+        #expect(Fixture.report(reply, endedBy: .stoppedByUser).outcome == .stoppedByUser)
+    }
+
+    /// **The one that mattered.** Stop pressed while a call was already finishing: the helper
+    /// completes that call normally and replies `completed`, and `RunSequencer` then declines to
+    /// issue the next one — so the run ended `stoppedByUser` with a reply saying it completed.
+    ///
+    /// The reply-only inference read `didComplete` and called that **"Completed — no
+    /// currently-unreadable blocks were found"**, against a `blockCount` of the whole device, for a
+    /// run that may have covered a fraction of it. A false clean pass, in a file that outlives the
+    /// session and is the artefact a drive's history is kept in.
+    @Test func aStopThatRacedACompletingCallIsNotReportedAsACleanPass() {
+        let reply = Fixture.reply(outcome: .completed, chunksProcessed: 256)
+        let report = Fixture.report(reply, endedBy: .stoppedByUser)
+
+        #expect(report.outcome == .stoppedByUser)
+        #expect(report.outcome != .completedClean)
+        #expect(report.outcome.didCoverTheRequestedRange == false)
+        #expect(!report.headline.lowercased().contains("no currently-unreadable blocks were found"))
+    }
+
+    /// Stop from `paused`: nothing is in flight and no reply is coming, so the last thing the
+    /// helper said was `pausedByUser`. That read as `incomplete` — *"no failure was recorded that
+    /// would account for it"* — for a run a person deliberately ended.
+    @Test func stoppingFromAPauseIsReportedAsStoppedByUserAndNotAsIncomplete() {
+        let reply = Fixture.reply(outcome: .pausedByUser, chunksProcessed: 40)
+        #expect(Fixture.report(reply, endedBy: .stoppedByUser).outcome == .stoppedByUser)
+    }
+
+    /// Decision 2026-08-20: quitting cancels the run, which the confirmation says outright, so the
+    /// report says the same thing a Stop press does.
+    @Test func quittingDuringARunIsReportedAsStoppedByUser() {
+        let reply = Fixture.reply(outcome: .completed, chunksProcessed: 64)
+        #expect(Fixture.report(reply, endedBy: .haltedForQuit).outcome == .stoppedByUser)
+    }
+
+    /// A user can stop a run that has already logged bad blocks. ``RunReportOutcome/foundFailures``
+    /// says nothing either way for this case **on purpose** — the failed-range list is the
+    /// authority, and it must survive the outcome not mentioning it.
+    @Test func aRunTheUserStoppedAfterFailuresStillReportsThem() {
+        let reply = Fixture.reply(outcome: .stoppedByUser,
+                                  chunksProcessed: 12,
+                                  failedRangeCount: 1,
+                                  failedRangesEncoded: "200:2:3",
+                                  failedBlockCount: 2)
+        let report = Fixture.report(reply, endedBy: .stoppedByUser)
+
+        #expect(report.outcome == .stoppedByUser)
+        #expect(report.outcome.foundFailures == false, "the OUTCOME implies nothing either way")
+        #expect(report.failedBlockCount == 2, "and the run's own findings must survive that")
+        #expect(report.failedRanges?.isEmpty == false)
+    }
+
+    /// The contradiction guard on the completed path, which is the mirror of the one on
+    /// `stoppedOnFailure`. Two sources disagreeing about whether the range was covered is not
+    /// something to resolve by picking the cheerful one.
+    @Test func aRunWhoseEndingAndReplyDisagreeAboutCompletionIsCalledIncomplete() {
+        let reply = Fixture.reply(outcome: .stoppedByUser, chunksProcessed: 12)
+        #expect(RunReportOutcome.forRun(endedBy: .completed,
+                                        replyDidComplete: reply.didComplete,
+                                        foundFailures: false) == .incomplete)
+    }
+
+    /// A call that could not be made or was refused. Where no call ever returned there is no report
+    /// at all; where an earlier one did, this is what the report says.
+    @Test func aCallFailureIsCalledIncomplete() {
+        #expect(RunReportOutcome.forRun(endedBy: .callFailed(reason: "connection interrupted"),
+                                        replyDidComplete: false,
+                                        foundFailures: false) == .incomplete)
+        #expect(RunReportOutcome.forRun(endedBy: .callFailed(reason: "connection interrupted"),
+                                        replyDidComplete: false,
+                                        foundFailures: true) == .incomplete)
+    }
+
+    /// **The property, stated over the whole table rather than over the rows above.** However the
+    /// run ended, a reply claiming completion must never on its own produce a clean pass — that is
+    /// the shape of the defect, and it is worth asserting as a rule so a future ending cannot
+    /// reintroduce it by being added to the wrong branch.
+    @Test func onlyARunThatActuallyCompletedCanBeReportedAsCompleted() {
+        let endings: [RunSequenceOutcome] = [.stoppedOnFailure, .stoppedByUser, .haltedForQuit,
+                                             .callFailed(reason: "x")]
+        for ending in endings {
+            for foundFailures in [false, true] {
+                let outcome = RunReportOutcome.forRun(endedBy: ending,
+                                                      replyDidComplete: true,
+                                                      foundFailures: foundFailures)
+                #expect(outcome.didCoverTheRequestedRange == false,
+                        "\(ending) with a completing reply read as having covered the range")
+            }
+        }
+    }
+
+    /// And the other half: a run that did complete is still reported on its findings, so the rule
+    /// above cannot be satisfied by refusing to say "completed" at all.
+    @Test func aRunThatCompletedIsStillSplitByWhetherItFoundAnything() {
+        #expect(RunReportOutcome.forRun(endedBy: .completed,
+                                        replyDidComplete: true,
+                                        foundFailures: false) == .completedClean)
+        #expect(RunReportOutcome.forRun(endedBy: .completed,
+                                        replyDidComplete: true,
+                                        foundFailures: true) == .completedWithFailures)
+    }
+
+    // MARK: The wording
+
+    /// The headline names the actor, because "stopped" alone is what `stoppedOnError` also says and
+    /// the difference between them is the whole point.
+    @Test func theStoppedByUserHeadlineSaysWhoStoppedItAndWhatThatLeftUntested() {
+        let headline = RunReportOutcome.stoppedByUser.headline.lowercased()
+        #expect(headline.contains("stopped by the user"))
+        #expect(headline.contains("not tested"))
+    }
+
+    /// FR-FAIL-7 in the report's own voice: this is not a run that can be picked up again, and a
+    /// reader deciding what to do next needs to be told so here rather than discovering it at the
+    /// controls.
+    @Test func theStoppedByUserExplanationSaysItCannotBeContinued() {
+        let explanation = RunReportOutcome.stoppedByUser.explanation.lowercased()
+        #expect(explanation.contains("cannot be continued"))
+        #expect(explanation.contains("has not passed"))
+    }
+
+    /// BUILD-PLAN 10.5's wording rule reaches every outcome, not only the clean one: no outcome may
+    /// call the drive healthy. `completedClean`'s explanation uses the phrase *"not a clean bill of
+    /// health"*, which is the rule being stated rather than broken — so the word tested for is
+    /// "healthy", which has no such negated use anywhere.
+    @Test func noOutcomeCallsTheDriveHealthy() {
+        for outcome in RunReportOutcome.allCases {
+            let text = (outcome.headline + " " + outcome.explanation).lowercased()
+            #expect(!text.contains("healthy"), "\(outcome) called the drive healthy")
         }
     }
 }
@@ -697,7 +871,7 @@ struct ReportMarkdownShapeTests {
     }
 
     /// A bounded run is not a whole-drive pass, and a report that did not say so would invite
-    /// being read as one. Whole-device runs arrive with Step 11.
+    /// being read as one.
     @Test func aPartialRangeIsNotAllowedToReadAsAWholeDrivePass() {
         let document = Fixture.markdown(Fixture.report())
         #expect(document.contains("**not the whole drive**"))
@@ -708,6 +882,58 @@ struct ReportMarkdownShapeTests {
         // 1,000,204,886,016 bytes / 512 = the whole device.
         let report = Fixture.report(blockCount: 1_953_525_168)
         #expect(Fixture.markdown(report).contains("**not the whole drive**") == false)
+    }
+
+    /// **The row says what it holds** (increment 8). It is the range the run *asked for*, and it
+    /// read "Range tested" until FR-CTRL-4's Stop control made those two different things — at
+    /// which point a run stopped early printed its whole requested range under that word, three
+    /// lines below an outcome saying the rest had not been tested.
+    @Test func theRangeRowIsLabelledAsRequestedRatherThanTested() {
+        let document = Fixture.markdown(Fixture.report())
+        #expect(document.contains("| Range requested |"))
+        #expect(document.contains("| Range tested |") == false,
+                "the row claims the range was tested, which a stopped run makes false")
+    }
+
+    /// A run that did not reach the end of its range says so, **whether or not** the range was the
+    /// whole drive — the two caveats are about different facts and neither substitutes for the
+    /// other.
+    @Test func aRunThatDidNotReachTheEndOfItsRangeSaysSo() {
+        let stopped = Fixture.report(Fixture.reply(outcome: .stoppedByUser, chunksProcessed: 12),
+                                     endedBy: .stoppedByUser,
+                                     blockCount: 1_953_525_168)   // the whole drive, so only this caveat
+        let document = Fixture.markdown(stopped)
+
+        #expect(document.contains(HonestFraming.rangeWasNotReachedToItsEnd.markdown))
+        #expect(document.contains("**not the whole drive**") == false,
+                "a whole-device run must not be told its range was smaller than the drive")
+    }
+
+    /// Both at once, for a bounded run that was also stopped early. They compose rather than
+    /// contradict — which is what the reworded bounded-range sentence is for.
+    @Test func aBoundedRunStoppedEarlyCarriesBothCaveats() {
+        let stopped = Fixture.report(Fixture.reply(outcome: .stoppedByUser, chunksProcessed: 12),
+                                     endedBy: .stoppedByUser)
+        let document = Fixture.markdown(stopped)
+
+        #expect(document.contains(HonestFraming.rangeWasSmallerThanTheDrive.markdown))
+        #expect(document.contains(HonestFraming.rangeWasNotReachedToItsEnd.markdown))
+    }
+
+    /// The bounded-range sentence no longer **asserts** that the run covered the range, which is
+    /// the false claim it carried. Pinned on the phrase rather than on the whole sentence, so a
+    /// reword cannot quietly put the assertion back.
+    @Test func theBoundedRangeCaveatDoesNotClaimTheRunCoveredIt() {
+        let text = HonestFraming.rangeWasSmallerThanTheDrive.plain.lowercased()
+        #expect(text.contains("this run covered") == false,
+                "the caveat asserts coverage again, which a stopped run makes false")
+    }
+
+    /// A whole-device run that finished has nothing to qualify — the case that stops the caveats
+    /// being unconditional decoration.
+    @Test func aCompletedWholeDriveRunCarriesNoRangeCaveatsAtAll() {
+        let report = Fixture.report(blockCount: 1_953_525_168)
+        #expect(report.rangeCaveats.isEmpty)
     }
 
     /// NFR-USE-6 and Step 14's detailed step 3: the honest framing is echoed **into the report**,

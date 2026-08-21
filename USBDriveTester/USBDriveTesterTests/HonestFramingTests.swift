@@ -69,11 +69,14 @@ struct HonestFramingTests {
         #expect(claim.plain.contains("the drive's own cache sits below every check a host can make"))
     }
 
-    /// The conditional claim belongs to the report surfaces only — it says "the failure above", and
-    /// there is no "above" in a dialog shown before the run starts. A mutation adding it to
-    /// ``HonestFraming/claims`` would put that sentence in the pre-run dialog.
-    @Test func theStoppedRunClaimIsNotShownOnEverySurface() {
-        #expect(!HonestFraming.claims.contains(HonestFraming.rangeBeyondTheFailureWasNotTested))
+    /// The conditional claims belong to the report surfaces only — one of them says "the failure
+    /// above", and there is no "above" in a dialog shown before the run starts. A mutation adding
+    /// either to ``HonestFraming/claims`` would put that sentence in the pre-run dialog.
+    @Test func theStoppedRunClaimsAreNotShownOnEverySurface() {
+        for conditional in conditionalClaims() {
+            #expect(!HonestFraming.claims.contains(conditional),
+                    "a conditional claim reached every surface: \(conditional.plain.prefix(48))")
+        }
     }
 
     /// It must still reach the report when a run did stop on an error — the other half, so a
@@ -85,6 +88,41 @@ struct HonestFramingTests {
         let clean = RunReportMarkdown.render(Fixture.cleanReport(), timeZone: Fixture.utc)
         #expect(!clean.contains(HonestFraming.rangeBeyondTheFailureWasNotTested.markdown),
                 "a clean run has no failure for a range to lie beyond")
+    }
+
+    /// **FR-RPT-4, increment 8.** A run the user stopped gets its own sentence, and it is not the
+    /// stop-on-error one — that sentence points at "the failure above", which for a user-stopped
+    /// run may not exist at all.
+    @Test func aUserStoppedRunGetsItsOwnUntestedSentenceAndNotTheFailureOne() {
+        let document = RunReportMarkdown.render(Fixture.stoppedByUserReport(), timeZone: Fixture.utc)
+
+        #expect(document.contains(HonestFraming.rangeBeyondTheStopWasNotTested.markdown))
+        #expect(!document.contains(HonestFraming.rangeBeyondTheFailureWasNotTested.markdown),
+                "a user-stopped run was told the range beyond a failure went untested")
+
+        let stopped = RunReportMarkdown.render(Fixture.stoppedOnErrorReport(), timeZone: Fixture.utc)
+        #expect(!stopped.contains(HonestFraming.rangeBeyondTheStopWasNotTested.markdown),
+                "a run that stopped on an error was told a user had stopped it")
+    }
+
+    /// Both conditional sentences say the thing the report exists to keep saying. Asserted on the
+    /// wording rather than on which claim was chosen, so rewording either one cannot quietly drop
+    /// the distinction that makes it worth printing.
+    @Test func everyConditionalClaimSaysUntestedIsNotPassed() {
+        let conditionals = RunReportOutcome.allCases.compactMap(HonestFraming.claim(addedBy:))
+        #expect(conditionals.count == 2)
+        for claim in conditionals {
+            #expect(claim.plain.lowercased().contains("not tested"))
+            #expect(claim.plain.lowercased().contains("untested is not the same as passed"))
+        }
+    }
+
+    /// The outcomes that add nothing add nothing — the other half of the lookup, and the one a
+    /// mutation returning a claim unconditionally would break.
+    @Test func anOutcomeThatCoveredItsRangeAddsNoExtraSentence() {
+        #expect(HonestFraming.claim(addedBy: .completedClean) == nil)
+        #expect(HonestFraming.claim(addedBy: .completedWithFailures) == nil)
+        #expect(HonestFraming.claim(addedBy: .incomplete) == nil)
     }
 
     // MARK: - The three mandatory warnings
@@ -227,10 +265,29 @@ struct HonestFramingTests {
 
     // MARK: - Helpers
 
+    /// Every claim in the file, with **the outcome-conditional ones derived rather than listed**.
+    ///
+    /// It listed `rangeBeyondTheFailureWasNotTested` by hand until increment 8. That was fine while
+    /// there was one; the moment a second arrived, a hand list is a thing to forget — and what
+    /// would be forgotten is the balanced-emphasis and plain-derivation checks, which is how an
+    /// unbalanced `**` reaches a report as literal asterisks. Walking `allCases` through
+    /// `HonestFraming.claim(addedBy:)` means a third conditional claim is covered on the day it is
+    /// written.
     private func allClaims() -> [HonestFramingClaim] {
         HonestFraming.claims
-            + [HonestFraming.summary, HonestFraming.rangeBeyondTheFailureWasNotTested]
+            + [HonestFraming.summary]
+            + conditionalClaims()
             + PreRunWarningText.mandatory.flatMap(\.points)
+    }
+
+    /// Every claim this file shows **conditionally**, from both families, derived rather than
+    /// listed.
+    ///
+    /// `rangeCaveats(rangeIsWholeDrive: false, coveredTheRange: false)` is the call that returns
+    /// all of them at once — the run that carries every caveat there is.
+    private func conditionalClaims() -> [HonestFramingClaim] {
+        RunReportOutcome.allCases.compactMap(HonestFraming.claim(addedBy:))
+            + HonestFraming.rangeCaveats(rangeIsWholeDrive: false, coveredTheRange: false)
     }
 
     private enum Fixture {
@@ -257,7 +314,12 @@ struct HonestFramingTests {
 
         /// Built through the real initialiser, so the outcome is *derived* the way the shipped app
         /// derives it rather than asserted into place by the test.
+        ///
+        /// `endedBy` defaults to the ending implied by the reply — the ordinary case, where the run
+        /// ended the way its last call did. A caller testing a run whose ending diverges from its
+        /// last reply passes it explicitly.
         static func report(outcome: RunOutcomeCode,
+                           endedBy ending: RunSequenceOutcome? = nil,
                            failedRangesEncoded: String,
                            failedBlockCount: UInt64) -> RunReport {
             let reply = RunCycleOutcome(runOutcomeCode: outcome.rawValue,
@@ -281,6 +343,7 @@ struct HonestFramingTests {
                                         readLatencyP99UpperBoundNanoseconds: 2_195_000,
                                         message: "Cycle completed")
             return RunReport(reply: reply,
+                             endedBy: ending ?? impliedEnding(outcome),
                              startBlock: 0,
                              blockCount: 2_097_152,
                              ioSizesUsed: [4 << 20],
@@ -290,12 +353,32 @@ struct HonestFramingTests {
                              usbLinkSpeedDescription: "10 Gb/s (USB 3.1 Gen 2)")!
         }
 
+        /// A run that ended the way its last call did.
+        static func impliedEnding(_ outcome: RunOutcomeCode) -> RunSequenceOutcome {
+            switch outcome {
+            case .completed:                    return .completed
+            case .stoppedOnFailure:             return .stoppedOnFailure
+            case .pausedByUser, .stoppedByUser: return .stoppedByUser
+            case .unrecognised:                 return .callFailed(reason: "")
+            }
+        }
+
         static func cleanReport() -> RunReport {
             report(outcome: .completed, failedRangesEncoded: "", failedBlockCount: 0)
         }
 
         static func stoppedOnErrorReport() -> RunReport {
             report(outcome: .stoppedOnFailure, failedRangesEncoded: "4096:8:1", failedBlockCount: 8)
+        }
+
+        /// A run the **user** stopped, which had already logged a bad block before they did
+        /// (FR-RPT-4, increment 8). The failures matter: this is the outcome whose own
+        /// `foundFailures` says nothing either way, so a fixture without them cannot show that the
+        /// failed range still reaches both surfaces.
+        static func stoppedByUserReport() -> RunReport {
+            report(outcome: .stoppedByUser,
+                   failedRangesEncoded: "4096:8:1",
+                   failedBlockCount: 8)
         }
     }
 }

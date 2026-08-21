@@ -103,6 +103,92 @@ nonisolated enum HonestFraming {
     /// says "the failure above" — there is no "above" in a dialog shown before the run starts.
     static let rangeBeyondTheFailureWasNotTested = HonestFramingClaim(
         "**The range beyond the failure above was not tested.** Untested is not the same as passed.")
+
+    /// The same point for a run **the user ended** (FR-RPT-4, increment 8). A separate sentence
+    /// rather than a reworded one, because the reason the range went untested is different and the
+    /// other sentence points at a failure that does not exist here.
+    static let rangeBeyondTheStopWasNotTested = HonestFramingClaim(
+        "**The rest of the drive was not tested** — the run was stopped before it got there. "
+      + "Untested is not the same as passed.")
+
+    // MARK: - What the run's range does and does not cover
+
+    /// The requested range was smaller than the drive — a bounded diagnostic run.
+    ///
+    /// **Reworded in increment 8, and the old wording was a false claim rather than a clumsy one.**
+    /// It read *"This run covered the range above, not the whole drive"*, which asserts that the
+    /// run covered the range — true for every run that could reach this sentence when it was
+    /// written, and false the moment FR-CTRL-4's Stop control existed. It now states only the
+    /// relationship between the range and the drive, which is the fact it was there to give, and
+    /// composes with ``rangeWasNotReachedToItsEnd`` instead of contradicting it.
+    static let rangeWasSmallerThanTheDrive = HonestFramingClaim(
+        "The range above is **not the whole drive**. Blocks outside it were not tested.")
+
+    /// The run ended before reaching the end of the range it asked for (FR-RPT-4).
+    ///
+    /// **It does not say how far it got, on purpose.** A byte figure here would have to be derived
+    /// from the chunk count, and CONSTRAINTS' rule is that progress is byte-denominated and that
+    /// the report must not re-derive what the session already reports. The report prints
+    /// ``RunReport/chunksProcessed`` a line above; inventing a precision the reply does not carry
+    /// would be worse than saying plainly that the end was not reached.
+    static let rangeWasNotReachedToItsEnd = HonestFramingClaim(
+        "The run ended before reaching the end of that range. Blocks beyond the point it stopped "
+      + "were **not tested**.")
+
+    /// The caveats a run's coverage carries, in the order they are shown.
+    ///
+    /// ## Why this is here rather than in the two renderers
+    ///
+    /// Because it was in both, twice over. Until increment 8 `RunReportView` and
+    /// `RunReportMarkdown` each held **their own literal** of the bounded-range sentence *and*
+    /// **their own copy of the condition** — one written `rangeByteCount < capacityBytes`, the
+    /// other `blockCount * UInt64(logicalBlockSize) < capacityBytes`, which is the same arithmetic
+    /// spelled twice. Two surfaces, two sentences, two conditions, nothing comparing any of them:
+    /// the 7.2 defect's exact shape, in a paragraph this file had never been asked to cover.
+    ///
+    /// - Parameters:
+    ///   - rangeIsWholeDrive: whether the range the run *asked for* was the whole device.
+    ///   - coveredTheRange: whether the run reached the end of what it asked for —
+    ///     ``RunReportOutcome/didCoverTheRequestedRange``.
+    static func rangeCaveats(rangeIsWholeDrive: Bool,
+                             coveredTheRange: Bool) -> [HonestFramingClaim] {
+        var caveats: [HonestFramingClaim] = []
+        if !rangeIsWholeDrive { caveats.append(rangeWasSmallerThanTheDrive) }
+        if !coveredTheRange { caveats.append(rangeWasNotReachedToItsEnd) }
+        return caveats
+    }
+
+    /// The one claim, if any, that a **particular outcome** adds to ``claims`` on the report
+    /// surfaces (FR-RPT-4).
+    ///
+    /// ## Why this is a function here and not an `if` in each renderer
+    ///
+    /// It was two `if report.outcome == .stoppedOnError` statements — one in `RunReportView`, one
+    /// in `RunReportMarkdown` — which is two places deciding one thing. **That is the shape of the
+    /// 7.2 defect this whole file exists to end**: on 2026-08-18 the window and the exported file
+    /// were found disagreeing about the throughput denominator, because the guidance had been
+    /// changed on one surface and not the other, and nothing compared them. Adding a second outcome
+    /// with a second sentence would have doubled the number of places to keep in step at exactly
+    /// the moment the count went from one to two.
+    ///
+    /// A `switch` with no `default`, so Step 12's device-loss outcome is a compile error here —
+    /// which is the question worth being forced to answer: *does this ending need its own sentence
+    /// about what went untested?*
+    ///
+    /// - Returns: `nil` for the outcomes that add nothing. `completedClean` and
+    ///   `completedWithFailures` covered the whole range, so there is no untested remainder to
+    ///   speak of; `incomplete` already says in its own explanation that the part not reached was
+    ///   not tested, and a report that cannot say *why* the run ended must not imply it knows.
+    static func claim(addedBy outcome: RunReportOutcome) -> HonestFramingClaim? {
+        switch outcome {
+        case .stoppedOnError:
+            return rangeBeyondTheFailureWasNotTested
+        case .stoppedByUser:
+            return rangeBeyondTheStopWasNotTested
+        case .completedClean, .completedWithFailures, .incomplete:
+            return nil
+        }
+    }
 }
 
 // MARK: - The three mandatory warnings (FR-WARN-1/2/3, NFR-USE-4)
@@ -238,4 +324,20 @@ nonisolated enum PreRunWarningText {
     /// that it writes.
     static let confirmationConsequence =
         "Every block on it will be read, written back unchanged, and read again to verify."
+
+    /// **FR-CTRL-5's consequence, shown on BOTH forms of the dialog** (increment 8).
+    ///
+    /// Not one of the suppressible FR-WARN-1/2/3 warnings, and the distinction is the reason this
+    /// string is separate from them: those are standing advice about the tool, identical on every
+    /// run, and a professional user may reasonably say "I know, stop telling me" (NFR-USE-4 as
+    /// qualified 2026-08-09). This is a **consequence of the press being made right now**, and it
+    /// is the one thing about Restart that a user cannot recover from if they were not told —
+    /// an interrupted run cannot be continued (FR-FAIL-7), so the work is not paused, it is gone.
+    ///
+    /// It is rendered in the dialog's **pinned header**, not in its scroll region. A control or a
+    /// sentence below an unadvertised fold has cost this project three times, and this is the
+    /// sentence with the least room for that to be survivable.
+    static let restartDiscardsProgress =
+        "This ends the run in progress and starts again from the beginning. Everything it has "
+      + "tested so far is discarded — an interrupted run cannot be continued."
 }

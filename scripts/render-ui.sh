@@ -32,7 +32,7 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of the 30 cases below, grouped by family so the list can be counted against
+# `view` is one of the 34 cases below, grouped by family so the list can be counted against
 #   `makeRootView` in tools/ui-probe/main.swift.
 #
 #   THIS LIST HAS NOW DRIFTED FROM THE PROBE TWICE. In 2026-08-11 it was missing
@@ -43,8 +43,13 @@
 #   Re-derive rather than hand-edit; the probe is authoritative:
 #     grep -oE '^    case "[a-z0-9-]+":' tools/ui-probe/main.swift | sed 's/.*"\(.*\)":/\1/' | sort
 #
+#   (Increment 8 re-derived it with that line rather than adding its case by hand, and found the
+#   PROBE'S OWN "unknown view" message had drifted the same way — missing
+#   `content-selection-below-fold` and `devices-unusable`. Both lists are hand-maintained and
+#   neither is checkable by a compiler; this one at least has a one-liner that regenerates it.)
+#
 #     content              content-starting     content-running            content-paused
-#     content-finished     content-stop-on-error
+#     content-restarting   content-finished     content-stop-on-error
 #     content-no-selection content-quit-pending content-quitting
 #     content-selection-below-fold
 #     devices              devices-unmounted    devices-unusable           empty
@@ -52,17 +57,27 @@
 #                          diagnostics-warnings-suppressed
 #     metrics              metrics-finished     metrics-idle
 #     report               report-empty         report-failures
-#                          report-qualified     report-stopped             report-unidentified
+#                          report-qualified     report-stopped             report-stopped-by-user
+#                          report-unidentified
 #     warnings             warnings-ticked      warnings-confirm           warnings-unidentified
+#     warnings-restart     warnings-confirm-restart
 #
 #   The `content-*` family is Step 11's. Increment 5 added the run states; increment 6 added
 #   `content-finished` (FR-CTRL-8's "or stopped" window, which no render reached on its own) and
 #   `content-stop-on-error`, which replaces `diagnostics-stop-on-error` — the failure-mode picker
 #   moved to the main window and the panel that render pointed at no longer has one.
 #
-#   `content-paused` is the one that earns its place twice over: it is the only state where the
-#   two pre-run controls disagree — the I/O-size dropdown live, the failure-mode picker not — and
-#   both disabled reasons have to make that legible rather than arbitrary.
+#   `content-paused` earns its place as the state whose rules were got wrong once and reversed on
+#   sight. This note used to say it was "the only state where the two pre-run controls disagree —
+#   the I/O-size dropdown live, the failure-mode picker not". **That shape was reversed on
+#   2026-08-19**: both controls are dead for the whole of a run, `paused` included, under one rule
+#   and one sentence. What this render is now for is that the sentence is there and reads as a
+#   rule rather than as a control being broken.
+#
+#   The `report-*` family gained `report-stopped-by-user` in increment 8, when FR-CTRL-4's stop
+#   control finally gave FR-RPT-4's fourth outcome a trigger. It renders a stopped run that had
+#   **already logged a bad block**, because that is the one page where "the headline does not
+#   mention failures" and "there were none" are different statements.
 #
 #   THREE OF THESE RENDER A STATE THIS MACHINE CANNOT PRODUCE, and each exists because a state
 #   nobody can observe is a state nobody has checked:

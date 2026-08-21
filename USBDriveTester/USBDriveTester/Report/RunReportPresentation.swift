@@ -61,10 +61,16 @@ nonisolated struct RunReportPresentation: Equatable {
     /// The rule: an unverified result is shown as a question regardless of what it concluded,
     /// because FR-TEST-9's qualification is about whether the conclusion can be relied on at all.
     ///
-    /// Below that, the four outcomes get four distinguishable symbols. `checkmark.circle` and
+    /// Below that, the five outcomes get five distinguishable symbols. `checkmark.circle` and
     /// `stop.circle` are both circles and that is deliberate — they are the two "the run did what
     /// it was told" cases — but they are **not** distinguished by tint alone: their headlines are
     /// entirely different sentences, which is what the test pins.
+    ///
+    /// ``RunReportOutcome/stoppedByUser`` takes `hand.raised.circle.fill` rather than a second
+    /// `stop.` symbol: it and ``RunReportOutcome/stoppedOnError`` are the two endings a reader is
+    /// most likely to confuse — both stopped short, one because the drive failed and one because a
+    /// person said so — so they are the pair that most needs telling apart in greyscale, which is
+    /// the condition NFR-USE-8 states as an absolute.
     static func forResult(outcome: RunReportOutcome,
                           verifyResultIsQualified: Bool) -> RunReportPresentation {
         guard !verifyResultIsQualified else {
@@ -78,6 +84,12 @@ nonisolated struct RunReportPresentation: Equatable {
                                          tint: .cautionary)
         case .stoppedOnError:
             return RunReportPresentation(symbolName: "stop.circle.fill", tint: .cautionary)
+        case .stoppedByUser:
+            // Cautionary, not affirmative. The user chose it, but the drive is only partly
+            // covered and the report must not read as a clean pass over the whole of it — the
+            // tint's own definition is "something failed, the run was cut short, or the result is
+            // unverified", and this is squarely the middle one.
+            return RunReportPresentation(symbolName: "hand.raised.circle.fill", tint: .cautionary)
         case .incomplete:
             return RunReportPresentation(symbolName: "exclamationmark.circle.fill",
                                          tint: .cautionary)

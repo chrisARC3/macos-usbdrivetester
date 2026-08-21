@@ -101,6 +101,19 @@ struct PreRunPromptSheet: View {
                 .font(isBrief ? .headline : .body)
                 .fixedSize(horizontal: false, vertical: true)
 
+            // **FR-CTRL-5, on both forms and in the PINNED header** (increment 8). Suppression
+            // reaches the standing FR-WARN text, never this: it is a consequence of this press
+            // rather than advice about the tool, and it is the one thing about Restart a user
+            // cannot recover from having missed. In the header rather than the scroll region for
+            // the reason the footer is pinned — the fold has cost this project three times.
+            if prompt.discardsRunInProgress {
+                Label(PreRunWarningText.restartDiscardsProgress,
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel(PreRunWarningText.restartDiscardsProgress)
+            }
+
             if let bsdName = prompt.device.bsdNameAtRunTime {
                 Text("Currently \(bsdName) — a locator, not an identity; it may name a different "
                    + "drive after a replug or a reboot.")
@@ -218,7 +231,8 @@ struct PreRunPromptSheet: View {
                                              usbSerialNumber: "00000000NT17XBRA",
                                              bsdNameAtRunTime: "disk4",
                                              capacityBytes: 22_000_969_973_248,
-                                             logicalBlockSize: 512)),
+                                             logicalBlockSize: 512),
+                              purpose: .newRun),
         suppressFutureWarnings: .constant(false),
         onProceed: {}, onCancel: {})
 }

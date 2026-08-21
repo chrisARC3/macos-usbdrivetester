@@ -113,12 +113,13 @@ nonisolated struct ReportedDevice: Equatable {
 
 /// The run's outcome.
 ///
-/// ## Why there are four cases and not the five BUILD-PLAN lists
+/// ## Why there are five cases and not BUILD-PLAN's five, nor Step 10's four
 ///
-/// "Stopped by user" needs FR-CTRL-4's stop control, which is **Step 11's**; "terminated by
-/// device loss" needs FR-DEV-8's detection, which is **Step 12's**. Neither is here, by decision
-/// (2026-08-06): a mechanism behind a trigger that never fires looks exactly like a broken
-/// mechanism, so nothing untriggerable ships. Both steps add their case when they add its cause.
+/// Step 10 shipped four. "Stopped by user" needed FR-CTRL-4's stop control and "terminated by
+/// device loss" needs FR-DEV-8's detection, so neither was built in advance (decision 2026-08-06):
+/// a mechanism behind a trigger that never fires looks exactly like a broken mechanism. **Step 11
+/// increment 8 is where the stop control finally gives the fourth its trigger**, so ``stoppedByUser``
+/// arrives here with its cause. Step 12's remains outstanding and is deliberately still absent.
 ///
 /// ``incomplete`` is a different kind of thing and is **not** an untriggerable mechanism. It is
 /// how this report refuses to lie about a reply it cannot rule out: the helper is a separately
@@ -128,7 +129,8 @@ nonisolated struct ReportedDevice: Equatable {
 // `CaseIterable` so a test can assert a property over EVERY outcome rather than over the four
 // somebody remembered to list — added 2026-08-11 for `RunReportPresentationTests`, which checks
 // that no two results are told apart by their tint alone (NFR-USE-8). A hand-written list is how a
-// fifth outcome would arrive uncovered.
+// fifth outcome would arrive uncovered. It did arrive, in increment 8, and the design paid for
+// itself: `stoppedByUser` was picked up by that test without being named in it.
 nonisolated enum RunReportOutcome: Equatable, CaseIterable {
 
     /// Every planned chunk was processed and nothing failed.
@@ -143,6 +145,15 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
     /// offending range is untested — not passed.
     case stoppedOnError
 
+    /// **FR-RPT-4, and FR-CTRL-4's outcome.** The user ended the run — by pressing Stop, or by
+    /// choosing to quit, which cancels it (decision 2026-08-20). Everything past the point it
+    /// reached is untested, and an interrupted run cannot be continued (FR-FAIL-7).
+    ///
+    /// One case for both routes on purpose. The report's job is to say what happened to the drive,
+    /// and "the user ended it" is the same fact whichever control they used; splitting it would put
+    /// a distinction in a persisted file that answers no question anybody asks of one.
+    case stoppedByUser
+
     /// The run ended before covering its range, and recorded no failure that would explain it.
     case incomplete
 
@@ -151,8 +162,18 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
         self == .completedClean || self == .completedWithFailures
     }
 
-    /// Whether anything failed. Distinct from ``didCoverTheRequestedRange``: a run can complete
-    /// with failures, and a run can stop with them.
+    /// Whether **this outcome, on its own, means failures were found.**
+    ///
+    /// Distinct from ``didCoverTheRequestedRange``: a run can complete with failures, and a run can
+    /// stop with them.
+    ///
+    /// - Important: it is `false` for ``stoppedByUser``, and that is a statement about the *outcome*
+    ///   rather than about the run. A user can stop a run that has already logged bad blocks, so
+    ///   this case implies nothing either way — which is why the wording above changed in increment
+    ///   8 from "whether anything failed". **``RunReport/failedRanges`` and
+    ///   ``RunReport/failedBlockCount`` are the authority on what a stopped run found**, and the
+    ///   report renders them for every outcome. Reading this property as "the run was clean" is the
+    ///   error it is now worded to prevent.
     var foundFailures: Bool {
         self == .completedWithFailures || self == .stoppedOnError
     }
@@ -173,6 +194,8 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
             return "Completed with failures — some blocks could not be read, written, or verified"
         case .stoppedOnError:
             return "Stopped on the first error — the rest of the requested range was not tested"
+        case .stoppedByUser:
+            return "Stopped by the user — the rest of the drive was not tested"
         case .incomplete:
             return "Incomplete — the run ended before covering the requested range"
         }
@@ -195,9 +218,89 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
                  + "first failure and issued no further work. **The range beyond that point was "
                  + "not tested** — it has not passed, it was not reached. Re-run in *log and "
                  + "continue* mode to cover the whole range."
+        case .stoppedByUser:
+            return "The run was stopped before it covered the whole drive. What it did reach was "
+                 + "read, written back unchanged, and read again. **The rest was not tested** — it "
+                 + "has not passed, it was not reached. An interrupted run cannot be continued, so "
+                 + "testing the rest means a new run from the beginning. Any blocks that did fail "
+                 + "before it stopped are listed below."
         case .incomplete:
             return "The run did not cover the requested range, and no failure was recorded that "
                  + "would account for it. The part that was not reached has not been tested."
+        }
+    }
+
+    /// **How the run ended, decided from the RUN and not from its last reply** (FR-RPT-4).
+    ///
+    /// ## Why this exists, and what it fixes rather than adds
+    ///
+    /// Until increment 8 the outcome was inferred inside ``RunReport/init(reply:startBlock:blockCount:ioSizesUsed:device:startedAt:finishedAt:usbLinkSpeedDescription:)``
+    /// from the last **reply** alone. A run is a *sequence* of bounded calls (CONSTRAINTS section 2,
+    /// Shape A), so how the run ended is not a fact any single reply holds, and inferring it from
+    /// one was wrong in three distinct ways — one of them badly:
+    ///
+    ///   * Stop from `running` left a reply saying `stoppedByUser`, which read as ``incomplete``:
+    ///     *"the run ended before covering the requested range, and no failure was recorded that
+    ///     would account for it"* — an anomaly, for something the user did on purpose.
+    ///   * Stop from `paused` left a reply saying `pausedByUser`, and read the same way.
+    ///   * **A stop that raced a completing call left a reply saying `completed`** — the helper
+    ///     finished that call normally and `RunSequencer` declined to issue the next one — so the
+    ///     report read *"Completed — no currently-unreadable blocks were found"* against a
+    ///     ``RunReport/blockCount`` of the **whole device**, for a run that may have covered 2% of
+    ///     it. A false clean pass, in a file that outlives the session. That is the one this
+    ///     function exists for.
+    ///
+    /// ## Why it takes the sequencer's own vocabulary
+    ///
+    /// ``RunSequenceOutcome`` rather than some intermediate of this layer's own, so the `switch`
+    /// below is **exhaustive over the thing that actually decides**. When Step 12 adds device loss
+    /// to that enum, this is a compile error at the one place that has to say what the report
+    /// reads — the same mechanism `RunSequencer.callReturned` uses on the wire vocabulary, and the
+    /// reason neither can fall through to a silent wrong answer.
+    ///
+    /// - Parameters:
+    ///   - ending: how the **run** ended, from `RunSequenceResult.outcome`.
+    ///   - replyDidComplete: whether the last reply says its own call covered its range. Consulted
+    ///     only where `ending` is ``RunSequenceOutcome/completed``, and only as a cross-check.
+    ///   - foundFailures: whether the run recorded any failed range. The reply is cumulative over
+    ///     the whole run (protocol v11), so this is the run's answer and not one call's.
+    static func forRun(endedBy ending: RunSequenceOutcome,
+                       replyDidComplete: Bool,
+                       foundFailures: Bool) -> RunReportOutcome {
+        switch ending {
+        case .completed:
+            // `RunSequencer` says this only once `RunSlicing` reports the device covered, which it
+            // reaches by advancing on replies that completed — so the two agreeing is the ordinary
+            // case and a disagreement is a wiring defect. ``incomplete`` is the safe answer to a
+            // contradiction because it is the one that claims least; a report must not read as a
+            // clean pass on the strength of a fact two sources disagree about.
+            guard replyDidComplete else { return .incomplete }
+            return foundFailures ? .completedWithFailures : .completedClean
+
+        case .stoppedOnFailure:
+            // FR-FAIL-2 at run scope: the mode stopped the *run*, not just the call.
+            //
+            // **The guard is not redundant, and removing it would delete a refusal to guess.** The
+            // helper is a separately installed artefact; a reply saying "I stopped because of a
+            // failure" while reporting no failed range is a contradiction the app cannot resolve,
+            // and ``incomplete`` exists precisely to name it rather than pick a side. That is what
+            // the reply-only inference did before increment 8, and it is preserved here on
+            // purpose — `aRunThatEndedEarlyWithNoFailureIsCalledIncompleteRatherThanGuessedAt` is
+            // the test that would have caught its loss.
+            guard foundFailures else { return .incomplete }
+            return .stoppedOnError
+
+        case .stoppedByUser, .haltedForQuit:
+            // Both are the user ending the run — Stop, or choosing to quit, which the confirmation
+            // says outright cancels it (decision 2026-08-20). One outcome, because the report's
+            // job is what happened to the drive and that is the same fact either way.
+            return .stoppedByUser
+
+        case .callFailed:
+            // A call could not be made or was refused. Where no call ever returned there is no
+            // report at all; where an earlier one did, this says what is true — the range was not
+            // covered and nothing recorded explains it.
+            return .incomplete
         }
     }
 }
@@ -320,7 +423,27 @@ nonisolated struct RunReport: Equatable {
     var listIsTruncated: Bool { (droppedRangeCount ?? 0) > 0 }
 
     /// Bytes the run's range covers, counted once — not the three times the cycle moves them.
+    ///
+    /// **The range the run ASKED FOR**, which after FR-CTRL-4's Stop control is not the same as the
+    /// range it reached. That distinction is why the report's row is labelled *"Range requested"*
+    /// from increment 8; it read *"Range tested"* before, and for a stopped run that was a false
+    /// claim sitting three inches under a headline saying the rest was not tested.
     var rangeByteCount: UInt64 { blockCount * UInt64(device.logicalBlockSize) }
+
+    /// Whether the run asked for the whole device (FR-TEST-4) rather than a bounded diagnostic
+    /// range.
+    ///
+    /// Named here because both renderers were computing it inline, in two different spellings of
+    /// the same arithmetic. One name, one comparison.
+    var requestedRangeIsWholeDrive: Bool { rangeByteCount >= device.capacityBytes }
+
+    /// What has to be said about this run's coverage, from the one place that decides it.
+    ///
+    /// Empty for a whole-device run that finished — which is the only case with nothing to qualify.
+    var rangeCaveats: [HonestFramingClaim] {
+        HonestFraming.rangeCaveats(rangeIsWholeDrive: requestedRangeIsWholeDrive,
+                                   coveredTheRange: outcome.didCoverTheRequestedRange)
+    }
 
     /// Did the run use more than one I/O size? If so the latency distribution spans them.
     var latencySpansMultipleIOSizes: Bool { Set(ioSizesUsed).count > 1 }
@@ -386,7 +509,11 @@ nonisolated struct RunReport: Equatable {
         switch outcome {
         case .completedClean:
             return outcome.headline + " — but this result is NOT VERIFIED (see below)"
-        case .completedWithFailures, .stoppedOnError, .incomplete:
+        case .completedWithFailures, .stoppedOnError, .stoppedByUser, .incomplete:
+            // "There may be more" is true even where the count shown is zero — an unverified read
+            // cannot invent a mismatch but it can hide one, so every non-clean outcome takes the
+            // same clause. `stoppedByUser` joined them in increment 8, and this `switch` being
+            // exhaustive is what required an answer rather than letting it fall through.
             return outcome.headline
                  + " — and fault detection was NOT VERIFIED, so there may be more (see below)"
         }
@@ -441,8 +568,25 @@ extension RunReport {
     /// inferring it, and `unrecognised` is what a refusal replies. The chunk count would give the
     /// same answer today and would be an inference about an implementation detail.
     ///
+    /// ## The outcome comes from the RUN, and `endedBy` has no default
+    ///
+    /// It is the run's own ending that decides ``RunReport/outcome`` — see
+    /// ``RunReportOutcome/forRun(endedBy:replyDidComplete:foundFailures:)`` for the three ways the
+    /// old reply-only inference was wrong, and for the one that produced a **false clean pass** over
+    /// a partly-covered device.
+    ///
+    /// **Required, with no default**, at the cost of editing every call site — the same judgement
+    /// increment 2 made about the engine's `control:` closure, for the same reason. A default would
+    /// mean a caller that forgot it still compiled, still produced a report, and still put a
+    /// plausible sentence in an exported file; the failure would be invisible until somebody
+    /// stopped a run and read what it said afterwards. There is no value it could safely default
+    /// to, because the safe answer differs per caller.
+    ///
     /// - Parameters:
-    ///   - reply: the helper's `runRetentionCycle` reply, decoded.
+    ///   - reply: the helper's `runRetentionCycle` reply, decoded. Cumulative over the run
+    ///     (protocol v11), so its figures are the run's and not the last call's.
+    ///   - endedBy: how the **run** ended, from `RunSequenceResult.outcome`. Not derivable from
+    ///     `reply`, which knows only how one call ended.
     ///   - startBlock: the range the run was asked for. Held by the app, which issued the call.
     ///   - blockCount: likewise.
     ///   - ioSizesUsed: the sizes the run used, in order.
@@ -450,6 +594,7 @@ extension RunReport {
     ///   - startedAt / finishedAt: taken by the app around the call.
     ///   - usbLinkSpeedDescription: from `deviceProfile`, for context only.
     init?(reply: RunCycleOutcome,
+          endedBy ending: RunSequenceOutcome,
           startBlock: UInt64,
           blockCount: UInt64,
           ioSizesUsed: [Int],
@@ -461,14 +606,9 @@ extension RunReport {
         guard reply.failureModeUsed.isRunnable else { return nil }
 
         let foundFailures = reply.failedBlockCount > 0 || reply.totalFailedRangeCountIsNonZero
-        let outcome: RunReportOutcome
-        if reply.didComplete {
-            outcome = foundFailures ? .completedWithFailures : .completedClean
-        } else if foundFailures {
-            outcome = .stoppedOnError
-        } else {
-            outcome = .incomplete
-        }
+        let outcome = RunReportOutcome.forRun(endedBy: ending,
+                                              replyDidComplete: reply.didComplete,
+                                              foundFailures: foundFailures)
 
         self.device = device
         self.startBlock = startBlock

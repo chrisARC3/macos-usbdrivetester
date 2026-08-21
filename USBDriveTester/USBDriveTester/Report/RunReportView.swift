@@ -39,7 +39,31 @@
 //
 //  The two media want different things: a `.md` file wants Markdown, a window wants a `Grid`.
 //  What must not fork is the **wording**, and it does not — every string below comes from
-//  `RunReport`, and `RunReportViewTests` pins the ones that carry a claim.
+//  `RunReport` or from `HonestFraming`.
+//
+//  ## NOTHING IN THIS FILE IS UNDER TEST, AND A COMMENT HERE CLAIMED OTHERWISE FOR FOUR STEPS
+//
+//  The sentence above used to end *"…and `RunReportViewTests` pins the ones that carry a claim."*
+//  **There is no such file and there never has been.** Step 11 increment 8 went looking for it
+//  while predicting which mutations would survive, and found a citation to cover that does not
+//  exist — the same failure as the three source references to `NFR-USE-8` that pointed at an
+//  accessibility requirement saying nothing about window size (CONSTRAINTS section 3: *a
+//  requirement you are about to cite may not exist*). A wrong citation is worse than none,
+//  because it reads as having been checked.
+//
+//  What actually holds this file honest, measured rather than asserted — increment 8 mutated it
+//  three times, in two rounds, and the whole suite passed every time (M13 against 1,008 tests; N10
+//  and N11 against 1,013):
+//
+//    * every claim-bearing string is `RunReport`'s or `HonestFraming`'s, and the **model** side of
+//      each is pinned there, which is what stops the wording forking between this window and the
+//      exported file;
+//    * that those values are actually *rendered here* is covered by `scripts/render-ui.sh` and by
+//      the human checklist — item 7.2, which reads the window and the export side by side. That
+//      pair is the whole of it.
+//
+//  So: deleting a paragraph from this view is invisible to 1,013 tests. Treat an edit here as
+//  unverified until it has been rendered and looked at.
 //
 //  Found by looking, not by an assertion. Every test passed against the version that displayed
 //  raw pipes.
@@ -133,9 +157,11 @@ struct RunReportView: View {
                     }
 
                     section("Run") { runRows(report) }
-                    if report.rangeByteCount < report.device.capacityBytes {
-                        callout("This run covered the range above, not the whole drive. Blocks "
-                              + "outside it were not tested.")
+                    // Which caveats this run's range carries is `RunReport`'s decision, from
+                    // `HonestFraming`'s wording. It was a literal and a condition of its own here,
+                    // with a second copy of both in the Markdown renderer.
+                    ForEach(report.rangeCaveats) { caveat in
+                        callout(caveat.plain)
                     }
 
                     section("Failed block ranges") { failureContent(report) }
@@ -215,7 +241,10 @@ struct RunReportView: View {
             labelled("I/O size", report.ioSizesUsed
                         .map(IOSizeSelection.label)
                         .joined(separator: ", then "))
-            labelled("Range tested",
+            // **Requested, not tested.** See `RunReport.rangeByteCount` for why the word changed:
+            // a stopped run's requested range is not the range it reached, and this row was
+            // asserting the second while holding the first.
+            labelled("Range requested",
                      "blocks \(MetricsFormatting.blockOffset(report.startBlock))–"
                    + "\(MetricsFormatting.blockOffset(report.startBlock + report.blockCount - 1))"
                    + " (\(CapacityFormatting.humanReadable(report.rangeByteCount)))")
@@ -319,8 +348,11 @@ struct RunReportView: View {
                 ForEach(HonestFraming.claims) { claim in
                     bullet(claim.plain)
                 }
-                if report.outcome == .stoppedOnError {
-                    bullet(HonestFraming.rangeBeyondTheFailureWasNotTested.plain)
+                // The same decision the exported file makes, from the same place. Two `if`s
+                // deciding this independently is how the window and the export came to disagree
+                // on 2026-08-18.
+                if let added = HonestFraming.claim(addedBy: report.outcome) {
+                    bullet(added.plain)
                 }
             }
         }

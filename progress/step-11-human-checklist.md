@@ -1,10 +1,21 @@
 # Step 11 — the human checklist
 
-**CHUNKS 1–7 PASSED 2026-08-18** (increment 5). Replaces the nine-item list in
+**CHUNKS 1–7 PASSED 2026-08-18** (increment 5), except **7.4 and 7.5, which are new and unrun** —
+added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item list in
 `progress/step-14.md`, which increment 5 made partly unrunnable.
 
 **CHUNK 8 IS NEW AND UNRUN** — added by increment 6 for the two pre-run controls. It is the only
 cover the dropdown's and the confirmation's wiring has: both survive the whole 998-test suite.
+
+**CHUNK 9 PASSED 2026-08-20 except 9.7**, which was written after the rest were signed off and is
+owed to increment 8.
+
+**CHUNK 10 IS NEW AND UNRUN** — added by increment 8 for FR-CTRL-5. Two mutations to
+`RunControlsView` survive the whole suite in this area, and one of them ships a build that applies
+every answered Restart dialog as a Start.
+
+> **What is owed to a single pass, as of 2026-08-21:** 7.4, 7.5, 9.7 and the whole of chunk 10.
+> Everything else in this file has been walked.
 
 ## Why this exists, in one paragraph
 
@@ -135,6 +146,32 @@ raised once one has. The guard in `promptDismissed` now defends an unreachable s
    and the not-graded paragraph — **on screen and in the exported `.md`, identically**.
 3. At the app's **smallest** window, with the three-volume drive selected, Start / Pause / Stop are
    all reachable without resizing or scrolling.
+
+4. **A run you STOP reports as stopped** (FR-RPT-4, increment 8). Start a run, let it get a few
+   seconds in, press **Stop**. The report's headline reads *"Stopped by the user — the rest of the
+   drive was not tested"*, with a **hand** symbol rather than the stop-sign one, and the Run
+   section reads **`Range requested`** — not `Range tested` — followed by *"The run ended before
+   reaching the end of that range."*
+
+   Then **export it** and read the `.md`: the headline, the row label and that sentence must be
+   **identical** on both surfaces.
+
+   > **This is the only cover the report WINDOW has, and increment 8 measured exactly how little
+   > that is.** Three mutations to `RunReportView` — dropping a claim sentence, deleting the range
+   > caveats, and relabelling the row back to "Range tested" — passed the whole suite, the last two
+   > of them against 1,013 tests. The window and the exported file are
+   > built by two different renderers from one set of values; the *values* are pinned, that they
+   > reach the screen is not. A source comment in that file claimed a `RunReportViewTests` pinned
+   > them, and no such file has ever existed.
+   >
+   > Item 2 is the same check for the throughput paragraphs, and it is what caught the 7.2 defect
+   > on 2026-08-18. This item extends it to the outcome and the range, which is where increment 8
+   > put new words.
+
+5. **A run you let FINISH reports as completed**, and carries **no** range caveat at all — the
+   other half, so item 4 cannot be satisfied by a report that always says the range was not
+   reached. A whole-device run is long; the quick version is to confirm the wording changes
+   between the two runs rather than being printed unconditionally.
 
 **Item 3 replaces old item 9**, which guarded `Mounting & exclusive access` — deleted by increment
 5. The hazard moved rather than went away: it has cost this project three times, most recently
@@ -330,6 +367,68 @@ the same file and must still be there — if they have gone, the wrong thing was
    No test reaches this: `disabledReasons` is private to its view. The `content-starting` render
    and this item are the whole of its cover.
 
+### Chunk 10 — Restart (increment 8) *(writes)*
+
+**Two mutations to `RunControlsView` survive the whole 1,029-test suite here.** No test drives a
+SwiftUI view, so the dispatch that decides whether an answered dialog is applied as a Start or a
+Restart, and the rule that collapses the refusal sentences, are reachable only by a person. This
+chunk is their only cover.
+
+**The 4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`) attached, and the log stream running.
+
+1. **Start a run, let it get a few seconds in, press Restart.** The dialog says
+   `pre-run prompt raised: full warnings, restart` — the `, restart` is the half that says the app
+   knows which act you asked for. Above the divider, before any scrolling, it reads *"This ends the
+   run in progress and starts again from the beginning. Everything it has tested so far is
+   discarded — an interrupted run cannot be continued."*
+
+2. **Cancel.** The run keeps going: no `restart authorised` line, no unmount, the metrics panel
+   keeps advancing. Then press **Stop** — the report appears and names the right drive. *(That last
+   part is the check that Cancel did not throw away the run's record.)*
+
+3. **Start again, press Restart, Proceed.** In the log, in this order:
+   `restart authorised: … the run in progress is discarded and the drive will be released and
+   re-acquired` → `run discarded by restart: … no report is produced` → the volumes **remount and
+   unmount again** → `run authorised: …` for the new run.
+
+   **No Run Report window appears for the discarded run.** If one does, that is the defect.
+
+   The remount-then-unmount is expected, not a fault: Restart releases the claim so the new run's
+   figures are its own. macOS remounts within ~4 ms and `DevicePreparation` takes the volumes back
+   down. On this drive that is three volumes appearing and vanishing in Finder.
+
+4. **Watch the metrics panel across the restart.** The figures from the discarded run must **not**
+   carry into the new one — the read-latency minimum and the chunk count in particular should drop
+   back, not continue climbing. This is the whole reason Restart releases the drive: `RunSession`
+   is created at `acquireDevice` and never reset, so a restart that kept the claim would report the
+   old run's p99 and chunk count as the new run's.
+
+5. **While it is restarting, count the sentences under the buttons.** There should be **one** —
+   *"The run is restarting, and a new one is about to begin from the beginning."* — under a status
+   line already reading *"Restarting — finishing the current chunk, then starting again from the
+   beginning. The progress so far is discarded."* Not four.
+
+   > This is `starting`'s 9.7 problem in a new state, and it was in the build until a render caught
+   > it. Four sentences cost 160 pt and would have failed `window-fit-check.sh`. Mutation P12
+   > removes the collapse and passes every test.
+
+6. **Pause a run, then Restart from paused.** Same sequence, with no wait — nothing is in flight,
+   so the wind-down is instantaneous. The new run must actually begin; a restart that leaves the
+   window sitting on "Restarting…" for ever is the ordering defect mutation P5 describes.
+
+7. **Suppress the warnings** (Diagnostics ▸ tick the box on a Start), then **Restart**. The log
+   reads `brief confirmation (warnings suppressed), restart`, and **the discard warning is still
+   there** — suppression removes the standing FR-WARN text, never a consequence of the press being
+   made now. This is the item mutation P9 defeats.
+
+8. **Press Restart, and while its dialog is open, let the run finish on its own.** Then press
+   Proceed. An alert says the run could not be restarted, in the machine's own words — *"There is
+   no run to restart. Use Start."* — rather than the dialog closing and nothing happening.
+
+   > This is the one the controller had wrong: the pending record is cleared by the release, and
+   > checking for it before re-evaluating the policy meant an answered dialog produced a log line
+   > and nothing else. Found by the test written for it, not by reading.
+
 **Known, and not a defect to report:** a 13.3-inch Mac at its *smallest* scaling (1152x720) has
 620 pt for a window, and `starting` needs 638. The project commits to **1280x800** with the Dock —
 a 700 pt budget — which every state clears by at least 62 pt (user decision, 2026-08-20). At the
@@ -339,7 +438,16 @@ starting. `scripts/window-fit-check.sh` reports all three scalings on every run.
 ## What has no automated cover, and will not get any
 
 * **The report body.** It sits in a scroll region, so even a render stops at `## Measurements`.
-  Check 7.2 is the only thing that reads it.
+  Checks 7.2, 7.4 and 7.5 are the only things that read it.
+
+* **`RunReportView` in its entirety — measured, not assumed (increment 8).** Three mutations to
+  that file passed the whole suite — one against 1,008 tests, two against 1,013: dropping a claim
+  sentence, deleting the range caveats, and relabelling the range row back to the wording that made
+  it a false claim. The window and the exported `.md` are two
+  renderers over one set of values; `RunReport` and `HonestFraming` pin the **values**, and nothing
+  pins that this view renders them. The file carried a comment citing a `RunReportViewTests` that
+  **has never existed** — corrected in increment 8, with what actually covers it written at the
+  site. An edit to that view is unverified until it has been rendered and looked at.
 * **The live metrics panel.** It needs a real helper to poll; in the render harness it always shows
   the unavailable state regardless of run state. That is why 4.2's defect was invisible.
 * **Sheet modality.** `AppModelQuitTests` exercises `QuitPolicy`, and in 6.1 the policy is never
@@ -348,6 +456,19 @@ starting. `scripts/window-fit-check.sh` reports all three scalings on every run.
   or presses a button in an `.alert`, so the *wiring* between the two pre-run controls and the
   model is reachable only by a person. The decision and every word of the dialog are pure types
   and are pinned; what is not pinned is that they are called at all. Chunk 8 is the cover.
+
+* **Which controller call an answered dialog makes (increment 8).** `PreRunPrompt` carries whether
+  the acknowledgement was for a Start or a Restart, and `promptDismissed` switches on it — but the
+  switch is in a SwiftUI view. **Mutation P11 applies every answered Restart dialog as a Start and
+  passes all 1,029 tests.** What that build does is release the drive and start over on whatever is
+  selected, having shown the user a dialog about restarting. Chunk 10.1–10.3 is the cover.
+
+* **The refusal-sentence collapse, now for a second state.** `disabledReasons` is private to its
+  view, so nothing reaches it — increment 7 recorded this for `starting` and chunk 9.7 is its
+  check. Increment 8 added `restarting` and **shipped it with four sentences until a render was
+  looked at**; mutation P12 puts them back and passes every test. Chunk 10.5 is the cover, and
+  9.7's note applies unchanged: a new transient state needs adding to
+  `statesTheStatusLineExplains`, and nothing enforces that but a render.
 
 * **The selection half of the drive list's auto-scroll.** The list scrolls to the selected drive
   on two triggers and only one of them can be seen. A render establishes its layout once, so the

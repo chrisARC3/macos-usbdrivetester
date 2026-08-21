@@ -40,12 +40,20 @@ private enum Fixture {
     /// non-`.bypassed` verdict qualifies, so 3 stands for all of them.
     static func report(_ outcome: RunReportOutcome, qualified: Bool) -> RunReport {
         let wireOutcome: RunOutcomeCode
+        let ending: RunSequenceOutcome
         let failedBlocks: UInt64
         switch outcome {
-        case .completedClean:        wireOutcome = .completed;        failedBlocks = 0
-        case .completedWithFailures: wireOutcome = .completed;        failedBlocks = 8
-        case .stoppedOnError:        wireOutcome = .stoppedOnFailure; failedBlocks = 8
-        case .incomplete:            wireOutcome = .stoppedOnFailure; failedBlocks = 0
+        case .completedClean:
+            wireOutcome = .completed;        ending = .completed;        failedBlocks = 0
+        case .completedWithFailures:
+            wireOutcome = .completed;        ending = .completed;        failedBlocks = 8
+        case .stoppedOnError:
+            wireOutcome = .stoppedOnFailure; ending = .stoppedOnFailure; failedBlocks = 8
+        case .stoppedByUser:
+            wireOutcome = .stoppedByUser;    ending = .stoppedByUser;    failedBlocks = 0
+        case .incomplete:
+            // The contradiction case: the helper says it stopped on a failure and reports none.
+            wireOutcome = .stoppedOnFailure; ending = .stoppedOnFailure; failedBlocks = 0
         }
         let reply = RunCycleOutcome(runOutcomeCode: wireOutcome.rawValue,
                                     interruptedAtBlock: 0,
@@ -68,6 +76,7 @@ private enum Fixture {
                                     readLatencyP99UpperBoundNanoseconds: 2_195_000,
                                     message: "")
         return RunReport(reply: reply,
+                         endedBy: ending,
                          startBlock: 0,
                          blockCount: 2_097_152,
                          ioSizesUsed: [4 << 20],
@@ -77,7 +86,10 @@ private enum Fixture {
                          usbLinkSpeedDescription: "10 Gb/s (USB 3.1 Gen 2)")!
     }
 
-    /// Every result the app can produce: four outcomes, verified and unverified.
+    /// Every result the app can produce, verified and unverified.
+    ///
+    /// Derived from `allCases`, never listed — which is why increment 8's `stoppedByUser` was
+    /// covered by this suite the moment it existed, without a line being added here.
     static var everyState: [(outcome: RunReportOutcome, qualified: Bool)] {
         RunReportOutcome.allCases.flatMap { [($0, false), ($0, true)] }
     }
@@ -110,9 +122,9 @@ struct RunReportPresentationTests {
                 "two verified outcomes share a symbol, leaving the tint to separate them: \(symbols)")
     }
 
-    /// A backstop, and weaker than it looks: the four headlines are always distinct, so this can
-    /// only fail if the **wording** collides, never if the symbols do. Kept for that case, and
-    /// labelled so nobody mistakes it for the symbol check above.
+    /// A backstop, and weaker than it looks: the headlines are always distinct, so this can only
+    /// fail if the **wording** collides, never if the symbols do. Kept for that case, and labelled
+    /// so nobody mistakes it for the symbol check above.
     @Test func noTwoResultsAreToldApartByTheirTintAlone() {
         var seen: [String: (RunReportOutcome, Bool)] = [:]
         for state in Fixture.everyState {
@@ -124,11 +136,14 @@ struct RunReportPresentationTests {
                     "two results share a symbol AND a headline, so only the tint separates them")
             seen[key] = (state.outcome, state.qualified)
         }
-        #expect(seen.count == 8)
+        // Derived, not the literal 8 it was until increment 8 — which is what made a fifth outcome
+        // fail this test for the wrong reason. Every pair was still distinct; only the count of
+        // them had moved.
+        #expect(seen.count == Fixture.everyState.count)
     }
 
     /// The property above is only worth having if the tint genuinely **cannot** carry the meaning
-    /// on its own. Two tints across eight states: it cannot. Without this, a build that gave every
+    /// on its own. Two tints across every state: it cannot. Without this, a build that gave every
     /// state its own tint would make the test above pass for the wrong reason.
     @Test func tintAloneCouldNeverDistinguishTheseResults() {
         let tints = Set(Fixture.everyState.map {
@@ -138,9 +153,9 @@ struct RunReportPresentationTests {
         #expect(tints.count < Fixture.everyState.count)
     }
 
-    /// An unverified result shows the same symbol and the same tint whatever it concluded — so for
-    /// those four states the **words are the only carrier**, which is exactly why the headline is
-    /// in the property above rather than the symbol on its own.
+    /// An unverified result shows the same symbol and the same tint whatever it concluded — so in
+    /// those states the **words are the only carrier**, which is exactly why the headline is in the
+    /// property above rather than the symbol on its own.
     @Test func everyUnverifiedResultLooksIdenticalExceptForItsWords() {
         let unverified = RunReportOutcome.allCases.map {
             Fixture.presentation($0, qualified: true)
@@ -151,7 +166,8 @@ struct RunReportPresentationTests {
         let headlines = Set(RunReportOutcome.allCases.map {
             Fixture.report($0, qualified: true).headline
         })
-        #expect(headlines.count == 4, "the words must still separate all four")
+        #expect(headlines.count == RunReportOutcome.allCases.count,
+                "the words must still separate every outcome")
     }
 
     /// A clean pass is the one result a reader most wants to take at a glance, so it is the one
