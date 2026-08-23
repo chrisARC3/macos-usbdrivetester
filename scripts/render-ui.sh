@@ -32,7 +32,7 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of the 34 cases below, grouped by family so the list can be counted against
+# `view` is one of the 31 cases below, grouped by family so the list can be counted against
 #   `makeRootView` in tools/ui-probe/main.swift.
 #
 #   THIS LIST HAS NOW DRIFTED FROM THE PROBE TWICE. In 2026-08-11 it was missing
@@ -49,7 +49,7 @@
 #   neither is checkable by a compiler; this one at least has a one-liner that regenerates it.)
 #
 #     content              content-starting     content-running            content-paused
-#     content-restarting   content-finished     content-stop-on-error
+#     content-finished     content-stop-on-error
 #     content-no-selection content-quit-pending content-quitting
 #     content-selection-below-fold
 #     devices              devices-unmounted    devices-unusable           empty
@@ -60,7 +60,6 @@
 #                          report-qualified     report-stopped             report-stopped-by-user
 #                          report-unidentified
 #     warnings             warnings-ticked      warnings-confirm           warnings-unidentified
-#     warnings-restart     warnings-confirm-restart
 #
 #   The `content-*` family is Step 11's. Increment 5 added the run states; increment 6 added
 #   `content-finished` (FR-CTRL-8's "or stopped" window, which no render reached on its own) and
@@ -113,8 +112,16 @@
 #   view's own bounds, and `NSHostingView` sizes itself to its content — so a view with no
 #   intrinsic height cap ignores the number entirely and renders as tall as it wants. Asking the
 #   `metrics*` family for 460 pt returned **2,876 pt**, with the content in a narrow band and
-#   emptiness above and below; `report-empty` asked for 400 and got 560. The `report*`,
-#   `warnings*`, `devices*` and `diagnostics*` families do honour it.
+#   emptiness above and below. The `report*`, `warnings*`, `devices*` and `diagnostics*` families
+#   do honour it.
+#
+#   THE `report*` FAMILY HONOURS IT FOR A DIFFERENT REASON SINCE INCREMENT 8. It used to be the
+#   view's own `.frame(minWidth: 620, minHeight: 560)` — which is also why `report-empty` once
+#   asked for 400 and got 560 — and that floor went when the report became a sheet sized by its
+#   presenter. **Deleting it made `report` at 700x1100 render 700x5167**, the whole document, in
+#   every case in the family: measured both ways on 2026-08-21. `RunReportHost` now applies an
+#   exact frame of the requested size, which is exactly what `ContentView` hands the sheet, so
+#   these renders show what a user sees and any height is honoured — 461 pt included.
 #   When a family ignores the height, centre-crop with `sips -c <h> <w>` (see below) rather than
 #   re-rendering at a smaller number that will be ignored again.
 #
@@ -150,7 +157,7 @@
 #   there is no hard-coded text size to fail to scale. Re-derive with
 #     grep -rn --include='*.swift' 'system(size:' USBDriveTester/USBDriveTester
 #   which on 2026-08-11 returned two hits, both DECORATIVE SF Symbols (the empty-state drive glyph
-#   and the report window's header icon), and no text.
+#   and the report's header icon), and no text.
 #
 #   macOS's actual user-facing control is System Settings > Accessibility > Display > Text size,
 #   which is system-wide. Confirming the app responds to it needs a person, and always will.

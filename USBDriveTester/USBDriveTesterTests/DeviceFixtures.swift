@@ -29,7 +29,9 @@ enum DeviceFixtures {
                        // about names still produces an index-aligned pair — the invariant the
                        // restore depends on.
                        mountedVolumeBSDNames: [String]? = nil,
-                       usbSerialNumber: String? = "12345686DAA9") -> DiscoveredDevice {
+                       usbSerialNumber: String? = "12345686DAA9",
+                       // 10 Gb/s — what the scratch device actually negotiates on this machine.
+                       usbLinkSpeedCode: Int = 4) -> DiscoveredDevice {
         DiscoveredDevice(registryEntryID: id,
                          bsdName: BSDDeviceName(bsdName),
                          vendorName: vendor,
@@ -40,7 +42,8 @@ enum DeviceFixtures {
                          mountedVolumeNames: mountedVolumeNames,
                          mountedVolumeBSDNames: mountedVolumeBSDNames
                             ?? mountedVolumeNames.enumerated().map { "\(bsdName)s\($0.offset + 1)" },
-                         usbSerialNumber: usbSerialNumber)
+                         usbSerialNumber: usbSerialNumber,
+                         usbLinkSpeedCode: usbLinkSpeedCode)
     }
 
     // MARK: - The development machine, as IOKit actually reports it

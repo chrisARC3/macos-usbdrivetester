@@ -206,4 +206,20 @@ nonisolated enum WindowMetrics {
     /// The width a first launch opens at — wider than the minimum, since the device rows and the
     /// report figures both read better with room.
     static let defaultContentWidth: CGFloat = 720
+
+    // MARK: - The report sheet
+
+    /// The margin left around the report sheet, so the window shows at its edges.
+    ///
+    /// **Cosmetic, and the only number in this file that is.** The sheet's *size* is not declared
+    /// anywhere: `ContentView` hands it the window's measured content area less this margin on each
+    /// axis, so it grows and shrinks with the window and can never exceed a screen the window
+    /// itself fits (NFR-USE-9). What this decides is only whether the sheet reads as a sheet — a
+    /// modal exactly covering its parent reads as the window having vanished.
+    ///
+    /// The report carried `minWidth: 620, minHeight: 560` while it was a window, chosen once for a
+    /// surface the user could drag bigger. A sheet cannot be dragged, so the constant would have
+    /// become a floor with no escape from it; deriving the size from the window deletes it rather
+    /// than re-measuring it.
+    static let reportSheetMargin: CGFloat = 24
 }

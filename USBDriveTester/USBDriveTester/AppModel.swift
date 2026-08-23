@@ -130,6 +130,19 @@ final class AppModel {
         didSet { suppressionStore.warningsSuppressed = warningsSuppressed }
     }
 
+    /// The pre-run dialog Start raised, or `nil` when none is up (FR-WARN-1/2/3).
+    ///
+    /// **It was `@State` inside `RunControlsView` until chunk 11.11 found what that costs.** The
+    /// menu item that raises the report lives in the scene's `commands` builder, which has no
+    /// environment and cannot see a view's state — so it could not know a dialog was already on
+    /// this window. Whether a modal is up is a fact about the *window*, and the thing that must not
+    /// raise a second one is outside the view that owns the first.
+    ///
+    /// The checkbox inside the dialog stays view-local, and deliberately: see
+    /// `RunControlsView.suppressionRequested`. What moved here is only the fact that a dialog
+    /// exists.
+    var pendingPrompt: PreRunPrompt?
+
     // MARK: - The end-of-run report (Step 10)
 
     /// The report the most recent **run** produced, or `nil` when no run has finished this
@@ -138,6 +151,85 @@ final class AppModel {
     /// Not history: FR-RPT keeps each run standalone and this is replaced by the next one.
     /// Export is the only persistence (FR-RPT-5).
     var lastRunReport: RunReport?
+
+    /// Whether the report is on screen.
+    ///
+    /// The report is a **sheet on the main window** (user decision 2026-08-19) rather than a window
+    /// of its own, and this flag is the whole of its presentation. What the change buys is a
+    /// forcing function: a window-modal sheet puts the run controls out of reach, so **a run cannot
+    /// start underneath an open report**. That is the defect it was moved for — a run beginning
+    /// clears the previous run's report (``runBegan()``), and on hardware that emptied a report
+    /// somebody was still reading.
+    var reportIsPresented = false
+
+    /// A run finished: replace the report, and put it on screen.
+    ///
+    /// Here rather than inside `RunControllerWiring`'s closure so that a test can reach it. What a
+    /// finished run does to the report is a decision, and while it lived in a closure that needs a
+    /// helper and a drive to construct it had no cover at all.
+    ///
+    /// **A refused call is not a run.** It produces no report and raises nothing, and the log says
+    /// why so the absence is explicable rather than looking like a lost one: a sheet reading "No run
+    /// has finished yet" immediately after pressing Start would be worse than no sheet.
+    func runProduced(_ report: RunReport?) {
+        lastRunReport = report
+        guard let report else {
+            RunReportLog.noReportForRefusedCall("the request did not become a run")
+            return
+        }
+        RunReportLog.reportProduced(report)
+        reportIsPresented = true
+    }
+
+    /// A run began. The previous run's report is not this run's, and leaving it in place while a
+    /// new run is in flight is the stale-pane defect Step 9 was reported for.
+    func runBegan() {
+        lastRunReport = nil
+    }
+
+    /// Whether the **Run Report** menu item may raise the report (⇧⌘R).
+    ///
+    /// - Important: this is **not** the question of whether the report may be *shown*, and
+    ///   answering both with this one property would suppress every report the app produces.
+    ///   ``runProduced(_:)`` is called from `finishing`, which is run-active — so a menu item
+    ///   disabled at that instant is right, and a raise refused at that instant is not. One flag
+    ///   stating two facts is a misdiagnosis this project has already paid for once, in the ⌘Q
+    ///   defect chunk 6 found.
+    ///
+    /// Disabled during a run for two reasons, of which the first is enough on its own: a run clears
+    /// the report as it begins, so there is nothing left to raise but the empty state. The second is
+    /// that a window-modal sheet would put **Pause and Stop** out of reach until it was dismissed
+    /// (user decision, 2026-08-21).
+    ///
+    /// ## And disabled while a pre-run dialog is up — found at the keyboard, 2026-08-21
+    ///
+    /// **A window-modal sheet does not swallow menu commands.** This project had believed it did,
+    /// from check 6.1 in increment 5, where ⌘Q during the pre-run dialog never reached `QuitPolicy`.
+    /// Chunk 11.11 pressed ⇧⌘R with that dialog open and found the command *runs*: SwiftUI cannot
+    /// present a second sheet on one window, so it **queues** it — and the report appeared on its
+    /// own the moment the dialog was cancelled, a modal arriving at a time nobody asked for it.
+    ///
+    /// 6.1's observation is not overturned, only narrowed: ⌘Q is AppKit's terminate and reaches a
+    /// different path from an app-declared command. What is corrected is the inference drawn from
+    /// it — that a sheet makes the menu bar inert.
+    var reportMayBeRaisedFromMenu: Bool { !runIsActive && pendingPrompt == nil }
+
+    /// The menu asked for the report. **Raises it only if that is allowed.**
+    ///
+    /// The rule is enforced here rather than only advertised by the menu item's `.disabled`, for
+    /// the reason mutation R12 measured: nothing automated can see a view modifier, so a rule that
+    /// lives only in one is a rule that can be deleted silently. The item is greyed *and* the raise
+    /// refuses.
+    ///
+    /// The refusal is silent, which is normally this app's defect rather than its behaviour — but
+    /// the control offering the command is disabled in exactly the same states, so a user cannot
+    /// reach this. It is a backstop for a route nobody enumerated, not the answer to a press.
+    ///
+    /// - Note: ``runProduced(_:)`` deliberately does **not** consult this. See the note above.
+    func reportRequestedFromMenu() {
+        guard reportMayBeRaisedFromMenu else { return }
+        reportIsPresented = true
+    }
 
     /// A failure the user has to be told about — a drive that could not be prepared, or a run
     /// control that never reached the daemon. `nil` when there is nothing to say.
@@ -342,5 +434,4 @@ final class AppModel {
 enum WindowID {
     static let main = "main"
     static let diagnostics = "diagnostics"
-    static let report = "report"
 }

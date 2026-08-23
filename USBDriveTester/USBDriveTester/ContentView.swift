@@ -37,12 +37,17 @@ struct ContentView: View {
     /// Shared with the diagnostics window. See `AppModel`.
     @Environment(AppModel.self) private var model
 
-    /// Brings this window forward when the quit confirmation appears, and opens the report window
-    /// when a run produces one. ⌘Q can be pressed while the *diagnostics* window is key, and a
-    /// sheet on a window behind another one is a dialog the user never sees — which reads as the
-    /// app ignoring ⌘Q. For a `Window` scene, asking to open an already-open window brings it
-    /// forward.
+    /// Brings this window forward when either modal appears: the quit confirmation, and — since
+    /// increment 8, when the report became a sheet on this window rather than a window of its own —
+    /// the run report. Both can be raised while the *diagnostics* window is key, and a sheet on a
+    /// window behind another one is a dialog the user never sees. For the quit confirmation that
+    /// reads as the app ignoring ⌘Q; for the report it reads as a run that finished and said
+    /// nothing. For a `Window` scene, asking to open an already-open window brings it forward.
     @Environment(\.openWindow) private var openWindow
+
+    /// The main window's content size, measured rather than declared, so the report sheet can be
+    /// given the room the window actually has. See ``reportSheetSize``.
+    @State private var contentSize: CGSize = .zero
 
     var body: some View {
         @Bindable var model = model
@@ -69,7 +74,6 @@ struct ContentView: View {
                                 // `paused` IS included — the claim is held and the figures are this
                                 // run's, and hiding them was the defect found on 2026-08-18.
                                 isRunning: model.runControl?.hasLiveSession ?? false,
-                                linkSpeedCode: model.runControl?.linkSpeedCode ?? -1,
                                 deviceName: model.runControl?.lastRunDevice?.bsdNameAtRunTime,
                                 deviceSerial: model.runControl?.lastRunDevice?.usbSerialNumber,
                                 startedAt: model.runControl?.lastRunStartedAt)
@@ -101,14 +105,17 @@ struct ContentView: View {
         // the list above *that* grows with how many drives are attached (measured at 168 pt
         // between one drive and six).
         .frame(minWidth: WindowMetrics.minimumContentWidth)
+        // The report sheet's size comes from here. Unanimated and unconditional: this fires on
+        // every frame of a window drag, and all it does is store a size that is read when a sheet
+        // is raised.
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { contentSize = $0 }
         .onAppear {
             // Built here rather than in `AppModel.init` because its dependencies close over the
             // model, and a class cannot hand `self` to something it is still constructing. `nil`
             // until now is honest: no run can be in flight before the UI that starts one exists —
             // the same reasoning that wires `AppLifecycleDelegate` at `onAppear`.
             if model.runControl == nil {
-                model.runControl = .live(model: model,
-                                         openReport: { openWindow(id: WindowID.report) })
+                model.runControl = .live(model: model)
             }
             model.discovery.start()
             // Seeded, not just observed — found by rendering, 2026-08-05. `onChange` fires on a
@@ -147,6 +154,39 @@ struct ContentView: View {
                  from the beginning.
                  """)
         }
+        .onChange(of: model.reportIsPresented) { _, isPresented in
+            if isPresented { openWindow(id: WindowID.main) }
+        }
+        // **The report (FR-RPT), as a sheet on this window** (user decision 2026-08-19). It was a
+        // `Window` through Step 10 and increment 7; `RunReportView`'s header records why that was
+        // decided and what changed it.
+        //
+        // Being window-modal is the point rather than a side effect: the run controls are
+        // unreachable while it is up, so a run cannot start underneath an open report — which is
+        // what emptied one on hardware, since a beginning run clears `lastRunReport`.
+        .sheet(isPresented: $model.reportIsPresented) {
+            RunReportView(report: model.lastRunReport,
+                          onDone: { model.reportIsPresented = false })
+                .frame(width: reportSheetSize.width, height: reportSheetSize.height)
+        }
+    }
+
+    /// The report sheet's size: **the window's content area, less a margin.**
+    ///
+    /// Not a declared size, for the reason `WindowMetrics` exists — the report's own
+    /// `minWidth: 620, minHeight: 560` was chosen for a window a user could drag bigger, and a
+    /// sheet cannot be dragged. Deriving it from the window means it can never exceed a screen the
+    /// window itself fits, which is what NFR-USE-9 and `scripts/window-fit-check.sh` already
+    /// guarantee, and it grows with however much room the user has given the app.
+    private var reportSheetSize: CGSize {
+        // Before the first geometry read there is nothing measured to take a margin off. The
+        // scene's own default size is the honest stand-in: it is the size the window opens at.
+        let measured = contentSize == .zero
+            ? CGSize(width: WindowMetrics.defaultContentWidth,
+                     height: WindowMetrics.defaultContentHeight)
+            : contentSize
+        return CGSize(width: measured.width - WindowMetrics.reportSheetMargin,
+                      height: measured.height - WindowMetrics.reportSheetMargin)
     }
 
     /// Shown while the app is waiting for the run to settle so it can quit.

@@ -200,15 +200,6 @@ private enum ProbeRun {
         ProbeSequencer.live?.emit(.pauseSettled(resumeBlock: 8_192))
     }
 
-    /// …and on to `restarting` (FR-CTRL-5, increment 8), which is where the run is being wound
-    /// down so another can take its place. The run is deliberately NOT ended here: `restarting` is
-    /// exactly the interval before `runEnded` arrives, and ending it would render `starting`.
-    static func restart(_ model: AppModel) {
-        _ = model.runControl?.restartRequested(warningsSuppressed: false)
-        model.runControl?.restartAuthorised(
-            by: PreRunOutcome(issuesRun: true, persistsSuppression: false))
-    }
-
     /// The run came back, so the machine settles through `finishing` to `finished`.
     static func finish(_ model: AppModel) {
         ProbeSequencer.live?.emit(.runEnded(RunSequenceResult(outcome: .completed,
@@ -254,7 +245,8 @@ private enum DeviceFixture {
         logicalBlockSize: 512,
         mountedVolumeNames: ["Vol_ExFAT", "Vol_APFS", "Vol_HFS"],
         mountedVolumeBSDNames: ["disk8s2", "disk9s1", "disk8s4"],
-        usbSerialNumber: "00000S7CLNJ0WC02266P")
+        usbSerialNumber: "00000S7CLNJ0WC02266P",
+        usbLinkSpeedCode: 4)                    // 10 Gb/s, the scratch device's negotiated link
 
     /// `count` drives, so the device list's height cap can be **rendered** rather than reasoned
     /// about.
@@ -280,7 +272,8 @@ private enum DeviceFixture {
                              logicalBlockSize: evo.logicalBlockSize,
                              mountedVolumeNames: evo.mountedVolumeNames,
                              mountedVolumeBSDNames: evo.mountedVolumeBSDNames,
-                             usbSerialNumber: "00000S7CLNJ0WC0226\(i)P")
+                             usbSerialNumber: "00000S7CLNJ0WC0226\(i)P",
+                             usbLinkSpeedCode: evo.usbLinkSpeedCode)
         }
     }
 }
@@ -292,7 +285,7 @@ private enum DeviceFixture {
 private struct RunStateHost: View {
     enum Stage {
         case idle, starting, running, paused, finished, stopOnFirstError, noSelection, quitPending
-        case selectionBelowFold, restarting
+        case selectionBelowFold
     }
     let stage: Stage
 
@@ -322,13 +315,6 @@ private struct RunStateHost: View {
         case .paused:
             ProbeRun.start(live)
             ProbeRun.pause(live)
-        case .restarting:
-            // The ninth state, and the one whose whole job is being told apart from `stopping`.
-            // What is worth looking at is the status line — it must say the progress is discarded
-            // and that a new run is coming, where `stopping` says the drive is going back — and
-            // that every control including Stop is refused with one sentence rather than four.
-            ProbeRun.start(live)
-            ProbeRun.restart(live)
         case .finished:
             // FR-CTRL-8's other live window: "before a run starts and while a run is **stopped**".
             // The one terminal state, and until increment 6 nothing rendered it on its own — the
@@ -515,7 +501,6 @@ private struct MetricsHost: View {
                 readLatencyMaximumNanoseconds: 214_600_000,
                 readLatencyP99UpperBoundNanoseconds: 19_922_944,
                 chunksFailed: 3),
-            linkSpeedCode: 4,                       // 10 Gb/s, the scratch device's negotiated link
             isRunning: true,
             startedAt: Date(timeIntervalSince1970: 1_785_940_728),
             // A BSD name is a locator, and this one is deliberately not the drive's current
@@ -544,7 +529,6 @@ private struct MetricsIdleHost: View {
                 readLatencyMaximumNanoseconds: 0,
                 readLatencyP99UpperBoundNanoseconds: 0,
                 chunksFailed: 0),
-            linkSpeedCode: -1,
             // Deliberately named here too: this render's job is to prove that nothing measured
             // prints as a digit, and the heading is one more place a value could leak into.
             isRunning: true,
@@ -583,7 +567,6 @@ private struct MetricsFinishedHost: View {
                 readLatencyMaximumNanoseconds: 9_900_000,
                 readLatencyP99UpperBoundNanoseconds: 2_195_000,
                 chunksFailed: 0),
-            linkSpeedCode: -1,
             isRunning: false,                  // …but no run is under way
             startedAt: Date(timeIntervalSince1970: 1_785_940_728),
             deviceName: "disk8",
@@ -594,22 +577,40 @@ private struct MetricsFinishedHost: View {
 
 // MARK: - Step 10's run report
 
-/// The report window's content, in each state worth looking at.
+/// The report's content, in each state worth looking at.
 ///
-/// **This is why the report is a `Window` and not a sheet.** A sheet gets its own window and
-/// `render-ui.sh` cannot capture it — the quit confirmation, added in Step 9, has needed a person
-/// at the keyboard ever since for exactly that reason. Three of this project's defects were found
-/// by looking at a render and none of them by an assertion, so a surface that cannot be rendered
-/// gives up the check that has worked best.
+/// **The claim that stood here was wrong, and it decided a design.** It read: *this is why the
+/// report is a `Window` and not a sheet — a sheet gets its own window and `render-ui.sh` cannot
+/// capture it.* This host renders `RunReportView` **directly**. The scene is not involved and never
+/// was; `window-fit-check.sh` goes as far as excluding `USBDriveTesterApp.swift` by name from the
+/// sources it compiles. The report became a sheet in increment 8 and every case below renders
+/// exactly as it did before.
 ///
-/// The export button is wired to a no-op here: `NSSavePanel.runModal()` in a probe would hang
-/// waiting for a click that is never coming.
+/// What a sheet genuinely costs is *in-place* capture — the report as it sits on its parent, at the
+/// size that parent gives it — which is the same limit `PreRunPromptHost` records further down.
+/// These renders answer how the report lays out at a given size; that it presents at all, and at
+/// what size, is a person's check.
+///
+/// Export and Done are wired to no-ops: `NSSavePanel.runModal()` in a probe would hang waiting for
+/// a click that is never coming, and there is no sheet here to dismiss.
 private struct RunReportHost: View {
 
     let report: RunReport?
 
     var body: some View {
-        RunReportView(report: report, exportAction: { _ in })
+        RunReportView(report: report, exportAction: { _ in }, onDone: {})
+            // **An exact frame, because that is how the app presents it.** `ContentView` hands the
+            // sheet the main window's content area less a margin, so the report is always laid out
+            // at a size imposed on it. A render that let it grow to its own ideal height would be a
+            // picture of something no user can see.
+            //
+            // It also restores what this probe did before increment 8, and why is worth recording:
+            // the view used to carry `.frame(minWidth: 620, minHeight: 560)`, and **that modifier
+            // was what kept this window at the size it was asked for**. With it removed,
+            // `render-ui.sh … 700 1100 report` produced a 700x5167 image — measured both ways on
+            // 2026-08-21. A floor was quietly doing a second job, which is this project's recurring
+            // shape: a modifier believed to do one thing and never checked for the rest.
+            .frame(width: width, height: height)
     }
 
     /// The scratch device, so the figures on screen are the ones a real run produces.
@@ -696,11 +697,15 @@ private struct RunReportHost: View {
 /// A device source reporting one drive with **no mounted volumes**.
 ///
 /// Added 2026-08-10, for the same reason `EmptyDeviceSource` exists: to render a state this machine
-/// cannot produce. Every USB drive attached here has at least one mounted volume, so when the
-/// standing backup advice stopped being conditional on `mountedVolumesDescription != nil` (user
-/// decision, same date) there was **no way to see the change had taken effect** — and a behaviour
-/// nobody can observe is one nobody has checked. Reintroducing the condition would have looked
-/// identical from every render and every test.
+/// cannot produce. Every USB drive attached here has at least one mounted volume, so the pane's
+/// `"None mounted"` branch had never appeared in any render.
+///
+/// **Its original job is finished and it has a new one.** It was built to prove the standing
+/// backup advice had stopped being conditional on `mountedVolumesDescription != nil`; that advice
+/// was deleted on 2026-08-23. What it still renders is `"None mounted"` itself — and, since the
+/// same date, the only fixture drive whose `Device Speed` is unreadable. It is the one device this
+/// harness *selects* with `usbLinkSpeedCode == -1`, which makes `devices-unmounted` the only
+/// render where the link-speed row's unknown sentinel is visible at all.
 private final class UnmountedDeviceSource: DeviceSource {
     func enumerateDevices() -> [DiscoveredDevice] {
         [DiscoveredDevice(registryEntryID: 4_294_967_296,
@@ -712,7 +717,9 @@ private final class UnmountedDeviceSource: DeviceSource {
                           logicalBlockSize: 512,
                           mountedVolumeNames: [],
                           mountedVolumeBSDNames: [],
-                          usbSerialNumber: "00000000NT17XBRA")]
+                          usbSerialNumber: "00000000NT17XBRA",
+                          // The only fixture drive whose Device Speed is unreadable. See above.
+                          usbLinkSpeedCode: -1)]
     }
     func startObserving(onChange: @escaping () -> Void) {}
     func stopObserving() {}
@@ -748,7 +755,8 @@ private final class UnusableDeviceSource: DeviceSource {
                              logicalBlockSize: 512,
                              mountedVolumeNames: ["Test_Drive"],
                              mountedVolumeBSDNames: ["disk10s1"],
-                             usbSerialNumber: "12345686DAA9"),
+                             usbSerialNumber: "12345686DAA9",
+                             usbLinkSpeedCode: 4),
             // `.unsupportedBlockSize` — 520-byte sectors, which some enclosures still report.
             DiscoveredDevice(registryEntryID: 4_294_967_302,
                              bsdName: BSDDeviceName("disk11"),
@@ -759,7 +767,8 @@ private final class UnusableDeviceSource: DeviceSource {
                              logicalBlockSize: 520,
                              mountedVolumeNames: [],
                              mountedVolumeBSDNames: [],
-                             usbSerialNumber: "FIXTURE-BLOCKSIZE"),
+                             usbSerialNumber: "FIXTURE-BLOCKSIZE",
+                             usbLinkSpeedCode: 2),
             // `.noCapacity` — a bridge that enumerates with no medium behind it.
             DiscoveredDevice(registryEntryID: 4_294_967_303,
                              bsdName: BSDDeviceName("disk12"),
@@ -770,7 +779,8 @@ private final class UnusableDeviceSource: DeviceSource {
                              logicalBlockSize: 512,
                              mountedVolumeNames: [],
                              mountedVolumeBSDNames: [],
-                             usbSerialNumber: "FIXTURE-NOCAPACITY"),
+                             usbSerialNumber: "FIXTURE-NOCAPACITY",
+                             usbLinkSpeedCode: -1),
             // `.sizeNotBlockAligned` — a capacity that is not a whole number of blocks.
             DiscoveredDevice(registryEntryID: 4_294_967_304,
                              bsdName: BSDDeviceName("disk13"),
@@ -781,7 +791,8 @@ private final class UnusableDeviceSource: DeviceSource {
                              logicalBlockSize: 512,
                              mountedVolumeNames: [],
                              mountedVolumeBSDNames: [],
-                             usbSerialNumber: "FIXTURE-UNALIGNED"),
+                             usbSerialNumber: "FIXTURE-UNALIGNED",
+                             usbLinkSpeedCode: 5),
         ]
     }
     func startObserving(onChange: @escaping () -> Void) {}
@@ -900,8 +911,6 @@ func makeRootView(_ name: String) -> NSView {
         // is live here and the failure-mode picker is not, and both disabled reasons have to make
         // that legible rather than arbitrary.
         return NSHostingView(rootView: RunStateHost(stage: .paused))
-    case "content-restarting":
-        return NSHostingView(rootView: RunStateHost(stage: .restarting))
     case "content-finished":
         return NSHostingView(rootView: RunStateHost(stage: .finished))
     case "content-stop-on-error":
@@ -963,33 +972,21 @@ func makeRootView(_ name: String) -> NSView {
     // Step 14. The pre-run dialog, in each of its forms.
     case "warnings":
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice, purpose: .newRun)))
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice)))
     case "warnings-ticked":
         // The suppression checkbox in its ticked state, which is otherwise never rendered — and
         // which is the state that changes what the *next* run shows.
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice, purpose: .newRun),
+            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice),
             suppress: true))
-    case "warnings-restart":
-        // FR-CTRL-5's dialog in full. The discard warning sits in the **pinned header**, not in
-        // the scroll region — a sentence below an unadvertised fold has cost this project three
-        // times, and this is the one with the least room for that to be survivable.
-        return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .fullWarnings(PreRunPromptHost.defaultSelectedDevice, purpose: .restart)))
-    case "warnings-confirm-restart":
-        // The case suppression cannot reach. A user who has turned the standing warnings off still
-        // has to be told that this press destroys the run — it is a consequence of the press, not
-        // advice about the tool.
-        return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice, purpose: .restart)))
     case "warnings-confirm":
         // What a user sees after suppressing. This render is the one that matters most: it is the
         // whole of what stands between a click and a write for anyone who ticked the box.
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice, purpose: .newRun)))
+            prompt: .briefConfirmation(PreRunPromptHost.defaultSelectedDevice)))
     case "warnings-unidentified":
         return NSHostingView(rootView: PreRunPromptHost(
-            prompt: .briefConfirmation(PreRunPromptHost.unidentifiedDevice, purpose: .newRun)))
+            prompt: .briefConfirmation(PreRunPromptHost.unidentifiedDevice)))
 
     default:
         // **This list is hand-maintained and had drifted from the switch above — for the third
@@ -1009,11 +1006,10 @@ func makeRootView(_ name: String) -> NSView {
             empty, devices, devices-unmounted, devices-unusable, \
             content, content-starting, content-running, content-paused, content-finished, \
             content-stop-on-error, content-no-selection, content-quit-pending, \
-            content-selection-below-fold, content-restarting, \
+            content-selection-below-fold, \
             report, report-failures, report-stopped, report-stopped-by-user, report-qualified, \
             report-unidentified, report-empty, \
-            warnings, warnings-ticked, warnings-restart, warnings-confirm, \
-            warnings-confirm-restart or warnings-unidentified\n
+            warnings, warnings-ticked, warnings-confirm or warnings-unidentified\n
             """.utf8))
         exit(2)
     }

@@ -275,12 +275,6 @@ private final class Bench {
         case .stopping:
             startAndProceed()
             controller.stop()
-        case .restarting:
-            // The run is wound down but has not reported back, which is exactly what `restarting`
-            // is: the old sequence is still finishing its chunk. The stub does not end the run
-            // synchronously, so no `runEnded` arrives and the machine stays here.
-            startAndProceed()
-            restartAndProceed()
         case .finishing:
             // The release is held open, so the machine sits between the run ending and the drive
             // being let go.
@@ -306,15 +300,6 @@ private final class Bench {
     func startAndProceed() -> RunStartRequest {
         let request = controller.startRequested(warningsSuppressed: false)
         controller.startAuthorised(by: PreRunOutcome(issuesRun: true, persistsSuppression: false))
-        return request
-    }
-
-    /// Press Restart and answer its dialog with Proceed (FR-CTRL-5, increment 8).
-    @discardableResult
-    func restartAndProceed(warningsSuppressed: Bool = false) -> RunStartRequest {
-        let request = controller.restartRequested(warningsSuppressed: warningsSuppressed)
-        controller.restartAuthorised(by: PreRunOutcome(issuesRun: true,
-                                                       persistsSuppression: false))
         return request
     }
 
@@ -423,7 +408,7 @@ struct RunControllerStartGateTests {
 
         #expect(prompt.device.usbSerialNumber == "00000S7CLNJ0WC02266P")
         #expect(prompt.device.modelDescription.contains("T5 EVO"))
-        #expect(prompt == .fullWarnings(prompt.device, purpose: .newRun))
+        #expect(prompt == .fullWarnings(prompt.device))
     }
 
     /// NFR-USE-4 as qualified 2026-08-09: the **text** is suppressible, the deliberate act is not.
@@ -435,7 +420,7 @@ struct RunControllerStartGateTests {
             return
         }
 
-        #expect(prompt == .briefConfirmation(prompt.device, purpose: .newRun))
+        #expect(prompt == .briefConfirmation(prompt.device))
         #expect(prompt.device.usbSerialNumber == "00000S7CLNJ0WC02266P")
     }
 
@@ -845,225 +830,6 @@ struct RunControllerStopTests {
 
         #expect(bench.controller.state == .idle)
         #expect(bench.runControlCodes.isEmpty)
-    }
-}
-
-// MARK: - Restart (FR-CTRL-5, increment 8)
-
-/// **Restart releases the drive and takes it again**, and that is the whole shape of it.
-///
-/// The default recorded on 2026-08-12 said it would re-use the held claim. Scoping increment 8
-/// against the code found the cost nobody had priced: `RunSession` is created in `AcquiredDevice`'s
-/// initialiser and **never reset**, so a run continuing on the same claim inherits the discarded
-/// run's chunk count, failure log and read-latency distribution — and no app-side correction is
-/// possible, because percentiles do not compose and a minimum cannot be un-seen. Releasing is what
-/// makes the new run's figures clean by construction (user decision 2026-08-21).
-@MainActor
-struct RunControllerRestartTests {
-
-    // MARK: Pressing it
-
-    /// The same property Start has, and for the same reason: `restarting` reports `isRunActive`,
-    /// and a dialog being open must not stop a run or move the machine.
-    @Test func pressingRestartRaisesTheDialogAndDoesNothingElse() {
-        let bench = Bench()
-        bench.startAndProceed()
-
-        let request = bench.controller.restartRequested(warningsSuppressed: false)
-
-        guard case .prompt = request else {
-            Issue.record("Restart did not raise a dialog: \(request)")
-            return
-        }
-        #expect(bench.controller.state == .running, "the machine moved on a press")
-        #expect(bench.sequencer?.stops == 0, "the run was wound down before it was authorised")
-        #expect(bench.runControlCodes.isEmpty)
-    }
-
-    /// **The drive is the one the RUN holds**, not whatever is selected when the button is pressed.
-    /// The selection is frozen during a run (FR-DEV-7) so the two agree in the product — this pins
-    /// that the code takes the right one anyway, because reading the second would be two properties
-    /// naming one fact at two instants.
-    @Test func theRestartDialogNamesTheDriveTheRunHoldsAndNotTheSelection() {
-        let bench = Bench()
-        bench.startAndProceed()
-
-        bench.selection = DeviceFixtures.device(id: 0x9000,
-                                                bsdName: "disk4",
-                                                product: "Seagate Expansion HDD",
-                                                sizeBytes: 22_000_969_973_248,
-                                                mountedVolumeNames: ["Backup"],
-                                                mountedVolumeBSDNames: ["disk4s2"],
-                                                usbSerialNumber: "00000000NT17XBRA")
-
-        guard case .prompt(let prompt) = bench.controller
-            .restartRequested(warningsSuppressed: false) else {
-            Issue.record("Restart did not raise a dialog")
-            return
-        }
-        #expect(prompt.device.usbSerialNumber == "00000S7CLNJ0WC02266P",
-                "the dialog named the selection rather than the drive under test")
-    }
-
-    /// Cancelling must leave the run **and its record** exactly as they were. For a Start, Cancel
-    /// clears the pending record; doing that here would leave the app running a run it had no
-    /// record of, and the next Stop would produce no report.
-    @Test func cancellingARestartLeavesTheRunAndItsRecordIntact() {
-        let bench = Bench()
-        bench.startAndProceed()
-
-        _ = bench.controller.restartRequested(warningsSuppressed: false)
-        bench.controller.restartAuthorised(by: PreRunOutcome(issuesRun: false,
-                                                             persistsSuppression: false))
-
-        #expect(bench.controller.state == .running)
-        #expect(bench.sequencer?.stops == 0)
-
-        // The record survived: a real Stop still produces a report about the right drive.
-        bench.controller.stop()
-        bench.emit(.runEnded(result(.stoppedByUser)))
-        #expect((bench.reports.first ?? nil)?.device.usbSerialNumber == "00000S7CLNJ0WC02266P",
-                "the pending record was cleared by a cancelled restart")
-    }
-
-    // MARK: Winding the old run down
-
-    @Test func authorisingARestartWindsTheRunDown() {
-        let bench = Bench()
-        bench.startAndProceed()
-        bench.restartAndProceed()
-
-        #expect(bench.controller.state == .restarting)
-        #expect(bench.sequencer?.stops == 1)
-        #expect(bench.runControlCodes == [.stop])
-    }
-
-    /// **The ordering `stop()` documents, on the restart path.** From a paused run the real
-    /// sequencer finishes synchronously and emits `runEnded` inside `stop()` — and `runEnded` is
-    /// not legal from `paused`. Told in the other order a restart from a pause is silently dropped
-    /// and nothing ever happens.
-    /// **Rewritten after mutation P5 survived it** (2026-08-21). The first version asserted
-    /// `state != .paused` and `releases == 1` — two symptoms that the wrong ordering *happens to
-    /// preserve*, because the ignored `runEnded` still reached `releaseTheDrive()` and the state
-    /// was set immediately afterwards. It passed against a build that produced a spurious report
-    /// for the discarded run and left the machine in `restarting` with no claim, no pending record
-    /// and no sequencer: a hang, which is the exact failure the ordering exists to prevent.
-    ///
-    /// *A test that agrees with any change is not a check.* The property is that the restart
-    /// **completes** — so that is what is asserted now, on all three of the facts that say so.
-    @Test func aRestartFromAPausedRunIsNotSilentlyDropped() {
-        let bench = Bench()
-        bench.runToPaused()
-        bench.sequencer?.stopEndsTheRunSynchronously = true
-
-        bench.restartAndProceed()
-
-        #expect(bench.controller.state == .running, "the restart did not complete")
-        #expect(bench.prepared.count == 2, "the drive was never prepared for the new run")
-        #expect(bench.releases == 1, "the claim did not go back, so the session never died")
-        #expect(bench.reports.isEmpty, "the discarded run was reported")
-    }
-
-    // MARK: The drive goes back, and is taken again
-
-    /// The whole sequence, end to end.
-    @Test func aRestartReleasesTheDriveAndPreparesItAgainForANewRun() {
-        let bench = Bench()
-        bench.startAndProceed()
-        bench.restartAndProceed()
-
-        bench.emit(.runEnded(result(.stoppedByUser)))
-
-        #expect(bench.releases == 1, "the claim must go back — the session dies with it")
-        #expect(bench.controller.state == .running, "the new run did not begin")
-        #expect(bench.prepared.count == 2, "the drive was not unmounted and claimed a second time")
-        // A *second* sequencer, not a second `start` on the first one: the run session died with
-        // the claim, so the new run is a new sequence over a new session. `steps` is where that
-        // ordering is visible.
-        #expect(bench.steps.filter { $0 == "makeSequencer" }.count == 2)
-        #expect(bench.sequencer?.started.count == 1, "the new sequencer began exactly one run")
-    }
-
-    /// The new run is a **new run**: block 0, the same drive, the same size the restart was
-    /// authorised at.
-    @Test func theNewRunCoversTheWholeDeviceFromBlockZeroAgain() {
-        let bench = Bench()
-        bench.startAndProceed()
-        bench.restartAndProceed()
-        bench.emit(.runEnded(result(.stoppedByUser)))
-
-        let started = bench.sequencer?.started ?? []
-        #expect(started.count == 1, "this is the NEW sequencer, over a new session")
-        #expect(started.last?.deviceBlockCount == 7_814_037_168)
-        #expect(started.last?.ioSizeBytes == bench.ioSize)
-        #expect(bench.runBegans == 2, "the previous run's report was left on screen")
-    }
-
-    /// **A discarded run gets no report** (user decision 2026-08-20). The same shape as "a refused
-    /// call is not a run": nothing is produced, and the log says so, so its absence is explicable.
-    @Test func theRunARestartDiscardsProducesNoReport() {
-        let bench = Bench()
-        bench.startAndProceed()
-        bench.restartAndProceed()
-        bench.emit(.runEnded(result(.stoppedByUser)))
-
-        #expect(bench.reports.isEmpty,
-                "the run Restart threw away was reported as though it had been finished")
-    }
-
-    /// The other half, so the test above cannot be satisfied by never reporting anything: a run
-    /// that ends **without** a restart still produces its report.
-    @Test func aRunThatEndsWithoutARestartStillProducesOne() {
-        let bench = Bench()
-        bench.startAndProceed()
-        bench.controller.stop()
-        bench.emit(.runEnded(result(.stoppedByUser)))
-
-        #expect(bench.reports.count == 1)
-        #expect((bench.reports.first ?? nil)?.outcome == .stoppedByUser)
-    }
-
-    // MARK: What can go wrong
-
-    /// **The dialog can outlive the run it was raised for** (user decision 2026-08-21). A run at
-    /// 99.9% finishes underneath it, the drive goes back, and the claim this was going to replace
-    /// is gone. The press is answered rather than dropped — a button that does nothing is the
-    /// defect this app has been reported for twice.
-    @Test func aRestartAuthorisedAfterTheRunEndedIsRefusedAndSaysSo() {
-        let bench = Bench()
-        bench.startAndProceed()
-        _ = bench.controller.restartRequested(warningsSuppressed: false)
-
-        // The run finishes while the sheet is up.
-        bench.emit(.runEnded(Bench.completedRun))
-        #expect(bench.controller.state == .finished)
-
-        bench.controller.restartAuthorised(by: PreRunOutcome(issuesRun: true,
-                                                             persistsSuppression: false))
-
-        #expect(bench.controller.state == .finished, "a refused restart moved the machine")
-        #expect(bench.prepared.count == 1, "a refused restart prepared the drive")
-        #expect(bench.failures.count == 1, "the user was told nothing")
-        #expect(bench.failures.first?.text.contains("no run to restart") == true,
-                "the refusal did not use the machine's own words: \(bench.failures)")
-    }
-
-    /// If the drive cannot be prepared the **second** time, the abort path is the one Start already
-    /// has: the volumes go back, the cause is put in front of the user, and Start is live again.
-    /// This is what stops a restart leaving somebody with a released drive and no run.
-    @Test func aRestartWhosePreparationFailsLeavesAWorkingStart() {
-        let bench = Bench()
-        bench.startAndProceed()
-        bench.restartAndProceed()
-
-        bench.preparationOutcome = .aborted(
-            DevicePreparationFailure(reason: "Could not unmount Vol_HFS: the disk is in use.",
-                                     restore: nil))
-        bench.emit(.runEnded(result(.stoppedByUser)))
-
-        #expect(bench.controller.state == .idle, "an aborted restart left the machine mid-run")
-        #expect(bench.failures.isEmpty == false, "the user was told nothing")
-        #expect(bench.controller.controls.start.isEnabled, "there is nothing left to press")
     }
 }
 

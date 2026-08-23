@@ -256,30 +256,6 @@ nonisolated enum PreRunWarningText {
     /// user to *do* something before continuing.
     static let mandatory: [PreRunWarning] = [backUpFirst, infrequentOnFlash, cleanPassIsNotHealth]
 
-    // MARK: The standing advice on the device pane
-
-    /// The short form of FR-WARN-1, shown beside the **selected device** at all times.
-    ///
-    /// ## Why it is here and not written in the view (2026-08-10, user decision)
-    ///
-    /// It replaced *"Testing a drive you are using is not advisable"*, which the user withdrew as
-    /// *"not necessarily true"* — the risk is not conditional on the drive being in use, and a
-    /// warning that says otherwise teaches the wrong thing about when to be careful.
-    ///
-    /// Two consequences followed, and both are the reason this constant exists rather than a
-    /// literal in `DeviceListView`:
-    ///
-    /// 1. **It is no longer conditional.** The old sentence was *about* using the drive, so it was
-    ///    drawn only when the drive had mounted volumes. This one is about data loss, which a drive
-    ///    with nothing mounted has exactly as much of — so the condition went with the wording.
-    /// 2. **It is the product's second place for "back up first"**, beside ``backUpFirst``. That is
-    ///    the drift this file exists to prevent, so the two live together where a reader meets both
-    ///    at once: this is the standing one-liner, ``backUpFirst`` is the pre-run dialog's full
-    ///    statement, and they must not start disagreeing about what the risk is.
-    static let standingBackupAdvice =
-        "Testing can cause data loss. Please make sure any important files on the test drive are "
-      + "backed up before starting a test."
-
     // MARK: The dialogs' own wording
 
     /// Heading of the full pre-run dialog.
@@ -324,20 +300,4 @@ nonisolated enum PreRunWarningText {
     /// that it writes.
     static let confirmationConsequence =
         "Every block on it will be read, written back unchanged, and read again to verify."
-
-    /// **FR-CTRL-5's consequence, shown on BOTH forms of the dialog** (increment 8).
-    ///
-    /// Not one of the suppressible FR-WARN-1/2/3 warnings, and the distinction is the reason this
-    /// string is separate from them: those are standing advice about the tool, identical on every
-    /// run, and a professional user may reasonably say "I know, stop telling me" (NFR-USE-4 as
-    /// qualified 2026-08-09). This is a **consequence of the press being made right now**, and it
-    /// is the one thing about Restart that a user cannot recover from if they were not told —
-    /// an interrupted run cannot be continued (FR-FAIL-7), so the work is not paused, it is gone.
-    ///
-    /// It is rendered in the dialog's **pinned header**, not in its scroll region. A control or a
-    /// sentence below an unadvertised fold has cost this project three times, and this is the
-    /// sentence with the least room for that to be survivable.
-    static let restartDiscardsProgress =
-        "This ends the run in progress and starts again from the beginning. Everything it has "
-      + "tested so far is discarded — an interrupted run cannot be continued."
 }

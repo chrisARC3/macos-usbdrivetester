@@ -321,7 +321,7 @@ struct RunMetricsPanelVisibilityTests {
     }
 
     /// **The row Step 10 changed.** A finished run's figures are still in the helper's slot, and
-    /// the panel must not go on presenting them: that result now lives in the Run Report window,
+    /// the panel must not go on presenting them: that result now lives in the run report,
     /// where it is complete and exportable.
     @Test func aFinishedRunIsNoLongerRetainedByThePanel() {
         #expect(RunMetricsView.showsMeasurements(snapshot: snapshot(available: true),

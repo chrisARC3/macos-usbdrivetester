@@ -5,18 +5,34 @@
 //  Step 10 (AI-7), BUILD-PLAN 10.4. The end-of-run report on screen, and the "Export report…"
 //  action that writes it (FR-RPT-5, NFR-USE-7).
 //
-//  ## Why the report is a window and not a sheet (user decision 2026-08-06)
+//  ## It was a window until Step 11 increment 8, and is now a sheet (user decision 2026-08-19)
 //
-//  Three things were weighed. A **panel in the main window** would have gone under a device list
-//  that is already at `minHeight: 700` with a ~300 pt metrics panel during a run — and Step 9
-//  moved the diagnostics form out for exactly that reason. A **sheet** is the conventional shape
-//  for a modal result, and it was rejected on **verification**: like the quit confirmation, a
-//  sheet gets its own window and `scripts/render-ui.sh` cannot capture it, so every check of this
-//  surface would need a person. This project has found three defects by rendering that no
-//  assertion caught, and a surface that cannot be rendered gives that up.
+//  **The 2026-08-06 decision, recorded and superseded.** A **panel in the main window** would have
+//  gone under a device list already asking for 700 pt with a ~300 pt metrics panel beside it — the
+//  reason Step 9 moved the diagnostics form out. A **sheet** was rejected on *verification*: like
+//  the quit confirmation, a sheet gets its own window and `scripts/render-ui.sh` cannot capture it,
+//  so every check of this surface would need a person. So: a `Window`.
 //
-//  So: a `Window`, single-instance by construction, opened when a run ends and reachable again
-//  from the Window menu.
+//  **That reason was wrong, and measurably so.** `render-ui.sh` and `window-fit-check.sh` compile
+//  the app's sources with `USBDriveTesterApp.swift` **excluded by name**, and host this view
+//  directly. The scene was never involved in a render, and all seven report render cases are
+//  unchanged by the move — the same arrangement `PreRunPromptSheet` has always used, and its own
+//  note in `tools/ui-probe` records the same limit. What a sheet actually costs is *in-place*
+//  capture, the report as it sits on its parent, which these renders never had.
+//
+//  **What changed the decision was hardware.** Starting a run underneath an open report emptied it,
+//  because a beginning run clears `AppModel.lastRunReport` — the previous run's report is not this
+//  run's. A sheet is window-modal, so the run controls are out of reach while it is up and the
+//  report must be dismissed before a run can start: the defect becomes unreachable by construction
+//  instead of guarded against.
+//
+//  ## The size is the window's, and there is no constant here any more
+//
+//  `.frame(minWidth: 620, minHeight: 560)` stood here for the window era and is gone. `ContentView`
+//  sizes the sheet to the main window's content area less a margin, so this view's floor **is** the
+//  main window's floor — which `scripts/window-fit-check.sh` already governs against NFR-USE-9 —
+//  rather than a second number that expires quietly. Increment 7's lesson applied to this view: the
+//  620x560 was chosen for a window the user could drag bigger, and a sheet cannot be dragged.
 //
 //  ## What this view renders, and what it does not decide
 //
@@ -90,22 +106,45 @@ struct RunReportView: View {
     /// so a test could drive the surrounding logic — `NSSavePanel` itself is not testable.
     var exportAction: (RunReport) -> Void = RunReportExport.presentSavePanel
 
+    /// Dismisses the report. **No default**, so every call site has to answer: a sheet with no way
+    /// out is a modal the user cannot leave, and this view spent four steps as a window where the
+    /// title bar answered it for free.
+    let onDone: () -> Void
+
     var body: some View {
         Group {
             if let report {
                 reportBody(report)
             } else {
-                emptyState
+                emptyBody
             }
         }
-        .frame(minWidth: 620, minHeight: 560)
+        // Escape, which is what a macOS sheet is expected to answer. `Done` takes the default
+        // action, so Return works as well and neither key is the only way out.
+        .onExitCommand(perform: onDone)
     }
 
     // MARK: Idle
 
+    /// The empty state and the one control a sheet cannot do without.
+    ///
+    /// **The empty state had no footer at all while this was a window**, because the title bar
+    /// closed it. Nothing in the suite would have noticed: no test drives this view.
+    private var emptyBody: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            emptyState
+            Divider()
+            HStack {
+                Spacer()
+                doneButton
+            }
+            .padding(12)
+        }
+    }
+
     /// Before any run has finished.
     ///
-    /// Not a blank window: a window that can be opened from a menu can be opened before there is
+    /// Not a blank panel: a report that can be raised from a menu can be raised before there is
     /// anything in it, and "empty" and "broken" look identical unless one of them says which it
     /// is. The same lesson as the metrics panel's idle placeholder in Step 9.
     private var emptyState: some View {
@@ -420,8 +459,19 @@ struct RunReportView: View {
             Spacer()
             Button("Export report…") { exportAction(report) }
                 .keyboardShortcut("s", modifiers: .command)
+            doneButton
         }
         .padding(12)
+    }
+
+    /// Dismisses the sheet.
+    ///
+    /// A sheet has no title bar, so this button **is** the close box. It takes the default action
+    /// because dismissing is what a reader does when they have finished reading — and because the
+    /// alternative default, Export, writes a file.
+    private var doneButton: some View {
+        Button("Done", action: onDone)
+            .keyboardShortcut(.defaultAction)
     }
 
     /// Pass/fail conveyed by **icon and text**, never by colour alone (NFR-USE-8). The tint is an

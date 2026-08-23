@@ -7,15 +7,26 @@ added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item li
 **CHUNK 8 IS NEW AND UNRUN** — added by increment 6 for the two pre-run controls. It is the only
 cover the dropdown's and the confirmation's wiring has: both survive the whole 998-test suite.
 
-**CHUNK 9 PASSED 2026-08-20 except 9.7**, which was written after the rest were signed off and is
-owed to increment 8.
+**CHUNK 9 PASSED IN FULL.** 9.1–9.6 at the keyboard on 2026-08-20; **9.7 was deleted on 2026-08-22
+rather than walked**, because the sentences it counted no longer exist.
 
-**CHUNK 10 IS NEW AND UNRUN** — added by increment 8 for FR-CTRL-5. Two mutations to
-`RunControlsView` survive the whole suite in this area, and one of them ships a build that applies
-every answered Restart dialog as a Start.
+**CHUNK 10 PASSED 2026-08-22 AND WAS THEN DELETED** — it covered the Restart control, which was
+removed the same day. See that chunk's own heading.
 
-> **What is owed to a single pass, as of 2026-08-21:** 7.4, 7.5, 9.7 and the whole of chunk 10.
-> Everything else in this file has been walked.
+**CHUNK 11 PASSED IN FULL** — 11.1–11.4, 11.7 and 11.11 on 2026-08-22, 11.5, 11.6, 11.8, 11.9 and
+11.10 on 2026-08-23. Added by increment 8 for the report's move from a window to a sheet, and it is
+the only cover that surface has at all: no test drives a SwiftUI view, and the two lines telling the
+model a run produced a report live in a file that needs a helper and a drive to construct. **11.11
+found a defect**, since fixed and re-checked.
+
+**CHUNK 12 IS NEW AND UNRUN** — added 2026-08-23 for the link speed's move to the Selected device
+pane. Its first four items are the only cover the new registry read has: the mutation round showed a
+misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
+`IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
+
+> **What is owed, as of 2026-08-23:** 7.5, and all of chunk 12.
+> **Everything else in this file has been walked.** Chunk 10 was walked, passed, and then deleted
+> along with the control it covered.
 
 ## Why this exists, in one paragraph
 
@@ -249,12 +260,12 @@ report, would pass 1–6.
 
 ### Chunk 9 — the window's size (increment 7)
 
-> **Status: 9.1–9.6 passed at the keyboard on 2026-08-20. 9.7 has never been walked** — it was
+> **Status: 9.1–9.6 passed at the keyboard on 2026-08-20. 9.7 was deleted on 2026-08-22** — it was
 > written after the rest were signed off, to cover the refusals collapsed in `faf9a93`. It is the
 > one item in this chunk still owed, and it is owed to **increment 8**.
 
-**Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either,
-every check here is idle except 9.3 and 9.7.
+**Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either, and
+every check here is idle except 9.3.
 
 **First, clear the saved window frame.** AppKit's frame autosave beats `.defaultSize`, so a window
 that was once screen-height stays that way for that user until the saved frame is removed. With the
@@ -352,123 +363,249 @@ the same file and must still be there — if they have gone, the wrong thing was
    That is measured rather than supposed — the one-run-loop-turn deferral in `scrollToSelection`
    exists *because* six drives passed without it and two did not.
 
-7. **While a run is starting, count the sentences under the buttons.** There should be **one**
-   refusal — "The drive is already being prepared." — under a status line that already reads
-   "Preparing the drive — unmounting its volumes and taking exclusive access." Not three.
+> **9.7 was deleted on 2026-08-22 rather than passed.** It counted the refusal sentences under the
+> run buttons, and those sentences no longer exist: the block was removed outright (user decision),
+> on the grounds that nothing it printed said anything the status line above it, the drive list's
+> **Unusable** badge, or the quit banner was not already saying. A check for the right *number* of
+> sentences is not a check when the right number is none. `RunControlsView`'s header records what
+> was weighed before it went.
 
-   Until 2026-08-20 all three drew: Start's, Pause's and Stop's, each a differently-worded version
-   of the same fact, which is why exact-string deduplication never caught them. **Each one costs
-   40 pt of window height**, and together they were what pushed the window past what a small Mac
-   can show.
+### Chunk 10 — deleted 2026-08-22, after passing
 
-   `starting` is transient — unmount, verify, acquire, read geometry — so you may have only a few
-   seconds. If you miss it, `pausing` and `stopping` collapse the same way and are easier to catch.
+Seven items covering the Restart control. **They were walked at the keyboard on 2026-08-22 and all
+seven passed** — and the control was removed the same day (user decision), because Stop then Start
+reaches the identical end state. FR-CTRL-5 is still met, by composition; the requirements document
+carries an amendment of that date saying so.
 
-   No test reaches this: `disabledReasons` is private to its view. The `content-starting` render
-   and this item are the whole of its cover.
+Kept as a heading rather than deleted silently, because *"chunk 10 passed"* and *"chunk 10 does not
+exist"* are different facts and a reader of this file is entitled to know which one applies. If a
+Restart control is ever built again, its checks are in commit `0f65be4`.
 
-### Chunk 10 — Restart (increment 8) *(writes)*
+### Chunk 11 — the report as a sheet (increment 8) *(writes for items 1–7; the rest are dry)*
 
-**Two mutations to `RunControlsView` survive the whole 1,029-test suite here.** No test drives a
-SwiftUI view, so the dispatch that decides whether an answered dialog is applied as a Start or a
-Restart, and the rule that collapses the refusal sentences, are reachable only by a person. This
-chunk is their only cover.
+The report was a `Window` from Step 10 until increment 8 and is now a **sheet on the main window**
+(user decision 2026-08-19). Nothing in the suite can see any of this: no test drives a SwiftUI view,
+and `RunControllerWiring.live` needs a privileged helper and a drive to construct, so even the two
+lines that tell the model a run produced a report are reachable only by a person.
 
-**The 4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`) attached, and the log stream running.
+**The 4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`) attached, and the log stream running. Items 1–7
+need a real run; 8–10 do not.
 
-1. **Start a run, let it get a few seconds in, press Restart.** The dialog says
-   `pre-run prompt raised: full warnings, restart` — the `, restart` is the half that says the app
-   knows which act you asked for. Above the divider, before any scrolling, it reads *"This ends the
-   run in progress and starts again from the beginning. Everything it has tested so far is
-   discarded — an interrupted run cannot be continued."*
+1. **Menus first, before any run.** The Window menu has a *Run Report* item with **⇧⌘R** on it,
+   and **only one**. SwiftUI adds a permanent Window-menu entry for every `Window` scene, titled
+   with the window's title — measured on a scene probe in 2026-08-05 and recorded in
+   `USBDriveTesterApp` — so while the report was a scene the app's own command sat beside an entry
+   named the same. Two items here would mean the scene is still being declared somewhere.
 
-2. **Cancel.** The run keeps going: no `restart authorised` line, no unmount, the metrics panel
-   keeps advancing. Then press **Stop** — the report appears and names the right drive. *(That last
-   part is the check that Cancel did not throw away the run's record.)*
+   Press it. The report opens **as a sheet on the main window**, reading *"No run has finished
+   yet"*, with a **Done** button under a divider. Press **Escape**: it closes. Press ⇧⌘R again and
+   press **Done**: it closes.
 
-3. **Start again, press Restart, Proceed.** In the log, in this order:
-   `restart authorised: … the run in progress is discarded and the drive will be released and
-   re-acquired` → `run discarded by restart: … no report is produced` → the volumes **remount and
-   unmount again** → `run authorised: …` for the new run.
+   > The empty state had **no footer at all** as a window, because the title bar closed it. Mutation
+   > R11 takes it away again and passes every test.
 
-   **No Run Report window appears for the discarded run.** If one does, that is the defect.
+2. **Start a run and let it finish.** The report appears **by itself**, as a sheet, without the
+   Window menu being touched. The headline and the figures are this run's.
 
-   The remount-then-unmount is expected, not a fault: Restart releases the claim so the new run's
-   figures are its own. macOS remounts within ~4 ms and `DevicePreparation` takes the volumes back
-   down. On this drive that is three volumes appearing and vanishing in Finder.
+3. **While the report is up, try to start another run.** You cannot: the sheet is window-modal, so
+   Start, Pause, Stop and the drive list are all unreachable. **That is the whole point of the
+   change** — a run beginning clears the previous run's report, and on hardware that emptied a
+   report window somebody was reading.
 
-4. **Watch the metrics panel across the restart.** The figures from the discarded run must **not**
-   carry into the new one — the read-latency minimum and the chunk count in particular should drop
-   back, not continue climbing. This is the whole reason Restart releases the drive: `RunSession`
-   is created at `acquireDevice` and never reset, so a restart that kept the claim would report the
-   old run's p99 and chunk count as the new run's.
+4. **Press Done, then ⇧⌘R.** The same report comes back, with the same content. Dismissing does not
+   discard it; only a new run does.
 
-5. **While it is restarting, count the sentences under the buttons.** There should be **one** —
-   *"The run is restarting, and a new one is about to begin from the beginning."* — under a status
-   line already reading *"Restarting — finishing the current chunk, then starting again from the
-   beginning. The progress so far is discarded."* Not four.
+5. **Start a second run and, while it is running, look at the Window menu.** *Run Report* is
+   **greyed out**, and ⇧⌘R does nothing. During a run there is nothing to show — the report was
+   discarded as the run began — and a window-modal sheet would put Pause and Stop out of reach.
 
-   > This is `starting`'s 9.7 problem in a new state, and it was in the build until a render caught
-   > it. Four sentences cost 160 pt and would have failed `window-fit-check.sh`. Mutation P12
-   > removes the collapse and passes every test.
+   > Mutation R12 removes the disabling and passes all tests; `AppModel` still answers correctly,
+   > and what the mutation deletes is the menu asking.
 
-6. **Pause a run, then Restart from paused.** Same sequence, with no wait — nothing is in flight,
-   so the wind-down is instantaneous. The new run must actually begin; a restart that leaves the
-   window sitting on "Restarting…" for ever is the ordering defect mutation P5 describes.
+6. **Resize the main window — small, then large — and raise the report at each size.** The sheet
+   fills the window less a margin, never overhangs it, and never runs off the screen. At the
+   window's own minimum the report still shows its headline, scrolls its body, and keeps
+   **Export report…** and **Done** on screen.
 
-7. **Suppress the warnings** (Diagnostics ▸ tick the box on a Start), then **Restart**. The log
-   reads `brief confirmation (warnings suppressed), restart`, and **the discard warning is still
-   there** — suppression removes the standing FR-WARN text, never a consequence of the press being
-   made now. This is the item mutation P9 defeats.
+   > Rendered at 616x461 before this was written, which is the sheet at the window's minimum, and
+   > nothing was clipped. What a render cannot answer is whether the sheet really gets that size,
+   > because a sheet has its own window.
 
-8. **Press Restart, and while its dialog is open, let the run finish on its own.** Then press
-   Proceed. An alert says the run could not be restarted, in the machine's own words — *"There is
-   no run to restart. Use Start."* — rather than the dialog closing and nothing happening.
+7. **Press ⌘Q while the report is up. Expect it to do nothing.** Then press **Escape** to dismiss
+   the report and ⌘Q again — now the app quits. Try the close button too: it should be dead while
+   the report is up, and work once it is gone.
 
-   > This is the one the controller had wrong: the pending record is cleared by the release, and
-   > checking for it before re-evaluating the policy meant an answered dialog produced a log line
-   > and nothing else. Found by the test written for it, not by reading.
+   > **This item's expectation was reversed on 2026-08-21, before it had ever been walked, and the
+   > reversal is the point of keeping it.** It first read *"the app quits"*, derived from
+   > `QuitPolicy`: no run is active whenever a report is on screen, so the policy answers
+   > `.quitImmediately`. **The policy is not what decides.** A window-modal sheet intercepts ⌘Q
+   > before `applicationShouldTerminate` is reached — observed on hardware for the pre-run dialog on
+   > 2026-08-18, recorded at `RunControlsView`, and met again by a person on 2026-08-21 — and the
+   > report is the same kind of sheet on the same window.
+   >
+   > That is the second time in one increment that an acceptance criterion derived from model code
+   > has been wrong about the presentation layer, both times in this area. CONSTRAINTS already says
+   > it; the docs pass should say it louder.
+   >
+   > So the check is now: **does the report behave like the pre-run dialog?** If ⌘Q *does* quit
+   > here, that is the finding, and it means two sheets on one window differ in a way nothing
+   > predicts.
+   >
+   > Whether the report *ought* to block quitting is a separate question, deliberately left open
+   > until this has been seen. The pre-run dialog blocking it is recorded as **wanted** — it is the
+   > last thing between a selected drive and a write. A report is a document you have finished
+   > reading, and one keystroke dismisses it. Today's finding that menu commands are *not*
+   > intercepted makes a custom Quit command a real option if the answer is "it should not".
 
-**Known, and not a defect to report:** a 13.3-inch Mac at its *smallest* scaling (1152x720) has
-620 pt for a window, and `starting` needs 638. The project commits to **1280x800** with the Dock —
-a 700 pt budget — which every state clears by at least 62 pt (user decision, 2026-08-20). At the
-smallest scaling the window fits at rest and grows behind the Dock for the few seconds a run spends
-starting. `scripts/window-fit-check.sh` reports all three scalings on every run.
+8. **Ask for a run that cannot start** — the easiest is to pull the drive after selecting it, or
+   otherwise make preparation fail. The failure is reported **and no report sheet appears**. A sheet
+   reading "No run has finished yet" straight after pressing Start would be worse than none.
+
+9. **Open the diagnostics window (⇧⌘D), leave it in front, and finish a run.** The **main window
+   comes forward** with the report on it. A sheet on a window behind another one is a dialog nobody
+   sees, which would read as a run that finished and said nothing.
+
+10. **Log check, across the whole chunk.** `run report: …` appears once per finished run, and
+    `no report: …` for a refused call. Neither should appear twice for one press.
+
+11. **With the pre-run dialog up, press ⇧⌘R. Then Cancel the dialog and wait.** *(Dry — press
+    Start and answer nothing.)* Nothing should appear: not while the dialog is up, and **not when
+    it goes away**. Check the Window menu too — *Run Report* should be **greyed** while the dialog
+    is open.
+
+    > **This item was written as a probe and found a defect on 2026-08-21. It is now the regression
+    > check for it.** The menu item asks the *run* state, and Start does not enter `starting` until
+    > the dialog is answered — so at that moment the rule said the report could be raised. What was
+    > expected to stop it was the sheet itself: a window-modal sheet was believed to swallow menu
+    > commands, which is what check 6.1 concluded from ⌘Q in increment 5.
+    >
+    > **It does not.** The command ran, SwiftUI queued the second sheet because one window cannot
+    > show two, and the report appeared **by itself** the moment the dialog was cancelled — a modal
+    > arriving at a time nobody asked for it. 6.1 is narrowed rather than overturned: ⌘Q is AppKit's
+    > terminate and takes a different path from an app-declared command; only that path is
+    > intercepted.
+    >
+    > The fix moved `pendingPrompt` out of `RunControlsView`'s `@State` and onto `AppModel` —
+    > whether a modal is up is a fact about the *window*, and the menu item lives in a `commands`
+    > builder with no environment to read a view's state. `reportRequestedFromMenu()` re-checks the
+    > rule rather than trusting the item's `.disabled`, because mutation **S3** shows what a rule
+    > living only in a view modifier is worth: the menu setting the flag itself passes every test.
+
+**No longer known, and worth recording as resolved:** a 13.3-inch Mac at its *smallest* scaling
+(1152x720) has 620 pt for a window, and until 2026-08-22 `starting` needed 638 — a stated non-goal
+against the committed 1280x800 budget, carried since 2026-08-20. **Deleting the refusal sentences
+took the worst case to 613, so every scaling that machine offers now fits**, the tightest by 7 pt.
+That was not why they were deleted; it is what deleting them bought.
+
+7 pt is thin, and `scripts/window-fit-check.sh` reports all three scalings on every run, so the
+next row added to that pane will say so rather than quietly reintroducing the non-goal.
+
+
+### Chunk 12 — the link speed before the run (2026-08-23) *(items 1–6 are dry; 7 and 8 need a run)*
+
+The negotiated USB link speed now appears in the **Selected device pane**, read by the app from the
+IORegistry at enumeration, and no longer appears in the live metrics panel. The standing backup
+advice is gone from the same pane.
+
+**Items 1–4 are the only cover the read has.** Two mutations — a misspelled registry key, and the
+pane wired to a constant — survived all 1025 tests. The `devices` render caught both, but a render
+is taken on demand and this list is what makes it a habit.
+
+1. **The row is there, and in the right place.** Select a drive. The Selected device pane shows
+   **USB link speed** as the **last row of the grid, directly after Mounted volumes**, reading
+   something like `5 Gb/s (USB 3.0)`. Not `—`, unless item 4 explains why.
+
+2. **It agrees with an independent instrument.** Run
+
+   ```bash
+   /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester/scripts/usb-speed-check.sh
+   ```
+
+   and find the selected drive by product name. Its code must map to the speed the pane shows —
+   `2 → 480 Mb/s`, `3 → 5 Gb/s`, `4 → 10 Gb/s`. **This is the check that a wrong key or a wrong
+   mapping cannot pass**, and it is why the row is worth trusting at all. Read-only; it changes
+   nothing.
+
+3. **It is per-drive, not sticky.** Click through every attached drive in turn. Each shows **its
+   own** speed, and a drive at a different speed from the one before it changes the row. A value
+   that never changes is the stale-pane defect this project has already had twice — once in the
+   readiness banner, once in the metrics panel.
+
+4. **It follows the port, which is the whole point.** Move one drive to a port or hub of a
+   different generation and let the list refresh. **The number must change.** This is the only item
+   that tests the feature's actual purpose — *did this drive negotiate the link I expected* — and no
+   render can stage it, because a render sees whatever is plugged in at the time.
+
+   If a drive ever shows `—`, say so: that is the honest-unknown path, and it is **unverified on
+   this hardware**. Every USB device on this machine reports a `Device Speed`, so the fallback has
+   never once been exercised for real. The `devices-unmounted` render is the nearest standing check
+   and it uses a fixture, not a drive.
+
+5. **The advice is gone.** The Selected device pane contains **no** sentence beginning *"Testing can
+   cause data loss"*. Nothing else in the pane moved: the identity line, the grid, the readiness
+   banner and the closing block-size note are all still there, in that order.
+
+6. **FR-WARN-1 is still discharged.** Press Start. The pre-run dialog still carries the full backup
+   warning in its own words. If warnings are suppressed, the brief confirmation still names the
+   device by model and serial, and the full text is still reachable from the diagnostics window.
+   **This is the item that says the deletion cost nothing**: the pane line was the second copy, and
+   only the second copy was removed.
+
+7. **The metrics panel has lost the row, and nothing else.** With a run under way, the *Live run
+   metrics* panel shows **Read, Write and Covering** and **no** *USB link negotiated at* row. The
+   paragraph under them still explains what Read, Write and Covering are measured against, and the
+   latency block below is untouched.
+
+8. **The report still has both numbers together.** Stop the run and read the report. Its
+   measurement block still shows **Negotiated USB link speed** among the throughput rows. This is
+   where the 2026-08-04 decision now lives, so if it is missing here the decision has been lost
+   rather than moved — which is the difference between this change and a regression.
 
 ## What has no automated cover, and will not get any
 
 * **The report body.** It sits in a scroll region, so even a render stops at `## Measurements`.
   Checks 7.2, 7.4 and 7.5 are the only things that read it.
 
-* **`RunReportView` in its entirety — measured, not assumed (increment 8).** Three mutations to
-  that file passed the whole suite — one against 1,008 tests, two against 1,013: dropping a claim
-  sentence, deleting the range caveats, and relabelling the range row back to the wording that made
-  it a false claim. The window and the exported `.md` are two
+* **`RunReportView` in its entirety — measured, not assumed (increment 8).** Four mutations to
+  that file passed the whole suite — one against 1,008 tests, two against 1,013, one against 1,040:
+  dropping a claim sentence, deleting the range caveats, relabelling the range row back to the
+  wording that made it a false claim, and taking the **Done** button off the empty state, which is
+  now the only way out of a sheet that has no title bar. The window and the exported `.md` are two
   renderers over one set of values; `RunReport` and `HonestFraming` pin the **values**, and nothing
   pins that this view renders them. The file carried a comment citing a `RunReportViewTests` that
   **has never existed** — corrected in increment 8, with what actually covers it written at the
   site. An edit to that view is unverified until it has been rendered and looked at.
+* **The report's presentation, entirely (increment 8).** The report is a **sheet** now, and
+  everything about raising and dismissing it lives in SwiftUI. Three mutations, each passing all
+  **1,040** tests:
+
+    * **R10** — `Done` does nothing. A window-modal sheet with no way out, standing over the
+      controls that stop a run.
+    * **R11** — the empty state loses the footer it never needed as a window.
+    * **R12** — the menu item stops asking whether it may raise the report, so ⇧⌘R works during a
+      run. `AppModel` still answers correctly; what the mutation deletes is the asking, and
+      `USBDriveTesterApp.swift` is not even compiled by the render harness.
+
+  The **decisions** are all in `AppModel` and are pinned there — seven mutations to them were caught,
+  including the one that matters most: gating the report's appearance on the same rule that disables
+  the menu item, which suppresses every report the app produces. Chunk 11 is the cover for the rest.
+
+* **The two lines that tell the model a run happened (increment 8).** `RunControllerWiring.live`
+  needs a privileged helper and a drive to construct, so no test builds it. **R8** stops it calling
+  `runProduced`, **R9** stops it calling `runBegan`, and both pass all 1,040 tests. The methods
+  themselves are well covered; that the wiring calls them is not. Chunk 11.2 and 11.4 are the check.
+
 * **The live metrics panel.** It needs a real helper to poll; in the render harness it always shows
   the unavailable state regardless of run state. That is why 4.2's defect was invisible.
 * **Sheet modality.** `AppModelQuitTests` exercises `QuitPolicy`, and in 6.1 the policy is never
-  reached — the sheet answers first.
+  reached — the sheet answers first. **Increment 8 gave the question a second surface**, since the
+  report is a sheet now as well: ⌘Q with the report up is *reasoned* to quit cleanly, because a
+  report is only ever on screen when no run is active. That is exactly the kind of reasoning 6.1
+  falsified, and 11.7 is what settles it.
 * **Any SwiftUI binding, and the alert increment 6 added.** No test drives a `Picker`'s selection
   or presses a button in an `.alert`, so the *wiring* between the two pre-run controls and the
   model is reachable only by a person. The decision and every word of the dialog are pure types
   and are pinned; what is not pinned is that they are called at all. Chunk 8 is the cover.
-
-* **Which controller call an answered dialog makes (increment 8).** `PreRunPrompt` carries whether
-  the acknowledgement was for a Start or a Restart, and `promptDismissed` switches on it — but the
-  switch is in a SwiftUI view. **Mutation P11 applies every answered Restart dialog as a Start and
-  passes all 1,029 tests.** What that build does is release the drive and start over on whatever is
-  selected, having shown the user a dialog about restarting. Chunk 10.1–10.3 is the cover.
-
-* **The refusal-sentence collapse, now for a second state.** `disabledReasons` is private to its
-  view, so nothing reaches it — increment 7 recorded this for `starting` and chunk 9.7 is its
-  check. Increment 8 added `restarting` and **shipped it with four sentences until a render was
-  looked at**; mutation P12 puts them back and passes every test. Chunk 10.5 is the cover, and
-  9.7's note applies unchanged: a new transient state needs adding to
-  `statesTheStatusLineExplains`, and nothing enforces that but a render.
 
 * **The selection half of the drive list's auto-scroll.** The list scrolls to the selected drive
   on two triggers and only one of them can be seen. A render establishes its layout once, so the
@@ -485,4 +622,20 @@ starting. `scripts/window-fit-check.sh` reports all three scalings on every run.
   the rest. The four defects increment 7 fixed had all been sitting in plain sight of 29 render
   cases, because a render is given a size and never asks for one.
 
-Three defects, three blind spots, one pass. Any rebuild of this area runs this list again.
+* **The IORegistry link-speed read, entirely.** `IOKitDeviceEnumerator` needs hardware, so no test
+  in the suite constructs it and none ever will. Measured, not assumed: misspelling the `Device
+  Speed` key and wiring the pane to a constant both **survived all 1025 tests** (M1 and M4,
+  2026-08-23). The live-hardware `devices` render caught both, and `scripts/usb-speed-check.sh`
+  is the independent check on the code→speed mapping — but neither runs unless somebody runs it,
+  which is what chunk 12 items 1–4 are for.
+
+  The `?? -1` fallback is worse off: it survived the suite **and** the render (M2, declared a
+  survivor in advance). Every USB device on this machine reports a `Device Speed`, so the arm that
+  produces the honest `—` is never taken here. It was made visible only by breaking the read at the
+  same time, which printed a confident `10 Gb/s` where `—` belonged. **A drive that reports no link
+  speed has never been seen by this project**, and until one is, that path is reasoning rather than
+  evidence.
+
+**Ten blind spots.** The count is measured against the list above, not carried forward — it
+read "three" until 2026-08-23, by which point the list had grown to ten and nothing had
+recounted it. Any rebuild of this area runs this list again.

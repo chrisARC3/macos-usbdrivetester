@@ -511,6 +511,16 @@ struct DeviceListView: View {
                 }
                 detailRow("Mounted volumes",
                           device.mountedVolumesDescription ?? "None mounted")
+                // Added 2026-08-23 (user decision), and it is here rather than in the live
+                // metrics panel because of *when* it is useful: "if I did not get the expected
+                // link speed, then there is no point in starting the test". A number that only
+                // appears once the run is under way cannot inform the decision not to run.
+                //
+                // Read by the app at enumeration — see `DiscoveredDevice.usbLinkSpeedCode` for
+                // why it is not asked of the helper, and the one way it can disagree with the
+                // figure in the report.
+                detailRow("USB link speed",
+                          MetricsFormatting.linkSpeed(code: device.usbLinkSpeedCode))
             }
 
             if let problem = device.geometryProblem {
@@ -519,28 +529,19 @@ struct DeviceListView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            // Advice, not a rule. The *rule* — that a run cannot start while volumes are
-            // mounted — is the helper's to state, and it does so in `readinessBanner` just
-            // below. This line used to say both, which meant the same refusal was written in
-            // two places from two sources: one computed here from IOKit's volume list, one
-            // answered by the process that actually enforces it (NFR-REL-7). Two statements of
-            // one fact are two things that can drift.
+            // **There is no standing backup advice here, and there was for thirteen days.**
+            // Deleted 2026-08-23 (user decision): it restated what the pre-run confirmation
+            // already says, and it cost vertical pixels in the one pane that absorbs every
+            // squeeze. FR-WARN-1 is unaffected — it reads *"Before a run"*, and the dialog is
+            // what discharges it. This line was only ever the product's second copy.
             //
-            // **Unconditional since 2026-08-10** (user decision). It used to be drawn only when
-            // the drive had mounted volumes, which fitted the old wording — "testing a drive
-            // you are using is not advisable". That sentence was withdrawn as not necessarily
-            // true, and its replacement is about data loss, which a drive with nothing mounted
-            // has exactly as much of. Leaving the condition would have meant the one sentence
-            // that tells a user to back up appearing only on the drives already in use.
+            // The old text and the argument for its wording are gone with it, including from
+            // `HonestFraming`; the surviving statement is `PreRunWarningText.backUpFirst`.
             //
-            // The text is `PreRunWarningText.standingBackupAdvice`, not a literal here: it is
-            // the product's second place for "back up first" beside FR-WARN-1's full statement,
-            // and increment 2 exists because two copies of one message had already drifted.
-            Label(PreRunWarningText.standingBackupAdvice,
-                  systemImage: "exclamationmark.triangle.fill")
-                .font(.callout)
-                .fixedSize(horizontal: false, vertical: true)
-
+            // What it said, for anyone reading a render from before that date: "Testing can
+            // cause data loss. Please make sure any important files on the test drive are backed
+            // up before starting a test."
+            //
             // Moved here from the "Mounting & exclusive access" section (2026-08-05, user
             // decision): whether this drive is ready **is** part of the drive's state, and
             // having it in a second pane split one question across two headings while

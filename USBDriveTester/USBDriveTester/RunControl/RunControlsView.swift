@@ -36,20 +36,47 @@
 //  region" holds by construction rather than by a measured number that expires silently when the
 //  content above it changes.
 //
-//  ## Every control's state comes from the policy, and so does every reason
+//  ## Every control's state comes from the policy
 //
 //  Nothing here decides whether a command is legal. `RunControlPolicy.controls` derives the buttons
 //  from the same table that answers the commands, so a control can never be offered for something
-//  the table would refuse — and a refusal's wording is the same whether the user reads it beside a
-//  dimmed button or sees it after pressing one. **Dimming is not a message** (NFR-USE-8): every
-//  disabled control's reason is rendered, without exception.
+//  the table would refuse — and a refusal's wording is the same whether it is logged or shown after
+//  a command is issued anyway.
 //
-//  ## Restart is deliberately absent until increment 7
+//  ## The refusal sentences under the buttons are gone (user decision, 2026-08-22)
 //
-//  `RunControlPolicy` offers it from `running` and `paused`, and the machine is ready for it — but
-//  FR-CTRL-5 owes two things this increment does not build: a confirmation before discarding hours
-//  of work irrecoverably (an interrupted run cannot be resumed, FR-FAIL-7), and raising the pre-run
-//  gate again. Shipping the button without them would be worse than not shipping it.
+//  This view printed every disabled control's reason, under the rule *"dimming is not a message"*.
+//  That rule came from a **Step 4 defect**: two dimmed buttons were reported as *missing entirely*.
+//  It was right when nothing else on screen said anything.
+//
+//  **By increment 8 everything those sentences said was said elsewhere**, and the sentences were
+//  checked one by one against the screen before they were deleted rather than judged as a group:
+//
+//    * the four transient states — starting, pausing, stopping, finishing — refuse for
+//      reasons that *are* the state, and `statusDescription` is a sentence naming it directly above;
+//    * *"Select a drive to test. A drive whose geometry this tool cannot read cannot be tested"* is
+//      the empty list, or the drive list's **Unusable** badge;
+//    * *"The app has been asked to quit"* is the confirmation alert, or the winding-down banner.
+//
+//  **No mandatory requirement asked for them.** FR-SAFE-4 is about a run that cannot *start* —
+//  mounted volumes, a claimed device node — and that is served by the failure alert. NFR-USE-5 is
+//  about error messages. NFR-USE-8's absolute is about pass/fail by colour, which the report obeys.
+//
+//  What this costs, stated rather than discovered later: **the Unusable badge is now the only thing
+//  explaining a dim Start for a drive that cannot be read.** It was belt-and-braces; it is not now.
+//
+//  It also deletes the collapse machinery — the four-sentences-in-one-state defect, the 40 pt-per-
+//  sentence measurements, `statesTheStatusLineExplains`, and both human-checklist items that
+//  counted sentences (9.7 and 10.5). A block that does not exist cannot print one thing four ways.
+//
+//  ## There is no Restart button, and there was one for a day (user decision, 2026-08-22)
+//
+//  Increment 8 built it in full — a fourth button, a ninth state, a confirmation carrying the
+//  discard warning, and a release-and-re-acquire so the new run's accumulators were its own. It was
+//  walked at the keyboard, passed all seven of its checklist items, and was then removed, because
+//  **Stop then Start reaches the same end state** and a second route to one outcome is complexity
+//  without capability. FR-CTRL-5 is still met, by composition; the requirements document carries an
+//  amendment of the same date saying so.
 //
 
 import SwiftUI
@@ -57,9 +84,6 @@ import SwiftUI
 struct RunControlsView: View {
 
     @Environment(AppModel.self) private var model
-
-    /// The dialog Start raised, or `nil` when none is up (FR-WARN-1/2/3, NFR-USE-4).
-    @State private var pendingPrompt: PreRunPrompt?
 
     /// The suppression checkbox's state **while the dialog is open**.
     ///
@@ -75,6 +99,8 @@ struct RunControlsView: View {
     private var state: RunControlState { model.runControl?.state ?? .idle }
 
     var body: some View {
+        @Bindable var model = model
+
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 // Decorative section marker, not a status — hidden so it is not read as one.
@@ -101,23 +127,7 @@ struct RunControlsView: View {
                 Button("Stop") { model.runControl?.stop() }
                     .disabled(!(controls?.stop.isEnabled ?? false))
 
-                // **FR-CTRL-5, built in increment 8.** Last in the row on purpose: it is the only
-                // control here that destroys work, and the reading order puts it after the three
-                // that do not. It costs no height — the row is one `HStack` — and its refusal is
-                // suppressed at rest along with Pause's and Stop's, below.
-                Button("Restart") { restartPressed() }
-                    .disabled(!(controls?.restart.isEnabled ?? false))
-
                 Spacer()
-            }
-
-            // **Dimming is not a message.** Every disabled control says why, in the same words the
-            // table would give if the command were issued anyway.
-            ForEach(disabledReasons, id: \.self) { reason in
-                Label(reason, systemImage: "info.circle")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         // FR-WARN-1/2/3 and NFR-USE-4. A sheet rather than an `alert` because decision 5 puts a
@@ -140,7 +150,21 @@ struct RunControlsView: View {
         // the policy is not the thing deciding. It is the same blind spot that hid the paused
         // panel — presentation-layer behaviour that the model tests cannot reach — and it is why
         // the human checklist covers it.
-        .sheet(item: $pendingPrompt) { prompt in
+        //
+        // ## WHAT THIS DOES **NOT** MEAN, measured 2026-08-21
+        //
+        // The paragraph above is about ⌘Q, and the inference drawn from it — that this sheet makes
+        // the menu bar inert — is **wrong**. Chunk 11.11 pressed ⇧⌘R with this dialog open: the
+        // app's own menu command **ran**, and because SwiftUI cannot present a second sheet on one
+        // window it queued the report and presented it the instant this dialog was cancelled. ⌘Q is
+        // AppKit's terminate and takes a different path from an app-declared command; only that
+        // path is intercepted. `AppModel.reportMayBeRaisedFromMenu` is where the consequence lives.
+        // **The dialog's state is `AppModel.pendingPrompt`, not this view's** (2026-08-21). It was
+        // `@State` here until chunk 11.11 pressed ⇧⌘R with this sheet open: the menu item lives in
+        // the scene's `commands` builder, which has no environment and could not see a view's
+        // state, so it raised a second sheet that SwiftUI queued and then presented the moment this
+        // one was cancelled. Whether a modal is up is a fact about the window.
+        .sheet(item: $model.pendingPrompt) { prompt in
             PreRunPromptSheet(prompt: prompt,
                               suppressFutureWarnings: $suppressionRequested,
                               onProceed: { promptDismissed(.proceed) },
@@ -248,9 +272,14 @@ struct RunControlsView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
-        // **Dimming is not a message** (NFR-USE-8). One sentence for both controls, because there
-        // is one rule — printing it twice would be the "saying the same thing four times" defect
-        // `disabledReasons` below already exists to avoid.
+        // One sentence for both controls, because there is one rule — printing it twice would be
+        // the "saying the same thing several times" shape that cost the run controls 120 pt of
+        // height before their equivalent block was deleted outright (user decision, 2026-08-22).
+        //
+        // **This line stays, and the distinction is the reason.** Why a *setting* is frozen is not
+        // the same fact as what the run is doing, and nothing else on screen carries it — where
+        // every sentence the run controls used to print was a restatement of the status line
+        // above them, the drive list's Unusable badge, or the quit banner.
         if let reason = availability.disabledReason {
             Label(reason, systemImage: "info.circle")
                 .font(.callout)
@@ -285,10 +314,6 @@ struct RunControlsView: View {
         case .pausing:   return "pause.circle"
         case .paused:    return "pause.circle.fill"
         case .stopping:  return "stop.circle"
-        // Distinct from `stopping`'s, which is the one it sits closest to in meaning. A shared
-        // glyph would leave the status text as the only thing separating "the drive is going
-        // back" from "a new run is coming".
-        case .restarting: return "arrow.clockwise.circle"
         case .finishing: return "externaldrive.badge.checkmark"
         case .finished:  return "checkmark.circle.fill"
         }
@@ -320,77 +345,6 @@ struct RunControlsView: View {
     /// The lesson is the project's own: a plausible rule about what is self-evident is not evidence
     /// of what a screen actually says. Start is the actionable control and its refusal is never
     /// self-evident; Pause's and Stop's, at rest, always are.
-    private var disabledReasons: [String] {
-        guard let controls, let state = model.runControl?.state else { return [] }
-
-        var candidates = [controls.start.disabledReason]
-        if state.isRunActive {
-            // Restart joins Pause and Stop here rather than beside Start, and for the same reason
-            // they are here: at rest its refusal is *"There is no run to restart. Use Start."*,
-            // which a live Start button and a status line reading "Idle" already say between them.
-            // While a run IS active it can refuse for reasons nothing else on screen explains —
-            // "Still pausing", "The run is stopping" — and those are worth printing.
-            candidates += [controls.pause.disabledReason,
-                           controls.stop.disabledReason,
-                           controls.restart.disabledReason]
-        }
-
-        // Deduplicated: Start and Stop refuse for the same reason in several states, and printing
-        // one sentence twice reads as two different problems.
-        var seen: [String] = []
-        for reason in candidates.compactMap({ $0 }) where !seen.contains(reason) {
-            seen.append(reason)
-        }
-
-        // ## One sentence while the run state is itself the reason (2026-08-20)
-        //
-        // Exact-string deduplication only catches sentences that are *identical*, and in the
-        // transient states the three are merely **the same fact in three phrasings**. In
-        // `starting`: "The drive is already being prepared", then "The drive is still being
-        // prepared, and nothing has been written yet. Pause becomes available once the run
-        // starts", then the same again with "Stop". Three sentences under a status line that
-        // already reads "Preparing the drive — unmounting its volumes and taking exclusive
-        // access. Nothing has been written yet."
-        //
-        // **Each one costs 40 pt of window height**, measured with `ui-probe --limits` on
-        // 2026-08-20: `content-starting` needs 686 pt of content with three, 646 with two, 606
-        // with one. That is what made this worth doing now rather than later — `starting` was the
-        // state pushing the window past what a 13.3-inch Mac can show.
-        //
-        // Restricted to the four states where the cause **is** the state, and where
-        // `statusDescription` is a sentence explaining a transition rather than a bare label. In
-        // `idle`, `running`, `paused` and `finished` the status line reads "Idle", "Running",
-        // "Paused…" or "Finished" and explains nothing about why a control refuses, so every
-        // distinct sentence is still printed there.
-        //
-        // **The surviving sentence is Start's, and that is the invariant rather than a
-        // coincidence.** The wider rule tried in increment 5 — suppress when no control is enabled
-        // — put `content-quit-pending` on screen with Start disabled and nothing saying why, which
-        // is the Step 4 defect this whole block exists to prevent. Keeping "Start's refusal is
-        // always shown" true by construction means this narrowing cannot reach that state: it
-        // drops only sentences that follow Start's, and only where the status line above has
-        // already given the cause.
-        return Self.statesTheStatusLineExplains.contains(state) ? Array(seen.prefix(1)) : seen
-    }
-
-    /// The states in which every control refuses for one reason — the state itself — and the
-    /// status line has already named it.
-    ///
-    /// An array rather than a `Set` because `RunControlState` is `Equatable` and not `Hashable`,
-    /// and four elements is not a lookup worth a conformance.
-    ///
-    /// **`restarting` was missing from this list when it was added, and the render caught it in one
-    /// look** (increment 8). `content-restarting` printed *four* sentences — Start's, Pause's,
-    /// Stop's and Restart's — each a rephrasing of a status line already reading "Restarting —
-    /// finishing the current chunk, then starting again from the beginning." At the 40 pt a
-    /// sentence measured on 2026-08-20 that is 160 pt of window height to say one thing four
-    /// times, which is precisely what `faf9a93` was written to end.
-    ///
-    /// A new transient state belongs here. Nothing enforces that — the list is a list — so the
-    /// render for the new state is the check, and it is why one is added with the state.
-    private static let statesTheStatusLineExplains: [RunControlState] =
-        [.starting, .pausing, .stopping, .restarting, .finishing]
-
     // MARK: - Actions
 
     /// **This is the only thing pressing Start does**: it raises the dialog. Nothing is unmounted
@@ -404,7 +358,7 @@ struct RunControlsView: View {
 
         switch runControl.startRequested(warningsSuppressed: model.warningsSuppressed) {
         case .prompt(let prompt):
-            pendingPrompt = prompt
+            model.pendingPrompt = prompt
         case .refused(let reason):
             // Reached only by a caller that issued the command without consulting the control that
             // would have offered it. Shown rather than swallowed: a button that does nothing is the
@@ -413,33 +367,8 @@ struct RunControlsView: View {
         }
     }
 
-    /// **FR-CTRL-5.** Like Start, this only raises the dialog — the run carries on underneath it.
-    ///
-    /// One sheet, not two. The discard warning rides on the pre-run prompt rather than preceding
-    /// it with a confirmation of its own: that prompt already names the drive by model and serial
-    /// and already *is* the deliberate act NFR-USE-4 requires, so putting the consequence on it
-    /// keeps one surface answerable for the whole acknowledgement (user decision 2026-08-21).
-    private func restartPressed() {
-        guard let runControl = model.runControl else { return }
-
-        suppressionRequested = false
-
-        switch runControl.restartRequested(warningsSuppressed: model.warningsSuppressed) {
-        case .prompt(let prompt):
-            pendingPrompt = prompt
-        case .refused(let reason):
-            model.runFailure = RunFailureMessage(title: "The run could not be restarted",
-                                                 text: reason)
-        }
-    }
-
     /// The dialog was dismissed. Everything that follows is decided by `PreRunWarningPolicy`, not
     /// here — this applies the decision and records it.
-    ///
-    /// **Which controller call it makes is decided by the prompt's own purpose**, not by a second
-    /// flag this view would have to keep in step with the prompt it raised. `PreRunPrompt` carries
-    /// what the acknowledgement was *for*; asking it is what stops a Restart being applied as a
-    /// Start, which would release the drive and start over on whatever is selected.
     private func promptDismissed(_ button: PreRunButton) {
         let outcome = PreRunWarningPolicy.outcome(button: button,
                                                   suppressionRequested: suppressionRequested,
@@ -449,18 +378,13 @@ struct RunControlsView: View {
         if outcome.persistsSuppression { model.warningsSuppressed = true }
 
         // Read before the sheet is dismissed — `pendingPrompt` is what carries the purpose, and
-        // clearing it first would leave nothing to ask.
-        let purpose = pendingPrompt?.purpose ?? .newRun
-        pendingPrompt = nil
+        model.pendingPrompt = nil
 
-        // The gate, relocated rather than re-implemented. `startAuthorised(by:)` and
-        // `restartAuthorised(by:)` both take the outcome as proof the gate ran and re-check it — so
-        // wiring either straight to a run means fabricating an acknowledgement that never happened,
-        // which is a deliberate act visible in a diff rather than a one-word edit.
-        switch purpose {
-        case .newRun:  model.runControl?.startAuthorised(by: outcome)
-        case .restart: model.runControl?.restartAuthorised(by: outcome)
-        }
+        // The gate, relocated rather than re-implemented. `startAuthorised(by:)` takes the outcome
+        // as proof the gate ran and re-checks it, so wiring a run straight to a press would mean
+        // fabricating an acknowledgement that never happened — a deliberate act visible in a diff
+        // rather than a one-word edit.
+        model.runControl?.startAuthorised(by: outcome)
     }
 
     /// The dropdown was changed. Whether that is allowed is ``PreRunControls``' decision, not this
@@ -486,7 +410,7 @@ struct RunControlsView: View {
         switch command {
         case .pause:  model.runControl?.pause()
         case .resume: model.runControl?.resume()
-        case .start, .stop, .restart:
+        case .start, .stop:
             // `RunControlPolicy.controls` only ever puts `.pause` or `.resume` on this control, and
             // deriving both label and action from one value is what keeps them in step. Logged
             // rather than silently ignored: reaching here is a wiring defect announcing itself.

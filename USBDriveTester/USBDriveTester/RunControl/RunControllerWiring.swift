@@ -39,10 +39,13 @@ extension RunController {
     /// - Parameters:
     ///   - model: the app's shared state. Captured by every closure below, and the **only** thing
     ///     they capture.
-    ///   - openReport: brings the report window forward when a run produces one. A closure because
-    ///     `openWindow` is a SwiftUI environment value and this is not a view.
+    ///
+    /// There was an `openReport` parameter here until increment 8, because the report was a window
+    /// of its own and `openWindow` is a SwiftUI environment value this file cannot read. The report
+    /// is now a sheet on the main window, so presenting it is a flag on the model like everything
+    /// else, and the closure that had to be threaded in from a view is gone.
     @MainActor
-    static func live(model: AppModel, openReport: @escaping () -> Void) -> RunController {
+    static func live(model: AppModel) -> RunController {
         RunController(
             preconditions: {
                 RunPreconditions(
@@ -83,24 +86,12 @@ extension RunController {
             // names and the size the run uses are one value read at one instant.
             ioSizeBytes: { model.ioSizeBytes },
             failureMode: { model.failureMode },
-            onReport: { report in
-                model.lastRunReport = report
-                // A refused call is not a run: no report, and the log says why so that its absence
-                // is explicable rather than looking like a lost one. Nothing is opened for it
-                // either — a window saying "no run has finished yet" immediately after a run would
-                // be worse than no window.
-                guard let report else {
-                    RunReportLog.noReportForRefusedCall("the request did not become a run")
-                    return
-                }
-                RunReportLog.reportProduced(report)
-                openReport()
-            },
-            onRunBegan: {
-                // The previous run's report is not this run's, and leaving it on screen while a new
-                // run is in flight is the stale-pane defect Step 9 was reported for.
-                model.lastRunReport = nil
-            },
+            // Both of these are one call each, and deliberately: what a finished run and a
+            // beginning run do to the report is decided in `AppModel`, where a test can reach it.
+            // This file needs a helper and a drive to construct, so anything decided *here* has no
+            // cover but a person at the keyboard.
+            onReport: { model.runProduced($0) },
+            onRunBegan: { model.runBegan() },
             onRunSettled: { model.runSettled() },
             onFailure: { model.runFailure = $0 })
     }

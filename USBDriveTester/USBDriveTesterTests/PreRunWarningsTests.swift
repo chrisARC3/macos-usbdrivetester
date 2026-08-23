@@ -58,7 +58,7 @@ struct PreRunWarningPolicyTests {
     /// The default state: the full text, every run.
     @Test func theWarningsAreShownInFullUntilTheUserSuppressesThem() {
         #expect(PreRunPrompt.forRun(warningsSuppressed: false, device: Fixture.seagate())
-                == .fullWarnings(Fixture.seagate(), purpose: .newRun))
+                == .fullWarnings(Fixture.seagate()))
     }
 
     /// Suppression downgrades the dialog; it does not remove it. A mutation returning
@@ -66,7 +66,7 @@ struct PreRunWarningPolicyTests {
     /// — and one returning nothing at all removes the guard.
     @Test func suppressionDowngradesTheDialogRatherThanRemovingIt() {
         #expect(PreRunPrompt.forRun(warningsSuppressed: true, device: Fixture.seagate())
-                == .briefConfirmation(Fixture.seagate(), purpose: .newRun))
+                == .briefConfirmation(Fixture.seagate()))
     }
 
     // MARK: - Both dialogs name the drive
@@ -75,8 +75,8 @@ struct PreRunWarningPolicyTests {
     /// nothing at all.
     @Test func everyPromptCarriesTheDriveItIsAbout() {
         let device = Fixture.seagate()
-        for prompt in [PreRunPrompt.fullWarnings(device, purpose: .newRun),
-                       .briefConfirmation(device, purpose: .newRun)] {
+        for prompt in [PreRunPrompt.fullWarnings(device),
+                       .briefConfirmation(device)] {
             #expect(prompt.device == device, "\(prompt.logName) must name its drive")
         }
     }
@@ -106,71 +106,8 @@ struct PreRunWarningPolicyTests {
     /// diagnosing "I was never warned" needs.
     @Test func theTwoPromptsAreDistinguishableInTheLog() {
         let device = Fixture.seagate()
-        #expect(PreRunPrompt.fullWarnings(device, purpose: .newRun).logName
-                != PreRunPrompt.briefConfirmation(device, purpose: .newRun).logName)
-    }
-
-    // MARK: - Restart's dialog (FR-CTRL-5, increment 8)
-
-    /// **Suppression chooses the form; it does not reach the discard warning.** What is
-    /// suppressible is the standing FR-WARN-1/2/3 text — advice about the tool, the same on every
-    /// run. This is a consequence of the press being made now, and a consequence the user has
-    /// never been shown cannot have been consented to in advance (NFR-USE-4 as qualified
-    /// 2026-08-09).
-    @Test func aRestartWarnsAboutDiscardingWhicheverFormTheDialogTakes() {
-        for suppressed in [false, true] {
-            let prompt = PreRunPrompt.forRestart(warningsSuppressed: suppressed,
-                                                 device: Fixture.seagate())
-            #expect(prompt.discardsRunInProgress,
-                    "suppression removed the discard warning (suppressed=\(suppressed))")
-            #expect(prompt.purpose == .restart)
-        }
-    }
-
-    /// And a Start never carries it — the other half, so the property above cannot be satisfied by
-    /// warning about discarding on every run.
-    @Test func aStartNeverWarnsAboutDiscardingARun() {
-        for suppressed in [false, true] {
-            let prompt = PreRunPrompt.forRun(warningsSuppressed: suppressed,
-                                             device: Fixture.seagate())
-            #expect(!prompt.discardsRunInProgress)
-            #expect(prompt.purpose == .newRun)
-        }
-    }
-
-    /// The suppression preference still chooses the form on the restart path, so a user who has
-    /// turned the text off does not get it back because they pressed a different button.
-    @Test func restartStillHonoursTheSuppressionPreferenceForTheFormOfTheDialog() {
-        #expect(PreRunPrompt.forRestart(warningsSuppressed: false, device: Fixture.seagate())
-                == .fullWarnings(Fixture.seagate(), purpose: .restart))
-        #expect(PreRunPrompt.forRestart(warningsSuppressed: true, device: Fixture.seagate())
-                == .briefConfirmation(Fixture.seagate(), purpose: .restart))
-    }
-
-    /// **A restart prompt is a different dialog from a start prompt for the same drive.**
-    ///
-    /// Both halves matter. The log must be able to say which of the two acts the user acknowledged
-    /// — Step 10's mutation S4 in the run controls — and `sheet(item:)` decides whether a *new*
-    /// dialog is being presented by comparing ids, so sharing one would let an acknowledgement of
-    /// a Start stand as the acknowledgement of a Restart.
-    @Test func aRestartPromptIsToldApartFromAStartPromptForTheSameDrive() {
-        let device = Fixture.seagate()
-        for suppressed in [false, true] {
-            let start = PreRunPrompt.forRun(warningsSuppressed: suppressed, device: device)
-            let restart = PreRunPrompt.forRestart(warningsSuppressed: suppressed, device: device)
-
-            #expect(start.id != restart.id, "sheet(item:) cannot tell the two dialogs apart")
-            #expect(start.logName != restart.logName, "the log cannot tell the two acts apart")
-        }
-    }
-
-    /// The sentence says the thing that cannot be recovered from, and names it as a consequence
-    /// rather than a caution. Asserted on the substance, not on the whole string.
-    @Test func theDiscardWarningSaysTheProgressIsGoneAndCannotBeContinued() {
-        let text = PreRunWarningText.restartDiscardsProgress.lowercased()
-        #expect(text.contains("discarded"))
-        #expect(text.contains("cannot be continued"))
-        #expect(text.contains("from the beginning"))
+        #expect(PreRunPrompt.fullWarnings(device).logName
+                != PreRunPrompt.briefConfirmation(device).logName)
     }
 
     // MARK: - The presentation identity (increment 5)
@@ -181,14 +118,13 @@ struct PreRunWarningPolicyTests {
     /// days. An id that ignored the device would let a dialog raised for the scratch drive stand as
     /// the acknowledgement for the 22 TB backup drive.
     @Test func promptsForDifferentDrivesHaveDifferentIdentities() {
-        let seagate = PreRunPrompt.fullWarnings(Fixture.seagate(), purpose: .newRun)
+        let seagate = PreRunPrompt.fullWarnings(Fixture.seagate())
         let other = PreRunPrompt.fullWarnings(
             ReportedDevice(modelDescription: "Samsung Portable SSD T5",
                            usbSerialNumber: "12345686DAA9",
                            bsdNameAtRunTime: "disk10",
                            capacityBytes: 1_000_204_886_016,
-                           logicalBlockSize: 512),
-            purpose: .newRun)
+                           logicalBlockSize: 512))
         #expect(seagate.id != other.id)
     }
 
@@ -196,29 +132,28 @@ struct PreRunWarningPolicyTests {
     /// so the two forms must not share an identity either.
     @Test func theTwoFormsHaveDifferentIdentitiesForTheSameDrive() {
         let device = Fixture.seagate()
-        #expect(PreRunPrompt.fullWarnings(device, purpose: .newRun).id
-                != PreRunPrompt.briefConfirmation(device, purpose: .newRun).id)
+        #expect(PreRunPrompt.fullWarnings(device).id
+                != PreRunPrompt.briefConfirmation(device).id)
     }
 
     /// And the same prompt is the same dialog — otherwise a redraw could re-present it, which for a
     /// dialog gating a write means asking twice for one decision.
     @Test func theSamePromptKeepsOneIdentity() {
-        #expect(PreRunPrompt.fullWarnings(Fixture.seagate(), purpose: .newRun).id
-                == PreRunPrompt.fullWarnings(Fixture.seagate(), purpose: .newRun).id)
+        #expect(PreRunPrompt.fullWarnings(Fixture.seagate()).id
+                == PreRunPrompt.fullWarnings(Fixture.seagate()).id)
     }
 
     /// A drive with no serial still needs to be told apart from a different drive with no serial.
     /// The model name is the only axis left, and using it is the honest best available — not an
     /// identification, which `identificationCaveat` says plainly on the dialog itself.
     @Test func drivesWithNoSerialAreStillDistinguishedAsFarAsPossible() {
-        let anonymous = PreRunPrompt.briefConfirmation(Fixture.seagate(serial: nil), purpose: .newRun)
+        let anonymous = PreRunPrompt.briefConfirmation(Fixture.seagate(serial: nil))
         let otherAnonymous = PreRunPrompt.briefConfirmation(
             ReportedDevice(modelDescription: "Generic USB 3.0 Enclosure",
                            usbSerialNumber: nil,
                            bsdNameAtRunTime: "disk4",
                            capacityBytes: 500_107_862_016,
-                           logicalBlockSize: 512),
-            purpose: .newRun)
+                           logicalBlockSize: 512))
         #expect(anonymous.id != otherAnonymous.id)
     }
 

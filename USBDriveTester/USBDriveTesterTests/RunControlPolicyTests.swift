@@ -68,57 +68,44 @@ struct RunControlPolicyTests {
             (.idle,      .pause,   nil),
             (.idle,      .resume,  nil),
             (.idle,      .stop,    nil),
-            (.idle,      .restart, nil),
 
             (.starting,  .start,   nil),
             (.starting,  .pause,   nil),
             (.starting,  .resume,  nil),
             (.starting,  .stop,    nil),
-            (.starting,  .restart, nil),
 
             (.running,   .start,   nil),
             (.running,   .pause,   .pausing),
             (.running,   .resume,  nil),
             (.running,   .stop,    .stopping),
-            (.running,   .restart, .restarting),
 
             (.pausing,   .start,   nil),
             (.pausing,   .pause,   nil),
             (.pausing,   .resume,  nil),
             (.pausing,   .stop,    .stopping),
-            (.pausing,   .restart, nil),
 
             (.paused,    .start,   nil),
             (.paused,    .pause,   nil),
             (.paused,    .resume,  .running),
             (.paused,    .stop,    .stopping),
-            (.paused,    .restart, .restarting),
 
             (.stopping,  .start,   nil),
             (.stopping,  .pause,   nil),
             (.stopping,  .resume,  nil),
             (.stopping,  .stop,    nil),
-            (.stopping,  .restart, nil),
 
             // FR-CTRL-5, increment 8. Every command refuses here, Stop included — see
             // `RunControlPolicy.stop`'s note for why that is deliberate rather than an omission.
-            (.restarting, .start,   nil),
-            (.restarting, .pause,   nil),
-            (.restarting, .resume,  nil),
-            (.restarting, .stop,    nil),
-            (.restarting, .restart, nil),
 
             (.finishing, .start,   nil),
             (.finishing, .pause,   nil),
             (.finishing, .resume,  nil),
             (.finishing, .stop,    nil),
-            (.finishing, .restart, nil),
 
             (.finished,  .start,   .starting),
             (.finished,  .pause,   nil),
             (.finished,  .resume,  nil),
             (.finished,  .stop,    nil),
-            (.finished,  .restart, nil),
         ]
 
         // The count is asserted so that deleting a row is a failure rather than a smaller pass —
@@ -202,12 +189,7 @@ struct RunControlPolicyTests {
             #expect(reason != nil, "state=\(state) must refuse")
             guard let reason else { continue }
             #expect(reason.contains("one drive is tested at a time")
-                    || reason.contains("already being prepared")
-                    // `restarting` gets its own sentence, and that is the point of the state
-                    // existing: the general FR-CTRL-9 wording ends "Stop it before starting
-                    // another", which here is both wrong and impossible — a new run is already
-                    // coming and Stop is refused too.
-                    || reason.contains("run is restarting"),
+                    || reason.contains("already being prepared"),
                     "state=\(state) reason=\(reason)")
         }
     }
@@ -304,17 +286,6 @@ struct RunControlPolicyTests {
             (.stopping,  .runEnded,         .finishing),
             (.stopping,  .deviceReleased,   nil),
 
-            // **The two rows that carry the whole of Restart.** `runEnded` is a SELF-transition —
-            // the old sequence settled and the restart is not over — and `deviceReleased` is what
-            // begins the new run's preparation rather than ending anything. Routing either the
-            // ordinary way (to `finishing`, to `finished`) would unfreeze the device list and fire
-            // a pending quit's wind-down in the middle of a restart.
-            (.restarting, .claimEstablished, nil),
-            (.restarting, .startAborted,     nil),
-            (.restarting, .pauseSettled,     nil),
-            (.restarting, .runEnded,         .restarting),
-            (.restarting, .deviceReleased,   .starting),
-
             (.finishing, .claimEstablished, nil),
             (.finishing, .startAborted,     nil),
             (.finishing, .pauseSettled,     nil),
@@ -372,14 +343,11 @@ struct RunControlPolicyTests {
         #expect(refusal(command(.start, in: .idle, noDrive))?.contains("Select a drive") == true)
     }
 
-    /// `mayIssueNewWork` is a precondition, not a hint — and it gates **Restart** as well as Start,
-    /// which is the row an edit is most likely to miss, since Restart is reached from a state where
-    /// a run is already under way.
-    @Test func neitherStartNorRestartIssuesWorkWhileAQuitIsPending() {
+    /// `mayIssueNewWork` is a precondition, not a hint.
+    @Test func startIssuesNoWorkWhileAQuitIsPending() {
         let quitting = RunPreconditions(hasUsableSelection: true, mayIssueNewWork: false)
         #expect(!command(.start, in: .idle, quitting).isAccepted)
-        #expect(!command(.restart, in: .running, quitting).isAccepted)
-        #expect(!command(.restart, in: .paused, quitting).isAccepted)
+        #expect(!command(.start, in: .finished, quitting).isAccepted)
     }
 
     /// The preconditions may only ever make the machine do **less**. A state that refuses a command
@@ -405,11 +373,7 @@ struct RunControlPolicyTests {
     /// or a ⌘Q that took it without asking, would each cost the whole run.
     @Test func everyStateBetweenStartAndFinishCountsAsActive() {
         let active = Set(RunControlState.allCases.filter(\.isRunActive))
-        // `restarting` counts: the claim is held, the volumes are down, and a device list that
-        // rebuilt or a ⌘Q that took the app without asking would each cost the run — which is the
-        // whole of what this flag is for.
-        #expect(active == Set([.starting, .running, .pausing, .paused, .stopping, .restarting,
-                               .finishing]))
+        #expect(active == Set([.starting, .running, .pausing, .paused, .stopping, .finishing]))
         #expect(!RunControlState.idle.isRunActive)
         #expect(!RunControlState.finished.isRunActive)
     }
@@ -438,7 +402,6 @@ struct RunControlPolicyTests {
 
                 check(controls.start, .start)
                 check(controls.stop, .stop)
-                check(controls.restart, .restart)
                 check(controls.pause.availability, controls.pause.command)
             }
         }
@@ -474,7 +437,7 @@ struct RunControlPolicyTests {
                                                    mayIssueNewWork: false)] {
                 let controls = RunControlPolicy.controls(in: state, preconditions: preconditions)
                 for availability in [controls.start, controls.stop,
-                                     controls.restart, controls.pause.availability]
+                                     controls.pause.availability]
                 where !availability.isEnabled {
                     let reason = availability.disabledReason ?? ""
                     #expect(reason.count >= 20, "state=\(state) reason=\(reason)")
@@ -490,7 +453,7 @@ struct RunControlPolicyTests {
         for state in RunControlState.allCases {
             let controls = RunControlPolicy.controls(in: state, preconditions: .ready)
             for availability in [controls.start, controls.stop,
-                                 controls.restart, controls.pause.availability]
+                                 controls.pause.availability]
             where availability.isEnabled {
                 #expect(availability.disabledReason == nil, "state=\(state)")
             }

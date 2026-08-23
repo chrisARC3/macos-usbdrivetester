@@ -129,8 +129,7 @@ nonisolated struct DevicePreparationFailure: Equatable {
     /// Composed by ``VolumeMountOutcome/unmountRolledBack(failure:restore:)`` rather than restated
     /// here: that function already owns the wording for both outcomes, including the one that
     /// matters most — *the drive has been left partly unmounted and this app could not change it
-    /// back* — and two copies of one message is the drift `PreRunWarningText.standingBackupAdvice`
-    /// exists to prevent.
+    /// back* — and two copies of one message is the drift `HonestFraming` exists to prevent.
     var message: String {
         guard let restore else { return reason }
         return VolumeMountOutcome.unmountRolledBack(failure: reason, restore: restore)

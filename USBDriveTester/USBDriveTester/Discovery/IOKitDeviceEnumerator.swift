@@ -85,6 +85,18 @@ private nonisolated enum RegistryKey {
     /// `Physical Interconnect` — so it is read with the same upward search, not a direct
     /// property read on the media. Verified on `disk4`, `disk6` and `disk8`, 2026-08-05.
     static let usbSerialNumber           = "USB Serial Number"
+
+    /// The **negotiated** USB link speed as a raw code — same node, same upward search.
+    ///
+    /// Read here, unprivileged, rather than asked of the helper. The helper reads this exact key
+    /// the same way (`DeviceClaim.ancestorNumber`), but only for a device it *holds*:
+    /// `deviceProfile` refuses when nothing is claimed, and a claim happens at run start. The
+    /// user's reason for wanting the number is to decide **whether to start at all**
+    /// (2026-08-23), which has to be answerable before there is anything to claim.
+    ///
+    /// The code's meaning comes from evidence, not from an SDK header — see `Core/USBLinkSpeed`,
+    /// and `scripts/usb-speed-check.sh` for what detects the mapping shifting.
+    static let deviceSpeed               = "Device Speed"
 }
 
 /// Where the device list comes from.
@@ -238,7 +250,10 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
             // Sanitised rather than taken as read: a bridge reporting sixteen zeros would
             // otherwise become an identifier that every drive behind that bridge shares.
             usbSerialNumber: USBSerialNumber.sanitised(
-                Self.ancestorString(media, RegistryKey.usbSerialNumber)))
+                Self.ancestorString(media, RegistryKey.usbSerialNumber)),
+            // `-1` is the same "not reported" sentinel the helper's profile puts on the wire, so
+            // one formatter renders both and neither end has a second spelling for unknown.
+            usbLinkSpeedCode: Self.ancestorNumber(media, RegistryKey.deviceSpeed) ?? -1)
     }
 
     // MARK: - Registry helpers
@@ -274,6 +289,20 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
                                                key as CFString,
                                                kCFAllocatorDefault,
                                                options) as? String
+    }
+
+    /// Find a number-valued property on this object or any of its ancestors.
+    ///
+    /// The same upward search again, for `Device Speed`. `nil` when the key is absent anywhere
+    /// above the media, which the caller turns into the unknown sentinel rather than a guess: a
+    /// drive whose link speed cannot be read must not be shown a plausible one.
+    private static func ancestorNumber(_ entry: io_object_t, _ key: String) -> Int? {
+        let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
+        return (IORegistryEntrySearchCFProperty(entry,
+                                                kIOServicePlane,
+                                                key as CFString,
+                                                kCFAllocatorDefault,
+                                                options) as? NSNumber)?.intValue
     }
 
     private static func ancestorDictionary(_ entry: io_object_t, _ key: String) -> [String: Any]? {

@@ -148,12 +148,17 @@ nonisolated enum MetricsFormatting {
 
     // MARK: - The link speed, beside the measured rate (user decision 2026-08-04)
 
-    /// The negotiated USB link speed, from `deviceProfile`'s raw registry code.
+    /// The negotiated USB link speed, from a raw IORegistry `Device Speed` code.
     ///
-    /// Presented **next to** measured throughput because the user's stated method for judging a
-    /// drive is to compare the measured rate against the manufacturer's advertised sustained
-    /// figure *after accounting for negotiated speed limits* — and they cannot do that with only
-    /// one of the two numbers.
+    /// **Two callers, two sources, one spelling.** The Selected device pane passes the code the
+    /// app read at enumeration, so the link can be judged before deciding to run at all
+    /// (2026-08-23); the finished report passes the code the helper read from the device it held.
+    /// Both must render identically, which is why neither formats its own.
+    ///
+    /// The report keeps it beside measured throughput, which is what the 2026-08-04 decision
+    /// asked for: judging a drive means comparing the measured rate against the manufacturer's
+    /// advertised sustained figure *after accounting for negotiated speed limits*, and that needs
+    /// both numbers in front of the reader at once.
     ///
     /// - Important: the code is the raw IORegistry `Device Speed` value, which is **not** the
     ///   enumeration any SDK header declares (see `Core/USBLinkSpeed`). An unrecognised code is

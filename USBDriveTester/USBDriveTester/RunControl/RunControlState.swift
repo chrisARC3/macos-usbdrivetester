@@ -54,11 +54,13 @@
 //     member to that vocabulary ("stopped by user"). Two places holding one fact is the
 //     `helperHoldsDevice` defect by another door, so ``RunControlState/finished`` is plain and the
 //     outcome stays in the report.
-//  3. **Restart is offered from `running` and `paused`, never from `finished`.** FR-CTRL-5 is
-//     "restart a test from the beginning", which presupposes a test in progress; from a terminal
-//     state "restart" and "start" are the same act, and shipping two controls that do one thing is
-//     how a user learns to distrust both. See ``RunCommand/restart`` for the two obligations it
-//     carries into increments 5 and 6.
+//  3. **There is no Restart command, and FR-CTRL-5 is still met** (user decision, 2026-08-22).
+//     One was built in increment 8 — a ninth state, a confirmation carrying a discard warning, a
+//     release-and-re-acquire — and removed the same week, because **Stop then Start reaches the
+//     identical end state** and the requirement asks for a capability, not a control. What the
+//     dedicated control added was a second route to one outcome and a state that existed only to
+//     carry an intent across a release. The requirements document carries an amendment of
+//     2026-08-22 recording that reading.
 //
 //  `nonisolated` throughout: the app target compiles with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor,
 //  which would otherwise make even these value types main-actor-isolated and their `Equatable`
@@ -106,21 +108,6 @@ nonisolated enum RunControlState: Equatable, CaseIterable {
     /// A stop has been requested and the helper has not settled yet (FR-CTRL-4).
     case stopping
 
-    /// **FR-CTRL-5.** The current run is being wound down *in order to begin another from block 0*.
-    ///
-    /// Its own state rather than a reuse of ``stopping`` plus a flag, for the reason ``pausing`` and
-    /// ``stopping`` are their own states: the interval is real, and it is **observably different
-    /// from every neighbour**. In `stopping` the drive is about to go back and the controls refuse
-    /// with *"Start a new run once it has"*; here a new run is already coming, so that sentence
-    /// would be wrong and the status line would read "Stopping" while the opposite was true. A
-    /// state nobody can distinguish is a state nobody has checked — and this one is distinguished
-    /// by what it is about to do.
-    ///
-    /// **The state IS the intent**, which is the whole reason it is a state. A flag beside
-    /// `stopping` saying "and then start again" would be a second thing to keep in step with the
-    /// first: `AppModel.helperHoldsDevice` by another door.
-    case restarting
-
     /// The run is over, however it ended, and the drive is being released (NFR-REL-5). macOS
     /// remounts the volumes by itself afterwards.
     case finishing
@@ -143,7 +130,7 @@ nonisolated enum RunControlState: Equatable, CaseIterable {
         switch self {
         case .idle, .finished:
             return false
-        case .starting, .running, .pausing, .paused, .stopping, .restarting, .finishing:
+        case .starting, .running, .pausing, .paused, .stopping, .finishing:
             return true
         }
     }
@@ -172,12 +159,6 @@ nonisolated enum RunControlState: Equatable, CaseIterable {
         case .stopping:
             return "Stopping — waiting for the current chunk to finish, so nothing is left "
                  + "half-written."
-        case .restarting:
-            // Says what is being discarded as well as what is coming. "Restarting…" alone would
-            // leave the user to guess whether the work so far is kept — and it is not (FR-FAIL-7),
-            // which is the single most consequential thing about this control.
-            return "Restarting — finishing the current chunk, then starting again from the "
-                 + "beginning. The progress so far is discarded."
         case .finishing:
             return "Finishing — releasing the drive. macOS will remount its volumes shortly."
         case .finished:
@@ -206,18 +187,6 @@ nonisolated enum RunCommand: Equatable, CaseIterable {
     /// by user" in increment 7, when this finally gives it a trigger.
     case stop
 
-    /// **FR-CTRL-5.** Discard progress and begin again from block 0, re-using the held claim
-    /// (recorded default, 2026-08-12) — so ``RunControlState/starting`` must be idempotent about a
-    /// device it already holds.
-    ///
-    /// - Important: two obligations this command carries out of this file, neither of which the
-    ///   state machine can enforce:
-    ///     * **It must raise the pre-run gate again.** NFR-USE-4 requires a deliberate act before
-    ///       *any* run begins, and a restart begins one. Increment 5.
-    ///     * **From `running` it must confirm first.** An interrupted run cannot be resumed
-    ///       (FR-FAIL-7), so one click would discard hours of work irrecoverably. Increment 6.
-    case restart
-
     /// The control's title, so the label shown and the command issued are one decision — the same
     /// property FR-SAFE-5 asked of the mount control, arrived at the same way.
     var label: String {
@@ -226,7 +195,6 @@ nonisolated enum RunCommand: Equatable, CaseIterable {
         case .pause:   return "Pause"
         case .resume:  return "Resume"
         case .stop:    return "Stop"
-        case .restart: return "Restart"
         }
     }
 }
@@ -344,7 +312,6 @@ nonisolated struct RunControls: Equatable {
     let start: RunControlAvailability
     let pause: RunPauseControl
     let stop: RunControlAvailability
-    let restart: RunControlAvailability
 }
 
 /// The inputs to the controls that are **not** the run's own state.
@@ -391,7 +358,6 @@ nonisolated enum RunControlPolicy {
         case .pause:   return pause(in: state)
         case .resume:  return resume(in: state)
         case .stop:    return stop(in: state)
-        case .restart: return restart(in: state, preconditions: preconditions)
         }
     }
 
@@ -401,18 +367,10 @@ nonisolated enum RunControlPolicy {
                               preconditions: RunPreconditions) -> RunCommandOutcome {
         switch state {
         case .idle, .finished:
-            return begin(preconditions: preconditions, into: .starting)
+            return begin(preconditions: preconditions)
 
         case .starting:
             return .refused(reason: "The drive is already being prepared.")
-
-        case .restarting:
-            // Its own sentence, and that is the point of the state existing. Under the general
-            // FR-CTRL-9 wording below this would read "Stop it before starting another" — advice
-            // that is both wrong and impossible here, since a new run is already on its way and
-            // Stop is refused too.
-            return .refused(reason: "The run is restarting, and a new one is about to begin from "
-                                  + "the beginning.")
 
         case .running, .pausing, .paused, .stopping, .finishing:
             // FR-CTRL-9. Named rather than dimmed: "why can I not start?" has one answer here and
@@ -422,17 +380,15 @@ nonisolated enum RunControlPolicy {
         }
     }
 
-    /// The preconditions Start shares with Restart, checked in one place so the two cannot drift.
+    /// Start's preconditions, in one place.
     ///
     /// Ordered most-specific-first: with a quit pending, selecting a usable drive would not make
     /// Start pressable, so saying so is the more useful answer.
     ///
-    /// - Parameter destination: where the accepted command lands. Start enters
-    ///   ``RunControlState/starting`` and Restart enters ``RunControlState/restarting``, because
-    ///   Restart has a run to wind down first — but *whether either may proceed at all* is one
-    ///   question with one answer, which is what this function is.
-    private static func begin(preconditions: RunPreconditions,
-                              into destination: RunControlState) -> RunCommandOutcome {
+    /// It carried a `destination` parameter while Restart existed, because the two shared this one
+    /// question and landed in different states. Restart is gone (decision 3) and so is the
+    /// parameter: a function with one caller and one answer should say so.
+    private static func begin(preconditions: RunPreconditions) -> RunCommandOutcome {
         guard preconditions.mayIssueNewWork else {
             return .refused(reason: "The app has been asked to quit, so no new work can be "
                                   + "started. Choose “Continue Testing” to carry on.")
@@ -441,7 +397,7 @@ nonisolated enum RunControlPolicy {
             return .refused(reason: "Select a drive to test. A drive whose geometry this tool "
                                   + "cannot read cannot be tested.")
         }
-        return .to(destination)
+        return .to(.starting)
     }
 
     /// **FR-CTRL-2** — pause only while running.
@@ -465,10 +421,6 @@ nonisolated enum RunControlPolicy {
 
         case .stopping:
             return .refused(reason: "The run is stopping.")
-
-        case .restarting:
-            return .refused(reason: "The run is restarting. Pause becomes available once the new "
-                                  + "run has begun.")
 
         case .finishing:
             return .refused(reason: "The run has ended and the drive is being released.")
@@ -503,10 +455,6 @@ nonisolated enum RunControlPolicy {
                                   + "cannot be continued — testing this drive would have to start "
                                   + "again from the beginning.")
 
-        case .restarting:
-            return .refused(reason: "The run is restarting, so there is nothing to resume — the "
-                                  + "new run begins from the beginning.")
-
         case .finishing:
             return .refused(reason: "The run has ended and the drive is being released.")
         }
@@ -527,21 +475,6 @@ nonisolated enum RunControlPolicy {
         case .stopping:
             return .refused(reason: "Already stopping — waiting for the current chunk to finish.")
 
-        case .restarting:
-            // **Refused on purpose, and this is the one row here worth arguing about.** Stop
-            // supersedes an unsettled *pause* two rows above, so "Stop supersedes an unsettled
-            // restart" looks like the consistent answer — and it is a mechanism behind a trigger
-            // nobody can pull. `restarting` lasts one chunk when it is entered from `running`
-            // (6–53 ms across the measured I/O sizes, `run-control-check.sh` 2026-08-12) and
-            // **zero time** when entered from `paused`, where the sequencer finishes synchronously
-            // and `runEnded` arrives in the same turn. There is no window for a human to press
-            // anything in.
-            //
-            // *Nothing untriggerable is built in advance* — a sound mechanism behind a trigger
-            // that never fires looks exactly like a broken one. If a restart ever gains a
-            // multi-second wind-down, this row is where that changes.
-            return .refused(reason: "The run is restarting. Stop the new run once it has begun.")
-
         case .idle, .finished:
             return .refused(reason: "There is no run to stop.")
 
@@ -551,36 +484,6 @@ nonisolated enum RunControlPolicy {
 
         case .finishing:
             return .refused(reason: "The run has already ended and the drive is being released.")
-        }
-    }
-
-    /// **FR-CTRL-5** — discard progress and begin again from block 0.
-    ///
-    /// Offered from `running` and `paused` only; see this file's decision 3 for why not from
-    /// `finished`, and ``RunCommand/restart`` for the confirmation and pre-run gate it owes.
-    private static func restart(in state: RunControlState,
-                                preconditions: RunPreconditions) -> RunCommandOutcome {
-        switch state {
-        case .running, .paused:
-            return begin(preconditions: preconditions, into: .restarting)
-
-        case .idle, .finished:
-            return .refused(reason: "There is no run to restart. Use Start.")
-
-        case .starting:
-            return .refused(reason: "The drive is still being prepared.")
-
-        case .pausing:
-            return .refused(reason: "Still pausing — the drive has not reached a safe point yet.")
-
-        case .restarting:
-            return .refused(reason: "Already restarting — waiting for the current chunk to finish.")
-
-        case .stopping:
-            return .refused(reason: "The run is stopping. Start a new run once it has.")
-
-        case .finishing:
-            return .refused(reason: "The drive is being released. Start a new run once it has.")
         }
     }
 
@@ -610,19 +513,6 @@ nonisolated enum RunControlPolicy {
             case .running, .pausing, .stopping:
                 return .to(.finishing)
 
-            case .restarting:
-                // **A self-transition, and it is deliberate rather than an oversight.** The old
-                // sequence has settled, which is a real fact worth reporting and logging — but the
-                // restart is not over, so the state has not moved. Routing it to `finishing` would
-                // be the ordinary "the run is over, release the drive" path, and it is exactly
-                // wrong here: `finishing` and `finished` report `isRunActive` differently, so the
-                // device list would unfreeze and a pending quit's wind-down would fire in the
-                // middle of a restart.
-                //
-                // Staying here is what keeps the restart's intent in the state rather than in a
-                // flag beside it, all the way to `deviceReleased` below.
-                return .to(.restarting)
-
             case .idle, .starting, .paused, .finishing, .finished:
                 return notWhileIn(state, event)
             }
@@ -632,22 +522,6 @@ nonisolated enum RunControlPolicy {
             case .finishing:
                 return .to(.finished)
 
-            case .restarting:
-                // **The old claim has gone back, and the new run's preparation begins.**
-                //
-                // Restart does NOT re-use the held claim (user decision 2026-08-21, reversing the
-                // default recorded 2026-08-12). `RunSession` is created in `AcquiredDevice`'s
-                // initialiser and never reset, so a run continuing on the same claim would inherit
-                // the discarded run's chunk count, failure log and read-latency distribution — and
-                // no app-side correction is possible, because percentiles do not compose and a
-                // minimum cannot be un-seen. Releasing is what makes the new run's figures clean
-                // **by construction**, which is the property Shape A was chosen for.
-                //
-                // So the path is `restarting` → release → `starting` → the ordinary unmount →
-                // acquire sequence. macOS remounts the volumes within ~4 ms of the release and
-                // `DevicePreparation` takes them down again; that flicker is the price, and it was
-                // costed before this was chosen.
-                return .to(.starting)
 
             case .idle, .starting, .running, .pausing, .paused, .stopping, .finished:
                 return notWhileIn(state, event)
@@ -698,7 +572,6 @@ nonisolated enum RunControlPolicy {
         return RunControls(start: availability(.start),
                            pause: RunPauseControl(command: pauseCommand,
                                                   availability: availability(pauseCommand)),
-                           stop: availability(.stop),
-                           restart: availability(.restart))
+                           stop: availability(.stop))
     }
 }

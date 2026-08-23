@@ -224,45 +224,6 @@ struct HonestFramingTests {
         #expect(consequence.contains("verify"))
     }
 
-    // MARK: - The standing advice on the device pane (2026-08-10)
-
-    /// It replaced *"Testing a drive you are using is not advisable"*, withdrawn by the user as
-    /// **not necessarily true**. The risk is not conditional on the drive being in use, so the
-    /// replacement must not reintroduce that framing — a warning that ties danger to "using" the
-    /// drive teaches the wrong thing about when to be careful.
-    @Test func theStandingAdviceDoesNotTieTheRiskToUsingTheDrive() {
-        let advice = PreRunWarningText.standingBackupAdvice.lowercased()
-        #expect(!advice.contains("advisable"))
-        #expect(!advice.contains("you are using"))
-    }
-
-    /// What it must actually say: that testing can lose data, and to back up first.
-    @Test func theStandingAdviceNamesTheRiskAndTheCorrectiveStep() {
-        let advice = PreRunWarningText.standingBackupAdvice
-        #expect(advice.contains("data loss"))
-        #expect(advice.lowercased().contains("backed up"))
-        #expect(advice.contains("test drive"))
-    }
-
-    /// It says the files **on the test drive** need backing up — not that they need backing up
-    /// *onto* it, which is the opposite instruction and the reading the first draft allowed.
-    /// Caught by the user before it shipped; pinned so a later edit cannot reintroduce it.
-    @Test func theStandingAdviceSaysWhichFilesRatherThanWhereToPutThem() {
-        #expect(PreRunWarningText.standingBackupAdvice
-                    .contains("files on the test drive are backed up"))
-        #expect(!PreRunWarningText.standingBackupAdvice.contains("backed up on the test drive"))
-    }
-
-    /// It is the product's **second** place for "back up first", beside FR-WARN-1. They may be
-    /// worded differently — one is a standing one-liner, the other a pre-run dialog — but they must
-    /// not disagree about what the risk is, which is why they live in one file.
-    @Test func theStandingAdviceAndTheMandatoryWarningAgreeAboutTheRisk() {
-        let mandatory = PreRunWarningText.backUpFirst.points.map(\.plain)
-            .joined(separator: " ").lowercased()
-        #expect(mandatory.contains("back up"))
-        #expect(PreRunWarningText.standingBackupAdvice.lowercased().contains("backed up"))
-    }
-
     // MARK: - Helpers
 
     /// Every claim in the file, with **the outcome-conditional ones derived rather than listed**.

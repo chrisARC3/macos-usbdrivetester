@@ -4,7 +4,12 @@
 //
 //  Created by Christopher Karr on 6/26/26.
 //
-//  Two scenes as of Step 9. The diagnostics panel moved out of the main window because the
+//  **Two scenes.** Step 10 briefly made it three — the run report had a window of its own — and
+//  increment 8 made it a **sheet on the main window** instead (user decision 2026-08-19), because a
+//  run started underneath an open report emptied it. `RunReportView`'s header carries that account,
+//  including why the 2026-08-06 reason for preferring a window was measurably wrong.
+//
+//  The diagnostics panel moved out of the main window because the
 //  window's vertical space requirements had become excessive (user decision 2026-08-04) — the
 //  device list, the selected-device detail, the mount controls, the metrics panel and a
 //  four-section diagnostics form do not belong in one column.
@@ -54,9 +59,8 @@
 //  invisibly with somebody's drive unmounted and no UI to release it.
 //
 //  The rule is **the main window's close is a quit request**, and it lives in
-//  `QuitPolicy.closeDisposition` where the truth table is tested. The diagnostics and report
-//  windows are panels belonging to the app; they go when it goes, and closing one of *them* does
-//  nothing to the app.
+//  `QuitPolicy.closeDisposition` where the truth table is tested. The diagnostics window is a panel
+//  belonging to the app; it goes when the app goes, and closing *it* does nothing to the app.
 //
 //  An interim version used `applicationShouldTerminateAfterLastWindowClosed` alone, and observing
 //  that is what produced the rule above: it fires only when no window is left, so closing the main
@@ -110,7 +114,10 @@ struct USBDriveTesterApp: App {
                      height: WindowMetrics.defaultContentHeight)
         .commands {
             CommandGroup(after: .windowList) {
-                RunReportWindowCommand()
+                // Handed the model rather than reading it from the environment: a `Scene`'s
+                // `commands` builder has no environment, which is also why each of these is a
+                // `View` rather than a `Button` written inline.
+                RunReportCommand(model: model)
                 DiagnosticsWindowCommand()
             }
         }
@@ -124,40 +131,32 @@ struct USBDriveTesterApp: App {
                 .environment(model)
         }
         .defaultSize(width: 660, height: 720)
-
-        // Step 10. A `Window` for the same reason the diagnostics panel is one — there is
-        // exactly one most-recent run, so a second copy of this would be two views of one truth
-        // — and for one more that decided it against a sheet: a `Window` is renderable by
-        // `tools/ui-probe`, and a sheet is not. This project has found three defects by
-        // rendering that no assertion caught.
-        //
-        // It opens itself when a run ends and stays reachable from the Window menu afterwards.
-        Window("Run Report", id: WindowID.report) {
-            RunReportWindow()
-                .environment(model)
-        }
-        .defaultSize(width: 720, height: 760)
     }
 }
 
-/// The menu item that opens the run report.
-private struct RunReportWindowCommand: View {
+/// The menu item that raises the run report (⇧⌘R).
+///
+/// **Disabled while a run is active** (user decision, 2026-08-21). A run clears the report as it
+/// begins, so during one there is nothing to raise but the empty state — and the report is a
+/// window-modal sheet, so raising it would put Pause and Stop out of reach until it was dismissed.
+///
+/// **And while a pre-run dialog is up**, which is not the same condition and was found at the
+/// keyboard rather than reasoned: a menu command is *not* swallowed by a window-modal sheet, so
+/// this button ran, SwiftUI queued a second sheet, and the report appeared by itself when the
+/// dialog was cancelled. The action calls a model method that re-checks the rule, because a rule
+/// living only in a view modifier is one nothing automated can see.
+///
+/// It asks `AppModel.reportMayBeRaisedFromMenu`, which is deliberately **not** the question of
+/// whether the report may be shown: the report a finished run produces is raised from `finishing`,
+/// which is run-active. See that property.
+private struct RunReportCommand: View {
 
-    @Environment(\.openWindow) private var openWindow
+    let model: AppModel
 
     var body: some View {
-        Button("Run Report") { openWindow(id: WindowID.report) }
+        Button("Run Report") { model.reportRequestedFromMenu() }
             .keyboardShortcut("r", modifiers: [.command, .shift])
-    }
-}
-
-/// The report window's content.
-private struct RunReportWindow: View {
-
-    @Environment(AppModel.self) private var model
-
-    var body: some View {
-        RunReportView(report: model.lastRunReport)
+            .disabled(!model.reportMayBeRaisedFromMenu)
     }
 }
 

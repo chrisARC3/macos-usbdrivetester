@@ -122,7 +122,7 @@ extension RunSequencer: RunSequencing {}
 
 // MARK: - What a Start press produced
 
-/// The answer to pressing Start (or, from increment 7, Restart).
+/// The answer to pressing Start.
 ///
 /// Two cases and no third: a press either raises a dialog or is refused with a reason. **There is
 /// deliberately no "run started" case** — a run cannot begin from a press, only from an
@@ -185,11 +185,7 @@ final class RunController {
     /// under the old name would have made the name a lie instead.
     var hasLiveSession: Bool {
         switch state {
-        // `restarting` belongs with these: the claim is still held and the figures on screen are
-        // the run's own, right up to the moment the drive goes back. They then vanish with it,
-        // which is honest — the new run's session is a new session, and this one's numbers are
-        // not carried into it.
-        case .running, .pausing, .paused, .stopping, .restarting: return true
+        case .running, .pausing, .paused, .stopping: return true
         case .idle, .starting, .finishing, .finished: return false
         }
     }
@@ -374,10 +370,9 @@ final class RunController {
 
     /// Unmount → acquire → geometry, for a start whose gate has already been answered.
     ///
-    /// Shared with Restart, which reaches it by a different road: a restart's second half **is** a
-    /// start, authorised by the restart's own dialog, and arrives here once the old claim has gone
-    /// back. Factored out rather than duplicated so the log line and the prepare call cannot drift
-    /// between the two paths.
+    /// A separate function because it was shared with Restart until 2026-08-22. It has one caller
+    /// again and is kept as one: logging the intent and then preparing is a step worth a name, and
+    /// inlining it would put the log line back inside a branch.
     private func beginPreparation(_ pending: PendingStart) {
         RunControlLog.runStarting(device: pending.identity,
                                   ioSizeBytes: pending.ioSizeBytes,
@@ -388,98 +383,11 @@ final class RunController {
         }
     }
 
-    // MARK: - Restart (FR-CTRL-5)
-
-    /// Restart was pressed. **This raises the dialog and does nothing else** — the run carries on
-    /// underneath it, exactly as it does under the quit confirmation.
-    ///
-    /// The drive named is the one the **run holds**, taken from the pending record captured at the
-    /// original press rather than from `selectedDevice()`. The selection is frozen during a run
-    /// (FR-DEV-7) so the two agree today — and reading the second would be two properties naming
-    /// one fact at two instants, which is the shape of the defect that headed every first-run
-    /// report *"Unidentified drive"*.
-    func restartRequested(warningsSuppressed: Bool) -> RunStartRequest {
-        switch RunControlPolicy.outcome(of: .restart, in: state, preconditions: preconditions()) {
-        case .refused(let reason):
-            log.notice("restart refused: \(reason, privacy: .public)")
-            return .refused(reason: reason)
-        case .to:
-            break
-        }
-
-        guard let pending else {
-            // The machine allowed a restart with no run on record, which is a wiring defect rather
-            // than a state — logged where it would announce itself, as `startRequested` does.
-            log.error("restart refused: the machine allowed it with no run in progress")
-            return .refused(reason: "There is no run to restart.")
-        }
-
-        let prompt = PreRunPrompt.forRestart(warningsSuppressed: warningsSuppressed,
-                                             device: pending.identity)
-        PreRunWarningLog.promptRaised(prompt)
-        return .prompt(prompt)
-    }
-
-    /// The restart dialog was answered. The gate, taking its proof exactly as ``startAuthorised(by:)``
-    /// does and for the same reason.
-    ///
-    /// - Parameter outcome: proof that the pre-run gate ran and the user proceeded.
-    func restartAuthorised(by outcome: PreRunOutcome) {
-        // **Cancelling must NOT clear `pending`**, which is where Start and Restart differ. For a
-        // Start the pending record describes a run that never began; for a Restart it describes the
-        // run still going underneath the dialog, and throwing it away would leave the app running a
-        // run it had no record of.
-        guard outcome.issuesRun else { return }
-
-        // **Re-evaluated FIRST, before the pending record is looked for, and the order is the
-        // point.** The case this exists for — a run finishing underneath the open dialog — is
-        // exactly the case in which `pending` has already been cleared by the release. Checking
-        // the record first meant returning on a bare log line, with the user's answered dialog
-        // producing nothing at all: a button that does nothing, which is the defect this app has
-        // been reported for twice. Found by the test written for the requirement, not by reading.
-        //
-        // Re-evaluated at all for the reason `startAuthorised` does it: the dialog can sit
-        // unanswered for minutes, and a run at 99.9% finishes underneath it.
-        guard case .to(let next) = RunControlPolicy.outcome(of: .restart,
-                                                            in: state,
-                                                            preconditions: preconditions()) else {
-            // **Surfaced, not dropped** (user decision 2026-08-21). The user pressed a button and
-            // answered a dialog; a silent no-op is the defect this app has been reported for twice.
-            // The machine's own words are used, so the sentence beside a dimmed Restart and the
-            // one shown here are the same sentence.
-            let reason = Self.refusalReason(of: .restart, in: state, preconditions: preconditions())
-            log.notice("restart abandoned: \(reason, privacy: .public)")
-            onFailure(RunFailureMessage(title: "The run could not be restarted", text: reason))
-            return
-        }
-
-        guard var pending else {
-            // The machine allowed a restart with no run on record. Unlike the branch above this is
-            // a wiring defect rather than a state, so it is logged where it would announce itself.
-            log.error("restart authorised with no run on record — nothing to restart")
-            return
-        }
-
-        // Fresh instants for the NEW run: its elapsed time covers the wind-down and the unmount the
-        // user waits through, the same span a Start's does.
-        pending.authorisedAt = Date()
-        pending.ioSizeBytes = ioSizeBytes()
-        self.pending = pending
-
-        // **Before the sequencer is told**, the same ordering `stop()` documents: from `paused` the
-        // sequencer finishes synchronously and emits `runEnded` in this very turn, and `runEnded`
-        // is not legal from `paused`. Told in the other order a restart from a pause is silently
-        // dropped and nothing ever happens.
-        state = next
-
-        RunControlLog.restartAuthorised(device: pending.identity)
-        windDownTheRun()
-    }
-
     /// Stop issuing work and ask the helper to settle at its next chunk boundary.
     ///
-    /// Shared by Stop and Restart because it is the same act — what differs is the state it is
-    /// performed in, and therefore what happens when the run ends.
+    /// Factored out when Stop and Restart shared it. Restart is gone (2026-08-22) and this has
+    /// one caller, kept because the ordering it documents — the sequencer first, then the control
+    /// code — is the part worth having a name for.
     private func windDownTheRun() {
         sequencer?.stop()
         setRunControl(.stop) { result in
@@ -508,7 +416,7 @@ final class RunController {
                                                                 preconditions: preconditions) {
             return reason
         }
-        return "The run is no longer in a state that can be restarted."
+        return "The run is no longer in a state that can be stopped."
     }
 
     private func preparationFinished(_ outcome: DevicePreparationOutcome) {
@@ -643,37 +551,13 @@ final class RunController {
         case .runEnded(let result):
             RunControlLog.runEnded(result.outcome)
 
-            // **Read before the event is reported**, because reporting it is what moves the state.
-            // From `restarting` the transition is a self-transition, so this would still be true
-            // afterwards — reading it first means that stays a fact about this code rather than a
-            // fact about the transition table, which is free to change.
-            let discardedByRestart = state == .restarting
-
             report(.runEnded)
-
-            if discardedByRestart {
-                // **No report for a run Restart discarded** (user decision 2026-08-20). The same
-                // shape as "a refused call is not a run": nothing is produced, and the log says so,
-                // so its absence is explicable rather than looking like a lost one. `onRunBegan`
-                // would clear it within a second or two anyway, and a report that flashes up and
-                // vanishes as the next run starts is the stale-pane defect Step 9 was reported for.
-                RunControlLog.runDiscardedForRestart(result.outcome)
-            } else {
-                onReport(makeReport(result))
-            }
-
+            onReport(makeReport(result))
             releaseTheDrive()
         }
     }
 
-    /// Give the drive back, and — after a restart — take it again.
-    ///
-    /// **Restart does not re-use the claim** (user decision 2026-08-21, reversing the default
-    /// recorded 2026-08-12). `RunSession` is created in `AcquiredDevice`'s initialiser and never
-    /// reset, so a run continuing on the held claim would inherit the discarded run's chunk count,
-    /// failure log and read-latency distribution — and nothing app-side can undo that, because
-    /// percentiles do not compose and a minimum cannot be un-seen. Releasing is what makes the new
-    /// run's figures clean *by construction*, which is the property Shape A was chosen for.
+    /// Give the drive back.
     private func releaseTheDrive() {
         release { [weak self] in
             guard let self else { return }
@@ -683,23 +567,8 @@ final class RunController {
             // so and moving on.
             self.sequencer = nil
 
-            // **`pending` survives a restart, and only a restart.** It is the record of what was
-            // authorised — the drive, the instant, the I/O size — and a restart's second half is a
-            // start whose gate has already been answered. Clearing it here would discard the
-            // authorisation and leave nothing to prepare, which is a hang rather than a message.
-            let restarting = self.state == .restarting
-            if !restarting { self.pending = nil }
-
-            // `restarting` → `starting`; anything else → `finished`.
+            self.pending = nil
             self.report(.deviceReleased)
-
-            if restarting, let pending = self.pending {
-                // macOS remounts the volumes within ~4 ms of the release (measured Step 6), so
-                // `DevicePreparation` takes them down again from here. That flicker is the price of
-                // clean accumulators and it was costed before this was chosen.
-                self.beginPreparation(pending)
-            }
-
             self.settledIfAtRest()
         }
     }
@@ -806,29 +675,6 @@ nonisolated enum RunControlLog {
 
     static func runEnded(_ outcome: RunSequenceOutcome) {
         runLog.notice("run ended: \(String(describing: outcome), privacy: .public)")
-    }
-
-    /// **FR-CTRL-5.** The user authorised a restart; the run in progress is being wound down.
-    ///
-    /// Its own line rather than a Stop's, because after the fact these are two different acts with
-    /// two different consequences and a log that cannot tell them apart cannot answer the question
-    /// it exists for — Step 10's mutation S4, in the run controls.
-    static func restartAuthorised(device: ReportedDevice) {
-        runLog.notice("""
-                      restart authorised: drive serial \
-                      \(device.usbSerialNumber ?? "none", privacy: .public); the run in progress \
-                      is discarded and the drive will be released and re-acquired
-                      """)
-    }
-
-    /// **A run ended and produced no report, on purpose.** Written so its absence is explicable
-    /// rather than looking like a report that went missing — the same obligation
-    /// `RunReportLog.noReportForRefusedCall` discharges for a refused call.
-    static func runDiscardedForRestart(_ outcome: RunSequenceOutcome) {
-        runLog.notice("""
-                      run discarded by restart: \(String(describing: outcome), privacy: .public); \
-                      no report is produced for a run the user replaced
-                      """)
     }
 
     /// The single Pause/Resume control issued something that is neither.

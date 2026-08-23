@@ -58,52 +58,30 @@
 import Foundation
 import os
 
-/// **What a run is being started IN PLACE OF** (FR-CTRL-5, Step 11 increment 8).
-///
-/// Orthogonal to which *form* the dialog takes, which is why it is a second dimension rather than a
-/// third case. The form answers "has this user suppressed the standing warnings"; this answers "is
-/// there a run that this press destroys" — and the two vary independently, so a user who has
-/// suppressed the warnings still has to be told that Restart discards hours of work.
-///
-/// **Suppression does not reach it, and that is NFR-USE-4's rule rather than a choice made here.**
-/// What is suppressible is the standing FR-WARN-1/2/3 text — advice about the tool, the same on
-/// every run. The discard warning is about *this press*: it is a consequence, not a caution, and a
-/// consequence the user has never been shown cannot have been consented to in advance.
-nonisolated enum PreRunPurpose: Equatable, CaseIterable {
-
-    /// Nothing is running. The ordinary Start (FR-CTRL-1).
-    case newRun
-
-    /// **A run is under way and this press ends it** (FR-CTRL-5). Its progress is discarded and
-    /// cannot be resumed (FR-FAIL-7), so the new run begins from block 0.
-    case restart
-}
-
-/// Which dialog a Start or Restart press must put in front of the user.
+/// Which dialog a Start press must put in front of the user.
 ///
 /// Both cases carry the drive, because both must name it. The suppressed case has nothing else to
 /// say, so if it did not name the drive it would say nothing at all.
 ///
-/// **Both also carry a ``PreRunPurpose``, with no default**, which cost every construction site an
-/// edit — the same judgement increment 2 made about the engine's `control:` closure. A default of
-/// `.newRun` would mean a future path that raises this dialog *during a run* silently omits the
-/// one sentence that says the run is about to be destroyed, and nothing would fail. There is no
-/// value it can safely default to, because the safe answer depends on the caller.
+/// Both carried a `PreRunPurpose` — Start or Restart — from increment 8 until 2026-08-22, when the
+/// Restart control was removed. **If a dialog is ever raised during a run again, that dimension
+/// comes back with it**, and with it the rule it existed for: a consequence the user has never been
+/// shown cannot have been consented to in advance, so suppression must not reach it.
 nonisolated enum PreRunPrompt: Equatable, Identifiable {
 
     /// FR-WARN-1/2/3 in full, plus FR-WARN-4's framing, plus the "Don't show this warning again"
     /// checkbox. Proceed / Cancel.
-    case fullWarnings(ReportedDevice, purpose: PreRunPurpose)
+    case fullWarnings(ReportedDevice)
 
     /// The user has suppressed the text. One line naming the drive by model and USB serial, and the
     /// same two buttons. **No checkbox** — there is nothing left to suppress, and the way back is
     /// the diagnostics window's "Show pre-run warnings again" (decision 7).
-    case briefConfirmation(ReportedDevice, purpose: PreRunPurpose)
+    case briefConfirmation(ReportedDevice)
 
     /// The drive this prompt is about.
     var device: ReportedDevice {
         switch self {
-        case .fullWarnings(let device, _), .briefConfirmation(let device, _): return device
+        case .fullWarnings(let device), .briefConfirmation(let device): return device
         }
     }
 
@@ -126,44 +104,12 @@ nonisolated enum PreRunPrompt: Equatable, Identifiable {
         case .fullWarnings:      form = "full warnings"
         case .briefConfirmation: form = "brief confirmation (warnings suppressed)"
         }
-        // **The purpose is part of the name, and it has two jobs.** After the fact it says which
-        // of the two acts the user acknowledged — a log that cannot tell a Start from a Restart
-        // cannot answer the question it exists for, which is Step 10's mutation S4 exactly. And
-        // because ``id`` is built from this, it is also what makes `sheet(item:)` treat a restart
-        // prompt as a *different* prompt from a start prompt for the same drive.
-        switch purpose {
-        case .newRun:  return form
-        case .restart: return form + ", restart"
-        }
+        return form
     }
-
-    /// What this press is being made in place of.
-    var purpose: PreRunPurpose {
-        switch self {
-        case .fullWarnings(_, let purpose), .briefConfirmation(_, let purpose): return purpose
-        }
-    }
-
-    /// Whether this press ends a run that is already under way (FR-CTRL-5).
-    var discardsRunInProgress: Bool { purpose == .restart }
 
     /// **The rule.** Suppressed or not, a dialog is raised; only its content changes.
     static func forRun(warningsSuppressed: Bool, device: ReportedDevice) -> PreRunPrompt {
-        forPress(warningsSuppressed: warningsSuppressed, device: device, purpose: .newRun)
-    }
-
-    /// **FR-CTRL-5.** The same rule for a Restart: a dialog is always raised, the suppression
-    /// preference still chooses its form, and the discard warning rides on both forms.
-    static func forRestart(warningsSuppressed: Bool, device: ReportedDevice) -> PreRunPrompt {
-        forPress(warningsSuppressed: warningsSuppressed, device: device, purpose: .restart)
-    }
-
-    /// One place deciding the form, so Start and Restart cannot drift about what suppression means.
-    private static func forPress(warningsSuppressed: Bool,
-                                 device: ReportedDevice,
-                                 purpose: PreRunPurpose) -> PreRunPrompt {
-        warningsSuppressed ? .briefConfirmation(device, purpose: purpose)
-                           : .fullWarnings(device, purpose: purpose)
+        warningsSuppressed ? .briefConfirmation(device) : .fullWarnings(device)
     }
 }
 

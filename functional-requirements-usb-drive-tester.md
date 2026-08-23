@@ -106,7 +106,7 @@ This document specifies the **functional requirements** — the observable behav
 | FR-CTRL-2 | The user shall be able to pause a running test. | M | PB Features |
 | FR-CTRL-3 | The user shall be able to resume a paused test from the point of pause. | M | PB Features |
 | FR-CTRL-4 | The user shall be able to stop a running or paused test. | M | PB Features |
-| FR-CTRL-5 | The user shall be able to restart a test from the beginning. | M | PB Features |
+| FR-CTRL-5 | The user shall be able to restart a test from the beginning. **Met by composition — Stop (FR-CTRL-4) then Start (FR-CTRL-1); there is no dedicated Restart control.** | M | PB Features; **clarified 2026-08-22** |
 | FR-CTRL-6 | The system shall enforce valid control transitions via a defined run-control state machine (e.g., resume only from paused, pause only while running). | M | ADR Action Item 10 |
 | FR-CTRL-7 | The system shall require the user to select the failure-handling mode (FR-FAIL-1) before a run can be started, and shall keep it **fixed for the whole of the run, including while it is paused** — the same rule as FR-CTRL-8's I/O size. | M | PB Handling I/O Failures; **amended 2026-08-19** |
 | FR-CTRL-8 | The system shall provide an **"I/O size"** dropdown control offering the values 1 MiB, 2 MiB, 4 MiB, and 8 MiB, defaulting to 4 MiB, configurable **before a run starts and once one has finished**, and **fixed for the whole of a run, including while it is paused**. A run uses exactly one I/O size for its whole life; testing at a different size is a new run from block 0. | M | user decision 2026-06-25; revised 2026-08-04, 2026-08-14; **revised again 2026-08-19** |
@@ -740,3 +740,119 @@ Byte-denominated progress is untouched.
 None outstanding — all questions from iterations 1–2 have been resolved (see *user
 decision 2026-06-25* annotations throughout), and the 2026-07-30, 2026-08-02, 2026-08-04,
 2026-08-05, 2026-08-06, 2026-08-09 and 2026-08-14 amendments above are recorded rather than open.
+
+### 2026-08-22 — FR-CTRL-5 clarified: met by composition, and the dedicated control removed
+
+**What changed.** Nothing about the requirement's substance. FR-CTRL-5 asks that *the user shall be
+able to restart a test from the beginning*, and they can: **Stop, then Start.** The row now says so,
+because a reader who went looking for a Restart button and did not find one would otherwise conclude
+the requirement was unmet.
+
+**What was removed.** Step 11 increment 8 built a dedicated Restart control in full — a fourth
+button, a ninth run-control state (`restarting`), a confirmation carrying a discard warning that
+suppression could not reach, and a release-and-re-acquire so the new run's accumulators were its own
+rather than the discarded run's. It was walked at the keyboard on 2026-08-22 and **passed all seven
+of its human-checklist items.** It was then removed, the same day, at the user's decision.
+
+**The reasoning, which is worth keeping because it applies to more than this control.** Stop then
+Start reaches the *identical* end state: the claim goes back, the drive is re-acquired, the pre-run
+gate is answered, and the run begins at block 0. The only behavioural difference is that Stop
+produces a report for the abandoned run, which must be dismissed before Start — and since the report
+became a window-modal sheet earlier in the same increment, that dismissal is forced anyway. So the
+dedicated control offered **a second route to one outcome**, at the cost of a command, a state, a
+purpose dimension on the pre-run dialog, and 222 references across sixteen files.
+
+> A requirement is a capability, not a control. Building a control per requirement is how a state
+> machine acquires states that exist only to carry an intent from one half of an operation to the
+> other — which is exactly what `restarting` was.
+
+**What it bought, measured rather than claimed.** The worst-case window minimum is unchanged at
+613 pt (the deletion earlier the same day did that work). The suite lost 16 tests and one suite, and
+`scripts/.test-floor` was reset deliberately rather than allowed to fail silently: 1045 → 1029 is
+exactly the 5 pre-run-dialog tests and the 11-test Restart suite, and 132 → 131 is exactly that
+suite. The probe went from 34 render cases to 31.
+
+**Not affected.** The helper was never involved — its three mentions of "restart" are about launchd
+and about FR-FAIL-7 — so the recorded helper source hash is unchanged and Step 10's three hardware
+gates stand.
+
+
+### 2026-08-23 — the negotiated link speed moves before the run; the standing backup advice is deleted
+
+Two user decisions, taken together because one displaces the other. **No requirement changes**; one
+prior *design decision* is partly overturned and one is discharged elsewhere, and both are recorded
+here so a reader does not have to reconstruct them from source comments.
+
+**1. The negotiated USB link speed is shown in the Selected device pane, before a run.**
+
+The stated reason: *"if I did not get the expected link speed, then there is no point in starting
+the test."* That is a decision about **whether to run at all**, and the tool had no way to inform it
+— the number appeared only once a run was under way.
+
+This was not a matter of moving a label. The link speed came from the helper's `deviceProfile`,
+which **requires a device to be held**, and a device is claimed at run start. The app therefore
+reads the IORegistry `Device Speed` key itself, at enumeration, through the same upward search it
+already uses for `USB Serial Number` — unprivileged, no claim, no XPC. `TesterProtocol.version`
+stays at **12** and the recorded helper source hash is unchanged, so Step 10's hardware gates stand.
+
+> The consequence, stated plainly: **one fact now has two sources.** The pane shows what the app
+> read at enumeration; the report shows what the helper read at claim time. They read the same key
+> the same way, so they agree unless the link renegotiated in between — and a replug, the ordinary
+> cause, produces a new registry object and a fresh enumeration anyway. **The report remains the
+> authority for the persisted record.** A log line comparing the two was considered and rejected as
+> noise (user decision, same date).
+
+**2. The link speed is no longer in the live metrics panel — partly overturning 2026-08-04.**
+
+The 2026-08-04 decision put the link speed *beside* measured throughput, because judging a drive
+means comparing the measured rate against the advertised sustained figure **after accounting for
+the negotiated link**, and that needs both numbers at once. That reasoning is intact and is still
+honoured where it matters most: `RunReportView.measurementRows` prints both in one block, and the
+report is the copy that gets exported, kept and re-read.
+
+What is overturned is the **live** side-by-side, on the grounds that it was redundant once the same
+number appears before the run, and that the metrics panel is not free — it competes for vertical
+space in a window with a 700 pt budget. FR-METR-1/2/4/5/6 are unaffected: they require throughput,
+latency, progress, ETA and position to be displayed, and all five still are.
+
+**3. The standing backup advice is deleted from the Selected device pane.**
+
+It read *"Testing can cause data loss. Please make sure any important files on the test drive are
+backed up before starting a test."* It was the product's **second** copy of FR-WARN-1, added
+2026-08-10; the first is the pre-run dialog.
+
+**FR-WARN-1 is still met.** Its text reads *"Before a run"*, and the pre-run dialog is what
+discharges it — the pane line never did. The 2026-08-09 qualification is also unaffected: a user who
+has suppressed the full warning still gets a confirmation identifying the device, and the full text
+remains available on demand. What changes is that a suppressed user no longer meets a standing
+backup sentence anywhere in the main window, which is precisely what suppression was asked for.
+
+`PreRunWarningText.standingBackupAdvice` was deleted with it, along with the four tests that pinned
+its wording. Leaving a tested string that nothing renders is the failure mode this project has
+already paid for twice: **a test that cannot fail is not a check**, and a constant no view reads is
+not a message.
+
+**What it was verified with, and where the cover actually is.**
+
+The suite went 1029 → 1025, exactly the four deleted wording tests; `scripts/.test-floor` refused
+the drop and was reset deliberately. 13/13 gate clients type-check. The worst-case window minimum is
+**unchanged at 613 pt** — `content-starting` renders neither changed row, and both panes are
+floor-bound, so neither the added row nor the two deletions move it.
+
+**No unit test covers the new read, and none can**: `IOKitDeviceEnumerator` needs hardware. The
+mutation round measured that rather than assuming it — a misspelled registry key and a pane wired to
+a constant both **survived the full 1025-test suite**. The detector is the live-hardware `devices`
+render, and it caught all three mutations that alter what is displayed.
+
+> **One declared not-caught.** Changing the `?? -1` fallback to `?? 4` — reporting an unreadable
+> link as 10 Gb/s — survived both the suite *and* the render, and was predicted to. Every USB device
+> on this machine reports a `Device Speed`, so the fallback arm is never taken here and a dishonest
+> one is invisible. It was made observable only by breaking the read at the same time, which
+> rendered "10 Gb/s" where "—" belonged. **The honest sentinel is unverified on this hardware and
+> the render `devices-unmounted` is the nearest standing check** — its fixture drive is now the one
+> device in the harness that reports no link speed, so the "—" is at least visible somewhere.
+
+**Confirmed against an independent instrument.** `scripts/usb-speed-check.sh` reads the same key
+straight out of `ioreg` and agreed with the app exactly: the 4 TB PSSD T5 EVO reports code 3,
+SuperSpeed 5 Gb/s. The feature earned itself on its first render — that drive is 10 Gb/s-capable and
+is negotiating half of it, which is the situation the change exists to expose.

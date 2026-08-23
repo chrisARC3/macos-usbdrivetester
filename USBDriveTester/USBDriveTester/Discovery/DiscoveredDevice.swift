@@ -130,6 +130,21 @@ nonisolated struct DiscoveredDevice: Identifiable, Hashable {
     /// rejected, and for what a serial does and does not identify.
     let usbSerialNumber: String?
 
+    /// The negotiated USB link speed as a raw IORegistry `Device Speed` code, or `-1` when the
+    /// registry did not report one.
+    ///
+    /// Held on the enumerated device because the question it answers is asked **before** a run:
+    /// the user's stated use is to see whether the drive negotiated the link they expected and
+    /// abandon the run if it did not (2026-08-23). Nothing that requires a claim can answer that,
+    /// so the app reads it itself at enumeration.
+    ///
+    /// - Important: the finished report's link speed is **not** this value. That one comes from
+    ///   the helper's `deviceProfile` at claim time and remains the authority for the persisted
+    ///   record. Both read the same registry key through the same upward search, so they agree
+    ///   unless the link renegotiated between enumeration and claim — and a replug, the ordinary
+    ///   way that happens, produces a new registry object and a fresh enumeration anyway.
+    let usbLinkSpeedCode: Int
+
     var id: UInt64 { registryEntryID }
 
     /// The serial for display, or a plain statement that there is not one.

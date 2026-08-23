@@ -37,8 +37,16 @@
 //  logged every call by `RunCoordinator`; it is simply not something this screen asks the reader
 //  to act on.
 //
-//  The negotiated link speed keeps its row on its own merits: it says whether the transport is
-//  the bottleneck, which is answerable from what is on screen.
+//  ## The negotiated link speed is not here any more (2026-08-23, user decision)
+//
+//  It had a row here, on the grounds that it says whether the transport is the bottleneck. It
+//  now sits in the Selected device pane, because the question the user actually asks with it —
+//  *did this drive negotiate the link I expected, and is there any point starting?* — is asked
+//  before a run, and a number that appears only once the run is under way cannot answer it.
+//
+//  The 2026-08-04 decision that put it beside measured throughput is **not** discarded. The
+//  finished report still prints both figures in one block (`RunReportView.measurementRows`), and
+//  that is the copy that gets kept, exported and re-read. What is gone is the live side-by-side.
 //
 //  ## Colour is never the only signal (NFR-USE-8)
 //
@@ -57,9 +65,6 @@ struct RunMetricsView: View {
 
     /// What the helper last reported.
     let snapshot: RunProgressSnapshot
-
-    /// Raw IORegistry `Device Speed` code from `deviceProfile`, or `-1` when unknown.
-    let linkSpeedCode: Int
 
     /// Shown while a run is in flight, so a stalled display is distinguishable from a finished
     /// one. The app knows this because it issued the run; the helper is not asked.
@@ -297,7 +302,6 @@ struct RunMetricsView: View {
             row("Read", MetricsFormatting.throughput(snapshot.sustainedReadBytesPerSecond))
             row("Write", MetricsFormatting.throughput(snapshot.sustainedWriteBytesPerSecond))
             row("Covering", MetricsFormatting.throughput(snapshot.coverageBytesPerSecond))
-            row("USB link negotiated at", MetricsFormatting.linkSpeed(code: linkSpeedCode))
 
             // **The definition is on screen, next to the number.** Without it these figures are
             // not checkable against anything, and the first person to check them against
@@ -378,9 +382,12 @@ struct RunMetricsView: View {
             // Decorative — the paragraph beside it is the whole content.
             Image(systemName: "info.circle")
                 .accessibilityHidden(true)
+            // "the run report" and not "the Run Report window": increment 8 made it a sheet on
+            // this window, and a placeholder naming a window that no longer exists sends the reader
+            // looking for it.
             Text("Measurements appear here while a run is under way. When one finishes, its "
-               + "results — including the bad-block list — open in the Run Report window, "
-               + "where they can be exported.")
+               + "results — including the bad-block list — open in the run report, where they "
+               + "can be exported.")
                 .fixedSize(horizontal: false, vertical: true)
             Spacer()
         }
@@ -415,9 +422,6 @@ struct LiveRunMetricsPanel: View {
     /// helper — which is why the protocol reply carries no "is a run active" flag.
     let isRunning: Bool
 
-    /// From `deviceProfile`, so the measured rate can be read against the negotiated link.
-    let linkSpeedCode: Int
-
     /// The drive the figures belong to. See `RunMetricsView.deviceName`.
     let deviceName: String?
 
@@ -434,7 +438,6 @@ struct LiveRunMetricsPanel: View {
 
     var body: some View {
         RunMetricsView(snapshot: snapshot,
-                       linkSpeedCode: linkSpeedCode,
                        isRunning: isRunning,
                        startedAt: startedAt,
                        deviceName: deviceName,
