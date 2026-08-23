@@ -113,7 +113,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
-| 8 ← NEXT | "Stopped by user" in the report (FR-RPT-4); Restart (FR-CTRL-5); the Run Report window becomes **modal to the main window** (user, 2026-08-19); three clean builds; all three Step 10 gates re-run; the docs pass | full |
+| **8 ◑** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gate still outstanding**: three clean builds, all three Step 10 hardware gates, the docs pass, and checklist chunk 12 + 7.5 |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -148,17 +148,22 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 
 ### What increment 8 owes
 
-1. **FR-RPT-4** — "Stopped by user" in the report. Deferred out of Step 10 (user decision
-   2026-08-06); Step 10's gate carries it struck through.
-2. **FR-CTRL-5** — Restart. Per the scoping decisions above it **re-uses the held claim** rather
-   than releasing and re-acquiring.
-3. **The Run Report window becomes modal to the main window** (user decision 2026-08-19). A sheet on
-   the main window, which is what forces the report closed before a new run can start — the reason
-   being that a run starting under an open report cleared its contents, observed on hardware.
+1. ~~**FR-RPT-4** — "Stopped by user" in the report.~~ **Done, `0f65be4`.** Deferred out of
+   Step 10 (user decision 2026-08-06); Step 10's gate carries it struck through.
+2. ~~**FR-CTRL-5** — Restart.~~ **Built in `0f65be4`, withdrawn in `916a630`.** The scoping decision
+   recorded here — that it would **re-use the held claim** rather than release and re-acquire — is
+   now moot: there is no Restart control. The requirement is met by Stop then Start, and carries a
+   2026-08-22 amendment saying so. Do not re-derive the control from the requirement row.
+3. ~~**The Run Report window becomes modal to the main window**~~ (user decision 2026-08-19).
+   **Done, `916a630`** — a sheet on the main window, which is what forces the report closed before a
+   new run can start; a run starting under an open report cleared its contents, observed on hardware.
 4. **All three Step 10 hardware gates re-run** — `xpc-concurrency-check.sh`, `metrics-check.sh`,
    `retention-cycle-check.sh` — because the helper binary moved in increment 6 and none has run
-   since.
-5. **Three clean builds**, and **the docs pass**.
+   since. **Still outstanding.** The helper hash has not moved since, so nothing in increments 7 or 8
+   invalidated them further.
+5. **Three clean builds**, and **the docs pass**. **Still outstanding.**
+6. **The human checklist owes chunk 12 and item 7.5** — added after this list was written. Chunk 12
+   is the only cover the new link-speed read has; 7.5 needs a run that reaches its end.
 
 **Debts the docs pass must clear.** Each is recorded where it was found as well as here, so this
 list is a checklist rather than the only witness:
@@ -740,6 +745,73 @@ to spare, and `scripts/.window-fit-exceptions` is **empty for the first time sin
 
 Uncovered by the suite: `disabledReasons` is private to its view, so no test reaches the collapse.
 The `content-starting` render is its only cover, and chunk 9.7 is the keyboard check.
+
+### Increment 8 ◑ — code done 2026-08-22/23, `0f65be4` + `916a630`. Gate outstanding
+
+The three planned pieces landed, one of them was then **withdrawn**, and two unplanned user
+decisions arrived from looking at the built thing. Split across two commits: `0f65be4` has FR-RPT-4
+and Restart; `916a630` has everything else, including Restart's removal.
+
+| | |
+|---|---|
+| **Verified** | **1025 tests, 0 failures, 131 suites**; zero source warnings; 13/13 gate clients type-check |
+| **Helper** | source hash `058fb2c0767af72a38299e4f133d98053e2b42b73958437813dc1b0420202781` — **unchanged since increment 6**, so Step 10's three gates are no more stale than they already were |
+| **Protocol** | **v12**, unchanged |
+| **Window** | `window-fit-check.sh` worst case **613 pt** (`content-starting`), down from 638. All three 13.3-inch scalings fit; 1152x720 by 7 pt |
+| **Probe** | 34 render cases → **31** |
+
+**FR-RPT-4** is in the report. **The report is now a sheet** on the main window rather than a
+`Window` scene, which is what forces it closed before a new run can start — a run beginning under an
+open report cleared that report's contents, seen on hardware. The 2026-08-06 note claiming "a sheet
+cannot be rendered" was measurably wrong and is corrected where it was written.
+
+**FR-CTRL-5 was built and then withdrawn** (user decision, 2026-08-22). Stop then Start reaches the
+same place; the dedicated control cost a command, a state, a purpose dimension on the pre-run dialog
+and a discard warning — 222 references across 16 files — to offer a second route to one outcome.
+
+> A requirement is a capability, not a control. Building a control per requirement is how a state
+> machine acquires states that exist only to carry an intent from one half of an operation to the
+> other, which is exactly what `restarting` was.
+
+**Two unplanned decisions.** The refusal lines under the run buttons were deleted as inferable from
+the surrounding UI — every sentence was checked against the status line, the Unusable badge and the
+quit banner first, and no mandatory requirement compelled any of them. That is what bought 638 →
+613 pt. Then the **negotiated USB link speed moved to the Selected device pane** (2026-08-23), so
+the question *did this drive negotiate the link I expected, and is there any point starting?* can be
+answered before a run. It could not be a moved label: `deviceProfile` **requires a device to be
+held**, so the app now reads the IORegistry `Device Speed` key itself at enumeration. See the FR
+document's 2026-08-23 amendment for the two-source consequence and why the report stays the
+authority.
+
+**A defect the increment found, and what found it.** Shift-Cmd-R during the pre-run dialog ran,
+queued a second sheet and presented it on cancel — SwiftUI queues rather than shows a second sheet
+on one window. It was caught by a probe **written as "not a regression check"**, which is the second
+time in this step that an instrument built for one purpose has been the only thing looking at
+another.
+
+**Where the cover is, and where it is not — measured, not assumed.** No unit test covers the new
+registry read and none can, because `IOKitDeviceEnumerator` needs hardware. The mutation round
+demonstrated this rather than asserting it: a misspelled registry key and a pane wired to a constant
+both **survived the full 1025-test suite**, and the live-hardware `devices` render caught both.
+
+> **One declared not-caught that is still not caught.** Changing the `?? -1` fallback to `?? 4` —
+> reporting an unreadable link as a confident 10 Gb/s — survived the suite *and* the render. Every
+> USB device on this machine reports a `Device Speed`, so the honest-unknown arm is never taken
+> here; it became visible only by breaking the read at the same time. **A drive that reports no link
+> speed has never been seen by this project.** Recorded in the human checklist's blind-spot list.
+
+`scripts/usb-speed-check.sh` reads the same key straight from `ioreg` and agreed with the app
+exactly — the 4 TB PSSD T5 EVO reports code 3 (SuperSpeed, 5 Gb/s) while the 1 TB Portable SSD T5 on
+the same hub reports code 4. That is an independent instrument confirming a read that has no test.
+
+**Two stale counts corrected on the way past**, both of the kind this project keeps paying for:
+`render-ui.sh` still claimed 34 view cases against the probe's 31 — the third such drift its own
+comment block warns about — and the human checklist's closing line still said "three blind spots"
+against a list that had grown to ten.
+
+**What increment 8 still owes**: the three Step 10 hardware gates, three clean builds with
+DerivedData wiped before each, the docs pass, and checklist chunk 12 plus item 7.5. Until those run,
+this increment is **not** gated.
 
 ### What this step must not lose
 
