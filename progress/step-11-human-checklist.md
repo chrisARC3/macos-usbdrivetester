@@ -4,11 +4,12 @@
 added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item list in
 `progress/step-14.md`, which increment 5 made partly unrunnable.
 
-**CHUNK 8 IS PART-RUN: items 1–2 passed 2026-08-19, items 3–7 are UNRUN.** Item 3 was run before
-the 2026-08-19 reversal rebuilt both controls to one rule, so its result is superseded. Added by
-increment 6, and it is the only cover the dropdown's and the confirmation's wiring has: mutation M15
-— *the dropdown does nothing at all* — survives the entire suite, because no test drives a SwiftUI
-binding. **Step 11's verification gate does not close without it** (BUILD-PLAN, item 5).
+**CHUNK 8 PASSED IN FULL** — items 1–2 on 2026-08-19, items 3–7 on 2026-08-24. Item 3 had been run
+before the 2026-08-19 reversal rebuilt both controls to one rule, so its result was superseded and
+it was re-walked. Added by increment 6, and it is the only cover the dropdown's and the
+confirmation's wiring has: mutation M15 — *the dropdown does nothing at all* — survives the entire
+suite, because no test drives a SwiftUI binding. **It was what closed Step 11's verification gate**
+(BUILD-PLAN, item 5).
 
 **CHUNK 9 PASSED IN FULL.** 9.1–9.6 at the keyboard on 2026-08-20; **9.7 was deleted on 2026-08-22
 rather than walked**, because the sentences it counted no longer exist.
@@ -27,7 +28,9 @@ pane. Its first four items are the only cover the new registry read has: the mut
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **What is owed, as of 2026-08-24:** **chunk 8 items 3–7**, item 7.5, and all of chunk 12.
+> **What is owed, as of 2026-08-24:** item 7.5, all of chunk 12, and a **one-off recheck of 8.3's
+> new placement** after the next reinstall — the sentence moved above the I/O size row on the same
+> day chunk 8 was walked, so the walk saw it in its old position.
 > Chunk 10 was walked, passed, and then deleted along with the control it covered.
 >
 > ⚠️ **This line read "Everything else in this file has been walked" until 2026-08-24, and it was
@@ -66,11 +69,18 @@ Non-destructive chunks come first. Only 2, 4, 5, 6, 7 and 8 start a run.
   the only multi-volume drive here, and half these checks are about the restore set. Its three
   mounted volumes:
 
-  | Volume | Node | |
+  ⚠️ **The nodes below are illustrative and were stale by 2026-08-24.** They read `disk8s2`,
+  `disk8s4` and `disk5s1` from a session in which the EVO was `disk8`. It is `disk5` today, and
+  **`disk8` now names the 22 TB Seagate backup volume** — which is exactly the substitution
+  `scripts/lib/device-identity.sh` exists to refuse. **Identify the drive by its serial, in the
+  app's own device pane, every time.** Re-derive the nodes with `diskutil list` if you need them;
+  never carry one over from this table.
+
+  | Volume | Node (2026-08-24) | |
   |---|---|---|
-  | `Vol_ExFAT` | `/dev/disk8s2` | direct partition |
-  | `Vol_HFS` | `/dev/disk8s4` | direct partition |
-  | `Vol_APFS` | `/dev/disk5s1` | **synthesized from `disk8s3` — not a direct partition** |
+  | `Vol_ExFAT` | `/dev/disk5s2` | direct partition |
+  | `Vol_HFS` | `/dev/disk5s4` | direct partition |
+  | `Vol_APFS` | synthesized as `Container disk4` | **from `disk5s3` — not a direct partition** |
 
   `DADiskUnmount` with `kDADiskUnmountOptionWhole` unmounts direct partitions only and **reports
   success, with no dissenter, having skipped the APFS volume.** `Vol_APFS` is what catches that.
@@ -229,20 +239,43 @@ the controls were rebuilt to one rule, so 3–6 below are new and unrun.
    `preRunWarningsSuppressed` lives in the same plist and is the cross-check: if it is there, the
    path is right.
 3. **Start a run, Pause it.** Wait for `run paused and settled at block N` — the settle, not the
-   request. **Both** controls are now dimmed, with one sentence beneath them: *"I/O size and
-   failure handling are fixed for the whole run — stop it to change them."*
+   request. **Both** controls are now dimmed.
 
-   > Shortened in increment 7. The original ran to two sentences and cost 15 pt of window height
-   > that a 13.3-inch Mac at its smallest scaling does not have. Same rule, fewer words.
-
-   One sentence for both, not two — there is one rule. This is the row the 2026-08-19 reversal
+   One sentence covers both, not two — there is one rule. This is the row the 2026-08-19 reversal
    created, and the reason it exists is that the *first* build of this increment had the size live
    here and the mode dead, which read as one control being broken.
+
+   > **Moved and reworded 2026-08-24** (user decision). The sentence used to sit *beneath* the
+   > controls and appear only while they were dimmed. It now sits **directly above the I/O size
+   > row** and is shown **whether or not a run is under way**, because the moment it matters is
+   > before the choice is frozen, not after. It reads:
+   >
+   > *"I/O size and failure handling are fixed once a run starts — stop the run to change them."*
+   >
+   > Both halves of the old wording presupposed a run — *"the whole run"* means this one, and
+   > *"stop it"* has no referent before there is anything to stop — so the move forced the rewrite.
+   > **"stop" survived because NFR-USE-5 is Mandatory** and requires the corrective step be named;
+   > a tidier rule without it was written first and rejected on that ground.
+   >
+   > Shortened once before, in increment 7: the original ran to two sentences and cost 15 pt of
+   > window height that a 13.3-inch Mac at its smallest scaling does not have.
+
+   **What to check now it is unconditional:** it reads the same, in the same place, before you
+   start and while paused — it must not move, change or disappear between the two. A line that
+   shifts when a run starts is a layout jump exactly where the eye is.
 
 4. **Try the dropdown anyway** while paused. It should not open. Nothing appears in the log — a
    dimmed control that is never asked cannot refuse.
 
 5. **Resume**, let it run, and confirm both stay dimmed while running. **Stop.**
+
+   > **Nothing about the controls can be checked between the Stop and dismissing the report.**
+   > Since increment 8 the report is a sheet sized to the main window less a margin, so it covers
+   > the run controls completely. Asked to observe them behind it on 2026-08-24, the walker
+   > correctly reported that it could not be done — the instruction had been written from the
+   > model rather than the screen, which is the same mistake check 6.1 punished on 2026-08-22.
+   > **Check the controls after the dismissal**, which is item 6, and do not add a step here that
+   > needs to see through a sheet.
 
 6. With the run stopped, **both controls are live again** and the log shows
    `I/O size changed: …` when you move the dropdown. This is FR-CTRL-8's *"once one has finished"*

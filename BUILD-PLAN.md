@@ -1427,8 +1427,13 @@ Implement the explicit run-control state machine with legal-transition enforceme
 
 ### Verification Gate (must pass before Step 12)
 
-**Walked 2026-08-24.** Four of five discharged. Each tick names its evidence so it can be checked
-rather than trusted, and the fifth is what now stands between Step 11 and Step 12.
+**WALKED AND PASSED 2026-08-24 — all five.** Each tick names its evidence so it can be checked
+rather than trusted. Four were discharged in the morning; item 5 needed a check built for it (the
+device-operation slot had none) and a human walk of the checklist's chunk 8, both done the same day.
+
+Two of the five were re-run rather than taken on record, and **both re-runs found stale instruments
+rather than product defects** — see PROGRESS. A gate that has not been re-run cannot report
+anything.
 
 - [x] **Illegal transitions are impossible** (e.g., resume while running, start while running) —
   by this item's own stated method, unit tests over the state machine. `RunControlPolicyTests`
@@ -1452,12 +1457,15 @@ rather than trusted, and the fifth is what now stands between Step 11 and Step 1
   Stop-then-Start, and FR-CTRL-5 carries a 2026-08-22 amendment recording that the requirement is
   met by composition. **Do not re-derive the control from this line** — a gate item naming a
   control is exactly how a withdrawn one comes back.
-- [ ] **I/O size is selectable before start, fixed during the run; failure mode required before
-  start; second concurrent run is refused.** ⬜ **NOT DISCHARGED**, in two separate places:
-    * **Chunk 8 items 3–7 of the human checklist are unrun.** Items 1–2 passed 2026-08-19; item 3
-      was run *before* the 2026-08-19 reversal rebuilt both controls to one rule, so its result is
-      superseded. No test drives a SwiftUI binding, so mutation M15 — *the dropdown does nothing at
-      all* — passes the entire suite. **This chunk is its only cover.**
+- [x] **I/O size is selectable before start, fixed during the run; failure mode required before
+  start; second concurrent run is refused.** Discharged 2026-08-24, in two separate places:
+    * ~~**Chunk 8 items 3–7 of the human checklist are unrun.**~~ **Walked and passed 2026-08-24.**
+      Items 1–2 had passed 2026-08-19; item 3 was run *before* the 2026-08-19 reversal rebuilt both
+      controls to one rule, so its result was superseded and it was re-walked. No test drives a
+      SwiftUI binding, so mutation M15 — *the dropdown does nothing at all* — passes the entire
+      suite; **this chunk is its only cover**, and item 7 is the only check anywhere that follows a
+      chosen I/O size from the dropdown through the gate, into every call, onto the report screen
+      and into the exported Markdown. All four agreed on `8 MiB`.
     * ~~**"Second concurrent run is refused" has no helper-side cover.**~~ **Covered 2026-08-24.**
       App-side was already discharged by `startDuringARunIsRefusedWithAReasonThatNamesTheRule`.
       Helper-side the guard is the **device-operation slot** — `beginDeviceOperation`, taken by

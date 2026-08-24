@@ -204,6 +204,21 @@ struct RunControlsView: View {
 
         let availability = PreRunControls.availability(in: state)
 
+        // **Above the controls it governs, and shown whether or not a run is under way**
+        // (user decision 2026-08-24). It sat below them and only while they were dimmed, which is
+        // the wrong moment twice over: it appeared after the choice it describes had already been
+        // frozen, and a user deciding what to pick never saw it at all.
+        //
+        // Unconditional, so it is not a refusal any more — it is the rule the controls follow, in
+        // front of the person about to use them. `PreRunControls.rule` is the same string the
+        // availability still carries when they are dead, so the dimmed case cannot drift from the
+        // standing one. See that property for why the wording changed with the position, and for
+        // what NFR-USE-5 would not let it drop.
+        Label(PreRunControls.rule, systemImage: "info.circle")
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 8) {
             GridRow {
                 Text("I/O size")
@@ -272,20 +287,14 @@ struct RunControlsView: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
 
-        // One sentence for both controls, because there is one rule — printing it twice would be
-        // the "saying the same thing several times" shape that cost the run controls 120 pt of
-        // height before their equivalent block was deleted outright (user decision, 2026-08-22).
+        // **Nothing is printed here any more.** The one sentence for both controls moved above
+        // the grid on 2026-08-24 and became unconditional; printing it in both places would be the
+        // "saying the same thing several times" shape that cost the run controls 120 pt of height
+        // before their equivalent block was deleted outright (user decision, 2026-08-22).
         //
-        // **This line stays, and the distinction is the reason.** Why a *setting* is frozen is not
-        // the same fact as what the run is doing, and nothing else on screen carries it — where
-        // every sentence the run controls used to print was a restatement of the status line
-        // above them, the drive list's Unusable badge, or the quit banner.
-        if let reason = availability.disabledReason {
-            Label(reason, systemImage: "info.circle")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
+        // `availability` is still read — it is what dims the two pickers above — and it still
+        // carries the same sentence as its reason, which is what `PreRunControlsTests` walks over
+        // the whole eight-state table. What is gone is a *second* rendering of it.
     }
 
     /// The dropdown's binding. **Reads the model, and writes only what the policy allows.**

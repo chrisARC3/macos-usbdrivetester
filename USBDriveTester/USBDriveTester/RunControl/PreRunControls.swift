@@ -94,9 +94,42 @@ nonisolated enum PreRunControls {
     /// than trusted.
     static func availability(in state: RunControlState) -> RunControlAvailability {
         guard state.isRunActive else { return .enabled }
-        return .disabled("I/O size and failure handling are fixed for the whole run — stop it to "
-                       + "change them.")
+        return .disabled(rule)
     }
+
+    /// The rule, in one sentence, **shown whether or not a run is under way** (user decision
+    /// 2026-08-24).
+    ///
+    /// ## Why it is a standing line and not only a refusal
+    ///
+    /// It used to be rendered only while the controls were dimmed, *below* them, as the reason
+    /// they were dead. That is the wrong moment: by the time it appears, the choice it describes
+    /// has already been made and frozen. The user's reason for moving it — *"the user should read
+    /// this before a run is started and those parameters become frozen for the run"* — is a
+    /// statement about **when**, and a conditional line cannot satisfy it. So it is unconditional
+    /// and it sits directly above the I/O size row it governs.
+    ///
+    /// ## Why the wording changed with the position
+    ///
+    /// It read *"…are fixed for the whole run — stop it to change them."* Both halves presupposed
+    /// a run in progress: *"the whole run"* means this one, and *"stop it"* has no referent before
+    /// there is anything to stop. Moving that sentence without rewording it would have put a
+    /// sentence about a run in front of a user who has not started one.
+    ///
+    /// ## What could not change, and why
+    ///
+    /// **The corrective step stays.** NFR-USE-5 is Mandatory and requires a message to name *"the
+    /// actual cause and the corrective step"*. A tidier rule — *"…apply to the whole run and are
+    /// fixed once it starts."* — was written first and rejected on that ground: it states the cause
+    /// and leaves a user who wants to change the size with nowhere to go.
+    /// `PreRunControlsTests.theOneReasonNamesBothControls` pins all three obligations by substring
+    /// — both controls named, and a way out given — so a later edit cannot quietly drop one.
+    ///
+    /// One string, two jobs: the standing caption *and* the reason `availability(in:)` carries when
+    /// the controls are dead. A second literal for the dimmed case is the drift this file has
+    /// already paid for twice.
+    static let rule =
+        "I/O size and failure handling are fixed once a run starts — stop the run to change them."
 }
 
 // MARK: - The I/O size itself

@@ -857,11 +857,21 @@ sampled chunks returned three distinct fingerprints. The residual `/dev/urandom`
 gate walk below), chunk 12 (the only cover the link-speed read has), and item 7.5 (a run allowed to
 complete).
 
-### Step 11's verification gate — walked 2026-08-24, four of five
+### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 
-BUILD-PLAN's five items, each ticked against named evidence rather than recollection. **Item 5 is
-not discharged** and is what now stands between Step 11 and Step 12; the other four are, and the
-walk is recorded at the gate itself.
+BUILD-PLAN's five items, each ticked against named evidence rather than recollection. The walk is
+recorded at the gate itself.
+
+Four were discharged in the morning. **Item 5 took the rest of the day** and needed two things that
+did not exist: a check for the device-operation slot, which had no cover at all (`cbb1b3b`), and a
+human walk of the checklist's chunk 8, whose items 3–7 had been unrun since 2026-08-19 while the
+file's summary line claimed otherwise.
+
+**Chunk 8 item 7 is the check that mattered most.** It follows a chosen I/O size from the dropdown,
+through the pre-run gate, into every bounded call, onto the report screen and into the exported
+Markdown — four surfaces, and the only place anything sees all four at once. They agreed on `8 MiB`.
+Mutation M15, *the dropdown does nothing at all*, passes the entire 1025-test suite; no test drives
+a SwiftUI binding, so this chunk is the whole of that control's cover.
 
 **It needed one re-run, and the re-run found the second stale probe of the week.**
 `run-control-check.sh` had last run on **2026-08-12 against a protocol v10 daemon**. Re-running it
