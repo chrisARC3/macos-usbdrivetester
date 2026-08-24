@@ -113,7 +113,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
-| **8 ◑** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gate still outstanding**: three clean builds, all three Step 10 hardware gates, the docs pass, and checklist chunk 12 + 7.5 |
+| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. Checklist chunk 12 and item 7.5 remain owed as human items |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -130,7 +130,7 @@ stale by the next commit, which is the failure mode this project keeps paying fo
 |---|---|
 | **Tree** | clean, on `main` |
 | **Verified** | **991 tests, 0 failures, 129 suites**; zero source warnings across three clean builds with DerivedData wiped before **each** — Debug 86 SwiftCompile tasks, Release 2, test 167 |
-| **Helper** | source hash `058fb2c0767af72a38299e4f133d98053e2b42b73958437813dc1b0420202781`, **unchanged since increment 6** |
+| **Helper** | source hash `058fb2c0767af72a38299e4f133d98053e2b42b73958437813dc1b0420202781`, **unchanged since increment 6**. ⚠️ **This is where increment 8 *started*. The current hash is `73990c90…`** — it moved at the gate for a comment-only change, 2026-08-24 |
 | **Protocol** | **v12** |
 | **Gates** | `window-fit-check.sh` passes against a 700 pt budget with an **empty** `.window-fit-exceptions` |
 | **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`). **The 1 TB T5's `/dev/urandom` fill file must be kept** |
@@ -157,11 +157,12 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 3. ~~**The Run Report window becomes modal to the main window**~~ (user decision 2026-08-19).
    **Done, `916a630`** — a sheet on the main window, which is what forces the report closed before a
    new run can start; a run starting under an open report cleared its contents, observed on hardware.
-4. **All three Step 10 hardware gates re-run** — `xpc-concurrency-check.sh`, `metrics-check.sh`,
-   `retention-cycle-check.sh` — because the helper binary moved in increment 6 and none has run
-   since. **Still outstanding.** The helper hash has not moved since, so nothing in increments 7 or 8
-   invalidated them further.
-5. **Three clean builds**, and **the docs pass**. **Still outstanding.**
+4. ~~**All three Step 10 hardware gates re-run**~~ — **all three passed 2026-08-23/24**, with
+   0 failures each. `metrics-check.sh` failed 40 assertions on its first attempt for a reason that
+   was **not the product**; see the increment 8 section.
+5. ~~**Three clean builds**~~ **passed 2026-08-24** — Debug 86 SwiftCompile tasks, Release 2, test
+   168, DerivedData wiped before each, zero Swift source warnings. The test figure was 167 before
+   `AppModelReportTests.swift`. ~~**The docs pass**~~ — **this is it.**
 6. **The human checklist owes chunk 12 and item 7.5** — added after this list was written. Chunk 12
    is the only cover the new link-speed read has; 7.5 needs a run that reaches its end.
 
@@ -174,10 +175,17 @@ list is a checklist rather than the only witness:
 * **The renumbering of 2026-08-19** left the words "increment 7" in documents that now mean
   increment 8. The note under the increments table is deliberately the only correction made so far;
   sweeping the rest is this pass's job.
-* **BUILD-PLAN is wrong about why increment 2 needed no Xcode tick** — see increment 2 below for
-  what `project.pbxproj` actually says.
-* **`starting` misses the 1152x720 scaling by 18 pt.** A stated non-goal since the budget moved to
-  700 on 2026-08-20, not a breach — but the NFR should say so rather than leave it silent.
+* ~~**BUILD-PLAN is wrong about why increment 2 needed no Xcode tick.**~~ **Already discharged
+  on 2026-08-14** and this entry was stale from the day it was written — BUILD-PLAN's own "Last
+  amended" note carries the correction, and its target-membership section reads the answer out of
+  `project.pbxproj`. Checked rather than assumed, 2026-08-24. **A debt list is a claim like any
+  other, and this one had been false for ten days.**
+* ~~**`starting` misses the 1152x720 scaling by 18 pt.**~~ **Cleared, not documented.** Deleting
+  the refusal lines under the run buttons (2026-08-22) took the worst case from 638 to 613 pt, and
+  1152x720 allows 620 — so `starting` now fits it with **7 pt to spare** and the non-goal has
+  nothing left to state. NFR-USE-9's amendment said a user at that scaling "gets a window that fits
+  at rest and grows behind the Dock for the few seconds a run spends starting"; that sentence was
+  true when written and is now false. Corrected there, 2026-08-24.
 
 ### Increment 1 — done 2026-08-12, `c89ed5c`
 
@@ -297,7 +305,7 @@ figures, because the settle happens at a chunk boundary *inside* the call either
 stays at 1 GiB. Part 2 of the pre-flight — the per-call overhead sweep that would have set the cap
 on its remaining jobs — was deferred by user decision 2026-08-12; the sequencer works with any value.
 
-**For the docs pass (increment 7):** this measurement belongs in CONSTRAINTS section 1, and
+**For the docs pass (increment 8):** this measurement belongs in CONSTRAINTS section 1, and
 CONSTRAINTS' existing sentence *"the cap … is what makes an uncancellable privileged call
 survivable"* needs rewriting, since this step is what made the call cancellable.
 
@@ -366,7 +374,7 @@ and anchors are asserted unique. And H1 exposed the **probe** conflating two fac
 `outcome == unrecognised && chunks == 0`, so a correct refusal carrying leaked figures was reported
 as *"the alignment guard is not enforced"*, pointing at innocent code. Split in two.
 
-**For the docs pass (increment 7), beyond what increment 2 already left:**
+**For the docs pass (increment 8), beyond what increment 2 already left:**
 
 - **`HELPER_CORE_FRACTION` changed meaning and CONSTRAINTS must say which figure is which.**
   Bracketed from acquire, it is now a run average **diluted by the idle between calls** —
@@ -414,8 +422,9 @@ sequencer **owns no run state** — `RunControlState` stays with increment 5's c
 observe.
 
 **The predicted survivor, and the decision it leaves open.** M13 removes the late-reply guard in
-`callReturned`. Nothing in increment 4 can end a run with a call outstanding — increment 7's
-Restart-from-`running` is what can — so the unit suite cannot reach it, though a real
+`callReturned`. Nothing in increment 4 can end a run with a call outstanding — increment 8's
+Restart-from-`running` was what could, **and that control was withdrawn on 2026-08-22**, so
+nothing in the product reaches it now — so the unit suite cannot reach it either, though a real
 `NSXPCConnection` can if a reply block and the error handler both fire. That makes it
 *un-unit-testable* rather than unreachable, the same category as increment 2's M12, and the guard
 was kept on that basis. **Increment 7 should pin it** when Restart makes it reachable.
@@ -427,7 +436,7 @@ Restored from saved pristine copies with a `cmp` guard and rewritten; anchor uni
 all 14 before and after.
 
 **Docs owed by this increment: all discharged 2026-08-14, before increment 5**, rather
-than deferred to increment 7. A cold start is told to read CONSTRAINTS in full and trust it, so
+than deferred to increment 8's docs pass. A cold start is told to read CONSTRAINTS in full and trust it, so
 leaving a claim in it that had been *measured false* would have defeated the file's purpose for
 three increments. Corrected: the "last-but-one" claim in CONSTRAINTS section 1 and BUILD-PLAN
 Step 11; FR-CTRL-8 and its 2026-08-04 consequences in the FR document, with a new 2026-08-14
@@ -746,7 +755,7 @@ to spare, and `scripts/.window-fit-exceptions` is **empty for the first time sin
 Uncovered by the suite: `disabledReasons` is private to its view, so no test reaches the collapse.
 The `content-starting` render is its only cover, and chunk 9.7 is the keyboard check.
 
-### Increment 8 ◑ — code done 2026-08-22/23, `0f65be4` + `916a630`. Gate outstanding
+### Increment 8 ✅ — done 2026-08-22/23, gated 2026-08-24. `0f65be4` + `916a630` + the gate commit
 
 The three planned pieces landed, one of them was then **withdrawn**, and two unplanned user
 decisions arrived from looking at the built thing. Split across two commits: `0f65be4` has FR-RPT-4
@@ -755,7 +764,7 @@ and Restart; `916a630` has everything else, including Restart's removal.
 | | |
 |---|---|
 | **Verified** | **1025 tests, 0 failures, 131 suites**; zero source warnings; 13/13 gate clients type-check |
-| **Helper** | source hash `058fb2c0767af72a38299e4f133d98053e2b42b73958437813dc1b0420202781` — **unchanged since increment 6**, so Step 10's three gates are no more stale than they already were |
+| **Helper** | `058fb2c0…` for the whole of the code work — **unchanged since increment 6**, so Step 10's three gates were no more stale than they already were. It moved to `73990c90…` at the gate, for a comment-only change; see below |
 | **Protocol** | **v12**, unchanged |
 | **Window** | `window-fit-check.sh` worst case **613 pt** (`content-starting`), down from 638. All three 13.3-inch scalings fit; 1152x720 by 7 pt |
 | **Probe** | 34 render cases → **31** |
@@ -809,9 +818,43 @@ the same hub reports code 4. That is an independent instrument confirming a read
 comment block warns about — and the human checklist's closing line still said "three blind spots"
 against a list that had grown to ten.
 
-**What increment 8 still owes**: the three Step 10 hardware gates, three clean builds with
-DerivedData wiped before each, the docs pass, and checklist chunk 12 plus item 7.5. Until those run,
-this increment is **not** gated.
+### The gate — 2026-08-24
+
+| | |
+|---|---|
+| **Clean builds** | three, DerivedData wiped before **each**: Debug 86 SwiftCompile tasks, Release 2, test 168. **Zero Swift source warnings.** The test figure was 167 before `AppModelReportTests.swift`, so it reconciles exactly |
+| **Suite** | 1025 tests, 131 suites, complete and green |
+| `xpc-concurrency-check.sh` | **0 failures.** Digest held the daemon 2563.9 ms; same connection **serialized**, second connection **concurrent**, 22/22 answered, worst reply 5.8 ms. Finding unchanged |
+| `metrics-check.sh` | **0 failures** on the second attempt — see below. 1920 chunks over four calls, host overhead **3.014%** of device I/O time (device-bound), daemon CPU 6.125% of one core against an independent `ps` peak of 12.5% |
+| `retention-cycle-check.sh` | **0 failures**, 15 checks. 932 whole-device fingerprint windows before and after, **every one unchanged** (NFR-REL-1). 256 chunks — 255 full plus one short, so FR-TEST-5 was exercised. 1,072,693,248 bytes written at block 1818476544; the whole 1 TB device byte-identical afterwards |
+
+**`metrics-check.sh` failed 40 assertions on its first run, and the product was not at fault.**
+`RunControlChannel` is a process-wide slot on the daemon that nothing clears but the caller. The app
+had left `stop` in it at 09:11:29 during a GUI session. The probe then acquired the drive and issued
+four bounded calls, each returning `stoppedByUser` after **0.5 ms having processed zero chunks** —
+and all forty failures were downstream consequences of that one value. **Not one of them named it.**
+
+`run-control-probe` has cleared the level since increment 2; `metrics-probe` predates the channel and
+never did. The probe was fixed, not the class — the design is right, the caller does own the level.
+What was wrong was the class's own comment, which argued from the app's behaviour that a stale value
+was *harmless*. Every gate script in this project is a client that is not the app.
+
+> **The helper source hash moved for a comment-only change.** Correcting that comment took the hash
+> from `058fb2c0767af72a38299e4f133d98053e2b42b73958437813dc1b0420202781` to
+> `73990c90d6a5b43a9dc2b3791284b33501acbe7f6752c38bfdde266b9d696cbb`. **The three gates above still
+> stand**, and the evidence is mechanical: every changed line in `RunControlChannel.swift` begins
+> with `//`, so no executable line moved and the compiled daemon is behaviourally identical. Re-run
+> the gates on the next hash move that is *not* provably comment-only. Recorded here rather than
+> assumed, because a hash that moves for a reason nobody wrote down is a hash nobody can trust.
+
+**Two content checks that mattered.** The scratch drive's `fill.bin` had been deleted, and the gate's
+early warning — which reads `df` — said the drive was 1% used and a random run would land on zeroes.
+It was a false alarm: an unlink clears the directory entry and the allocation table, not the media.
+The **CONTENT check is the authority**, it samples raw blocks through the helper, and its three
+sampled chunks returned three distinct fingerprints. The residual `/dev/urandom` pattern was intact.
+
+**Still owed as human items**: checklist chunk 12 (the only cover the link-speed read has) and item
+7.5 (a run allowed to complete).
 
 ### What this step must not lose
 
@@ -933,7 +976,7 @@ user pausing twice would have had the first pause charged to the drive. Now kill
 "the time the run spent working" in one paragraph, "against the wall clock" in the next. Visible
 only in the rendered artefact; the source read fine either side. Fixed.
 
-**For the docs pass (increment 7):**
+**For the docs pass (increment 8):**
 
 - **The helper source hash recipe is written down nowhere.** Eight derivations were tried and none
   reproduced `b804178d…`. A token that gates whether three hardware gates still apply, and that

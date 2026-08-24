@@ -326,8 +326,14 @@ broken numbers*, which showed every state but one fitting it. None of them did: 
 and `paused` miss 620 by 4 pt with six drives attached, and `starting` missed it by 98. 700 is where
 the decision started before the wrong figures made a tighter target look free, and against it every
 state fits with at least **62 pt to spare** — with `scripts/.window-fit-exceptions` empty for the
-first time since it was created. A user at 1152x720 gets a window that fits at rest and grows behind
-the Dock for the few seconds a run spends starting.
+first time since it was created.
+
+**Amended 2026-08-24 — 1152x720 now fits outright.** This paragraph used to end: *"A user at
+1152x720 gets a window that fits at rest and grows behind the Dock for the few seconds a run spends
+starting."* That was true when written. Deleting the refusal lines under the run buttons on
+2026-08-22 took the worst case (`starting`, six drives) from 638 pt to **613 pt**, and 1152x720
+allows 620 — so every state now fits **every** 13.3-inch scaling this machine offers, `starting`
+included, with 7 pt to spare at the tightest. The stated non-goal has nothing left to state.
 
 **The drive-count dependency is back, and it is small.** Increment 7 recorded the window's minimum
 as independent of how many drives are attached. That was an artefact of the declared number, which

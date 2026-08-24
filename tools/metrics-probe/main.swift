@@ -213,6 +213,39 @@ func releaseAndExit(_ status: Int32) -> Never {
     exit(status)
 }
 
+// **Clear the run-control level before issuing anything.**
+//
+// `RunControlChannel` is a process-wide slot on the daemon that never clears itself. Its own header
+// argues a stale value is harmless because *"the app owns the state and sets `proceed` before every
+// run"*. That is true of the app. **It is not true of this probe, which is not the app** — and every
+// gate script in this project is a client that is not the app.
+//
+// Measured 2026-08-23: the app set `stop` at 09:11:29 during a GUI session, nothing set it back, and
+// this gate's four calls each returned `stoppedByUser` after 0.5 ms having processed zero chunks.
+// Forty assertions failed off one stale value and not one of them named it. Whether this gate passes
+// cannot depend on whether somebody pressed Stop in the GUI an hour earlier.
+//
+// Sent on the **progress** connection — the non-owning one, which is where the app sends it too, and
+// the reason a level can be set at all while a call is in flight on the owning connection.
+// `run-control-probe` has cleared the level since increment 2; this probe predates the channel and
+// was never updated when it arrived.
+var levelCleared = false
+blockingCall("control", on: progressConnection) { tester, done in
+    tester.setRunControl(code: RunControlCode.proceed.rawValue) { accepted, message in
+        levelCleared = accepted
+        print("[control] LEVEL_CLEARED=\(accepted ? 1 : 0)")
+        print("[control] MESSAGE=\(message)")
+        done()
+    }
+}
+
+// Abandoned rather than attempted, exactly as `RunController.resume()` abandons: a run issued over
+// an uncleared level measures nothing and then reports it as a run.
+guard levelCleared else {
+    print("[probe] ABORTED=the run-control level was not cleared")
+    releaseAndExit(1)
+}
+
 var blockSize: UInt32 = 0
 var deviceBlockCount: UInt64 = 0
 var linkSpeedCode = -1

@@ -326,15 +326,20 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   screen height while the scene declared no `.defaultSize`. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
-- **30 view cases, and three of them render a state this machine cannot produce** — `empty` (no
+- **31 view cases, and three of them render a state this machine cannot produce** — `empty` (no
   drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
   drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
-  the last was added in Step 14 for a row that had never been rendered in either appearance.
-  **The probe is authoritative and `render-ui.sh`'s header list has drifted from it twice** —
-  once caught 2026-08-11, and again by Step 11 increment 6, which found the script listing 24
-  cases against the probe's 28, naming two (`diagnostics-held`, `diagnostics-quitting`) the probe
-  would refuse with exit 2 and omitting all six `content-*` run states. Re-derive the list, never
-  hand-edit it; the one-line `grep` is in the script's header.
+  the third was added in Step 14 for a row that had never been rendered in either appearance.
+  `devices-unmounted` has since taken a **second** job it was not built for: since 2026-08-23 its
+  fixture drive is the only one in the harness reporting `usbLinkSpeedCode == -1`, so it is the one
+  render where the link-speed row's unknown sentinel appears at all.
+  **The probe is authoritative and `render-ui.sh`'s header list has drifted from it three times** —
+  caught 2026-08-11; again by Step 11 increment 6, which found the script listing 24 cases against
+  the probe's 28, naming two (`diagnostics-held`, `diagnostics-quitting`) the probe would refuse
+  with exit 2 and omitting all six `content-*` run states; and again on 2026-08-23, when the script
+  still said 34 against the probe's 31 after the Restart removal deleted three. Re-derive the list,
+  never hand-edit it; the one-line `grep` is in the script's header. **Three drifts is the number
+  that says this will drift again.**
 - **A render cannot see the live metrics panel, the report body, or sheet modality — and all three
   hid a defect on 2026-08-18.** The panel polls a real helper, so offscreen it always shows the
   unavailable state whatever the run state is; the report body sits in a scroll region, so a render
@@ -555,6 +560,25 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   been written by then, pointing at an *accessibility* requirement that says nothing about window
   size. Check the ID resolves to the thing you mean before writing it down; a wrong citation is
   worse than none, because it reads as having been checked. NFR-USE-9 now exists.
+- **The daemon holds process-wide state, and a gate script is not the app.** `RunControlChannel`
+  is a single slot on the helper shared by every client, and nothing clears it but the caller. The
+  app clears it before every run and every resume, awaits the confirmation, and abandons with a
+  visible message if it does not come — so the app is immune, and the class's own header argued from
+  that immunity that a stale value was *harmless*. It is not. On 2026-08-23 the app left `stop` in
+  the slot at 09:11:29; `metrics-check.sh` ran later, inherited it, and its four bounded calls each
+  returned `stoppedByUser` after **0.5 ms having processed zero chunks**. Forty assertions failed and
+  **not one of them named the cause** — they all reported downstream consequences (no chunks, no
+  latency, `-1` throughput) of one stale value. `run-control-probe` had cleared the slot since
+  increment 2; `metrics-probe` predated the channel and never did. **Any probe that issues a run
+  must clear the level first**, and any argument that reasons about the app has not yet said
+  anything about the gates. The comment was corrected 2026-08-24, which moved the helper source
+  hash for a comment-only change — see PROGRESS for why the gates still stand.
+- **An incremental build does not re-emit warnings for files it did not recompile.** "Zero warnings"
+  from a warm build is a statement about what changed, not about the tree. Only a clean build with
+  DerivedData wiped answers the question, which is why the gate asks for three of them. Related:
+  grep the build log for warnings **naming a `.swift` file** — a bare `warning:` also matches
+  `appintentsmetadataprocessor`'s AppIntents line, which is not a source warning and produced a
+  false alarm on 2026-08-24.
 - **Commit straight to `main`**, never a branch unless said in advance, message `Step N: <title>`,
   and **only when asked**.
 - **The ADR's 16 checkboxes are never ticked.** It is a decision record; BUILD-PLAN is the tracker.

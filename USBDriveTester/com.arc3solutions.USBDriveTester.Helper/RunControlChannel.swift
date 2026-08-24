@@ -37,16 +37,35 @@
 //  caller did not already have — one that wanted to keep this drive claimed could simply call
 //  `acquireDevice` and hold it.
 //
-//  ## Nothing here clears itself, and that is what makes a stale value harmless
+//  ## Nothing here clears itself, and every client must clear it for itself
 //
-//  The app owns the state (BUILD-PLAN Step 11: *"state owned GUI-side"*) and sets ``proceed``
-//  before every run and on every resume. So a value left over from a previous run can only make the
-//  next one do **less** than it was asked to — and the run it would shorten has not started, so the
-//  app's own state machine refuses to issue it anyway. The failure direction is the safe one.
+//  Clearing it here would be the unsafe direction: a pause issued in the gap between two of a run's
+//  bounded calls would be discarded, and the user would watch a Pause they had pressed do nothing.
+//  So the obligation sits with the caller, and the app discharges it — it sets ``proceed`` before
+//  every run and on every resume (BUILD-PLAN Step 11: *"state owned GUI-side"*), **awaits** the
+//  confirmation, and abandons with a visible message if it does not arrive. See
+//  `RunController.resume()`.
 //
-//  Clearing it here instead would be the unsafe direction: a pause issued in the gap between two of
-//  a run's bounded calls would be discarded, and the user would watch a Pause they had pressed do
-//  nothing.
+//  ### This heading used to end "…and that is what makes a stale value harmless". That was wrong.
+//
+//  The argument ran: the app owns the state and always clears it, so a value left over from a
+//  previous run can only make the next one do **less** than it was asked to — and the app's own
+//  state machine would refuse to issue that run anyway, so the failure direction is the safe one.
+//
+//  Every step of that is true **of the app**. The slot is not the app's. It is process-wide on the
+//  daemon and shared by every client that connects, and **every gate script in this project is a
+//  client that is not the app.** The conclusion was drawn about one caller and stated about all of
+//  them.
+//
+//  Measured 2026-08-23. The app set `stop` at 09:11:29 during a GUI session and nothing set it
+//  back. `scripts/metrics-check.sh` then acquired the drive and issued four bounded calls; each
+//  returned `stoppedByUser` after 0.5 ms having processed zero chunks, and forty assertions failed
+//  off that one stale value without a single one of them naming it. `metrics-probe` predates this
+//  channel and had never cleared the level; `run-control-probe`, written after it, always has.
+//
+//  **The probe was fixed, not this class** — the design above is right, and the caller does own the
+//  level. What was wrong was a comment that reasoned about one client and concluded something about
+//  every client.
 //
 
 import Foundation
