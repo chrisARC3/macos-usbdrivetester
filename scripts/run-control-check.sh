@@ -237,6 +237,65 @@ else
     echo "        every pause below lands too near the end for the result to mean anything." >&2
 fi
 
+# --- the device-operation slot: a second run while one is in flight ------------------
+#
+# Added 2026-08-24. `beginDeviceOperation` refuses a second device operation while one holds the
+# slot, and NOTHING covered it: `HelperActivity` lives in the helper's `main.swift`, which is
+# top-level code and cannot be imported into a test target, and no test asserts the `.deviceBusy`
+# refusal either. `claim-contention-test.sh` covers *acquire* contention, which is a different
+# question — two clients wanting the drive, not two operations on a drive already held.
+#
+# It lives HERE rather than in xpc-concurrency-check.sh, which was the first idea and the wrong
+# one: that script's headline promise is "READ-ONLY. NOTHING IS WRITTEN TO THE DEVICE", and the
+# *failure* mode of this check is a run that escapes the guard and writes. A gate that can no
+# longer be run casually is worth less than this check is worth. This script already writes,
+# already holds the drive, and already has two connections.
+#
+# **The idle attempt is the half that makes the busy one mean anything.** Same request, same
+# connection, one variable. A refusal on its own proves only that something refused.
+SLOT_BUSY_OUTCOME="$(value_of 'SLOT_BUSY_OUTCOME')"
+SLOT_BUSY_CHUNKS="$(value_of 'SLOT_BUSY_CHUNKS')"
+SLOT_BUSY_MESSAGE="$(value_of 'SLOT_BUSY_MESSAGE')"
+SLOT_IDLE_OUTCOME="$(value_of 'SLOT_IDLE_OUTCOME')"
+SLOT_IDLE_CHUNKS="$(value_of 'SLOT_IDLE_CHUNKS')"
+SLOT_CONTROL_SURVIVED="$(value_of 'SLOT_CONTROL_SURVIVED')"
+
+if [[ "${SLOT_BUSY_OUTCOME:-}" == "0" ]]; then
+    check pass "a second run issued while one was in flight was REFUSED"
+else
+    check fail "a second run issued mid-flight returned outcome ${SLOT_BUSY_OUTCOME:-?}, expected 0 (refused)"
+    echo "        THE DEVICE-OPERATION SLOT DID NOT HOLD. Two runs shared one descriptor and one" >&2
+    echo "        set of buffers. Run scripts/retention-cycle-check.sh before trusting this drive." >&2
+fi
+
+if [[ "${SLOT_BUSY_CHUNKS:-}" == "0" ]]; then
+    check pass "the refused call reported no chunks — it did not partially run"
+else
+    check fail "the refused call reported ${SLOT_BUSY_CHUNKS:-?} chunks, expected 0"
+fi
+
+# The refusal must say WHICH operation holds the slot. A bare "busy" would pass the outcome check
+# above while telling a user nothing, and this is the message that reaches them.
+if grep -q "retention cycle" <<< "${SLOT_BUSY_MESSAGE:-}" && grep -q "${DISK}" <<< "${SLOT_BUSY_MESSAGE:-}"; then
+    check pass "the refusal names the operation and the disk: ${SLOT_BUSY_MESSAGE}"
+else
+    check fail "the refusal does not name both the operation and ${DISK}: ${SLOT_BUSY_MESSAGE:-<empty>}"
+fi
+
+if [[ "${SLOT_IDLE_OUTCOME:-}" == "1" ]]; then
+    check pass "the SAME call with nothing in flight was ACCEPTED (${SLOT_IDLE_CHUNKS:-?} chunk) — the check discriminates"
+else
+    check fail "the same call was refused when idle too (outcome ${SLOT_IDLE_OUTCOME:-?}) — INCONCLUSIVE"
+    echo "        The busy refusal above proves nothing if this one is refused as well: it would" >&2
+    echo "        mean something other than the slot is turning these calls away." >&2
+fi
+
+if [[ "${SLOT_CONTROL_SURVIVED:-}" == "1" ]]; then
+    check pass "the in-flight run completed normally despite the refused second call"
+else
+    check fail "the in-flight run did not complete — the refusal disturbed the run it protected"
+fi
+
 # Each I/O size, in turn.
 for MIB in 1 2 4 8; do
     VERDICT="$(value_of "CASE_${MIB}MIB_VERDICT")"

@@ -210,6 +210,17 @@ emit("BLOCK_SIZE=\(blockSize)")
 emit("DEVICE_BLOCKS=\(deviceBlocks)")
 
 let startBlock = startBlockBytes / UInt64(blockSize)
+
+// The second run's placement, for the device-operation slot check below.
+//
+// **Disjoint from the region every other case uses, and only 1 MiB long.** The slot is device-wide
+// — `beginDeviceOperation` refuses on "something else holds it", never on a range — so a disjoint
+// range exercises it exactly as well as an overlapping one while touching the least possible media.
+// That matters because the *failure* mode of this check is a run that escapes the guard, and the
+// helper has one descriptor and one set of buffers to share between it and the run already in
+// flight. 2 GiB past the start, which is 1 MiB-aligned wherever `startBlockBytes` is.
+let secondRunStartBlock = startBlock + (UInt64(2) << 30) / UInt64(blockSize)
+let secondRunBlocks = UInt64(1 << 20) / UInt64(blockSize)
 let blockCount = bytesPerCall / UInt64(blockSize)
 guard startBlock + blockCount <= deviceBlocks else {
     emit("PROBE_RESULT=RANGE_OFF_DEVICE")
@@ -293,11 +304,51 @@ func performRun(ioSizeBytes: Int, pauseAfter: Double?) -> (report: RunOutcomeRep
     return (report, issuedAt, pauseSentAt, pauseAckedAt)
 }
 
+// MARK: - The device-operation slot
+
+/// Issue one bounded 1 MiB run on the **control** connection — deliberately not the connection that
+/// acquired the device.
+///
+/// The claim is process-wide (`HelperActivity.shared`), not per-connection, so this reaches the
+/// device-operation slot rather than being turned away for not owning the claim. That the idle call
+/// below is *accepted* is what proves it: if ownership gated this call, both attempts would be
+/// refused and the busy one would prove nothing.
+func attemptSecondRun(_ label: String) -> RunOutcomeReport {
+    var report = RunOutcomeReport()
+    let done = DispatchSemaphore(value: 0)
+    proxy(on: controlConnection, "control").runRetentionCycle(
+        startBlock: secondRunStartBlock,
+        blockCount: secondRunBlocks,
+        ioSizeBytes: 1 << 20,
+        failureModeCode: FailureModeCode.logAndContinue.rawValue
+    ) { runOutcomeCode, _, chunksProcessed, _, _,
+        _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, message in
+        report.repliedAt = nowNanoseconds()
+        report.outcomeCode = runOutcomeCode
+        report.chunksProcessed = chunksProcessed
+        report.message = message.replacingOccurrences(of: "\n", with: " ")
+        done.signal()
+    }
+    if done.wait(timeout: .now() + 180) != .success {
+        emit("\(label)_TIMEOUT=1")
+    }
+    return report
+}
+
 // MARK: - The control run: how long IS a bounded call?
 
 // Without this, a drive fast enough to finish a call inside the pre-pause wait would make every
 // case below report `completed`, and "the pause did nothing" and "the pause was too late" would be
 // indistinguishable. Measuring the uninterrupted call first tells them apart.
+// **Fired 1 s into the control run**, which lasts ~7 s at this drive's measured rate. Scheduled
+// before the run is issued because `performRun` blocks until its reply arrives.
+var busyAttempt = RunOutcomeReport()
+let busyAttemptDone = DispatchSemaphore(value: 0)
+DispatchQueue.global().asyncAfter(deadline: .now() + 1.0) {
+    busyAttempt = attemptSecondRun("SLOT_BUSY")
+    busyAttemptDone.signal()
+}
+
 let control = performRun(ioSizeBytes: TesterProtocol.defaultIOSizeBytes, pauseAfter: nil)
 let controlMilliseconds = millisecondsBetween(control.issuedAt, control.report.repliedAt)
 emit("CONTROL_RUN_MS=\(String(format: "%.1f", controlMilliseconds))")
@@ -309,6 +360,29 @@ guard control.report.outcomeCode == RunOutcomeCode.completed.rawValue else {
     emit("PROBE_RESULT=CONTROL_RUN_DID_NOT_COMPLETE")
     releaseAndExit(10)
 }
+
+// The busy attempt was issued while the call above was in flight. Its reply is collected here,
+// after that call has completed, so the two cannot be confused.
+_ = busyAttemptDone.wait(timeout: .now() + 240)
+emit("SLOT_BUSY_OUTCOME=\(busyAttempt.outcomeCode)")
+emit("SLOT_BUSY_CHUNKS=\(busyAttempt.chunksProcessed)")
+emit("SLOT_BUSY_MESSAGE=\(busyAttempt.message)")
+
+// **The same call again, with nothing in flight.** This is the half that makes the one above mean
+// something: same request, same connection, and the only variable is whether the slot was taken.
+// Without it a refusal proves only that *something* refused — connection ownership, the request
+// itself, a typo in the block arithmetic — and a check that cannot be seen answering both ways is
+// not a check. No mutation is needed for that evidence because the product supplies it.
+let idleBefore = control.report.chunksProcessed
+let idleAttempt = attemptSecondRun("SLOT_IDLE")
+emit("SLOT_IDLE_OUTCOME=\(idleAttempt.outcomeCode)")
+emit("SLOT_IDLE_CHUNKS_CUMULATIVE=\(idleAttempt.chunksProcessed)")
+emit("SLOT_IDLE_CHUNKS=\(idleAttempt.chunksProcessed >= idleBefore ? idleAttempt.chunksProcessed - idleBefore : 0)")
+emit("SLOT_IDLE_MESSAGE=\(idleAttempt.message)")
+
+// The control run must still have finished cleanly. Without this, "refused cleanly" and "the
+// second call broke the first one too" look identical from the assertions above.
+emit("SLOT_CONTROL_SURVIVED=\(control.report.outcomeCode == RunOutcomeCode.completed.rawValue ? 1 : 0)")
 
 // MARK: - The measurement, at each of FR-CTRL-8's I/O sizes
 
@@ -330,9 +404,16 @@ var settled = 0
 // as differences (555, +150, +74, +37 — each ~300 MiB of covering work in the 2 s window), which is
 // what proved the counter cumulative rather than the resume points wrong.
 //
-// **Every per-call figure below is therefore a DIFFERENCE.** The control run is the first
-// contribution to the total, so the baseline starts at its count rather than at zero.
-var chunksBefore = control.report.chunksProcessed
+// **Every per-call figure below is therefore a DIFFERENCE.** The baseline is the cumulative total
+// after *everything* that has already run, which is the idle slot attempt — not the control run.
+//
+// It read `control.report.chunksProcessed` for about ten minutes on 2026-08-24 and was wrong by
+// exactly one chunk: the idle attempt runs 1 MiB of real work *after* the control run and before
+// this loop, so the first case differenced against a baseline that predated it and reported a
+// resume point 2048 blocks too far. **Anything added between the control run and this loop that
+// touches the device must move this baseline forward**, which is why it reads from the last thing
+// to run rather than naming a particular call.
+var chunksBefore = idleAttempt.chunksProcessed
 
 for ioSizeBytes in TesterProtocol.permittedIOSizes {
     let result = performRun(ioSizeBytes: ioSizeBytes, pauseAfter: preRunWaitSeconds)

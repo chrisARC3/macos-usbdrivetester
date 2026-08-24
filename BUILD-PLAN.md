@@ -1458,11 +1458,25 @@ rather than trusted, and the fifth is what now stands between Step 11 and Step 1
       was run *before* the 2026-08-19 reversal rebuilt both controls to one rule, so its result is
       superseded. No test drives a SwiftUI binding, so mutation M15 — *the dropdown does nothing at
       all* — passes the entire suite. **This chunk is its only cover.**
-    * **"Second concurrent run is refused" has no helper-side cover.** App-side is discharged by
-      `startDuringARunIsRefusedWithAReasonThatNamesTheRule`. Helper-side the guard is
-      `HelperActivity.shared.isBusy` in `main.swift`, which is **not in the test target**, and no
-      script exercises it — `claim-contention-test.sh` covers *acquire* contention, which is a
-      different question. Found 2026-08-24 while walking this gate.
+    * ~~**"Second concurrent run is refused" has no helper-side cover.**~~ **Covered 2026-08-24.**
+      App-side was already discharged by `startDuringARunIsRefusedWithAReasonThatNamesTheRule`.
+      Helper-side the guard is the **device-operation slot** — `beginDeviceOperation`, taken by
+      `runRetentionCycle` and by `digestRange` — not the `isBusy` check, which guards *release*.
+      Nothing covered it: `HelperActivity` is in the helper's `main.swift` (top-level code, so not
+      importable by a test target) and `RetentionCycleRefusal` is in `RunCoordinator.swift`, which
+      is **not in the test target either**, so no unit test can reach the refusal or its wording.
+      `claim-contention-test.sh` covers *acquire* contention, a different question.
+
+      `scripts/run-control-check.sh` now issues a **1 MiB run on the second connection while a
+      7-second call is in flight** and asserts it is refused, reports no chunks, and names both the
+      operation and the disk. **Then it issues the identical call with nothing in flight and asserts
+      it is accepted** — same request, same connection, one variable. Without that half a refusal
+      proves only that *something* refused, and the check could not be seen answering both ways. It
+      also rules out connection ownership as the cause, which reading the source had not settled.
+      A fifth assertion checks the in-flight run still completed, separating *refused cleanly* from
+      *both broke*. No mutation round: mutating the guard would mean rebuilding and **reinstalling a
+      privileged daemon** to test it live, and the idle attempt already supplies the evidence a
+      mutation would buy.
 
 ### Risks / gotchas
 - Pause acknowledgment is a **two-party handshake** across XPC — never show "Paused" before the helper confirms, or you imply a safety guarantee you don't have.

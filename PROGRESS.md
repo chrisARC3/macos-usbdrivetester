@@ -886,6 +886,31 @@ After the fix: **all four I/O sizes settled at a chunk boundary with the correct
 300 / 147 / 73 / 38 chunks; settle 6.4 / 3.1 / 9.8 / 20.1 ms; ack 0.34–0.58 ms. Settle tracks the
 I/O size and not the 1 GiB call cap, which is the shape NFR-REL-10 predicts.
 
+**The concurrent-run guard now has cover, and it had none.** Gate item 5's second clause was
+discharged on 2026-08-24 by adding a check to `run-control-check.sh`. Two things had to be corrected
+before it could be written: the guard is the **device-operation slot** (`beginDeviceOperation`,
+taken by `runRetentionCycle` and by `digestRange`), not `HelperActivity.isBusy` — that one guards
+*release*; and no unit test can reach it, because `HelperActivity` is in the helper's `main.swift`
+(top-level code, not importable by a test target) and `RetentionCycleRefusal` is in
+`RunCoordinator.swift`, which the test target does not compile. A live check was the only option
+available, not the cheapest of several.
+
+> **The idle attempt is the half that makes the check a check.** It issues the same 1 MiB call on
+> the same connection with nothing in flight and asserts it is *accepted*. A refusal on its own
+> proves only that something refused — connection ownership, the request, an arithmetic slip — and a
+> check that cannot be seen answering both ways is not one. It also settled empirically what reading
+> the source had not: `runRetentionCycle` does not gate on connection ownership. **No mutation round
+> was run, deliberately**: mutating the guard would mean rebuilding and reinstalling a privileged
+> daemon to test it live, and the idle attempt already buys the evidence a mutation would.
+
+**And the new check immediately found a bug in the change that added it.** The first run reported
+the 1 MiB case's resume point 2048 blocks too far — exactly one chunk. The idle attempt does 1 MiB
+of real work *after* the control run and before the case loop, and the loop's baseline was still
+being read from the control run, so the first case differenced against a total that predated it.
+The same stale-baseline class fixed forty minutes earlier, reintroduced by adding a new contributor
+to a cumulative counter. The baseline now reads from the last thing to run rather than naming a
+particular call, and the comment says why.
+
 **Two things the walk found that were not failures of anything mechanical.** The gate's fourth item
 still read *"Restart begins from block 0"*, naming a control withdrawn on 2026-08-22 — amended in
 place, because a gate item naming a control is how a withdrawn one comes back. And the human

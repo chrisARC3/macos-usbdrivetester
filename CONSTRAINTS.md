@@ -573,6 +573,14 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   must clear the level first**, and any argument that reasons about the app has not yet said
   anything about the gates. The comment was corrected 2026-08-24, which moved the helper source
   hash for a comment-only change — see PROGRESS for why the gates still stand.
+- **Show a check answering both ways before trusting either — a mutation is one way to do that,
+  and often not the cheapest.** The device-operation slot check added 2026-08-24 asserts that a
+  second run is refused while one is in flight; on its own that proves only that *something*
+  refused. It issues the identical call again with nothing in flight and asserts it is **accepted**.
+  Same request, same connection, one variable. That also settled a question reading the source had
+  not — whether `runRetentionCycle` gates on connection ownership — and it cost nothing, where a
+  mutation would have meant rebuilding and **reinstalling a privileged daemon** to test the guard
+  live. Where the product can be made to demonstrate both answers, prefer that to a mutation.
 - **A gate that has not been re-run cannot report anything, and its probe rots quietly.** Step 11
   increment 3 moved the run accumulators onto the claim, so `chunksProcessed` became cumulative
   across a session rather than per call. That broke two probes identically. `metrics-probe` was
