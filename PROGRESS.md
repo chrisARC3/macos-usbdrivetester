@@ -853,8 +853,45 @@ It was a false alarm: an unlink clears the directory entry and the allocation ta
 The **CONTENT check is the authority**, it samples raw blocks through the helper, and its three
 sampled chunks returned three distinct fingerprints. The residual `/dev/urandom` pattern was intact.
 
-**Still owed as human items**: checklist chunk 12 (the only cover the link-speed read has) and item
-7.5 (a run allowed to complete).
+**Still owed as human items**: checklist **chunk 8 items 3–7** (found unrun on 2026-08-24 — see the
+gate walk below), chunk 12 (the only cover the link-speed read has), and item 7.5 (a run allowed to
+complete).
+
+### Step 11's verification gate — walked 2026-08-24, four of five
+
+BUILD-PLAN's five items, each ticked against named evidence rather than recollection. **Item 5 is
+not discharged** and is what now stands between Step 11 and Step 12; the other four are, and the
+walk is recorded at the gate itself.
+
+**It needed one re-run, and the re-run found the second stale probe of the week.**
+`run-control-check.sh` had last run on **2026-08-12 against a protocol v10 daemon**. Re-running it
+against v12 produced five failures, all of the form *resume block X, expected Y* — and the product
+was correct in every case.
+
+`RunControlProbe` computed `expectedResume = startBlock + report.chunksProcessed * blocksPerChunk`.
+**`chunksProcessed` became cumulative across the session in increment 3**; `startBlock` and
+`blocksPerChunk` are still per-call. So the prediction inflated with each case. The reported totals
+reconciled exactly as differences — 555, +150, +74, +37, each about 300 MiB of covering work in the
+2 s window — and that reconciliation is what proved the counter cumulative rather than the resume
+points wrong.
+
+> **Two probes, one cause, and one of them was updated at the time.** Increment 3's move of the
+> accumulators onto the claim broke `metrics-probe` and `run-control-probe` in the same way.
+> `metrics-probe` was updated then and documents the change at length in its header;
+> `run-control-probe` was missed. Nothing caught it for **twelve days**, because a gate that is not
+> re-run cannot report anything. Both defects this week were instruments, not product — and both
+> were found only by running gates that had been left standing on old evidence.
+
+After the fix: **all four I/O sizes settled at a chunk boundary with the correct resume point.**
+300 / 147 / 73 / 38 chunks; settle 6.4 / 3.1 / 9.8 / 20.1 ms; ack 0.34–0.58 ms. Settle tracks the
+I/O size and not the 1 GiB call cap, which is the shape NFR-REL-10 predicts.
+
+**Two things the walk found that were not failures of anything mechanical.** The gate's fourth item
+still read *"Restart begins from block 0"*, naming a control withdrawn on 2026-08-22 — amended in
+place, because a gate item naming a control is how a withdrawn one comes back. And the human
+checklist's summary line claimed everything in it had been walked while its own header, four lines
+above, said chunk 8 was not. That sentence was carried forward and **bolded** by the previous day's
+docs pass without the body being read. Corrected, with the reason recorded there.
 
 ### What this step must not lose
 

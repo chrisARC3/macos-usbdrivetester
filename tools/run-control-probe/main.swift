@@ -318,9 +318,33 @@ emit("ioSize     outcome  chunks  resumeBlock    ackMs   settleMs")
 var inconclusive = 0
 var settled = 0
 
+// **Chunk counts on the reply are CUMULATIVE across the session, not per call** — Step 11
+// increment 3 moved the accumulators onto the claim. This probe was written at protocol v10, when
+// they were per-call, and was **not** updated when that changed; `metrics-probe` was, and says so
+// at length in its own header.
+//
+// Re-running this gate on 2026-08-24 — twelve days after it last ran — is what found it. The
+// arithmetic below multiplied a running total by the *current* call's chunk size, so its prediction
+// inflated with every case: it reported RESUME_POINT_WRONG four times over while the product was
+// settling correctly at chunk-aligned boundaries every time. The reported totals reconciled exactly
+// as differences (555, +150, +74, +37 — each ~300 MiB of covering work in the 2 s window), which is
+// what proved the counter cumulative rather than the resume points wrong.
+//
+// **Every per-call figure below is therefore a DIFFERENCE.** The control run is the first
+// contribution to the total, so the baseline starts at its count rather than at zero.
+var chunksBefore = control.report.chunksProcessed
+
 for ioSizeBytes in TesterProtocol.permittedIOSizes {
     let result = performRun(ioSizeBytes: ioSizeBytes, pauseAfter: preRunWaitSeconds)
     let report = result.report
+
+    // Differenced **before any `continue`**, so a case that bails out cannot corrupt the next
+    // one's baseline. The `>=` guard means a counter that went backwards reads as zero work rather
+    // than as a vast negative underflowing into a plausible block number.
+    let chunksThisCall = report.chunksProcessed >= chunksBefore
+        ? report.chunksProcessed - chunksBefore
+        : 0
+    chunksBefore = report.chunksProcessed
 
     let ackMilliseconds = millisecondsBetween(result.pauseSentAt, result.pauseAckedAt)
     let settleMilliseconds = millisecondsBetween(result.pauseSentAt, report.repliedAt)
@@ -329,14 +353,17 @@ for ioSizeBytes in TesterProtocol.permittedIOSizes {
     emit(String(format: "%-10s %7d  %6llu  %11llu  %7.2f  %9.2f",
                 ("\(mib) MiB" as NSString).utf8String!,
                 report.outcomeCode,
-                report.chunksProcessed,
+                chunksThisCall,
                 report.interruptedAtBlock,
                 ackMilliseconds,
                 settleMilliseconds))
 
     let prefix = "CASE_\(mib)MIB"
     emit("\(prefix)_OUTCOME=\(report.outcomeCode)")
-    emit("\(prefix)_CHUNKS=\(report.chunksProcessed)")
+    // `_CHUNKS` is this call's work, which is what every assertion downstream means by it.
+    // The running total is emitted beside it so the two are never confused again.
+    emit("\(prefix)_CHUNKS=\(chunksThisCall)")
+    emit("\(prefix)_CHUNKS_CUMULATIVE=\(report.chunksProcessed)")
     emit("\(prefix)_RESUME_BLOCK=\(report.interruptedAtBlock)")
     emit("\(prefix)_ACK_MS=\(String(format: "%.3f", ackMilliseconds))")
     emit("\(prefix)_SETTLE_MS=\(String(format: "%.3f", settleMilliseconds))")
@@ -347,7 +374,10 @@ for ioSizeBytes in TesterProtocol.permittedIOSizes {
         inconclusive += 1
         continue
     }
-    if report.chunksProcessed == 0 {
+    // This check had become **untriggerable**: against a cumulative counter it could only read
+    // zero if the control run had also done nothing, and that is already guarded above. On the
+    // difference it can fail again, which is the whole point of it.
+    if chunksThisCall == 0 {
         emit("\(prefix)_VERDICT=INCONCLUSIVE_PAUSE_BEFORE_FIRST_CHUNK")
         inconclusive += 1
         continue
@@ -359,9 +389,11 @@ for ioSizeBytes in TesterProtocol.permittedIOSizes {
 
     // **The arithmetic that proves the resume point is where the run actually stopped**, rather
     // than merely a plausible-looking block number. Every chunk before the settle was a full
-    // `ioSizeBytes`, so the resume point must be exactly that many bytes past the start.
+    // `ioSizeBytes`, so the resume point must be exactly that many bytes past this call's start.
+    //
+    // `chunksThisCall`, never `report.chunksProcessed` — see the note above the loop.
     let blocksPerChunk = UInt64(ioSizeBytes) / UInt64(blockSize)
-    let expectedResume = startBlock + report.chunksProcessed * blocksPerChunk
+    let expectedResume = startBlock + chunksThisCall * blocksPerChunk
     emit("\(prefix)_EXPECTED_RESUME_BLOCK=\(expectedResume)")
     let arithmeticHolds = report.interruptedAtBlock == expectedResume
 

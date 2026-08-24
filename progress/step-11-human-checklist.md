@@ -4,8 +4,11 @@
 added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item list in
 `progress/step-14.md`, which increment 5 made partly unrunnable.
 
-**CHUNK 8 IS NEW AND UNRUN** — added by increment 6 for the two pre-run controls. It is the only
-cover the dropdown's and the confirmation's wiring has: both survive the whole 998-test suite.
+**CHUNK 8 IS PART-RUN: items 1–2 passed 2026-08-19, items 3–7 are UNRUN.** Item 3 was run before
+the 2026-08-19 reversal rebuilt both controls to one rule, so its result is superseded. Added by
+increment 6, and it is the only cover the dropdown's and the confirmation's wiring has: mutation M15
+— *the dropdown does nothing at all* — survives the entire suite, because no test drives a SwiftUI
+binding. **Step 11's verification gate does not close without it** (BUILD-PLAN, item 5).
 
 **CHUNK 9 PASSED IN FULL.** 9.1–9.6 at the keyboard on 2026-08-20; **9.7 was deleted on 2026-08-22
 rather than walked**, because the sentences it counted no longer exist.
@@ -24,9 +27,15 @@ pane. Its first four items are the only cover the new registry read has: the mut
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **What is owed, as of 2026-08-23:** 7.5, and all of chunk 12.
-> **Everything else in this file has been walked.** Chunk 10 was walked, passed, and then deleted
-> along with the control it covered.
+> **What is owed, as of 2026-08-24:** **chunk 8 items 3–7**, item 7.5, and all of chunk 12.
+> Chunk 10 was walked, passed, and then deleted along with the control it covered.
+>
+> ⚠️ **This line read "Everything else in this file has been walked" until 2026-08-24, and it was
+> false** — chunk 8 items 3–7 were unrun the whole time, and this file's own header said so four
+> lines above. The sentence predates the docs pass of 2026-08-23, which carried it forward and
+> **bolded it** without reading the chunk it contradicted. It was caught by walking Step 11's
+> verification gate, whose item 5 is exactly chunk 8. **A summary that disagrees with the body is
+> worse than no summary**, because it is the part people read.
 
 ## Why this exists, in one paragraph
 

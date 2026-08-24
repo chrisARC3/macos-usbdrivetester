@@ -1426,11 +1426,43 @@ Implement the explicit run-control state machine with legal-transition enforceme
 8. **`os_log`** start/stop and mode at run start (NFR-OBS-1).
 
 ### Verification Gate (must pass before Step 12)
-- [ ] Illegal transitions are impossible (e.g., resume while running, start while running) — verified by unit tests over the state machine.
-- [ ] Pause acknowledgment arrives **only after** the helper confirms no write is in flight and it is at a chunk boundary (NFR-REL-10) — verified with instrumentation/log timestamps.
-- [ ] Resume continues from the correct next chunk; metrics/ETA continue sensibly.
-- [ ] Stop releases the device and yields a "stopped by user" report; Restart begins from block 0.
-- [ ] I/O size is selectable before start, fixed during the run; failure mode required before start; second concurrent run is refused.
+
+**Walked 2026-08-24.** Four of five discharged. Each tick names its evidence so it can be checked
+rather than trusted, and the fifth is what now stands between Step 11 and Step 12.
+
+- [x] **Illegal transitions are impossible** (e.g., resume while running, start while running) —
+  by this item's own stated method, unit tests over the state machine. `RunControlPolicyTests`
+  (27 tests) carries them by name: `resumeIsAcceptedFromExactlyOneState`,
+  `startIsAcceptedOnlyWhenNoRunIsActive`, `startDuringARunIsRefusedWithAReasonThatNamesTheRule`.
+- [x] **Pause acknowledgment arrives only after the helper confirms no write is in flight and it is
+  at a chunk boundary (NFR-REL-10)** — `scripts/run-control-check.sh`, re-run 2026-08-24 against
+  the **v12** daemon. All four I/O sizes settled at a chunk boundary with the correct resume point:
+  300 / 147 / 73 / 38 chunks; settle 6.4 / 3.1 / 9.8 / 20.1 ms; ack 0.34–0.58 ms. **Settle tracks
+  the I/O size rather than the 1 GiB call cap**, which is the shape NFR-REL-10 predicts. The
+  evidence this replaces was taken 2026-08-12 against a **v10** daemon, two protocol bumps back.
+- [x] **Resume continues from the correct next chunk** — same gate, same run. The resume point is
+  asserted arithmetically against this call's own work rather than checked for plausibility, and
+  all four were 1 MiB-aligned, so the resumed call cannot be refused under FR-TEST-10.
+  **"Metrics/ETA continue sensibly" is human**, and chunk 4 of the human checklist covers it:
+  passed 2026-08-18, and that pass is **accepted as still standing** (user decision 2026-08-24)
+  rather than re-walked after increments 6–8.
+- [x] **Stop releases the device and yields a "stopped by user" report** — chunk 7.4 of the human
+  checklist, passed 2026-08-22. ~~Restart begins from block 0.~~ **Amended 2026-08-24: there is no
+  Restart control.** It was built in `0f65be4` and withdrawn in `916a630` as redundant with
+  Stop-then-Start, and FR-CTRL-5 carries a 2026-08-22 amendment recording that the requirement is
+  met by composition. **Do not re-derive the control from this line** — a gate item naming a
+  control is exactly how a withdrawn one comes back.
+- [ ] **I/O size is selectable before start, fixed during the run; failure mode required before
+  start; second concurrent run is refused.** ⬜ **NOT DISCHARGED**, in two separate places:
+    * **Chunk 8 items 3–7 of the human checklist are unrun.** Items 1–2 passed 2026-08-19; item 3
+      was run *before* the 2026-08-19 reversal rebuilt both controls to one rule, so its result is
+      superseded. No test drives a SwiftUI binding, so mutation M15 — *the dropdown does nothing at
+      all* — passes the entire suite. **This chunk is its only cover.**
+    * **"Second concurrent run is refused" has no helper-side cover.** App-side is discharged by
+      `startDuringARunIsRefusedWithAReasonThatNamesTheRule`. Helper-side the guard is
+      `HelperActivity.shared.isBusy` in `main.swift`, which is **not in the test target**, and no
+      script exercises it — `claim-contention-test.sh` covers *acquire* contention, which is a
+      different question. Found 2026-08-24 while walking this gate.
 
 ### Risks / gotchas
 - Pause acknowledgment is a **two-party handshake** across XPC — never show "Paused" before the helper confirms, or you imply a safety guarantee you don't have.

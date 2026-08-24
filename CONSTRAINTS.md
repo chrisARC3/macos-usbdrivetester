@@ -573,6 +573,16 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   must clear the level first**, and any argument that reasons about the app has not yet said
   anything about the gates. The comment was corrected 2026-08-24, which moved the helper source
   hash for a comment-only change — see PROGRESS for why the gates still stand.
+- **A gate that has not been re-run cannot report anything, and its probe rots quietly.** Step 11
+  increment 3 moved the run accumulators onto the claim, so `chunksProcessed` became cumulative
+  across a session rather than per call. That broke two probes identically. `metrics-probe` was
+  updated at the time and says so at length in its header; **`run-control-probe` was missed, and
+  nothing noticed for twelve days** — its gate had last run on 2026-08-12 against a v10 daemon.
+  When it was finally re-run on 2026-08-24 it reported five failures that all looked like a product
+  defect (*resume block X, expected Y*) and were all its own arithmetic multiplying a running total
+  by a per-call chunk size. **Both defects found this week were instruments, not product.** When a
+  reply's meaning changes, grep every `tools/` client for the field, not just the one you are
+  looking at; and re-run a gate when the thing under it moves, not when the calendar suggests it.
 - **An incremental build does not re-emit warnings for files it did not recompile.** "Zero warnings"
   from a warm build is a statement about what changed, not about the tree. Only a clean build with
   DerivedData wiped answers the question, which is why the gate asks for three of them. Related:
