@@ -86,6 +86,15 @@ readonly SOURCE_TREE_MODEL="Samsung SSD 990 EVO Plus (Ugreen enclosure)"
 # capacity was remembered rather than read, and a remembered capacity is an assigned identifier
 # wearing different clothes — which is the same failure mode as the BSD name this file exists to
 # eliminate. The serial and the block count below were read from the drive.
+# ITS USB LINK CEILING IS 5 Gb/s, AND THAT IS THE PRODUCT — not the cable, not the port, not a hub
+# in the way (settled 2026-08-25, user finding). The T5 EVO is specified as USB 3.2 **Gen 1** and
+# rated around 460 MB/s: Samsung sells it as the high-capacity, lower-cost line and left out the
+# faster bridge, which costs nothing the NAND behind it could have used. Tested here across two
+# built-in Mac mini ports and two cables — the negotiated speed never moved off code 3. So a
+# reading of `5 Gb/s (USB 3.0)` for this drive is CORRECT, and every throughput figure this project
+# has ever taken from the EVO was bounded near 500 MB/s by the link before the drive was the limit.
+# The 1 TB scratch T5 is the Gen 2 drive on this bench — code 4, 10 Gb/s. DO NOT RE-DIAGNOSE THIS.
+
 readonly FIXTURE_SERIAL="00000S7CLNJ0WC02266P"
 readonly FIXTURE_MODEL="Samsung PSSD T5 EVO"
 readonly FIXTURE_BLOCKS=7814037168

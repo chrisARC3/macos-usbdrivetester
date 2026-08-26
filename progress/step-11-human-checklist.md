@@ -23,14 +23,22 @@ the only cover that surface has at all: no test drives a SwiftUI view, and the t
 model a run produced a report live in a file that needs a helper and a drive to construct. **11.11
 found a defect**, since fixed and re-checked.
 
-**CHUNK 12 IS NEW AND UNRUN** — added 2026-08-23 for the link speed's move to the Selected device
+**CHUNK 12 PASSED IN FULL — ALL EIGHT ITEMS, 2026-08-25.** Items 1–4 passed hard: six drives read at the
+keyboard, three distinct speeds, every one matching `usb-speed-check.sh`'s independent read of
+the registry, and the number then followed a drive across a port change. **That is the whole of the
+cover the registry read has**, so both mutations that survived all 1025 tests — a misspelled key
+and a pane wired to a constant — are now dead by measurement rather than by argument. Items 5–8
+then confirmed the deletion cost nothing and the report kept what it was supposed to keep. Added
+2026-08-23 for the link speed's move to the Selected device
 pane. Its first four items are the only cover the new registry read has: the mutation round showed a
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **What is owed, as of 2026-08-24:** item 7.5, all of chunk 12, and a **one-off recheck of 8.3's
-> new placement** after the next reinstall — the sentence moved above the I/O size row on the same
-> day chunk 8 was walked, so the walk saw it in its old position.
+> **What is owed, as of 2026-08-25:** just two things — **item 7.5** (a run allowed to reach its
+> end, so the report says "Completed" with no range caveat) and a **one-off recheck of 8.3's new
+> placement**, the sentence having moved above the I/O size row on the same day chunk 8 was walked,
+> so the walk saw it in its old position. Everything else in this file has been walked — and this
+> time that sentence was checked against the body before it was written.
 > Chunk 10 was walked, passed, and then deleted along with the control it covered.
 >
 > ⚠️ **This line read "Everything else in this file has been walked" until 2026-08-24, and it was
@@ -577,6 +585,22 @@ is taken on demand and this list is what makes it a habit.
    different generation and let the list refresh. **The number must change.** This is the only item
    that tests the feature's actual purpose — *did this drive negotiate the link I expected* — and no
    render can stage it, because a render sees whatever is plugged in at the time.
+
+   > **Do not reach for the 4 TB T5 EVO here. Measured 2026-08-25 and settled.** It is the obvious
+   > candidate — a drive sitting at 5 Gb/s while 10 Gb/s ports stand free — and it **cannot move**:
+   > two built-in Mac mini ports and two cables all produced code 3. The T5 EVO is a USB 3.2
+   > **Gen 1** product rated near 460 MB/s, so `5 Gb/s (USB 3.0)` is its correct and only reading.
+   > Recorded in the FIXTURE block of `scripts/lib/device-identity.sh`; do not re-diagnose it.
+   >
+   > **Use a drive already at code 4 and move it DOWN.** The 1 TB Portable SSD T5 is the Gen 2 drive
+   > on this bench, and a device negotiating 10 Gb/s is certainly capable of 5 — so the downward
+   > direction cannot fail for capability reasons, which is what makes it a test of the app rather
+   > than of the hardware. **A drive that fails to change on the way down is the app.**
+   >
+   > **That is how it was discharged, 2026-08-25.** The 1 TB Portable SSD T5 moved from a 10 Gb/s
+   > port to a 5 Gb/s one and the row went `10 Gb/s (USB 3.1 Gen 2)` → `5 Gb/s (USB 3.0)` on
+   > replug. The EVO attempt is kept above rather than deleted: it is the reason the downward
+   > direction was chosen, and without it the next walker repeats it.
 
    If a drive ever shows `—`, say so: that is the honest-unknown path, and it is **unverified on
    this hardware**. Every USB device on this machine reports a `Device Speed`, so the fallback has

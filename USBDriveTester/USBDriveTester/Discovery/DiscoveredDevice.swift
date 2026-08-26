@@ -143,6 +143,14 @@ nonisolated struct DiscoveredDevice: Identifiable, Hashable {
     ///   record. Both read the same registry key through the same upward search, so they agree
     ///   unless the link renegotiated between enumeration and claim — and a replug, the ordinary
     ///   way that happens, produces a new registry object and a fresh enumeration anyway.
+    ///
+    ///   **Measured on hardware 2026-08-25, and this had been argument until then.** The 1 TB
+    ///   Portable SSD T5 was moved from a 10 Gb/s port to a 5 Gb/s one, then run: the device pane,
+    ///   the report on screen and the exported Markdown all read `5 Gb/s (USB 3.0)`. A port change
+    ///   is the one condition that would expose a stale app-side read, so the agreement is
+    ///   evidence rather than coincidence. Recorded because the paragraph above reasons its way to
+    ///   a conclusion, and a reasoned conclusion nobody has checked is the kind this project has
+    ///   twice found to be wrong.
     let usbLinkSpeedCode: Int
 
     var id: UInt64 { registryEntryID }

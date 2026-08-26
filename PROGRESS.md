@@ -113,7 +113,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
-| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. Checklist chunk 12 and item 7.5 remain owed as human items |
+| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items. Item 7.5 remains owed |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -163,8 +163,9 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 5. ~~**Three clean builds**~~ **passed 2026-08-24** — Debug 86 SwiftCompile tasks, Release 2, test
    168, DerivedData wiped before each, zero Swift source warnings. The test figure was 167 before
    `AppModelReportTests.swift`. ~~**The docs pass**~~ — **this is it.**
-6. **The human checklist owes chunk 12 and item 7.5** — added after this list was written. Chunk 12
-   is the only cover the new link-speed read has; 7.5 needs a run that reaches its end.
+6. ~~**The human checklist owes chunk 12 and item 7.5**~~ — **chunk 12 passed in full 2026-08-25**,
+   all eight items; it was the only cover the new link-speed read has. **7.5 still needs a run that
+   reaches its end**, and so does a one-off recheck of 8.3's moved sentence.
 
 **Debts the docs pass must clear.** Each is recorded where it was found as well as here, so this
 list is a checklist rather than the only witness:
@@ -853,9 +854,68 @@ It was a false alarm: an unlink clears the directory entry and the allocation ta
 The **CONTENT check is the authority**, it samples raw blocks through the helper, and its three
 sampled chunks returned three distinct fingerprints. The residual `/dev/urandom` pattern was intact.
 
-**Still owed as human items**: checklist **chunk 8 items 3–7** (found unrun on 2026-08-24 — see the
-gate walk below), chunk 12 (the only cover the link-speed read has), and item 7.5 (a run allowed to
-complete).
+**Still owed as human items**, as of 2026-08-25: **item 7.5** (a run allowed to complete) and a
+**one-off recheck of chunk 8 item 3's moved sentence**. Chunk 8 items 3–7 passed 2026-08-24; chunk
+12 passed in full 2026-08-25.
+
+### Checklist chunk 12 — WALKED AND PASSED 2026-08-25, all eight
+
+The only cover the link-speed registry read has. Two mutations — a misspelled key, and the pane
+wired to a constant — survive all 1025 tests, because `IOKitDeviceEnumerator` needs hardware and
+the suite has none. Both are now dead by measurement.
+
+**Items 1–4, the read itself.** Six drives read at the keyboard against `usb-speed-check.sh`'s
+independent registry read: **three distinct speeds, six agreements, no exceptions.** A constant
+cannot produce three values and a misspelled key cannot produce six correct ones. Item 4 then moved
+the 1 TB Portable SSD T5 from a 10 Gb/s port to a 5 Gb/s one and the row followed it down.
+
+**Items 5–8, what the change cost.** The pane lost the advice with no gap left behind; FR-WARN-1 is
+still discharged by the dialog in all three of its paths; the metrics panel lost the row and nothing
+else; the report kept `Negotiated USB link speed` where the 2026-08-04 decision put it.
+
+**Two findings the walk produced that the items did not ask for:**
+
+1. **The 4 TB T5 EVO negotiates 5 Gb/s because it is a USB 3.2 Gen 1 product**, not because of a
+   cable, a port or a hub. Settled by the user across two built-in Mac mini ports and two cables.
+   It is the obvious drive to suspect — it reads 5 Gb/s while 10 Gb/s ports stand free — so it
+   invites a hunt that has now been done once and must not be repeated. Recorded in the FIXTURE
+   block of `scripts/lib/device-identity.sh` and at chunk 12 item 4. Its consequence for old
+   numbers: **every throughput figure this project has taken from the EVO was bounded near
+   500 MB/s by the link**, before the drive was ever the limit.
+
+2. **The two-source link speed agrees on hardware.** `DiscoveredDevice.usbLinkSpeedCode` (the app's
+   enumeration read) and the report's `deviceProfile` figure (the helper's claim-time read) had
+   only ever been *argued* to agree. Item 8 checked them after a port change — the one condition
+   that would expose a stale app-side read — and the pane, the report and the exported Markdown all
+   read `5 Gb/s (USB 3.0)`. Recorded on the property itself.
+
+**Still owed after this**: item 7.5, and a one-off recheck of chunk 8 item 3's moved sentence.
+
+### Covering is mislabelled — found 2026-08-25, fix planned
+
+Raised by the user from the metrics panel: *Covering* always equals *Write*, which looked like an
+implementation error. It is not — the two share a numerator and a denominator, because a cycle
+writes each covered byte exactly once. But pinning the definition down without using the word
+"covered" in it exposed a real discrepancy:
+
+> `rangeBytesCovered` and `currentBlock` count **attempted** work, not successful work.
+
+So the displayed figure is **sectors attempted per second**, under a label that reads as successful
+work. The arithmetic is right for its two consumers — the ETA denominator and the progress fraction
+both *need* attempted, or a failing drive would show a bar that never reaches 100% and an ETA that
+never converges. **The defect is the name.**
+
+Three decisions followed, and they are scheduled as increments below:
+
+* **The `Covering` row is deleted.** It is always equal to the slower of Read and Write, and the
+  time-remaining estimate is what the figure was for. App-target only; the internal quantity and the
+  ETA are untouched.
+* **A new figure, `R-W-R-C speed`** — bytes whose chunk outcome is `.completed`, per second. Only
+  that one outcome counts: `.verifyMismatch` ran all four steps and failed the compare, and it is
+  deliberately **not** an `isPhaseFailure`, so a bare `!isPhaseFailure` test would score a retention
+  failure as a success. Not currently computed in bytes anywhere. **Protocol v12 → v13.**
+* **Not called "Progress speed"** — the progress bar and ETA are driven by attempted bytes, so that
+  name would promise `ETR = remaining ÷ rate` and break it exactly when a drive is failing.
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 
