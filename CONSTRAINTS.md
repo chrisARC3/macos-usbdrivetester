@@ -701,3 +701,22 @@ Every defect this project has produced came from trusting a substitute for the r
   The defect underneath was a third instance of a shape `DeviceListView` had already recorded twice
   — a handler running before the layout it reasons about has settled — and it was one deferred
   run-loop turn away from correct.
+- **A definition that uses its own term hides whatever the term actually means.** `Covering` was
+  documented as *"how fast the run is covering the drive"* and had been read that way by everyone,
+  the author of that sentence included. It survived a review in this project on 2026-08-25 in which
+  the arithmetic was checked against the source, the identity `Covering ≡ Write` was derived
+  correctly, and the conclusion "not a defect" was reached — **all of it true, and all of it beside
+  the point**, because the word "covered" carried the ambiguity through the argument untouched. The
+  user then asked for a definition that did not reuse the term. One sentence later the discrepancy
+  was plain: `rangeBytesCovered` counts **attempted** work, and says so in its own comment, while
+  the label promises successful work. The gap only shows on a failing drive — the one occasion
+  anyone reads the number closely.
+  **When a name is in question, define it in words that do not contain it.** The restatement is
+  cheap, it takes one sentence, and it is the only step in that review that found anything.
+- **"Report it before a run" and "report it at selection" are not the same requirement, and the
+  weaker one can masquerade as the stronger.** NFR-INST-4's Full Disk Access check sat in the device
+  pane, refreshed on selection change and on mount change only — so granting the permission with the
+  app open left the pane asserting the opposite indefinitely. It looked like the earliest possible
+  report and was in fact a snapshot with no expiry. A check placed where the condition *matters*
+  is fresh by construction; a check placed early is only fresh if something invalidates it, and
+  nothing was.

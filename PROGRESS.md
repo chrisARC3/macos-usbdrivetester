@@ -8,6 +8,8 @@ split, because a log a cold start is told not to read is a log that is not doing
 | **PROGRESS.md** (this file) | the step in progress |
 | **[CONSTRAINTS.md](CONSTRAINTS.md)** | **read this in full** — what binds future work: measured behaviour, settled decisions, lessons |
 | **[BUILD-PLAN.md](BUILD-PLAN.md)** | the plan, the per-step gates, the process gotchas, the test hardware |
+| **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** | **increments 9–11: planned, approved, unwritten.** Read before building any of them |
+| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Items 7.5 and 8.3 still owed** |
 | `progress/step-NN.md` | archived history, for *"why was it done that way?"* |
 
 **The full account of an increment goes in its commit message**, with this file carrying a summary
@@ -16,7 +18,13 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–7 done; **increment 8 remains**
+## Step 11 — IN PROGRESS. Increments 1–8 done and gated; **increment 9 is next**
+
+> ⚠️ **Increments 9, 10 and 11 are planned, approved and unwritten.** Their full scope, the
+> decisions behind them and what must not be re-opened are in
+> **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
+> **Read it before starting any of them** — the decisions were argued through at length and
+> re-deriving them will not reach the same answers.
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
@@ -113,7 +121,10 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
-| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items. Item 7.5 remains owed |
+| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items, `e0f4415`. Item 7.5 and a recheck of chunk 8 item 3 remain owed |
+| **9 ⬜** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis function over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel` so there is one registration state rather than two | **planned and approved, unwritten.** Scope in [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) |
+| **10 ⬜** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check becomes an injected operation in `DevicePreparation`, **before the unmount**, with a two-button modal. The **readiness banner** goes entirely — every branch then has a home or is dead — and so does the **`Covering` row** | **planned and approved, unwritten.** App target only; v12 stands |
+| **11 ⬜** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which exists nowhere today. Deliberately **not** called "Progress speed" | **planned and approved, unwritten.** **Protocol v12 → v13**: hash moves, 13 gate clients, two gate scripts, hardware gates re-run |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
