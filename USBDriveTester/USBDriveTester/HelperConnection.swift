@@ -32,7 +32,17 @@ enum HelperConnectionError: LocalizedError {
 }
 
 /// Outcome of the protocol-version handshake (NFR-MAINT-1).
-enum ProtocolVersionCheck: Equatable {
+///
+/// `nonisolated` since Step 11 increment 9, when `HelperAvailability` — which is nonisolated so the
+/// test target can reach it — became the first type to read ``description``. The app target's
+/// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would otherwise make that property main-actor-isolated
+/// and unreadable from there (a warning today, an error under the Swift 6 language mode).
+///
+/// **Free, unlike the same change on `HelperIdentity`.** This type is declared in an app-target file
+/// and is referenced by nothing in `Shared/` or the helper, so the keyword cannot move the helper
+/// source hash. `HelperIdentity` is in `Shared/TesterControl.swift`, which the helper compiles —
+/// see `HelperAvailability.notFound`'s message for what that cost and what was done instead.
+nonisolated enum ProtocolVersionCheck: Equatable {
     /// Helper implements the same version this app was built against.
     case match(version: Int)
     /// Versions differ — the app and the registered daemon are out of step, which

@@ -53,6 +53,9 @@
 //
 
 import AppKit
+// `MemberImportVisibility` is on, so `SMAppService.Status.enabled` needs its defining module
+// imported *directly* even though `HelperRegistration` already brings it in transitively.
+import ServiceManagement
 import SwiftUI
 
 /// State shared by every window in the app.
@@ -67,6 +70,23 @@ final class AppModel {
     /// polling, which is a different thing entirely: it is non-owning, never acquires, and its
     /// death releases nothing.
     let helper = HelperConnection()
+
+    /// **The** `SMAppService` lifecycle of the privileged daemon (FR-ARCH-3, NFR-INST-1/3).
+    ///
+    /// Owned here from increment 9, and for the same reason ``helper`` is: there must be exactly
+    /// one. It was `@State private var registration = HelperRegistration()` inside
+    /// `HelperDiagnosticsView` until the launch gate needed `register()` too, and a second instance
+    /// would be **two registration states that can disagree** — which is precisely what
+    /// `USBDriveTesterApp` warns about when it explains why the diagnostics panel is a `Window` and
+    /// not a `WindowGroup`, and precisely what `helperHoldsDevice` was deleted rather than fixed
+    /// for.
+    ///
+    /// Constructing it here means every `AppModel()` reads `SMAppService.status` — including the ten
+    /// in the test target and the two in `tools/ui-probe`. That is a **read** of machine state and
+    /// changes nothing, unlike the preference stores beside it, which is why this is a plain
+    /// property and not a thirteenth injected dependency. The probe already constructed one of these
+    /// for its three `diagnostics*` renders before this moved.
+    let registration = HelperRegistration()
 
     /// The device list, and the selection a run is started against (FR-DEV-1/3/4/7).
     ///
@@ -212,7 +232,21 @@ final class AppModel {
     /// 6.1's observation is not overturned, only narrowed: ⌘Q is AppKit's terminate and reaches a
     /// different path from an app-declared command. What is corrected is the inference drawn from
     /// it — that a sheet makes the menu bar inert.
-    var reportMayBeRaisedFromMenu: Bool { !runIsActive && pendingPrompt == nil }
+    ///
+    /// ## And while the launch gate is up (increment 9)
+    ///
+    /// The third condition, and it is the same defect in a new place rather than a new one. At
+    /// launch `runIsActive` is false and `pendingPrompt` is nil, so this item is **enabled** — and
+    /// the helper gate does not swallow menu commands any more than the pre-run dialog does. ⇧⌘R
+    /// under the gate would queue the empty report and present it by itself the moment the gate was
+    /// answered: a modal arriving at a time nobody asked for it, which is exactly what chunk 11.11
+    /// found on 2026-08-22.
+    ///
+    /// **This clause is owed whether the gate is a sheet or an alert.** Both are window-modal, and
+    /// what 11.11 established is about menu commands, not about which kind of modal is up.
+    var reportMayBeRaisedFromMenu: Bool {
+        !runIsActive && pendingPrompt == nil && helperAvailability.isAvailable
+    }
 
     /// The menu asked for the report. **Raises it only if that is allowed.**
     ///
@@ -261,6 +295,104 @@ final class AppModel {
     /// *confirmed* change writes, after the run it ended. A guard here would refuse that write.
     var ioSizeBytes: Int {
         didSet { ioSizeStore.ioSizeBytes = ioSizeBytes }
+    }
+
+    // MARK: - The launch-time helper gate (increment 9)
+
+    /// Whether the privileged helper can be used at all (NFR-INST-1, NFR-MAINT-1).
+    ///
+    /// **Starts ``HelperAvailability/available`` and is written only when an answer exists**, so a
+    /// healthy launch never flashes a modal while the handshake is in flight. See
+    /// `HelperAvailability.diagnose(status:version:)` for why that is the honest default rather
+    /// than an optimistic one.
+    private(set) var helperAvailability: HelperAvailability = .available
+
+    /// Diagnose the helper and raise or clear the gate.
+    ///
+    /// Called **once from the scene's `onAppear`**, and thereafter only by ``performHelperGateAction(_:)``.
+    /// Nothing re-diagnoses on activation or on a timer, deliberately: `checkProtocolVersion` goes
+    /// out on the *owning* connection, which is blocked for the whole of a run (the D1 measurement
+    /// of 2026-08-04), so a re-check that could fire mid-run would queue behind the very call it
+    /// interrupted. `HelperAvailability`'s header states the property that follows — no run can be
+    /// in flight while the gate is up.
+    ///
+    /// The status is captured rather than re-read in the completion, so the reply is paired with
+    /// the status it was asked about. Re-reading would let a status that changed mid-flight be
+    /// paired with an answer about the previous one.
+    ///
+    /// Not guarded against a second call while one is in flight. Two Retries produce two checks,
+    /// both of which write the same answer — a guard would be a mechanism with nothing to prevent.
+    func refreshHelperAvailability() {
+        registration.refresh()
+        let status = registration.status
+
+        guard status == .enabled else {
+            setHelperAvailability(.diagnose(status: status, version: nil))
+            return
+        }
+
+        helper.checkProtocolVersion { [weak self] result in
+            self?.setHelperAvailability(.diagnose(status: status, version: result))
+        }
+    }
+
+    /// A button on the gate was pressed.
+    ///
+    /// An exhaustive `switch`, which is the point of `HelperGateAction` being a value: a case added
+    /// there is a compile error here rather than a button that silently does nothing. Every remedy
+    /// re-diagnoses, so the modal is a function of state and walks the user forward one step at a
+    /// time — `notRegistered` → Register → `requiresApproval` → Open Login Items → `available`.
+    func performHelperGateAction(_ action: HelperGateAction) {
+        HelperGateLog.actionTaken(action, from: helperAvailability)
+
+        switch action {
+        case .registerHelper:
+            // **Drop the connection first.** Only one path reaches here with a connection in
+            // existence — `versionMismatch`, where the handshake has already run and the proxy
+            // points at the *old* daemon. Registering replaces it, and a stale connection that
+            // keeps answering the previous version would make Retry never clear: this project's
+            // most expensive recurring trap, and the reason `install-app.sh` prints a
+            // `launchctl kickstart` line. On the `notRegistered` path no connection exists and
+            // this is a no-op.
+            //
+            // It is **not** moved into `HelperRegistration.register()`, which would give the
+            // diagnostics window's Register button the same behaviour. That button is not disabled
+            // during a run (only while `isBusy`), so an unconditional invalidate there would tear
+            // down the owning connection and drop a live claim (NFR-REL-5). Here it is safe because
+            // the gate is window-modal over the run controls at launch, so no run can exist.
+            helper.invalidate()
+            registration.register()
+            refreshHelperAvailability()
+
+        case .openLoginItems:
+            registration.openLoginItemsSettings()
+            // Re-diagnosed on the way out, so pressing this a second time after approving is what
+            // clears the gate. The message says so; there is no separate Retry on this state.
+            refreshHelperAvailability()
+
+        case .retry:
+            refreshHelperAvailability()
+
+        case .quit:
+            // The injected action, for the same reason every other quit route uses it: the tests
+            // and `tools/ui-probe` must not really terminate.
+            terminateAction()
+        }
+    }
+
+    /// Store a diagnosis and log the transition. **The only writer of ``helperAvailability``.**
+    ///
+    /// Logged on **every** transition including the one into `available`, so a launch that raised
+    /// nothing is positively recorded rather than merely silent — which is what makes mutation M4
+    /// (*the modal is never presented at all*) visible to a person, since no automated harness
+    /// compiles the wiring that presents it.
+    ///
+    /// Internal rather than private so a test can put the model into a gated state without reading
+    /// this machine's real `SMAppService` status. Deliberately **not** a settable property: one
+    /// writer means the log route cannot be bypassed, which is the whole of M4's cover.
+    func setHelperAvailability(_ availability: HelperAvailability) {
+        helperAvailability = availability
+        HelperGateLog.diagnosed(availability)
     }
 
     /// Whether anything is happening that must freeze the device list (FR-DEV-7), block an

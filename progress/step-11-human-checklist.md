@@ -23,6 +23,12 @@ the only cover that surface has at all: no test drives a SwiftUI view, and the t
 model a run produced a report live in a file that needs a helper and a drive to construct. **11.11
 found a defect**, since fixed and re-checked.
 
+**CHUNK 13 IS NEW AND UNRUN** — added 2026-08-27 by increment 9, for the launch-time helper gate.
+It is the only cover the gate's *presentation* has: two mutations survive the whole suite by
+construction (the `.sheet` modifier deleted, and the trigger never called), both declared in advance,
+because the wiring sits in the one file no harness compiles. Its items 3, 4 and 7 induce states and
+**must be asked about first**; none of them touches a drive.
+
 **CHUNK 12 PASSED IN FULL — ALL EIGHT ITEMS, 2026-08-25.** Items 1–4 passed hard: six drives read at the
 keyboard, three distinct speeds, every one matching `usb-speed-check.sh`'s independent read of
 the registry, and the number then followed a drive across a port change. **That is the whole of the
@@ -34,10 +40,11 @@ pane. Its first four items are the only cover the new registry read has: the mut
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **What is owed, as of 2026-08-25:** just two things — **item 7.5** (a run allowed to reach its
-> end, so the report says "Completed" with no range caveat) and a **one-off recheck of 8.3's new
+> **What is owed, as of 2026-08-27:** three things — **item 7.5** (a run allowed to reach its
+> end, so the report says "Completed" with no range caveat), a **one-off recheck of 8.3's new
 > placement**, the sentence having moved above the I/O size row on the same day chunk 8 was walked,
-> so the walk saw it in its old position. Everything else in this file has been walked — and this
+> so the walk saw it in its old position, and **the whole of chunk 13**, added by increment 9 and
+> unrun. Everything else in this file has been walked — and this
 > time that sentence was checked against the body before it was written.
 > Chunk 10 was walked, passed, and then deleted along with the control it covered.
 >
@@ -627,6 +634,105 @@ is taken on demand and this list is what makes it a habit.
    where the 2026-08-04 decision now lives, so if it is missing here the decision has been lost
    rather than moved — which is the difference between this change and a regression.
 
+### Chunk 13 — the launch-time helper gate (increment 9) *(no writes; two induced states)*
+
+**Ask before items 3 and 4.** Both temporarily disable the helper and both are reversible from
+inside the app. **Neither touches a drive**, and no run is started anywhere in this chunk.
+
+The gate is a **sheet on the main window**, raised at launch whenever the privileged helper cannot
+be used. Its decision is a pure type and is pinned by 28 tests; what none of them can see is whether
+the sheet is ever **presented**, because the trigger lives in `USBDriveTesterApp.swift`, which no
+harness compiles. **Mutation M4 — the modal is never presented at all — was declared a survivor in
+advance and confirmed as one.** This chunk is the whole of its cover.
+
+Read the outcomes off the log, not off the look of the dialog:
+
+    /usr/bin/log stream --predicate 'subsystem == "com.arc3solutions.USBDriveTester"' --info
+
+Every diagnosis prints one line — `helper gate: available — no modal raised`, or
+`helper gate: notRegistered — …`. Every button press prints another.
+
+1. **A healthy launch shows nothing.** With the helper installed and approved, launch the app. **No
+   modal appears**, and the log carries `helper gate: available — no modal raised`. That line is the
+   check: silence alone cannot distinguish "diagnosed healthy" from "never ran", which is exactly
+   what M4 deletes.
+
+2. **The Run Report menu item is live.** ⇧⌘R raises the empty report. Dismiss it. (Item 5 is what
+   this is being compared against.)
+
+3. **`.notRegistered` — ask first.** Open ⇧⌘D, choose **Uninstall helper**, wait for
+   `notRegistered`, quit, and launch again.
+
+   * The gate appears, headed *"The privileged helper is not installed yet."*
+   * **Two buttons: Register Helper, then Quit — in that order**, with Register Helper the
+     emphasised one. A dialog whose prominent control is Quit reads as a dead end and is what the
+     2026-08-26 decision rejected.
+   * The main window is **unreachable** behind it. Try Start: it cannot be pressed.
+   * **Escape does nothing.** The sheet stays. Two mechanisms hold that — the binding's setter is a
+     no-op and `.interactiveDismissDisabled()` is applied — and this is the item that says so,
+     because neither is visible to any test. *The increment's plan predicted Escape would dismiss
+     and the sheet would re-raise; that was a prediction about the presentation layer derived from
+     model code, which is the shape item 6.1 falsified. Report what actually happens.*
+   * Press **Register Helper**. The gate should move on to *"waiting for your approval"* — one step
+     forward, not a dead end. Log: `helper gate action: registerHelper from notRegistered`.
+
+4. **`.requiresApproval`, continuing from 3.** Two buttons: **Open Login Items…** and Quit.
+
+   * Press **Open Login Items…**. System Settings opens at Login Items & Extensions.
+   * Enable USBDriveTester under *Allow in the Background*, return to the app, and press
+     **Open Login Items… once more**. The gate clears and the main window becomes usable.
+   * ⚠️ **This is the weakest part of the dialog and is worth an opinion.** This state has no
+     separate Retry, so the Login Items button does double duty — it opens Settings *and* re-checks
+     — and the message has to say so. It works; it reads slightly oddly. The alternative is a third
+     button (Open Login Items… · Retry · Quit), which departs from the action table approved on
+     2026-08-26. **Say which you prefer.**
+
+5. **The report cannot queue underneath it.** With the gate up (repeat 3 if you have cleared it),
+   press **⇧⌘R**. **Nothing must happen**, and nothing must appear when the gate is later
+   dismissed.
+
+   This is the check for a defect this project has already had once: chunk 11.11 found that a
+   window-modal sheet does **not** swallow menu commands — the command ran, SwiftUI queued a second
+   sheet, and it presented itself the moment the first was answered. At launch neither `runIsActive`
+   nor `pendingPrompt` blocks ⇧⌘R, so the gate had to be added to that rule.
+
+6. **⇧⌘D still works.** The diagnostics window opens from behind the gate — it is a separate
+   `Window`, not blocked by a window-modal sheet, and it is where the fuller registration story
+   lives. This is wanted, not a leak.
+
+7. **`.versionMismatch` — ask first.** Bump `TesterProtocol.version` to 13, build, and install the
+   app **without restarting the daemon**. The running daemon still answers v12 while the app expects
+   v13 — the real scenario this state exists for.
+
+   ```bash
+   /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester/scripts/install-app.sh
+   ```
+
+   * The gate appears, headed *"The installed helper is a different version from this app."*, and the
+     body names **both** versions.
+   * **Register Helper, then Quit.** A version mismatch is *not* Quit-only — the project's own
+     `ProtocolVersionCheck` wording already prescribes re-registering, and this is the state most
+     likely to be argued back to a dead end.
+   * Undo by reverting the version and rebuilding.
+
+8. **One registration, not two.** With the diagnostics window open beside a cleared gate, press
+   **Refresh** there and confirm the status shown is the one the gate acted on. There is now exactly
+   one `HelperRegistration` in the app; before increment 9 the panel built its own, and two
+   registration states that can disagree is what this move exists to prevent.
+
+**Two of the five states this chunk does NOT reach**, recorded rather than glossed:
+
+* **`.notFound`** — the daemon's plist missing from the bundle. Producing it means editing an
+  installed app bundle, which is a broken install rather than a test. Its render is the only look
+  anyone has had at the one-button footer.
+* **`.unreachable`** — a daemon that is `enabled` and silent. Nothing here stages that reliably:
+  killing the daemon lets launchd restart it, and unregistering moves the status instead. Its render
+  is also the only surface in this app showing a string whose length the app does not choose.
+
+Both diagnoses are unit-tested and both are rendered in each appearance. **Neither has been seen on
+this machine**, which is what the sentence above is for.
+
+
 ## What has no automated cover, and will not get any
 
 * **The report body.** It sits in a scroll region, so even a render stops at `## Measurements`.
@@ -702,6 +808,20 @@ is taken on demand and this list is what makes it a habit.
   speed has never been seen by this project**, and until one is, that path is reasoning rather than
   evidence.
 
-**Ten blind spots.** The count is measured against the list above, not carried forward — it
+* **The launch gate's presentation, entirely (increment 9).** The trigger is
+  `.onAppear { model.refreshHelperAvailability() }` at `ContentView`'s call site in
+  `USBDriveTesterApp.swift` — a file `render-ui.sh`, `window-fit-check.sh` and `build-tools.sh` all
+  exclude **by name**, and which no unit test builds. That placement is deliberate: it is what keeps
+  this machine's live `SMAppService` status out of all 36 renders. The cost is that **two mutations
+  survive by construction** and both were declared in advance: **M4**, the `.sheet` modifier deleted,
+  and **M12**, the trigger never called. Chunk 13 is the whole of their cover, and the
+  `helper gate:` log lines are what make it readable rather than a judgement about a dialog.
+
+* **`HelperAvailability.notFound` and `.unreachable`, on hardware.** The two gate states this bench
+  cannot stage — a plist missing from the bundle, and a daemon that is enabled and silent. Both
+  diagnoses are unit-tested and both are rendered in each appearance; neither has been seen for
+  real. The other three gate states are walked by chunk 13.
+
+**Twelve blind spots.** The count is measured against the list above, not carried forward — it
 read "three" until 2026-08-23, by which point the list had grown to ten and nothing had
 recounted it. Any rebuild of this area runs this list again.

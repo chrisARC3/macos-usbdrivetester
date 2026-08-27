@@ -139,8 +139,17 @@ private struct DiagnosticsHost: View {
         _warningsSuppressed = State(initialValue: warningsSuppressed)
     }
 
+    /// Constructed here rather than taken from an `AppModel`, and it reads this machine's real
+    /// `SMAppService.status` — which is why these renders show `notFound`. That was already true
+    /// before increment 9 moved the registration onto `AppModel`: this view owned a `@State` one and
+    /// it read the same thing. **The launch gate does not appear in any render**, because its
+    /// trigger is at `ContentView`'s call site in `USBDriveTesterApp.swift`, which this probe does
+    /// not compile.
+    @State private var registration = HelperRegistration()
+
     var body: some View {
         HelperDiagnosticsView(helper: HelperConnection(),
+                              registration: registration,
                               runIsActive: runIsActive,
                               warningsSuppressed: $warningsSuppressed)
             .frame(minWidth: 560, minHeight: 480)
@@ -861,6 +870,29 @@ private struct PreRunPromptHost: View {
         logicalBlockSize: 512)
 }
 
+/// Step 11 increment 9's launch-time helper gate.
+///
+/// A **sheet**, so it gets its own window and can never be captured in place — which is exactly why
+/// `HelperGateSheet` is a standalone `View` taking plain values, the same shape `PreRunPromptSheet`
+/// was built in and for the same reason: *a correct value that nobody can observe is
+/// indistinguishable from a wrong one.*
+///
+/// What a person still has to confirm is that the sheet **presents at all**. That is mutation M4,
+/// declared a survivor in advance — the trigger lives at `ContentView`'s call site in
+/// `USBDriveTesterApp.swift`, which this probe does not compile, and no automated harness anywhere
+/// can reach it. Everything about how it lays out is checkable from these renders.
+///
+/// `perform:` does nothing here. A render must not register a daemon, open System Settings or
+/// terminate the process.
+private struct HelperGateHost: View {
+
+    let availability: HelperAvailability
+
+    var body: some View {
+        HelperGateSheet(availability: availability, perform: { _ in })
+    }
+}
+
 // Not `@MainActor`: top-level code in main.swift is nonisolated even under
 // -default-isolation MainActor, so annotating this makes it uncallable from here.
 func makeRootView(_ name: String) -> NSView {
@@ -969,6 +1001,39 @@ func makeRootView(_ name: String) -> NSView {
     case "devices-unusable":
         return NSHostingView(rootView: UnusableDeviceListHost())
 
+    // Step 11 increment 9. The launch-time helper gate, in each of its five non-available states.
+    //
+    // **One render per state rather than one for the family**, which is a departure from the
+    // increment's written plan and was approved on 2026-08-27. The states differ in message length,
+    // in **button count** (`notFound` has one; the rest have two) and in which remedy is the
+    // emphasised control — and `unreachable` is the only surface in this app carrying a string whose
+    // length the app does not choose, since it is a transport error's `localizedDescription`. The
+    // precedent is the `warnings*` family: four renders over a two-case type, because *a state
+    // nobody can observe is a state nobody has checked*.
+    //
+    // Four of these five cannot be produced on this machine without breaking something on purpose.
+    // That is what the renders are for.
+    case "helper-gate-not-found":
+        // The one Quit-only state: a single button, and the shortest possible footer.
+        return NSHostingView(rootView: HelperGateHost(availability: .notFound))
+    case "helper-gate-not-registered":
+        return NSHostingView(rootView: HelperGateHost(availability: .notRegistered))
+    case "helper-gate-requires-approval":
+        return NSHostingView(rootView: HelperGateHost(availability: .requiresApproval))
+    case "helper-gate-unreachable":
+        // The longest text the gate can show, and the only one this app does not author: the
+        // detail is whatever XPC's error handler produced. Rendered with a real one.
+        return NSHostingView(rootView: HelperGateHost(
+            availability: .unreachable(detail: "The connection to service named "
+                                             + "com.arc3solutions.USBDriveTester.Helper was "
+                                             + "invalidated: failed at lookup with error "
+                                             + "159 - Sandbox restriction.")))
+    case "helper-gate-version-mismatch":
+        // A daemon one version behind, which is what an app update over a running helper produces.
+        return NSHostingView(rootView: HelperGateHost(
+            availability: .versionMismatch(helper: TesterProtocol.version - 1,
+                                           app: TesterProtocol.version)))
+
     // Step 14. The pre-run dialog, in each of its forms.
     case "warnings":
         return NSHostingView(rootView: PreRunPromptHost(
@@ -1009,6 +1074,8 @@ func makeRootView(_ name: String) -> NSView {
             content-selection-below-fold, \
             report, report-failures, report-stopped, report-stopped-by-user, report-qualified, \
             report-unidentified, report-empty, \
+            helper-gate-not-found, helper-gate-not-registered, helper-gate-requires-approval, \
+            helper-gate-unreachable, helper-gate-version-mismatch, \
             warnings, warnings-ticked, warnings-confirm or warnings-unidentified\n
             """.utf8))
         exit(2)

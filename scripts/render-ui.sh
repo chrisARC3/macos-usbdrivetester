@@ -32,21 +32,26 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of the 31 cases below, grouped by family so the list can be counted against
+# `view` is one of the 36 cases below, grouped by family so the list can be counted against
 #   `makeRootView` in tools/ui-probe/main.swift.
 #
-#   THIS LIST HAS NOW DRIFTED FROM THE PROBE TWICE. In 2026-08-11 it was missing
-#   `diagnostics-stop-on-error` and `metrics-finished`; by increment 6 it still named
-#   `diagnostics-held` and `diagnostics-quitting`, which the probe had **stopped accepting** in
-#   increment 5, and it was missing all six `content-*` run-state cases that replaced them — so it
-#   listed 24 where the probe had 28, and two of the 24 would have been refused with exit 2.
+#   THIS LIST HAS DRIFTED FROM THE PROBE THREE TIMES, and this header said "twice" until
+#   2026-08-27 — a count that had itself gone stale, which is the failure it exists to warn about.
+#   (1) On 2026-08-11 it was missing `diagnostics-stop-on-error` and `metrics-finished`.
+#   (2) By increment 6 it still named `diagnostics-held` and `diagnostics-quitting`, which the probe
+#   had **stopped accepting** in increment 5, and it was missing all six `content-*` run-state cases
+#   that replaced them — so it listed 24 where the probe had 28, and two of the 24 would have been
+#   refused with exit 2. (3) On 2026-08-23 it still said 34 against the probe's 31, the Restart
+#   removal having deleted three. CONSTRAINTS records all three; only two had reached this file.
 #   Re-derive rather than hand-edit; the probe is authoritative:
 #     grep -oE '^    case "[a-z0-9-]+":' tools/ui-probe/main.swift | sed 's/.*"\(.*\)":/\1/' | sort
 #
 #   (Increment 8 re-derived it with that line rather than adding its case by hand, and found the
 #   PROBE'S OWN "unknown view" message had drifted the same way — missing
 #   `content-selection-below-fold` and `devices-unusable`. Both lists are hand-maintained and
-#   neither is checkable by a compiler; this one at least has a one-liner that regenerates it.)
+#   neither is checkable by a compiler; this one at least has a one-liner that regenerates it.
+#   Increment 9 added five cases and did the same: the list below is that one-liner's output, and
+#   the probe's own message was extended in the same edit.)
 #
 #     content              content-starting     content-running            content-paused
 #     content-finished     content-stop-on-error
@@ -55,11 +60,33 @@
 #     devices              devices-unmounted    devices-unusable           empty
 #     diagnostics          diagnostics-run-active
 #                          diagnostics-warnings-suppressed
+#     helper-gate-not-found                     helper-gate-not-registered
+#     helper-gate-requires-approval             helper-gate-unreachable
+#     helper-gate-version-mismatch
 #     metrics              metrics-finished     metrics-idle
 #     report               report-empty         report-failures
 #                          report-qualified     report-stopped             report-stopped-by-user
 #                          report-unidentified
 #     warnings             warnings-ticked      warnings-confirm           warnings-unidentified
+#
+#   The `helper-gate-*` family is Step 11 increment 9's: the launch-time modal raised when the
+#   privileged helper cannot be used. FIVE cases for one view, which is one per non-available state
+#   rather than one for the family (approved 2026-08-27, departing from the increment's written
+#   plan). They differ in message length, in BUTTON COUNT — `helper-gate-not-found` is the only
+#   Quit-only state and so the only one-button footer — and in which remedy is emphasised. And
+#   `helper-gate-unreachable` is the only surface in this app rendering a string whose length the
+#   app does not choose: it is a transport error's `localizedDescription`.
+#
+#   FOUR OF THE FIVE CANNOT BE PRODUCED ON THIS MACHINE without deliberately breaking the install,
+#   which is the same reason `empty`, `devices-unmounted` and `devices-unusable` exist.
+#
+#   THE GATE APPEARS IN NO OTHER RENDER, and that is by placement rather than by luck. The modifier
+#   that presents it is on `ContentView`, so every `content-*` render compiles it — but the trigger
+#   that would ever set the state is at `ContentView`'s call site in `USBDriveTesterApp.swift`,
+#   which this script excludes by name (see SOURCES below). Nothing in a render writes
+#   `helperAvailability`, so the sheet's `isPresented` binding is false in all 36 cases. Moving the
+#   trigger into `ContentView` would put this machine's live `SMAppService` status into every
+#   render — the ambient-state leak the appearance note above exists for.
 #
 #   The `content-*` family is Step 11's. Increment 5 added the run states; increment 6 added
 #   `content-finished` (FR-CTRL-8's "or stopped" window, which no render reached on its own) and

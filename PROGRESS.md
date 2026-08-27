@@ -18,13 +18,14 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–8 done and gated; **increment 9 is next**
+## Step 11 — IN PROGRESS. Increments 1–9 done; **increment 10 is next**
 
-> ⚠️ **Increments 9, 10 and 11 are planned, approved and unwritten.** Their full scope, the
+> ⚠️ **Increments 10 and 11 are planned, approved and unwritten.** Their full scope, the
 > decisions behind them and what must not be re-opened are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
-> **Read it before starting any of them** — the decisions were argued through at length and
-> re-deriving them will not reach the same answers.
+> **Read it before starting either** — the decisions were argued through at length and
+> re-deriving them will not reach the same answers. Increment 9's section has been deleted from that
+> file, as its header instructs, now that the increment has landed.
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
@@ -122,7 +123,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
 | **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items, `e0f4415`. Item 7.5 and a recheck of chunk 8 item 3 remain owed |
-| **9 ⬜** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis function over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel` so there is one registration state rather than two | **planned and approved, unwritten.** Scope in [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) |
+| **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 of the human checklist is owed** |
 | **10 ⬜** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check becomes an injected operation in `DevicePreparation`, **before the unmount**, with a two-button modal. The **readiness banner** goes entirely — every branch then has a home or is dead — and so does the **`Covering` row** | **planned and approved, unwritten.** App target only; v12 stands |
 | **11 ⬜** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which exists nowhere today. Deliberately **not** called "Progress speed" | **planned and approved, unwritten.** **Protocol v12 → v13**: hash moves, 13 gate clients, two gate scripts, hardware gates re-run |
 
@@ -927,6 +928,141 @@ Three decisions followed, and they are scheduled as increments below:
   failure as a success. Not currently computed in bytes anywhere. **Protocol v12 → v13.**
 * **Not called "Progress speed"** — the progress bar and ETA are driven by attempted bytes, so that
   name would promise `ETR = remaining ÷ rate` and break it exactly when a drive is failing.
+
+### Increment 9 ✅ — the launch-time helper gate. Code done 2026-08-27
+
+`HelperAvailability.swift` (the pure decision) + `HelperGateSheet.swift` (the modal) +
+`HelperAvailabilityTests.swift`. `HelperRegistration` moved from `HelperDiagnosticsView`'s `@State`
+onto `AppModel`.
+
+| | |
+|---|---|
+| **Verified** | **1058 tests, 0 failures, 134 suites.** 1025 → 1058 is exactly the 33 tests written and 131 → 134 exactly the three new suites |
+| **Warnings** | zero from source across three clean builds, DerivedData wiped before **each**. SwiftCompile Debug **88** / Release **2** / test **171** — reconciles exactly against increment 8's 86 / 2 / 168: two new app files and one new test file |
+| **Helper** | **untouched** — hash still `73990c90…`, so Step 10's three gates are exactly as owed as they were. One candidate change was declined to keep it that way; see below |
+| **Protocol** | **v12, unchanged.** App target only |
+| **Xcode work** | **none**, read from `project.pbxproj` rather than assumed: `membershipExceptions` covers only `Helper/Core/`, and both new files are in synchronized root groups |
+| **Renders** | 31 view cases → **36** |
+| **Window** | `window-fit-check.sh` worst case **613 pt**, `content-starting` — **unchanged**, which is the measurement that says a `.sheet` modifier costs no layout rather than the assumption |
+| **Mutations** | **12 introduced, 9 caught, 3 survived — all three declared in advance** |
+
+**Six decisions the approved plan did not settle were taken before a line was written.** The plan's
+"Settled — do not re-open" table was honoured in full; these are the gaps beside it. Two of them
+changed the shape of what landed.
+
+1. **A sheet with a real `View`, not an `.alert`.** The plan promised a `helper-gate` render case,
+   and **an alert cannot be rendered at all** — `.alert(_:isPresented:actions:message:)` takes
+   `ViewBuilder`s of buttons and text that AppKit consumes, so there is no value to hand an
+   `NSHostingView`. A sheet's content is a `View`, capturable *out* of place exactly as
+   `PreRunPromptSheet` is. Choosing the alert would have made every word and every button
+   human-only, on top of the wiring already being so.
+2. **The trigger goes in `USBDriveTesterApp.swift`; the modifier goes on `ContentView`.** See
+   CONSTRAINTS section 2 — this is the finding worth carrying, and it removed a problem rather than
+   adding one. The alternative was a fourth injected dependency on `AppModel.init`.
+3. **`.enabled` with the handshake in flight is `available`.** Not a row in the plan's table, and
+   something has to be true during that interval. A `checking` case would exist only to be switched
+   over, since no modal is shown for it either way.
+4. **`@unknown default` → `unreachable`, not a seventh case.** And see below: the arm turned out to
+   be *testable*, which is the opposite of what was expected.
+5. **Five render cases, not one** (31 → 36). The states differ in message length, in **button
+   count** — `notFound` is the only one-button footer — and `unreachable` is the only surface in
+   this app rendering a string whose length the app does not choose. The precedent is the
+   `warnings*` family: four renders over a two-case type.
+6. **`helper.invalidate()` before re-registering, in the gate's action only.** Only one path reaches
+   it with a connection in existence — `versionMismatch`, where the proxy points at the old daemon.
+   It is **not** moved into `HelperRegistration.register()`: the diagnostics window's Register button
+   is not disabled during a run, so an unconditional invalidate there would drop a live claim.
+
+**A seventh thing the plan did not name, and it is owed either way.**
+`AppModel.reportMayBeRaisedFromMenu` gains `&& helperAvailability.isAvailable`. At launch
+`runIsActive` is false and `pendingPrompt` is nil, so ⇧⌘R is **enabled** — and a window-modal gate no
+more swallows menu commands than the pre-run dialog does. Without the clause the empty report queues
+behind the gate and presents itself when the gate is answered: chunk 11.11's defect, in a new place.
+**A first framing of this as a cost of choosing the sheet was wrong** — both kinds of modal are
+window-modal, and what 11.11 established is about menu commands.
+
+#### The mutation pass — 12 introduced, 9 caught, 3 survived, every verdict as predicted
+
+| | Mutation | Predicted | Result |
+|---|---|---|---|
+| M1 | `.requiresApproval` → `.available` | CAUGHT | caught, 5 tests |
+| M2 | drop Quit from `.notFound` | CAUGHT | caught, 7 tests |
+| M3 | reorder so `.notFound` diagnoses as `.notRegistered` | CAUGHT | caught, 3 tests |
+| **M4** | **the `.sheet` modifier deleted — the modal is never presented** | **SURVIVES** | **survived, all 1058** |
+| M5 | the `@unknown default` arm returns `.available` | CAUGHT | caught, 3 tests |
+| M6 | `.enabled` with no answer yet → `.notRegistered` | CAUGHT | caught, 3 tests |
+| M7 | blank `.unreachable`'s message | CAUGHT | caught, 13 tests |
+| M8 | `reportMayBeRaisedFromMenu` drops the gate clause | CAUGHT | caught, 11 tests |
+| **M9** | **`helper.invalidate()` removed from the register path** | **SURVIVES** | **survived, all 1058** |
+| M10 | Quit put before the remedy in `.notRegistered` | CAUGHT | caught, 4 tests |
+| M11 | the trailing-period trim removed from `.unreachable` | CAUGHT | caught, 8 tests |
+| **M12** | **the launch trigger never called** | **SURVIVES** | **survived, all 1058** |
+
+**The three survivors are the increment's whole blind spot, and they are all one thing**: the wiring
+lives in `USBDriveTesterApp.swift` and in a SwiftUI modifier, neither of which any harness compiles
+or any test drives. M4 and M12 are that by *placement*, chosen deliberately — see decision 2 above.
+M9 is the register path's `invalidate()`, unreachable by a test because reaching it means registering
+a real daemon. **Chunk 13 of the human checklist is the cover for all three.**
+
+**The harness reported a false disagreement, and that is worth recording.** Its agreement check was
+`verdict.startswith(prediction)` — the prediction reads `SURVIVES` and the verdict reads `SURVIVED`,
+so **every correctly predicted survivor was flagged as DISAGREEING**. It fired first on M4, the one
+mutation whose survival is the *expected* result and therefore the one where a false alarm is most
+likely to be read as a real finding. Fixed. Same family as increment 3's *"SURVIVED: all 0 tests
+passed"* and the two stale probes of 2026-08-24 — **the instrument, not the product**, which is now
+the fourth time in this step.
+
+#### Four findings, none of them on the increment's list
+
+- **A `nonisolated` type reading a `MainActor` computed property warns, and what it costs depends
+  entirely on which file the property is in.** The first clean build produced exactly two source
+  warnings, both in the new file. `ProtocolVersionCheck` is declared in an app-target file that
+  nothing in `Shared/` or the helper references, so marking it `nonisolated` was **free**.
+  `HelperIdentity.daemonPlistName` is a computed `static var` in `Shared/TesterControl.swift`, which
+  the **helper compiles** — so the same keyword there moves the helper source hash and puts Step
+  10's three hardware gates back in question. Increment 6 made exactly that change to
+  `TesterProtocol` and verified the gates still stood by comparing `__TEXT,__text`, so the precedent
+  and the method both exist. **It was declined here as disproportionate**: the message was naming
+  the plist file, the remedy is "reinstall" and needs no filename, and
+  `HelperRegistration.statusExplanation` already gives the full path in a window ⇧⌘D reaches from
+  behind the gate. The message points there instead. Worth knowing why only *one* of the two
+  references warned: `loggingSubsystem` is a `static let` of a `Sendable` type and is nonisolated
+  already; only the computed property is not.
+- **`SMAppService.Status`'s unknown arm is mandatory, reachable AND testable.** Measured rather than
+  assumed, and it was about to be recorded as a blind spot. A switch over the four named statuses
+  without `@unknown default` **warns** — failing the zero-warnings gate — and **traps at runtime**:
+  `Fatal error: unexpected enum case 'SMAppServiceStatus(rawValue: 99)'`. And
+  `SMAppService.Status(rawValue: 99)` **constructs**, so a unit test drives the arm directly. Both
+  halves are now in BUILD-PLAN's Swift list.
+- **Two punctuation defects that a full table walk could not see, both found by the first renders.**
+  The messages passed every assertion — a sentence, ending in a full stop, naming its own remedy —
+  and rendered as *"Sandbox restriction.. Choose Retry"* and *"Choose Open Login Items…, enable…"*.
+  Both came from composing prose with a **fragment that punctuates itself**: a transport error's
+  `localizedDescription`, and a button label carrying a platform ellipsis. Every assertion about
+  those strings was a `contains`, which is blind to what sits either side. Fixed, and pinned by two
+  tests written *after* the render found them.
+- **The accent leak has a second reproduction and now a method.** `helper-gate-not-registered` and
+  `helper-gate-version-mismatch` rendered their prominent button at **`#0079FF`** in one batch and
+  **grey** in another — same commit, same `light`, minutes apart — while three consecutive renders of
+  one view inside a batch were **byte-identical**. So it varies between invocations, not between
+  views, which is what makes it read as a per-view defect. Diagnosed by sampling the most saturated
+  pixel in the footer rather than by looking, which is twenty lines and turns "that looks grey" into
+  a number. Full entry in CONSTRAINTS section 1.
+
+#### One check failed and was corrected rather than loosened
+
+`everyRemedyIsNamedInItsOwnMessage` demanded that each message contain its remedy button's **label**.
+`versionMismatch` reuses `ProtocolVersionCheck.mismatch.description` — deliberately, so the wording
+exists once — and that sentence reads *"Re-register the helper…"*. Insisting on the literal
+"Register Helper" would have forced either a second copy of that sentence or a worse one chosen to
+satisfy a test.
+
+The fix is `HelperGateAction.messageStem`, matched case-insensitively — the precedent being
+`PreRunControlsTests.theOneReasonNamesBothControls`, which matches substrings for the same reason.
+**And a stem is only a check if it discriminates**, so `aMessageDoesNotNameARemedyItDoesNotOffer`
+asserts the other way round: no message names a remedy it does not offer. Without that half, a stem
+of `""` would pass everything. Same rule the device-operation slot check was built on — show it
+answering both ways.
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 

@@ -268,6 +268,48 @@ struct AppModelReportTests {
         #expect(!bench.model.reportMayBeRaisedFromMenu)
     }
 
+    /// **And while the launch-time helper gate is up** (increment 9).
+    ///
+    /// The same defect in a new place rather than a new one. At launch `runIsActive` is false and
+    /// `pendingPrompt` is nil, so ⇧⌘R is **enabled** — and the gate no more swallows menu commands
+    /// than the pre-run dialog does. Without this clause the empty report queues behind the gate and
+    /// presents itself the instant the gate is answered.
+    ///
+    /// Owed whether the gate is a sheet or an alert: both are window-modal, and what 11.11
+    /// established is about menu commands, not about which kind of modal is up.
+    @Test func theMenuMayNotRaiseTheReportWhileTheHelperGateIsUp() {
+        let bench = Bench()
+        #expect(bench.model.reportMayBeRaisedFromMenu, "…before the gate")
+
+        bench.model.setHelperAvailability(.notRegistered)
+
+        #expect(!bench.model.reportMayBeRaisedFromMenu)
+    }
+
+    /// And it comes back once the helper is usable — the check answering **both ways**, which is
+    /// what separates "the gate refuses it" from "something refuses it".
+    @Test func theMenuMayRaiseTheReportOnceTheHelperIsAvailable() {
+        let bench = Bench()
+        bench.model.setHelperAvailability(.requiresApproval)
+        #expect(!bench.model.reportMayBeRaisedFromMenu)
+
+        bench.model.setHelperAvailability(.available)
+
+        #expect(bench.model.reportMayBeRaisedFromMenu)
+    }
+
+    /// Every non-available state closes the menu item, not just the one a test happened to pick.
+    /// A rule written against a single case is a rule that a later case can walk past.
+    @Test func noGatedStateLetsTheReportBeRaised() {
+        for availability: HelperAvailability in [.notFound, .notRegistered, .requiresApproval,
+                                                 .unreachable(detail: "no reply"),
+                                                 .versionMismatch(helper: 11, app: 12)] {
+            let bench = Bench()
+            bench.model.setHelperAvailability(availability)
+            #expect(!bench.model.reportMayBeRaisedFromMenu, "case=\(availability.routeName)")
+        }
+    }
+
     /// And the raise itself refuses, not only the menu item's appearance. The rule is enforced in
     /// the model because a rule living in a `.disabled` modifier is one **no test can see** —
     /// mutation R12 deleted exactly that and passed the whole suite.

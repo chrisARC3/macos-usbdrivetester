@@ -326,14 +326,28 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   screen height while the scene declared no `.defaultSize`. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
-- **31 view cases, and three of them render a state this machine cannot produce** — `empty` (no
+- **36 view cases, and FOUR of them render a state this machine cannot produce** — `empty` (no
   drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
   drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
   the third was added in Step 14 for a row that had never been rendered in either appearance.
   `devices-unmounted` has since taken a **second** job it was not built for: since 2026-08-23 its
   fixture drive is the only one in the harness reporting `usbLinkSpeedCode == -1`, so it is the one
   render where the link-speed row's unknown sentinel appears at all.
-  **The probe is authoritative and `render-ui.sh`'s header list has drifted from it three times** —
+  **`helper-gate-not-found` is the fourth**, added by increment 9: it needs an installed app bundle
+  edited, which is a broken install rather than a test. The other four of that family sort
+  differently and the distinction is worth keeping straight — `helper-gate-not-registered`,
+  `-requires-approval` and `-version-mismatch` **are** producible by deliberately breaking the
+  helper, and chunk 13 of the human checklist walks all three; `helper-gate-unreachable` needs a
+  daemon that is enabled and silent, which nothing here stages reliably, so it is rendered and not
+  walked.
+  They are one render per state rather than one for the family because the states differ in message
+  length, in **button count** (`not-found` is the only one-button footer) and in which remedy is
+  emphasised — and `helper-gate-unreachable` is the only surface in this app rendering a string
+  whose length the app does not choose, being a transport error's own words.
+  **The probe is authoritative and `render-ui.sh`'s header list has drifted from it three times, and
+  the header's own COUNT of those drifts was itself stale until 2026-08-27** — it said "twice" while
+  CONSTRAINTS recorded three, which is the same failure one level up. Corrected in increment 9,
+  which added five cases by re-deriving the list rather than hand-editing it. The drifts:
   caught 2026-08-11; again by Step 11 increment 6, which found the script listing 24 cases against
   the probe's 28, naming two (`diagnostics-held`, `diagnostics-quitting`) the probe would refuse
   with exit 2 and omitting all six `content-*` run states; and again on 2026-08-23, when the script
@@ -359,6 +373,25 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   removed rather than kept, because a lever that looks live and does nothing would let somebody
   render at `accessibility5`, see no clipping, and conclude the layout is safe. Do not rebuild it
   without re-measuring. Full note in `scripts/render-ui.sh`'s header.
+- **THE HARNESS PINS APPEARANCE BUT NOT ACCENT, AND THAT NOW HAS A SECOND REPRODUCTION AND A
+  METHOD.** Recorded from one incident until 2026-08-27 — a progress-bar fill measuring `#3e99fd`
+  and then `#bdbdbd` on one day with nothing in the diff touching it. Increment 9 reproduced it
+  independently: `helper-gate-not-registered` and `helper-gate-version-mismatch` rendered their
+  `.borderedProminent` button at **`#0079FF`** in one batch and **grey** in another, same commit,
+  same `light` appearance, minutes apart — and *within* a batch three consecutive renders of one
+  view were **byte-identical**. So the leak varies between invocations, not between views or runs,
+  which is what makes it look like a per-view defect when it is not.
+  **The method is worth keeping**: sample the most saturated pixel in the region of interest rather
+  than eyeballing the PNG. Twenty lines of `CGContext`, and it turns "that button looks grey" into a
+  number. Render-to-render **colour** comparisons remain untrustworthy; layout, text and element
+  presence are not affected.
+- **A `contains` assertion cannot see punctuation, and a render can.** Increment 9's gate messages
+  passed a full table walk — every message a sentence, ending in a full stop, naming its own remedy —
+  and the first renders showed *"Sandbox restriction.. Choose Retry"* and *"Choose Open Login
+  Items…, enable…"*. Both came from composing prose with a **fragment that punctuates itself**: a
+  transport error's `localizedDescription`, and a button label carrying a platform ellipsis. Every
+  assertion about those strings was a `contains`, and `contains` is blind to what sits either side.
+  Both are now pinned by tests written *after* the render found them.
 - The probe prints `appActive / windowKey / firstResponder / appearance` on every run. That line has
   settled several questions that were otherwise being argued about.
 
@@ -539,6 +572,22 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   `OutcomePresentation`, not in a view.
 - **The main scene is a `Window`, not a `WindowGroup`.** Closing the main window quits the app, and
   cannot bypass the during-a-run confirmation.
+- **`USBDriveTesterApp.swift` IS THE ONE FILE NO HARNESS COMPILES, AND THAT MAKES IT THE RIGHT HOME
+  FOR AN APP-WIDE TRIGGER** (Step 11 increment 9). `render-ui.sh`, `window-fit-check.sh` and
+  `build-tools.sh` each exclude it **by name** — its `@main` clashes with a tool's top-level code —
+  and `tools/ui-probe` renders a bare `ContentView()`, so a modifier applied at that view's *call
+  site* is not carried into any render.
+  The launch-time helper gate uses this deliberately: the **trigger** is there, the `.sheet`
+  **modifier** is on `ContentView`. The presentation therefore type-checks in all three harnesses
+  while every one of the 36 renders is provably free of it, because nothing in a render writes
+  `helperAvailability`. Had the trigger gone in `ContentView.onAppear`, every `content-*` render
+  would read this machine's live `SMAppService.status` and issue a real XPC call — the ambient-state
+  leak recorded twice in section 1. The alternative was a fourth injected dependency on
+  `AppModel.init`.
+  **What it costs is stated rather than discovered: logic in that file has no automated cover at
+  all.** `build.sh` and `test.sh` compile it, so a compile error is caught; a wiring defect is not.
+  Two of increment 9's mutations survive there by construction and were declared in advance. Put a
+  *trigger* there; never a *decision*.
 - **Nothing untriggerable is built in advance.** An outcome, mode or control with no way to reach it
   waits for its trigger — *a sound mechanism behind a trigger that never fires looks exactly like a
   broken one.* **This is a rule about verification, not about what a release contains**, and it is

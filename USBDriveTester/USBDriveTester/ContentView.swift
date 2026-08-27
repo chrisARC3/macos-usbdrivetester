@@ -169,6 +169,31 @@ struct ContentView: View {
                           onDone: { model.reportIsPresented = false })
                 .frame(width: reportSheetSize.width, height: reportSheetSize.height)
         }
+        // **The launch-time helper gate** (increment 9, NFR-INST-1/NFR-MAINT-1).
+        //
+        // The modifier is here; the **trigger is not** — it is at this view's call site in
+        // `USBDriveTesterApp`, which no automated harness compiles. So `render-ui.sh`,
+        // `window-fit-check.sh` and `build-tools.sh` all type-check this presentation, while every
+        // render is provably free of it: nothing writes `helperAvailability`, so the binding below
+        // is `false` in all 36 view cases. Do not move the trigger into this view — that is the one
+        // edit that would put the machine's live `SMAppService` status into every render.
+        //
+        // ## Two belts, because the property the user asked for is "the app cannot be entered in a
+        // broken state"
+        //
+        // The binding's setter is a **no-op**, so a dismissal cannot clear the state; and
+        // `.interactiveDismissDisabled()` stops Escape attempting one at all. The plan for this
+        // increment predicted that a dismissal would simply *re-raise* the sheet, the modal being a
+        // function of state — that is a prediction about the presentation layer derived from model
+        // reasoning, which is the exact shape of checklist item 6.1, where a truth table said one
+        // thing and a window-modal sheet did another. So the property is made to hold by
+        // construction instead of resting on SwiftUI re-presenting.
+        .sheet(isPresented: Binding(get: { !model.helperAvailability.isAvailable },
+                                    set: { _ in })) {
+            HelperGateSheet(availability: model.helperAvailability,
+                            perform: { model.performHelperGateAction($0) })
+                .interactiveDismissDisabled()
+        }
     }
 
     /// The report sheet's size: **the window's content area, less a margin.**

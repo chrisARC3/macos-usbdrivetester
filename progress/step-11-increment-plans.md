@@ -27,147 +27,13 @@ panel, and three separate requests came out of it:
 Those became increments 9, 10 and 11. They are ordered so that **the two app-only increments land
 before the one that costs a protocol version**.
 
----
-
-## Increment 9 — the launch-time helper gate
-
-### What it is
-
-A new **pure** type, `HelperAvailability`, and one modal raised at launch. The type is a plain enum
-plus a pure function; no SwiftUI, no XPC, no I/O in it.
-
-```swift
-static func diagnose(status: SMAppService.Status,
-                     version: Result<ProtocolVersionCheck, Error>?) -> HelperAvailability
-```
-
-Resolved **in this order**, mirroring the helper's own "ordered by what the user must fix first"
-rule in `main.swift`'s readiness check:
-
-| # | Condition | Case | Actions |
-|---|---|---|---|
-| 1 | `.notFound` | `.notFound` | **Quit** |
-| 2 | `.notRegistered` | `.notRegistered` | Register Helper · Quit |
-| 3 | `.requiresApproval` | `.requiresApproval` | Open Login Items… · Quit |
-| 4 | `.enabled`, version `.failure` | `.unreachable(detail:)` | Retry · Quit |
-| 5 | `.enabled`, `.mismatch` | `.versionMismatch(helper:app:)` | Register Helper · Quit |
-| 6 | `.enabled`, `.match` | `.available` | *none — no modal* |
-
-**Each case carries its own actions.** The modal therefore contains no branching, which is what
-makes the whole decision unit-testable — the thing the banner it replaces never was.
-
-### Why it is not Quit-only
-
-The user's first proposal was a fatal modal offering **only Quit**. That was rejected on evidence,
-by the user, once the evidence was shown:
-
-* `Button("Register helper")` lives at `HelperDiagnosticsView.swift:140` — **inside this app**.
-* `SMAppService.openSystemSettingsLoginItems()` is called from `HelperRegistration.swift:249`.
-
-A Quit-only modal produces **quit → relaunch → still not registered → same modal → quit**, with the
-dialog's own remedy text naming a window the dialog prevents reaching.
-
-**`.notFound` is the only genuinely Quit-only state** — the daemon plist is missing, which is a
-broken install and nothing in-app can repair. A **version mismatch is NOT Quit-only**: the project's
-own wording, `ProtocolVersionCheck.mismatch.description`, already prescribes *"Re-register the
-helper so the installed daemon matches this app."*
-
-### Why it is diagnosed app-wide, not from a failed readiness call
-
-`readinessError` — the string the deleted banner showed — comes from `withProxy`'s error handler in
-`HelperConnection.swift`, which catches **any** XPC transport error. The code's own comment names
-them: *"no helper, wrong version, connection dropped"*. It therefore conflates five conditions,
-including a **transient blip while the daemon restarts** — which `install-app.sh` warns happens on
-every helper change. A fatal modal fired on that would go off during a routine reinstall.
-
-`SMAppService.status` is a **local** query needing no daemon, and `checkProtocolVersion` is
-NFR-MAINT-1's handshake. Together they separate all five. A failed per-device call separates none.
-
-`AppModel.swift:25` already carries this lesson in its own words, about `helperHoldsDevice`:
-
-> deleted rather than fixed. It was written from `checkDeviceReadiness`'s `helperHoldsThisDevice`,
-> a *per-device* answer, and read at every use site as "the helper holds *some* device".
-> **Do not reintroduce a selection-scoped flag.**
-
-### The modal is declarative, not an event
-
-Shown whenever `helperAvailability != .available`. Every action re-runs `diagnose` and rewrites the
-state. It disappears only when the state reaches `.available`, or the app quits.
-
-Three consequences, all wanted:
-
-* **Escape is harmless** — a dismissal re-raises it, because the modal is a function of state.
-* **Register Helper chains naturally** — `.notRegistered` → press → re-diagnose → `.requiresApproval`
-  → *"Open Login Items…"*. The user is walked forward one step at a time.
-* **The app cannot be entered in a broken state**, which is the property the user asked for, without
-  the dead end.
-
-### The one edit to working code
-
-`HelperDiagnosticsView.swift:86` owns its own registration:
-
-```swift
-@State private var registration = HelperRegistration()
-```
-
-The gate needs `register()` too, and a second instance would be **two registration states that can
-disagree** — exactly what `USBDriveTesterApp.swift:126` warns about when it explains why the
-diagnostics panel is a `Window` and not a `WindowGroup`.
-
-So **`HelperRegistration` moves to `AppModel`**, which already owns *the* `HelperConnection` for the
-same reason, and the diagnostics view receives it. That is one argument back into a call site whose
-comment notes it has seven fewer than it used to. **User approved 2026-08-26**, having been shown
-the trade.
-
-### Files
-
-**New — no Xcode work** (file-system synchronized groups):
-
-* `USBDriveTester/HelperAvailability.swift`
-* `USBDriveTesterTests/HelperAvailabilityTests.swift`
-
-**Modified:**
-
-* `AppModel.swift` — owns the registration, holds `helperAvailability`, runs the check
-* `HelperDiagnosticsView.swift` — takes the registration instead of constructing one
-* `USBDriveTesterApp.swift` — passes it through; attaches the modal to `ContentView`
-* `tools/ui-probe/main.swift` + `scripts/render-ui.sh` — new `helper-gate` case, **31 → 32**
-* NFR amendment (NFR-INST-1 gains a surface), `PROGRESS.md`, `CONSTRAINTS.md`, checklist chunk
-
-### The gate
-
-**Unit tests** — every status × version outcome maps to the specified case; every non-available case
-offers Quit; **only `.notFound` offers Quit alone**; `.available` offers nothing; and, mirroring
-`everyRefusalInTheWholeTableIsASentence` in `PreRunControlsTests`, **every message is a sentence that
-names a corrective step** (NFR-USE-5).
-
-**Mutations, with predictions stated in advance** as the project's rules require:
-
-| | Mutation | Prediction |
-|---|---|---|
-| M1 | `.requiresApproval` → `.available` | caught by the mapping tests |
-| M2 | drop Quit from `.notFound` | caught by the actions test |
-| M3 | reorder so `.notRegistered` beats `.notFound` | caught by the mapping tests |
-| M4 | **the modal is never presented at all** | **EXPECTED TO SURVIVE** — view wiring has no unit cover |
-
-M4 is the honest one, and it is why this increment needs a human chunk rather than a green suite.
-It is the same blind spot the link speed had.
-
-**Builds** — clean Debug *and* Release, zero Swift source warnings. **Clean, not incremental**: an
-incremental build does not re-emit warnings for files it did not recompile, and a bare grep for
-`warning:` also matches `appintentsmetadataprocessor` lines naming no `.swift` file.
-
-**Renders** — the new `helper-gate` case, light and dark.
-
-**Human** — a normal launch shows **no modal**, plus two induced states, both reversible from inside
-the app. **Ask the user before either; both temporarily disable the helper, and neither touches a
-drive:**
-
-* **`.notRegistered`** — unregister from the diagnostics window (NFR-INST-3), relaunch. Undone by the
-  modal's own Register Helper button.
-* **`.versionMismatch`** — bump `TesterProtocol.version`, build, install the app **without restarting
-  the daemon**. The running daemon still answers v12 while the app expects v13. That is the exact
-  real-world scenario the state exists for, and it is undone by rebuilding.
+> **Increment 9 landed on 2026-08-27 and its section has been deleted from this file**, as the
+> header above instructs. Its account is in `PROGRESS.md` and in its commit message. Two things it
+> settled that increment 10 depends on: the **helper-unreachable** branch of the readiness banner is
+> now superseded in fact rather than in plan, and `HelperRegistration` lives on `AppModel`.
+> Six decisions this plan did not cover were taken during its scoping — the one worth knowing here
+> is that an app-wide **trigger** belongs in `USBDriveTesterApp.swift`, which no harness compiles,
+> while the **presentation** belongs on `ContentView`, which all three do. See CONSTRAINTS section 2.
 
 ---
 
@@ -342,9 +208,9 @@ the 2026-08-17 defect report, when v11's phase-isolated figures read 1.5× and 3
 
 | Decision | Date |
 |---|---|
-| Remedy-first, not Quit-only; `.notFound` alone is Quit-only | 2026-08-26 |
-| The gate fires at **launch/initialization** | 2026-08-26 |
-| Diagnosed from `SMAppService.status` + the version handshake | 2026-08-26 |
+| ~~Remedy-first, not Quit-only; `.notFound` alone is Quit-only~~ **built, increment 9** | 2026-08-26 |
+| ~~The gate fires at **launch/initialization**~~ **built, increment 9** | 2026-08-26 |
+| ~~Diagnosed from `SMAppService.status` + the version handshake~~ **built, increment 9** | 2026-08-26 |
 | FDA stays a Start-time check (**option A**, inside preparation) | 2026-08-26 |
 | The FDA modal has **two** buttons | 2026-08-26 |
 | Increment 10 keeps the FDA move and the banner deletion **together** | 2026-08-26 |

@@ -96,6 +96,28 @@ struct USBDriveTesterApp: App {
                 // window has ever appeared finds no model and terminates immediately, which is
                 // right — no run can be in flight before the UI that starts one exists.
                 .onAppear { lifecycle.model = model }
+                // **The launch-time helper gate fires HERE and not in `ContentView.onAppear`, and
+                // that placement is the whole of its isolation** (increment 9).
+                //
+                // `tools/ui-probe` renders the real `ContentView` for its seven `content-*` cases.
+                // A check fired from that view's own `onAppear` would make every render read this
+                // machine's live `SMAppService.status` and issue a real XPC call — ambient machine
+                // state leaking into an offscreen render, which CONSTRAINTS records this project
+                // paying for twice (the appearance bug of 2026-08-10, and the progress bar
+                // measuring two different fills in one day).
+                //
+                // Measured rather than arranged around: `USBDriveTesterApp.swift` is excluded **by
+                // name** from all three harnesses — `render-ui.sh:201`, `window-fit-check.sh:144`
+                // and `build-tools.sh:62`. A modifier applied at this call site is therefore not
+                // carried by the probe's bare `ContentView()`, so every render is provably free of
+                // the gate while `ContentView` still *compiles* the sheet that presents it. Without
+                // this placement the alternative was a fourth injected dependency on `AppModel.init`.
+                //
+                // What it costs, stated rather than left to be discovered: this line is in the one
+                // file nothing automated compiles. `build.sh` and `test.sh` still compile it, so a
+                // compile error is caught; a logic error is not. That is mutation M4, and this
+                // placement is what makes its survival structural rather than incidental.
+                .onAppear { model.refreshHelperAvailability() }
         }
         // **The main window had no declared size at all until Step 11 increment 7**, and that is
         // why it opened enormous. A scene with no `.defaultSize` opens at its content's ideal
@@ -188,7 +210,13 @@ private struct HelperDiagnosticsWindow: View {
         // left when Start took ownership of the sequence; the failure-mode picker left in
         // increment 6, to the pre-run controls beside the I/O-size dropdown. What is left needs the
         // helper, the real run state, and one setting.
+        //
+        // **One back** in increment 9: the registration, which this panel used to construct for
+        // itself. The launch gate needs `register()` too, and two `HelperRegistration` instances
+        // would be two registration states that can disagree — the same one-truth-two-views problem
+        // this scene is a `Window` rather than a `WindowGroup` to avoid.
         HelperDiagnosticsView(helper: model.helper,
+                              registration: model.registration,
                               runIsActive: model.runIsActive,
                               warningsSuppressed: $model.warningsSuppressed)
             .frame(minWidth: 560, minHeight: 480)

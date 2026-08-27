@@ -210,6 +210,25 @@ are **process**, not history.
   container instead of its rows, `.id()` to force a selection re-assert: all compiled, rendered,
   and did nothing, with no warning. Verify with `scripts/render-ui.sh` (its
   `appActive / windowKey / firstResponder` line settles focus questions) or with the unified log.
+- **An imported `@objc` enum's `@unknown default` arm is MANDATORY, REACHABLE and TESTABLE** —
+  all three measured 2026-08-27 against `SMAppService.Status`, and the third is the surprise.
+  Omitting the arm both **warns** (so the zero-warnings gate fails) and **traps at runtime**:
+  `Fatal error: unexpected enum case 'SMAppServiceStatus(rawValue: 99)'`. And
+  `SMAppService.Status(rawValue: 99)` **constructs** — the raw-value initialiser admits values the
+  enum does not name — so the arm is reachable from a unit test. It was about to be written down as
+  a declared blind spot. Check before recording one: `xcrun swiftc` on a five-line file answers it.
+- **A `nonisolated` type reading a `MainActor` COMPUTED property warns; reading a `static let` of a
+  `Sendable` type does not.** Both appear identical at the call site. Under the app target's
+  `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, `HelperIdentity.loggingSubsystem` (a `static let`) is
+  readable from a `nonisolated` type and `HelperIdentity.daemonPlistName` (a computed `static var`)
+  is not. **What the fix costs depends on which file the property is in**: `nonisolated` on an
+  app-target-only type is free, while the same keyword on anything in `Shared/` moves the **helper
+  source hash** and puts Step 10's three hardware gates back in question. Check which before
+  reaching for the keyword; the cheaper answer is often not to make the reference.
+- **`allSatisfy(\.keyPath)` inside `#expect` fails to compile.** `allSatisfy` is `rethrows`, and
+  inside the macro's expansion the key-path form is not proven non-throwing — *"call can throw, but
+  it is not marked with `try`"*, reported against the generated macro file rather than the test.
+  Hoist it to a `let` above the `#expect`, or use a closure.
 
 ### Global "Definition of Done" applied to every step
 

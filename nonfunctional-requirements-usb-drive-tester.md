@@ -380,6 +380,59 @@ budget of the tightest scaling — over by **41 pt**. Every other state fits eve
 > 718. The scaling this amendment committed to was never met by any state. See the amendment
 > below.
 
+---
+
+### 2026-08-27 — NFR-INST-1 gains a launch-time surface (no wording change)
+
+**Not an amendment to the requirement.** NFR-INST-1's text is unchanged: the GUI shall report
+registration status clearly, *including guiding the user when approval is required*. Recorded here
+because **where** it discharges that obligation changed, and because the change is what lets Step 11
+increment 10 delete the readiness banner without leaving a branch homeless.
+
+**What was there before.** Registration status was reported in exactly one place — the
+**Privileged Helper & Diagnostics** window, behind ⇧⌘D. That satisfied the requirement's letter and
+had a gap the requirement did not anticipate: a user whose helper is not installed, not approved, or
+answering a different protocol version could open the app, select a drive, press Start, and only
+then meet a failure — and the *readiness banner* that reported some of it did so per-device, from a
+call that conflates five conditions.
+
+**What is there now.** A modal raised at launch, from `HelperAvailability` — a pure enum plus a pure
+diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake. Six states, five of which
+raise it:
+
+| Condition | Offers |
+|---|---|
+| plist missing from the bundle | Quit |
+| daemon never installed | Register Helper · Quit |
+| installed, awaiting approval | Open Login Items… · Quit |
+| enabled, handshake failed | Retry · Quit |
+| enabled, protocol version differs | Register Helper · Quit |
+| enabled, versions agree | *nothing — no modal* |
+
+**Remedy-first, not Quit-only** (user decision 2026-08-26). The first proposal was a fatal modal
+offering only Quit; it was rejected on evidence, because this app already contains a Register button
+and already calls `SMAppService.openSystemSettingsLoginItems()`. A Quit-only modal produces
+*quit → relaunch → still not registered → same modal → quit*, with the dialog's own text naming a
+window the dialog prevents reaching. **A missing plist is the only genuinely Quit-only state** — that
+is a broken installation and nothing in-app repairs it.
+
+**Why the diagnosis is app-wide rather than from a failed per-device call.** `SMAppService.status` is
+a local query needing no daemon, and the handshake is NFR-MAINT-1's. Together they separate all five
+conditions. The per-device readiness call separates none: its error handler catches *any* XPC
+transport error, including the transient blip while the daemon restarts on every helper reinstall — so
+a fatal modal fired on that would go off during routine maintenance.
+
+**What this costs, accepted knowingly** (user decision 2026-08-26). Enumeration, capacity, serial and
+USB link speed are all app-side IOKit reads that work with no helper at all. A launch-time gate means
+a user with a broken helper cannot reach them. That trade was put to the user and taken.
+
+**The gate fires once, at launch, and never again** — not on activation, not on a timer.
+`checkProtocolVersion` travels on the *owning* XPC connection, which is blocked for the whole of a
+run (the D1 measurement of 2026-08-04), so a re-check able to fire mid-run would queue behind the
+call it interrupted. One consequence is load-bearing elsewhere: no run can be in flight while the
+gate is up.
+
+
 ## Assumptions
 
 - This is a **single-user, single-host desktop tool**; multi-user concurrency, networked operation, and high-availability/service-uptime requirements are not applicable.

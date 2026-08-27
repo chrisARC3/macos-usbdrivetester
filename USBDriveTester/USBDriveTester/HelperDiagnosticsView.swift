@@ -67,6 +67,15 @@ struct HelperDiagnosticsView: View {
     /// second connection here would be a second owner.
     let helper: HelperConnection
 
+    /// Shared with the launch gate and owned by `AppModel` (increment 9). **One registration per
+    /// app**, for the same reason there is one `HelperConnection`: the gate's Register Helper
+    /// button and this panel's must act on the same object, or the app carries two registration
+    /// states that can disagree — the `helperHoldsDevice` defect by another door.
+    ///
+    /// It was `@State private var registration = HelperRegistration()` here until then, which was
+    /// correct while this window was the only thing that could register anything.
+    let registration: HelperRegistration
+
     /// Whether a run is happening (`AppModel.runIsActive`), for the uninstall guard.
     ///
     /// The real thing since increment 5. It used to be the stand-in toggle that lived in this very
@@ -82,8 +91,6 @@ struct HelperDiagnosticsView: View {
     /// checkbox that sets it lives in the pre-run dialog, and a setting with no way back is one the
     /// user cannot undo without editing a plist (decision 7).
     @Binding var warningsSuppressed: Bool
-
-    @State private var registration = HelperRegistration()
 
     @State private var pingResult: ActionResult?
     @State private var versionResult: ActionResult?
