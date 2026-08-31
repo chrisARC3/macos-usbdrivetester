@@ -42,6 +42,9 @@
 //
 
 import AppKit
+import os
+
+private nonisolated let lifecycleLog = Logger(subsystem: HelperIdentity.loggingSubsystem, category: "quit")
 
 /// Refuses a termination that would abandon a run, and lets every other one through.
 final class AppLifecycleDelegate: NSObject, NSApplicationDelegate {
@@ -83,12 +86,28 @@ final class AppLifecycleDelegate: NSObject, NSApplicationDelegate {
         true
     }
 
+    /// **Every arrival here is logged, and so is every answer** (NFR-OBS-1, added 2026-08-27).
+    ///
+    /// `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — it is refused *before*
+    /// this method is consulted — so "the app did not quit" has two completely different causes that
+    /// looked identical from outside: **this was never called**, or it was called and answered
+    /// `.terminateCancel`. Chunk 13 hit both and could distinguish neither, because this path said
+    /// nothing at all. A missing log line here is now itself the diagnosis.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // No model means the main window has never appeared, so nothing can have started a run.
         // Quitting is unambiguously fine, and refusing it would strand an app with no UI.
-        guard let model else { return .terminateNow }
+        guard let model else {
+            lifecycleLog.notice("terminate requested with no model — allowing")
+            return .terminateNow
+        }
 
-        switch model.quitRequested() {
+        let disposition = model.quitRequested()
+        lifecycleLog.notice("""
+                            terminate requested: runIsActive=\(model.runIsActive, privacy: .public) \
+                            disposition=\(String(describing: disposition), privacy: .public)
+                            """)
+
+        switch disposition {
         case .quitImmediately:
             return .terminateNow
         case .askFirst, .waitForBoundary:

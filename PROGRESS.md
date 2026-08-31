@@ -1064,6 +1064,88 @@ asserts the other way round: no message names a remedy it does not offer. Withou
 of `""` would pass everything. Same rule the device-operation slot check was built on — show it
 answering both ways.
 
+#### Checklist chunk 13 — WALKED 2026-08-27, items 1–4. Three defects, one prediction falsified
+
+Items 1, 2 and 3 pass. **Items 5, 6, 7 and 8 are still unrun.**
+
+**Item 1 covers M12, not M4** — the checklist said M4 and was wrong. M4 replaces the `.sheet` with
+`EmptyView` and prints `helper gate: available — no modal raised` unchanged; only a person seeing
+the modal in item 3 covers it, and they now have.
+
+**Item 3's own prediction was falsified.** Register Helper from `notRegistered` went **straight to
+`available`**, not to `requiresApproval`: the BTM record survives an unregister — same `BTM uuid`
+either side — so re-registering the same bundle path needs no fresh approval on a Mac that has
+approved before. Item 3 therefore does **not** chain into item 4 here; `requiresApproval` is induced
+with the Login Items toggle instead. Not an app defect; a checklist that only worked on a virgin Mac.
+
+**Escape does nothing, before or after dismissal** — as the checklist said and *against* the
+increment plan's prediction that it would dismiss and re-raise. The plan was reasoning about the
+presentation layer from model code, which is the shape check 6.1 falsified.
+
+Three defects, all reported at the keyboard:
+
+| # | Defect | Fix |
+|---|---|---|
+| 1 | **The gate's Quit button was dead.** Pressed four times, all four presses on the log, app still running | **Took three attempts** — see below. Fixed by taking the sheet down through SwiftUI |
+| 2 | **Returning from System Settings changed nothing** — the gate stayed up until Open Login Items was pressed a second time | Re-check on `didBecomeActive` while gated; message reworded |
+| 3 | **The readiness banner still said the helper could not be asked** after it was working | **Not fixed — increment 10 deletes the banner**, and its plan already names this staleness |
+
+**Defect 1's cause is bigger than the gate, and was measured rather than reasoned.**
+`NSApp.terminate(_:)` is a silent no-op while a sheet is attached: AppKit refuses it *before*
+`applicationShouldTerminate`, so `QuitPolicy` is never asked. **⌘Q is dead under every sheet in this
+app** — pre-run dialog, report sheet, gate. That is the true cause of increment 5's check 6.1, which
+had a *guessed* cause sitting beside it in `AppModel` for two increments. Fixed locally for the gate
+by user decision (*"fix the gate only and proceed"*); **planned as increment 12** for the rest.
+
+Three earlier versions of the probe measured **nothing** — a SwiftUI `Window` scene launched from a
+CLI binary never materialises a window, so every mode reported `sheets = 0` — and were caught only
+because the probe asserted the sheet was attached before trusting its own verdict. The fourth,
+in AppKit, gave the table now in CONSTRAINTS §1.
+
+#### Defect 1 took three attempts, and the first two were wrong for the same reason
+
+| # | Fix | Result |
+|---|---|---|
+| 1 | `terminateAction()` alone | Dead. AppKit refuses `NSApp.terminate(_:)` while a sheet is attached, before the delegate |
+| 2 | `AttachedSheets.endAll()` then terminate | **Still dead.** `endSheet(_:)` does not take down a sheet SwiftUI presented |
+| 3 | `helperGateIsPresented` goes false → SwiftUI dismisses → terminate next turn | **Works.** One press, verified on the log |
+
+**Both failed fixes were built on probes that did not reproduce the app.** A plain AppKit sheet and a
+SwiftUI sheet inside an `NSHostingView` each quit on the first attempt; the app uses a SwiftUI
+`Window` **scene**, and three attempts to probe that shape measured nothing at all — such a scene
+never materialises its window outside Xcode, run directly or through `open`, so `onAppear` never
+fires. **What diagnosed it was logging in the shipped app.** The quit path emitted nothing until
+2026-08-31; `applicationShouldTerminate` and `AttachedSheets.endAll()` now both report, and the
+absence of `terminate requested` is itself the diagnosis. NFR-OBS-1, and owed anyway.
+
+The confirmed sequence, one press, three consecutive runs:
+
+```
+helper gate action: quit from requiresApproval
+ending sheets: 2 window(s), 1 sheet(s), 0 with no parent; 1 still flagged afterwards
+terminate requested: runIsActive=false disposition=quitImmediately
+```
+
+`1 still flagged afterwards` survives the fix, which confirms `isSheet` was never the discriminator.
+
+**Defect 2's fix retires the question increment 9 owed the user** — one button doing double duty
+versus a third button on `requiresApproval`. Neither: the re-check has no button, and the action
+table approved 2026-08-26 is unchanged.
+
+#### And a test written for defect 1 changed machine state, and was rewritten
+
+`noRemedyEndsTheSheet` walked `[.registerHelper, .openLoginItems, .retry]`, went green, and had
+**really registered the daemon and really opened System Settings** — `register() succeeded` on the
+log. `HelperRegistration` is built inside `AppModel` rather than injected, so those two cases reach
+the real `SMAppService`. It would have done that on every run of `test.sh` from then on. Rewritten to
+drive `.retry` only; the two undriveable cases are in the checklist's no-cover list, with items 3
+and 4 as their cover.
+
+**State after the follow-up:** 1064 tests / 134 suites, floor 1064. Zero Swift source warnings,
+Debug and Release, DerivedData wiped. 13/13 gate clients. `window-fit-check` worst case **613 pt,
+unchanged**. Render case list re-derived and identical to the probe at 36. Helper source hash
+**unmoved at `73990c90…`**; protocol **v12** unchanged; app target only.
+
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 
 BUILD-PLAN's five items, each ticked against named evidence rather than recollection. The walk is

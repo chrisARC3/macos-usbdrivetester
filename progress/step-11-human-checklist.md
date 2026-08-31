@@ -448,7 +448,7 @@ lines that tell the model a run produced a report are reachable only by a person
 **The 4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`) attached, and the log stream running. Items 1–7
 need a real run; 8–10 do not.
 
-1. **Menus first, before any run.** The Window menu has a *Run Report* item with **⇧⌘R** on it,
+1. **Menus first, before any run.** The Window menu has a *View Last Run Report* item with **⇧⌘R** on it,
    and **only one**. SwiftUI adds a permanent Window-menu entry for every `Window` scene, titled
    with the window's title — measured on a scene probe in 2026-08-05 and recorded in
    `USBDriveTesterApp` — so while the report was a scene the app's own command sat beside an entry
@@ -472,7 +472,7 @@ need a real run; 8–10 do not.
 4. **Press Done, then ⇧⌘R.** The same report comes back, with the same content. Dismissing does not
    discard it; only a new run does.
 
-5. **Start a second run and, while it is running, look at the Window menu.** *Run Report* is
+5. **Start a second run and, while it is running, look at the Window menu.** *View Last Run Report* is
    **greyed out**, and ⇧⌘R does nothing. During a run there is nothing to show — the report was
    discarded as the run began — and a window-modal sheet would put Pause and Stop out of reach.
 
@@ -527,7 +527,8 @@ need a real run; 8–10 do not.
 
 11. **With the pre-run dialog up, press ⇧⌘R. Then Cancel the dialog and wait.** *(Dry — press
     Start and answer nothing.)* Nothing should appear: not while the dialog is up, and **not when
-    it goes away**. Check the Window menu too — *Run Report* should be **greyed** while the dialog
+    it goes away**. Check the Window menu too — *View Last Run Report* should be **greyed** while the
+    dialog
     is open.
 
     > **This item was written as a probe and found a defect on 2026-08-21. It is now the regression
@@ -654,10 +655,14 @@ Every diagnosis prints one line — `helper gate: available — no modal raised`
 
 1. **A healthy launch shows nothing.** With the helper installed and approved, launch the app. **No
    modal appears**, and the log carries `helper gate: available — no modal raised`. That line is the
-   check: silence alone cannot distinguish "diagnosed healthy" from "never ran", which is exactly
-   what M4 deletes.
+   check: silence alone cannot distinguish "diagnosed healthy" from "never ran".
 
-2. **The Run Report menu item is live.** ⇧⌘R raises the empty report. Dismiss it. (Item 5 is what
+   **It covers M12, not M4** — the attribution was wrong here until 2026-08-27. M12 is the launch
+   trigger never firing, and this line is its only cover. M4 is the `.sheet` modifier replaced by
+   `EmptyView`, which prints this line **unchanged**; M4's only cover is a person seeing the modal
+   in item 3.
+
+2. **The View Last Run Report menu item is live.** ⇧⌘R raises the empty report. Dismiss it. (Item 5 is what
    this is being compared against.)
 
 3. **`.notRegistered` — ask first.** Open ⇧⌘D, choose **Uninstall helper**, wait for
@@ -673,19 +678,41 @@ Every diagnosis prints one line — `helper gate: available — no modal raised`
      because neither is visible to any test. *The increment's plan predicted Escape would dismiss
      and the sheet would re-raise; that was a prediction about the presentation layer derived from
      model code, which is the shape item 6.1 falsified. Report what actually happens.*
-   * Press **Register Helper**. The gate should move on to *"waiting for your approval"* — one step
-     forward, not a dead end. Log: `helper gate action: registerHelper from notRegistered`.
+   * Press **Register Helper**. Log: `helper gate action: registerHelper from notRegistered`.
 
-4. **`.requiresApproval`, continuing from 3.** Two buttons: **Open Login Items…** and Quit.
+     **What happens next depends on the machine, and this item predicted it wrongly** (found
+     2026-08-27). It said the gate moves on to *"waiting for your approval"*. On a Mac that has
+     approved this app before it goes **straight to `available`** and the gate clears: the
+     Background Task Management record survives the unregister — same `BTM uuid` before and after —
+     so re-registering the same bundle path is re-enabled without a fresh approval. Only a machine
+     that has never approved it takes the `requiresApproval` step.
 
-   * Press **Open Login Items…**. System Settings opens at Login Items & Extensions.
-   * Enable USBDriveTester under *Allow in the Background*, return to the app, and press
-     **Open Login Items… once more**. The gate clears and the main window becomes usable.
-   * ⚠️ **This is the weakest part of the dialog and is worth an opinion.** This state has no
-     separate Retry, so the Login Items button does double duty — it opens Settings *and* re-checks
-     — and the message has to say so. It works; it reads slightly oddly. The alternative is a third
-     button (Open Login Items… · Retry · Quit), which departs from the action table approved on
-     2026-08-26. **Say which you prefer.**
+     So **item 3 does not chain into item 4 here.** Induce `requiresApproval` directly instead:
+     System Settings ▸ General ▸ Login Items & Extensions ▸ *Allow in the Background* ▸ toggle
+     **USBDriveTester off**, then relaunch. The same toggle undoes it. Do **not** reach for
+     `sfltool resetbtm` — it resets Background Task Management for every app on the Mac.
+
+4. **`.requiresApproval` — ask first.** Induced with the Login Items toggle described in item 3.
+   Two buttons: **Open Login Items…** and Quit.
+
+   * Press **Quit**. **The app quits.** This is a regression check, not a formality: on 2026-08-27
+     this button was **dead**, pressed four times with all four presses visible on the log and the
+     app still running. `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit
+     refuses it before `applicationShouldTerminate` is consulted, so `QuitPolicy` never gets a vote.
+     The gate now ends the sheet before terminating. CONSTRAINTS §1 carries the measurement.
+   * Relaunch. Press **Open Login Items…**. System Settings opens at Login Items & Extensions.
+   * Enable USBDriveTester under *Allow in the Background* and **switch back to the app without
+     pressing anything**. **The gate must clear by itself.** Log: `helper gate: available — modal
+     dismissed, was requiresApproval`.
+
+     Added 2026-08-27 at the user's request, after this item found that returning from Settings
+     changed nothing until Open Login Items was pressed a *second* time. **This retires the question
+     this item used to ask** — whether to keep one button doing double duty or add a third
+     (Open Login Items… · Retry · Quit). Neither: the re-check has no button, and the action table
+     approved 2026-08-26 is unchanged.
+   * The re-check is **guarded on the gate being up**, so a healthy app does not issue an XPC round
+     trip every time you ⌘-Tab back to it. Nothing to observe; recorded so the absence of log lines
+     on an ordinary activation is not read as a fault.
 
 5. **The report cannot queue underneath it.** With the gate up (repeat 3 if you have cleared it),
    press **⇧⌘R**. **Nothing must happen**, and nothing must appear when the gate is later
@@ -731,6 +758,14 @@ Every diagnosis prints one line — `helper gate: available — no modal raised`
 
 Both diagnoses are unit-tested and both are rendered in each appearance. **Neither has been seen on
 this machine**, which is what the sentence above is for.
+
+**And two gate remedies cannot be driven from a test at all**, recorded here because a test that
+tried it was written on 2026-08-27, went green, and had **really registered the daemon and really
+opened System Settings** — visible on the log as `register() succeeded`. `HelperRegistration` is
+constructed inside `AppModel` rather than injected, so `performHelperGateAction(.registerHelper)` and
+`(.openLoginItems)` reach the real `SMAppService` and the real Settings app. A unit test that changes
+machine state is not a unit test, and that one would have done it on every run of `test.sh`. Only
+`.retry` is driven; **items 3 and 4 are the cover for the other two.**
 
 
 ## What has no automated cover, and will not get any

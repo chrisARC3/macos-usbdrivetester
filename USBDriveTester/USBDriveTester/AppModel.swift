@@ -53,6 +53,7 @@
 //
 
 import AppKit
+import os
 // `MemberImportVisibility` is on, so `SMAppService.Status.enabled` needs its defining module
 // imported *directly* even though `HelperRegistration` already brings it in transitively.
 import ServiceManagement
@@ -207,7 +208,7 @@ final class AppModel {
         lastRunReport = nil
     }
 
-    /// Whether the **Run Report** menu item may raise the report (⇧⌘R).
+    /// Whether the **View Last Run Report** menu item may raise the report (⇧⌘R).
     ///
     /// - Important: this is **not** the question of whether the report may be *shown*, and
     ///   answering both with this one property would suppress every report the app produces.
@@ -232,6 +233,18 @@ final class AppModel {
     /// 6.1's observation is not overturned, only narrowed: ⌘Q is AppKit's terminate and reaches a
     /// different path from an app-declared command. What is corrected is the inference drawn from
     /// it — that a sheet makes the menu bar inert.
+    ///
+    /// **And on 2026-08-27 the rest of 6.1 was explained, having sat here for two increments with
+    /// the wrong cause attached.** ⌘Q did not merely "reach a different path": `NSApp.terminate(_:)`
+    /// is a **silent no-op while a sheet is attached**, measured on an AppKit probe — AppKit refuses
+    /// the termination *before* `applicationShouldTerminate` is consulted, so `QuitPolicy` is never
+    /// asked at all. 6.1 saw the symptom and this file recorded a guess beside it.
+    ///
+    /// It fails safe — a run is never abandoned — but silently, and it is **not confined to the
+    /// pre-run dialog**: ⌘Q is dead under the report sheet and the launch gate too. The gate's own
+    /// Quit button is fixed locally in `performHelperGateAction(_:)`, where the measurement is
+    /// written out. Fixing it for **every** route is a separate increment by decision of
+    /// 2026-08-27, because ending a sheet in general dismisses prompts nobody answered.
     ///
     /// ## And while the launch gate is up (increment 9)
     ///
@@ -366,17 +379,82 @@ final class AppModel {
 
         case .openLoginItems:
             registration.openLoginItemsSettings()
-            // Re-diagnosed on the way out, so pressing this a second time after approving is what
-            // clears the gate. The message says so; there is no separate Retry on this state.
+            // Re-diagnosed on the way out. Since 2026-08-27 the gate also re-checks whenever the
+            // app is activated, so returning from System Settings clears it without pressing
+            // anything — this line is what makes a press *before* leaving still answer, and what
+            // keeps the action's behaviour a property of the model rather than of a scene modifier.
             refreshHelperAvailability()
 
         case .retry:
             refreshHelperAvailability()
 
         case .quit:
-            // The injected action, for the same reason every other quit route uses it: the tests
-            // and `tools/ui-probe` must not really terminate.
-            terminateAction()
+            // **`NSApp.terminate(_:)` is a silent no-op while a sheet is attached**, so this button
+            // was dead — found at the keyboard on 2026-08-27 (chunk 13 item 4), where it was pressed
+            // four times without effect while the log recorded all four presses arriving here.
+            //
+            // Measured on an AppKit probe the same day, rather than reasoned:
+            //
+            // | sheet attached | `applicationShouldTerminate` | outcome |
+            // |---|---|---|
+            // | no | **reached** → `.terminateNow` | the app exits |
+            // | yes | **never reached** | the app survives |
+            //
+            // AppKit refuses the termination *before* consulting the delegate, so `QuitPolicy` never
+            // gets a vote — the guard is not bypassed, it is never asked. Ending the sheet in this
+            // same turn is enough; the probe measured the completion handler running synchronously
+            // and the delegate then being reached. **No delay and no polling**, which is what makes
+            // this a fix rather than a race: a version that terminated "a run-loop turn later" would
+            // be resting on a dismissal animation nobody has measured.
+            //
+            // **The ordering is the whole fix**, and swapping these two lines restores the defect —
+            // which is why a test asserts the order rather than merely that both ran.
+            //
+            // ## Why this is here and not in `terminateAction`
+            //
+            // Because the same defect kills **⌘Q under every sheet in this app** — the pre-run
+            // dialog and the report sheet as much as this gate — and fixing it there would fix all
+            // of them. That is the right fix and it is deliberately not this one (user decision,
+            // 2026-08-27): it lands in the app's most safety-critical path, and "end the sheet then
+            // quit" is too blunt in general, because doing it under the pre-run dialog dismisses a
+            // prompt the user never answered. Scoped as its own increment; see the plans file.
+            //
+            // Here it is safe for the reason the `registerHelper` case gives: the gate is
+            // window-modal over the run controls at launch, so no run can exist to be abandoned.
+            quitFromGate()
+        }
+    }
+
+    /// Quits from the launch gate, which needs the sheet gone first.
+    ///
+    /// **Third attempt, and the first two are recorded because they each looked correct.**
+    ///
+    /// 1. `terminateAction()` alone — dead. `NSApp.terminate(_:)` is refused while a sheet is
+    ///    attached, *before* `applicationShouldTerminate` is consulted, so `QuitPolicy` never voted
+    ///    and nothing was logged.
+    /// 2. `AttachedSheets.endAll()` then `terminateAction()` — still dead. An AppKit probe said this
+    ///    worked; the probe was not the app. In the app the log read `1 still flagged afterwards`
+    ///    and **no** `terminate requested` line ever followed: `endSheet(_:)` does not take down a
+    ///    sheet SwiftUI owns, because SwiftUI's binding still reads `true` and it keeps it.
+    ///
+    /// So the sheet is taken down **through SwiftUI**, by making `helperGateIsPresented` read
+    /// `false`, and the termination is asked for on the following turn once SwiftUI has acted.
+    /// `endAll()` stays as well: it is a no-op when there is nothing attached, and it costs nothing
+    /// to also close an AppKit session if one is somehow live.
+    ///
+    /// **It reports its own failure.** If the app is still running a turn after `terminateAction()`,
+    /// that is logged as an error — because the entire history of this defect is a button that did
+    /// nothing silently, and the next person to break it should not need a probe to find out.
+    private func quitFromGate() {
+        gateIsDismissedForQuit = true
+        dismissAttachedSheets()
+
+        scheduleOnNextTurn { [weak self] in
+            guard let self else { return }
+            self.terminateAction()
+            self.scheduleOnNextTurn {
+                quitLog.error("still running after terminate — the gate's Quit is blocked again")
+            }
         }
     }
 
@@ -391,8 +469,9 @@ final class AppModel {
     /// this machine's real `SMAppService` status. Deliberately **not** a settable property: one
     /// writer means the log route cannot be bypassed, which is the whole of M4's cover.
     func setHelperAvailability(_ availability: HelperAvailability) {
+        let previous = helperAvailability
         helperAvailability = availability
-        HelperGateLog.diagnosed(availability)
+        HelperGateLog.diagnosed(availability, replacing: previous)
     }
 
     /// Whether anything is happening that must freeze the device list (FR-DEV-7), block an
@@ -417,6 +496,40 @@ final class AppModel {
     /// `tools/ui-probe`, which renders the winding-down banner — a state no render could otherwise
     /// reach, since getting there through the UI means quitting.
     var terminateAction: () -> Void = { NSApp.terminate(nil) }
+
+    /// Detaches any sheet attached to one of the app's windows, so that a termination is not
+    /// silently refused. See the `.quit` case of `performHelperGateAction(_:)` for the measurement.
+    ///
+    /// Injected for the same two consumers as `terminateAction` — the tests and `tools/ui-probe` —
+    /// and so a test can assert that it runs *before* the termination, which is the fix.
+    var dismissAttachedSheets: () -> Void = { AttachedSheets.endAll() }
+
+    /// Runs a closure on the next run-loop turn. Injected so a test can make it synchronous and
+    /// assert the quit sequence in order; SwiftUI needs the turn to act on a state change.
+    /// `@MainActor` on both the property and its parameter, deliberately. The obvious spelling —
+    /// a plain `() -> Void` handed to `DispatchQueue.main.async(execute:)` — warns that a
+    /// non-`Sendable` closure is being passed where a `@Sendable` one is expected, and this project
+    /// ships with zero Swift warnings. A `Task { @MainActor in }` needs no `Sendable` promise
+    /// because it never leaves the main actor, which is also the only place this may run.
+    var scheduleOnNextTurn: @MainActor (@escaping @MainActor () -> Void) -> Void = { work in
+        Task { @MainActor in work() }
+    }
+
+    /// Set only by the gate's Quit, and never cleared: the app is on its way out.
+    private var gateIsDismissedForQuit = false
+
+    /// Whether the launch gate is on screen.
+    ///
+    /// **The sheet binds to this rather than to `helperAvailability` directly**, and that is the
+    /// whole of what makes Quit work. `NSApp.terminate(_:)` is refused while a sheet is attached,
+    /// and the gate's sheet is SwiftUI's: ending it with AppKit's `endSheet(_:)` left it attached
+    /// and the termination still refused — measured in the shipped app on 2026-08-31, `1 still
+    /// flagged afterwards` with no `terminate requested` line following it. SwiftUI gives the sheet
+    /// up when this getter reads `false`, and since the binding's setter is deliberately a no-op,
+    /// there is no other way to take it down.
+    var helperGateIsPresented: Bool {
+        !helperAvailability.isAvailable && !gateIsDismissedForQuit
+    }
 
     /// Whether new privileged work may still be issued.
     ///
@@ -558,6 +671,44 @@ final class AppModel {
         }
         quitSequence = sequence
         sequence.begin()
+    }
+}
+
+private nonisolated let quitLog = Logger(subsystem: HelperIdentity.loggingSubsystem,
+                                         category: "quit")
+
+/// Ending sheets so a termination can proceed.
+///
+/// **`isSheet` is not the test for "may I terminate now".** The probe that established this measured
+/// `isSheet` still reporting `true` on the window immediately after `endSheet(_:)` returned — and
+/// terminating right then worked anyway. What blocks the termination is the live sheet *session* on
+/// the parent window, which `endSheet(_:)` closes synchronously; the window being ordered out
+/// afterwards is cosmetic. So this ends sheets unconditionally rather than asking first, and no
+/// caller should gate on `isSheet`.
+enum AttachedSheets {
+
+    /// Ends every sheet currently attached to an app window. A no-op when none is attached, which
+    /// is what makes it safe to call from a quit path that does not know whether one is up.
+    ///
+    /// **Logged in detail, and that is not debug scaffolding** (NFR-OBS-1). The gate's Quit needed
+    /// three presses on 2026-08-27 *after* the first fix, and it could not be diagnosed from the
+    /// log because this whole path was silent — the same reason the original dead button needed an
+    /// AppKit probe to explain. A sheet with no `sheetParent` is ended by nobody, and a count that
+    /// does not fall to zero is the difference between "ended it" and "tried to".
+    static func endAll() {
+        let windows = NSApp.windows
+        let sheets = windows.filter(\.isSheet)
+        let parentless = sheets.filter { $0.sheetParent == nil }.count
+
+        for sheet in sheets {
+            sheet.sheetParent?.endSheet(sheet)
+        }
+
+        let remaining = NSApp.windows.filter(\.isSheet).count
+        quitLog.notice("""
+                       ending sheets: \(windows.count) window(s), \(sheets.count) sheet(s), \
+                       \(parentless) with no parent; \(remaining) still flagged afterwards
+                       """)
     }
 }
 

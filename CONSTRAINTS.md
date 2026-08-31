@@ -197,8 +197,43 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
   up" must survive the move.
 - `.terminateLater` was **measured and rejected**: AppKit runs that wait in its own run-loop mode, so
   a `Timer`-driven metrics panel freezes exactly while the app asks to be trusted.
+- **`NSApp.terminate(_:)` is a silent no-op while a sheet is attached** (measured 2026-08-27, AppKit
+  probe). It is refused **before** `applicationShouldTerminate` is consulted, so `QuitPolicy` is not
+  asked and nothing is logged. Ending the sheet first — in the *same* run-loop turn — is sufficient
+  and needs no delay:
 
-*Full account: `progress/step-09.md`, increments 3 and 4.*
+  | sheet attached | `applicationShouldTerminate` | outcome |
+  |---|---|---|
+  | no | reached → `.terminateNow` | the app exits |
+  | yes | **never reached** | the app survives |
+  | `endSheet` then terminate, same turn | reached → `.terminateNow` | the app exits |
+
+  **`isSheet` is not the test for "may I terminate now".** The probe measured `isSheet` still
+  reporting `true` immediately after `endSheet(_:)` returned, and terminating right then worked
+  anyway: what blocks the termination is the live sheet *session* on the parent window, which
+  `endSheet(_:)` closes synchronously. Anything gating on `isSheet` will gate on the wrong thing.
+- **`endSheet(_:)` does NOT take down a sheet that SwiftUI presented** — measured in the shipped app
+  on 2026-08-31, after two fixes built on the probe above failed in the product. The log read
+  `ending sheets: 2 window(s), 1 sheet(s), 0 with no parent; 1 still flagged afterwards` and **no**
+  `terminate requested` line ever followed it: AppKit was still refusing. SwiftUI keeps the sheet
+  while its `isPresented` getter reads `true`, and a binding written with a **no-op setter** — which
+  is how a non-dismissable modal is spelled — cannot be taken down any other way.
+
+  So a SwiftUI sheet is dismissed by **making the model say it is not presented**, and only then can
+  the app terminate. `AppModel.helperGateIsPresented` is that rule for the launch gate. **The probe
+  was not wrong; it was not the app**: a plain AppKit sheet, and a SwiftUI sheet inside an
+  `NSHostingView`, both quit on the first attempt. Three probe versions before that measured nothing
+  at all — a SwiftUI `Window` scene launched outside Xcode never materialises its window, whether the
+  binary is run directly or through `open`, so `onAppear` never fires. **What diagnosed this was
+  logging in the shipped app, not a probe**, which is why the quit path is now instrumented.
+- **This is what check 6.1 saw in increment 5** — "⌘Q during the pre-run dialog never reached
+  `QuitPolicy`" — and `AppModel` carried a *guessed* cause beside it ("⌘Q reaches a different path")
+  for two increments before it was measured. **⌘Q is therefore dead under every sheet in this app**:
+  the pre-run dialog, the report sheet, and the launch gate. It fails safe and it fails silently.
+  Increment 9's gate fixes only its own Quit button; the app-wide fix is a separate increment by
+  decision of 2026-08-27, because ending a sheet in general dismisses prompts nobody answered.
+
+*Full account: `progress/step-09.md`, increments 3 and 4; the sheet measurement is increment 9's.*
 
 ### Metrics and reporting
 

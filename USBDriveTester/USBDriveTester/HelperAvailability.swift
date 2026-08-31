@@ -285,13 +285,17 @@ nonisolated enum HelperAvailability: Equatable {
             // Found by rendering; no test could see it, because `messageStem` matches "login items"
             // either way — which is the point of the render existing at all.
             //
-            // This state has no separate Retry, so the Login Items button doubles as the re-check
-            // and the sentence has to say so. That is the approved action table (2026-08-26) and the
-            // wording is what makes it honest rather than a button that quietly does two things.
+            // **This state has no separate Retry, and no longer needs one.** The sentence used to
+            // end "then choose Open Login Items once more to re-check", because the button did
+            // double duty — open Settings, and re-check. Walking chunk 13 item 4 on 2026-08-27 the
+            // user reported that as the weak point it had been flagged as, and the fix was neither
+            // of the two options on the table: the app re-checks on activation now
+            // (`USBDriveTesterApp.swift`), so returning from Settings clears the gate by itself.
+            // The action table approved 2026-08-26 is unchanged — no button was added or removed.
             return """
                    The helper is installed, but macOS will not run it until you allow it. Choose \
-                   Open Login Items, enable USBDriveTester under "Allow in the Background", then \
-                   choose Open Login Items once more to re-check.
+                   Open Login Items and enable USBDriveTester under "Allow in the Background". \
+                   This window checks again by itself as soon as you come back.
                    """
 
         case .unreachable(let detail):
@@ -368,11 +372,30 @@ nonisolated enum HelperAvailability: Equatable {
 /// this log: `helper gate: notRegistered` is unambiguous where "a dialog appeared" is a judgement.
 nonisolated enum HelperGateLog {
 
+    /// What the ``available`` line should say, given the state it replaced.
+    ///
+    /// **A pure function, and deliberately not a string built inside the `Logger` call.** The first
+    /// version of this line read "available — no modal raised" on *every* arrival at ``available``,
+    /// including the one where a modal had just been dismissed — so on the single transition the
+    /// human checklist's chunk 13 ends on, the instrument said the opposite of what had happened
+    /// (reported at the keyboard, 2026-08-27). A log line that the checklist reads its verdicts off
+    /// is load-bearing, and this project's rule is that a rule living only inside a view modifier
+    /// or a logging call is one nothing automated can see. Extracted so two tests can pin it.
+    static func availableLine(replacing previous: HelperAvailability) -> String {
+        previous.isAvailable
+            ? "helper gate: available — no modal raised"
+            : "helper gate: available — modal dismissed, was \(previous.routeName)"
+    }
+
     /// The diagnosis changed. Logged on every transition, including the one into ``available``, so
     /// a launch that raised nothing is *positively* recorded rather than merely silent.
-    static func diagnosed(_ availability: HelperAvailability) {
+    ///
+    /// - Parameter previous: what the app believed immediately before. Needed only to tell a launch
+    ///   that never raised a modal from a remedy that has just cleared one; see ``availableLine``.
+    static func diagnosed(_ availability: HelperAvailability,
+                          replacing previous: HelperAvailability) {
         if availability.isAvailable {
-            gateLog.notice("helper gate: available — no modal raised")
+            gateLog.notice("\(availableLine(replacing: previous), privacy: .public)")
         } else {
             gateLog.error("""
                           helper gate: \(availability.routeName, privacy: .public) — \

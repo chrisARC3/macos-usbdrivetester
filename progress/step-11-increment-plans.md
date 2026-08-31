@@ -204,6 +204,69 @@ the 2026-08-17 defect report, when v11's phase-isolated figures read 1.5× and 3
 
 ---
 
+## Increment 12 — ⌘Q works under every sheet
+
+**Not planned in advance; produced by walking chunk 13 on 2026-08-27.** Scoped here rather than
+folded into increment 9 by explicit user decision the same day: *"fix the gate only and proceed."*
+
+### The defect
+
+`NSApp.terminate(_:)` is a **silent no-op while a sheet is attached** — measured on an AppKit probe,
+recorded in CONSTRAINTS §1 with the table. AppKit refuses the termination *before*
+`applicationShouldTerminate` is consulted, so `QuitPolicy` is never asked and nothing is logged.
+
+**⌘Q is therefore dead under every sheet in this app**: the pre-run dialog, the report sheet, and
+the launch gate. It fails safe — no run is ever abandoned — and it fails **silently**, which is the
+part that matters: the app's stated contract is that ⌘Q during a run *asks first*, and what it
+actually does is nothing at all.
+
+This is the true cause of **check 6.1** from increment 5, which observed the symptom and had a
+guessed cause sitting beside it in `AppModel` for two increments.
+
+### What increment 9 already did, and why it is not enough
+
+The gate's own Quit button calls `dismissAttachedSheets()` before `terminateAction()`, and a test
+asserts the **order** because swapping the two lines restores the defect. That is deliberately local:
+it is safe there because the gate is window-modal at launch, so no run can exist.
+
+### Why the general fix is not the same edit
+
+**`AttachedSheets.endAll()` cannot simply move into `terminateAction`'s default.** Ending the sheet
+under the **pre-run dialog** dismisses a prompt the user never answered, and the prompt is the last
+thing standing between a ⌘Q and a drive. The quit path must therefore decide *whether* the sheet may
+go before it ends it, and the decision belongs in `QuitPolicy` where the truth table is tested —
+not in an AppKit poke.
+
+### Know this before building it
+
+- **`isSheet` is not the test for "may I terminate now".** The probe measured `isSheet` still `true`
+  immediately after `endSheet(_:)` returned, and terminating right then worked. The blocker is the
+  live sheet *session*, closed synchronously by `endSheet(_:)`.
+- **`endSheet(_:)` is not enough for a SwiftUI sheet, and this increment must not be built on it.**
+  Measured in the shipped app 2026-08-31: it leaves the sheet attached and the termination still
+  refused. Each sheet has to be taken down by **its own presentation state going false** — so this
+  increment is not one AppKit call in `terminateAction`, it is a rule per sheet (the pre-run prompt,
+  the report, the gate) plus a decision about which of them a quit is allowed to discard. The gate's
+  is `AppModel.helperGateIsPresented`; the pre-run prompt is the hard one, because dismissing it
+  discards a question the user never answered.
+- **No delay is needed and none should be used.** A version that terminates "a run-loop turn later"
+  rests on a dismissal animation nobody has measured. Same turn works; it was measured.
+- **The quit path emits no log lines at all**, which is why the chunk 13 failure could not be
+  diagnosed from the archive and needed a probe. Whatever this increment does, `applicationShouldTerminate`
+  and `QuitPolicy.disposition` should say so on the log (NFR-OBS-1).
+- The probe that established all of this is in the session scratchpad, not the repo. **Rebuild it
+  rather than trusting this paragraph** if the behaviour is ever in doubt; three earlier versions of
+  it measured *nothing* (a SwiftUI `Window` scene launched from a CLI binary never materialises a
+  window, and every mode reported `sheets = 0`) and were only caught because the probe asserted the
+  sheet was attached before trusting its own verdict.
+
+### The human checks it owes
+
+⌘Q under the pre-run dialog during a run, ⌘Q under the report sheet, ⌘Q under the gate, and the
+existing chunk 6 quit boundary re-run unchanged.
+
+---
+
 ## Settled — do not re-open
 
 | Decision | Date |
@@ -215,6 +278,8 @@ the 2026-08-17 defect report, when v11's phase-isolated figures read 1.5× and 3
 | The FDA modal has **two** buttons | 2026-08-26 |
 | Increment 10 keeps the FDA move and the banner deletion **together** | 2026-08-26 |
 | The `Covering` row is deleted; `R-W-R-C speed` is a separate increment | 2026-08-26 |
+| The gate re-checks on app activation while gated; **no third button** on `requiresApproval` | 2026-08-27 |
+| ⌘Q under a sheet is fixed **app-wide as increment 12**, not folded into increment 9 | 2026-08-27 |
 
 **The user was warned that a launch-time fatal modal costs the helper-free link-speed check** —
 enumeration, capacity, serial and link speed are all app-side IOKit reads and work without the

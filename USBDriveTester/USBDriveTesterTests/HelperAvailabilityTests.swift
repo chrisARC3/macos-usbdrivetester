@@ -384,4 +384,27 @@ struct HelperGateMessageTests {
         #expect(everySymbolIsNamed)
         #expect(Set(symbols).count == symbols.count, "two cases share a symbol: \(symbols)")
     }
+
+    // MARK: - The log line the human checklist reads its verdicts off
+
+    /// A launch that never raised anything says so.
+    @Test func arrivingAtAvailableFromAvailableReportsNoModal() {
+        let line = HelperGateLog.availableLine(replacing: .available)
+        #expect(line == "helper gate: available — no modal raised")
+    }
+
+    /// **A remedy that clears the gate must not claim no modal was raised.** One was, and it has
+    /// just been dismissed. Found at the keyboard on 2026-08-27: chunk 13 item 3 ends on exactly
+    /// this transition, and the line it read said the opposite of what had happened — an instrument
+    /// wrong on the one step it exists to record.
+    @Test func arrivingAtAvailableFromAGatedStateReportsTheDismissal() {
+        for previous in Gate.everyNonAvailableCase {
+            let line = HelperGateLog.availableLine(replacing: previous)
+            #expect(line.contains("modal dismissed"), "previous=\(previous.routeName) line=\(line)")
+            #expect(line.contains(previous.routeName),
+                    "previous=\(previous.routeName) line=\(line)")
+            #expect(!line.contains("no modal raised"),
+                    "previous=\(previous.routeName) line=\(line)")
+        }
+    }
 }

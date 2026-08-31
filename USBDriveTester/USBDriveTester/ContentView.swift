@@ -188,7 +188,12 @@ struct ContentView: View {
         // reasoning, which is the exact shape of checklist item 6.1, where a truth table said one
         // thing and a window-modal sheet did another. So the property is made to hold by
         // construction instead of resting on SwiftUI re-presenting.
-        .sheet(isPresented: Binding(get: { !model.helperAvailability.isAvailable },
+        // **Bound to `helperGateIsPresented`, not to `helperAvailability` directly** (2026-08-31).
+        // The gate's Quit needs SwiftUI to relinquish this sheet before AppKit will accept a
+        // termination, and it only does that when the getter reads `false` — the setter is a no-op
+        // by design, so nothing else can take it down. Reading availability here made that
+        // impossible to express and is why two fixes did not work. See `AppModel.quitFromGate()`.
+        .sheet(isPresented: Binding(get: { model.helperGateIsPresented },
                                     set: { _ in })) {
             HelperGateSheet(availability: model.helperAvailability,
                             perform: { model.performHelperGateAction($0) })

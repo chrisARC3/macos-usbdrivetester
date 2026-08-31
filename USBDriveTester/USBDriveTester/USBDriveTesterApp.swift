@@ -72,6 +72,8 @@
 //  ever gets as far as terminating.
 //
 
+import AppKit
+import Combine
 import SwiftUI
 
 @main
@@ -118,6 +120,35 @@ struct USBDriveTesterApp: App {
                 // compile error is caught; a logic error is not. That is mutation M4, and this
                 // placement is what makes its survival structural rather than incidental.
                 .onAppear { model.refreshHelperAvailability() }
+                // **And again on every activation, while the gate is up** (user request,
+                // 2026-08-27, found walking chunk 13 item 4).
+                //
+                // Without this the gate is a snapshot of the moment the app launched. The
+                // `requiresApproval` remedy sends the user to System Settings, and coming back with
+                // the switch turned on changed nothing: the modal stayed up until Open Login Items
+                // was pressed a *second* time, which is what made that one button do double duty —
+                // open Settings, and re-check. Re-checking on activation is what the user expects a
+                // window to do when they return to it having done what it asked.
+                //
+                // **This is what retires the item-4 question**, which had been framed as a choice
+                // between a button that quietly does two things and a third button (Open Login
+                // Items… · Retry · Quit) departing from the action table approved 2026-08-26.
+                // Neither is needed: the re-check has no button at all.
+                //
+                // Guarded on the gate being up, deliberately. Unguarded, every ⌘-Tab back to this
+                // app would issue an XPC round trip for an answer nothing is waiting on. The cost
+                // of the guard is that a helper dying while the app is in the background is not
+                // noticed on return — which is not this trigger's job: Start prepares the device
+                // through the helper, and ⇧⌘D asks directly.
+                //
+                // Here rather than on `ContentView` for the reason the launch trigger is here: this
+                // is the one file no harness compiles, so no render can acquire an activation
+                // observer on this machine's live `SMAppService` status.
+                .onReceive(NotificationCenter.default.publisher(
+                    for: NSApplication.didBecomeActiveNotification)) { _ in
+                    guard !model.helperAvailability.isAvailable else { return }
+                    model.refreshHelperAvailability()
+                }
         }
         // **The main window had no declared size at all until Step 11 increment 7**, and that is
         // why it opened enormous. A scene with no `.defaultSize` opens at its content's ideal
@@ -156,7 +187,17 @@ struct USBDriveTesterApp: App {
     }
 }
 
-/// The menu item that raises the run report (⇧⌘R).
+/// The menu item that raises the run report (⇧⌘R), titled **View Last Run Report**.
+///
+/// **Named for what it opens, not as an instruction** (user decision, 2026-08-27). It read
+/// *Run Report* until then, which in a menu is a verb phrase: it looks like a control that
+/// *starts* a run report, in an app whose entire subject is starting runs. Nothing is ever
+/// generated on demand here — the item opens the last finished run's report, or the empty
+/// state that says `No run has finished yet`.
+///
+/// **The wording is load-bearing for the human checklist**, which tells a tester to look for
+/// this item by name in chunks 11 and 13. Renaming it without renaming them there leaves a
+/// checklist that cannot be followed.
 ///
 /// **Disabled while a run is active** (user decision, 2026-08-21). A run clears the report as it
 /// begins, so during one there is nothing to raise but the empty state — and the report is a
@@ -176,7 +217,7 @@ private struct RunReportCommand: View {
     let model: AppModel
 
     var body: some View {
-        Button("Run Report") { model.reportRequestedFromMenu() }
+        Button("View Last Run Report") { model.reportRequestedFromMenu() }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .disabled(!model.reportMayBeRaisedFromMenu)
     }

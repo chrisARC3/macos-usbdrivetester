@@ -100,6 +100,15 @@ struct AppModelReportTests {
         func stop() -> Bool { true }
     }
 
+    /// Records the order in which injected closures ran. A class rather than a captured array so
+    /// the closures can append without the escaping-capture dance, and so the assertion reads as a
+    /// sequence — which is what the quit fix is.
+    @MainActor
+    private final class Recorder {
+        private(set) var steps: [String] = []
+        func append(_ step: String) { steps.append(step) }
+    }
+
     /// A model whose run is stubbed end to end, wired the way `RunControllerWiring` wires the real
     /// one: `onReport` and `onRunBegan` are **one call each** into the model.
     ///
@@ -296,6 +305,80 @@ struct AppModelReportTests {
         bench.model.setHelperAvailability(.available)
 
         #expect(bench.model.reportMayBeRaisedFromMenu)
+    }
+
+    /// **The gate's Quit ends the sheet BEFORE it terminates, and the order is the fix.**
+    ///
+    /// `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit refuses it before
+    /// `applicationShouldTerminate` is consulted — so the button was dead when it was pressed at the
+    /// keyboard on 2026-08-27. Asserting only that both closures ran would pass with the two lines
+    /// swapped, which is exactly the defect; so this asserts the sequence.
+    @Test func quittingFromTheGateEndsTheSheetBeforeTerminating() {
+        let bench = Bench()
+        let order = Recorder()
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.model.dismissAttachedSheets = { order.append("sheet") }
+        bench.model.terminateAction = { order.append("terminate") }
+        bench.model.setHelperAvailability(.requiresApproval)
+
+        bench.model.performHelperGateAction(.quit)
+
+        #expect(order.steps == ["sheet", "terminate"])
+    }
+
+    /// **The sheet must be gone from SwiftUI's point of view before the app tries to go.**
+    ///
+    /// This is the assertion the first two fixes would have failed. Both ended the *AppKit* sheet
+    /// and left `helperGateIsPresented` true, so SwiftUI kept the sheet attached and
+    /// `NSApp.terminate(_:)` was refused before `applicationShouldTerminate` was ever consulted —
+    /// measured in the shipped app, twice. The availability is deliberately left untouched: the app
+    /// is quitting, not becoming healthy, and saying otherwise would be a lie on the way out.
+    @Test func quittingFromTheGateTakesTheSheetDownThroughSwiftUI() {
+        let bench = Bench()
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.model.terminateAction = {}
+        bench.model.setHelperAvailability(.requiresApproval)
+        #expect(bench.model.helperGateIsPresented)
+
+        bench.model.performHelperGateAction(.quit)
+
+        #expect(!bench.model.helperGateIsPresented)
+        #expect(bench.model.helperAvailability == .requiresApproval)
+    }
+
+    /// And a remedy leaves the gate up. Only the quit takes it down; a remedy that dropped the sheet
+    /// would leave the app ungated with the helper still unusable.
+    @Test func aRemedyLeavesTheGatePresented() {
+        let bench = Bench()
+        bench.model.setHelperAvailability(.requiresApproval)
+
+        bench.model.performHelperGateAction(.retry)
+
+        #expect(bench.model.helperGateIsPresented)
+    }
+
+    /// And a remedy does not tear the gate down. Each one re-diagnoses and the modal follows the
+    /// state; a remedy that also ended the sheet would flash the main window between steps, and on
+    /// a state that does not clear it would leave the app ungated with the helper still unusable.
+    ///
+    /// **Only `retry` is driven here, and the reason is a defect this test had when first written.**
+    /// The first version walked `[.registerHelper, .openLoginItems, .retry]`, went green, and had
+    /// **really registered the daemon and really opened System Settings** — visible on the log as
+    /// `register() succeeded` and `opening System Settings > Login Items & Extensions`. A unit test
+    /// that changes machine state is not a unit test, and that one would have done it on every run
+    /// of `test.sh` from then on. `HelperRegistration` is constructed inside `AppModel` rather than
+    /// injected, so those two cases cannot be driven without the real side effect; `retry` reaches
+    /// the same line under test and only *reads*. The two undriveable cases are in the checklist's
+    /// no-cover list.
+    @Test func aRemedyDoesNotEndTheSheet() {
+        let bench = Bench()
+        let order = Recorder()
+        bench.model.dismissAttachedSheets = { order.append("sheet") }
+        bench.model.setHelperAvailability(.requiresApproval)
+
+        bench.model.performHelperGateAction(.retry)
+
+        #expect(order.steps.isEmpty, "steps=\(order.steps)")
     }
 
     /// Every non-available state closes the menu item, not just the one a test happened to pick.
