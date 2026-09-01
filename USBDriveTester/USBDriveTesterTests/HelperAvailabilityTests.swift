@@ -385,6 +385,98 @@ struct HelperGateMessageTests {
         #expect(Set(symbols).count == symbols.count, "two cases share a symbol: \(symbols)")
     }
 
+    // MARK: - The busy state
+
+    /// **Nothing is disabled when nothing is running.** The rule has to be inert in the ordinary
+    /// case, or every gate the user meets is dead on arrival.
+    @Test func everyActionIsEnabledWhenNothingIsRunning() {
+        for action in HelperGateAction.allCases {
+            #expect(action.isEnabled(whileRunning: nil), "action=\(action.rawValue)")
+        }
+    }
+
+    /// **Every remedy is disabled while one runs, and Quit is not.**
+    ///
+    /// Raised by the user on 2026-09-01: the gate accepted a second press while the first remedy was
+    /// still running. `replaceRunningDaemon` has a real window where the status is momentarily
+    /// `notRegistered`, so a second press would take a different branch than the one pressed.
+    ///
+    /// Quit stays live because nobody may be trapped behind a modal with no way out — and because a
+    /// remedy whose callback never arrives would otherwise leave every control dead. That failure
+    /// mode is the reason this is asserted rather than assumed.
+    @Test func onlyQuitSurvivesWhileARemedyIsRunning() {
+        for running in HelperGateAction.allCases where running.isRemedy {
+            for action in HelperGateAction.allCases {
+                #expect(action.isEnabled(whileRunning: running) == (action == .quit),
+                        "running=\(running.rawValue) action=\(action.rawValue)")
+            }
+        }
+    }
+
+    /// **The label tells the truth about which operation is running.** From `versionMismatch` a
+    /// working daemon is being *replaced*; from `notRegistered` one is being *installed*. Saying
+    /// "installing" while removing a running helper is the kind of small untruth this project keeps
+    /// deleting, and the two paths genuinely differ — one of them unregisters first.
+    @Test func theProgressLabelSaysWhichOperationIsRunning() {
+        let replacing = HelperGateAction.registerHelper
+            .progressLabel(from: .versionMismatch(helper: 12, app: 13))
+        let installing = HelperGateAction.registerHelper.progressLabel(from: .notRegistered)
+
+        #expect(replacing.localizedCaseInsensitiveContains("replac"))
+        #expect(installing.localizedCaseInsensitiveContains("install"))
+        #expect(replacing != installing)
+    }
+
+    /// Every remedy has something to say while it runs, and Quit has nothing — it shows no progress
+    /// because it is not a remedy and never sets the in-flight state.
+    @Test func everyRemedyHasAProgressLabelAndQuitHasNone() {
+        for availability in Gate.everyNonAvailableCase {
+            for action in availability.actions {
+                let label = action.progressLabel(from: availability)
+                if action.isRemedy {
+                    #expect(!label.isEmpty, "case=\(availability.routeName) action=\(action.rawValue)")
+                } else {
+                    #expect(label.isEmpty, "case=\(availability.routeName) action=\(action.rawValue)")
+                }
+            }
+        }
+    }
+
+    // MARK: - How far Register Helper has to go
+
+    /// **The one state where registering over the top cannot work.**
+    ///
+    /// Found at the keyboard, chunk 13 item 7, 2026-08-31: `register()` on an already-`enabled`
+    /// service reports success and reloads nothing, so the old daemon kept answering the old
+    /// protocol version and the gate re-diagnosed the identical mismatch. The state whose message
+    /// prescribes re-registering was the only one where re-registering was inert.
+    @Test func aVersionMismatchMustReplaceTheRunningDaemon() {
+        let remedy = HelperRegistrationRemedy.forGate(.versionMismatch(helper: 12, app: 13))
+        #expect(remedy == .replaceRunningDaemon)
+    }
+
+    /// **And no other state may unregister.** `notRegistered` is the one to watch: there is nothing
+    /// installed to remove, so unregistering first would spend a failed round trip and ten seconds
+    /// of settle-polling before doing the thing that was always going to work.
+    @Test func noOtherStateUnregistersFirst() {
+        for availability in Gate.everyCase where !isVersionMismatch(availability) {
+            #expect(HelperRegistrationRemedy.forGate(availability) == .registerOnly,
+                    "case=\(availability.routeName)")
+        }
+    }
+
+    /// The walk above is only a check if `everyCase` actually contains the mismatch it excludes —
+    /// otherwise it silently asserts nothing about the interesting case.
+    @Test func theWalkExcludesExactlyOneCase() {
+        let excluded = Gate.everyCase.filter(isVersionMismatch)
+        #expect(excluded.count == 1, "cases=\(Gate.everyCase.map(\.routeName))")
+    }
+
+    private func isVersionMismatch(_ availability: HelperAvailability) -> Bool {
+        if case .versionMismatch = availability { return true }
+        return false
+    }
+
     // MARK: - The log line the human checklist reads its verdicts off
 
     /// A launch that never raised anything says so.

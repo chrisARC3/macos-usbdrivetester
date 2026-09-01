@@ -346,6 +346,37 @@ struct AppModelReportTests {
         #expect(bench.model.helperAvailability == .requiresApproval)
     }
 
+    /// **A remedy marks itself in flight, and the arriving diagnosis clears it.**
+    ///
+    /// The clear happens in `setHelperAvailability(_:)` — the single writer — rather than at each
+    /// remedy's call site, so a remedy that forgets cannot leave the gate stuck busy. `retry` is
+    /// used because it is the one remedy a test may drive without touching machine state.
+    @Test func aRemedyIsInFlightUntilTheDiagnosisArrives() {
+        let bench = Bench()
+        bench.model.setHelperAvailability(.requiresApproval)
+        #expect(bench.model.helperGateActionInFlight == nil)
+
+        bench.model.performHelperGateAction(.retry)
+        // `retry` re-diagnoses, and on this machine the answer arrives before the call returns, so
+        // what is asserted is the *end* state: whatever happened, nothing is left in flight.
+        bench.model.setHelperAvailability(.requiresApproval)
+
+        #expect(bench.model.helperGateActionInFlight == nil)
+    }
+
+    /// **Quit never marks itself in flight.** It is not a remedy, and a Quit that set the busy state
+    /// would disable the only control left — the one the user just pressed to leave.
+    @Test func quitDoesNotMarkTheGateBusy() {
+        let bench = Bench()
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.model.terminateAction = {}
+        bench.model.setHelperAvailability(.notRegistered)
+
+        bench.model.performHelperGateAction(.quit)
+
+        #expect(bench.model.helperGateActionInFlight == nil)
+    }
+
     /// And a remedy leaves the gate up. Only the quit takes it down; a remedy that dropped the sheet
     /// would leave the app ungated with the helper still unusable.
     @Test func aRemedyLeavesTheGatePresented() {

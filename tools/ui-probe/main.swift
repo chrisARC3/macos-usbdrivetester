@@ -888,8 +888,13 @@ private struct HelperGateHost: View {
 
     let availability: HelperAvailability
 
+    /// Defaults to idle, so the five state cases are unchanged by the busy case existing.
+    var actionInFlight: HelperGateAction?
+
     var body: some View {
-        HelperGateSheet(availability: availability, perform: { _ in })
+        HelperGateSheet(availability: availability,
+                        actionInFlight: actionInFlight,
+                        perform: { _ in })
     }
 }
 
@@ -1033,6 +1038,16 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: HelperGateHost(
             availability: .versionMismatch(helper: TesterProtocol.version - 1,
                                            app: TesterProtocol.version)))
+    case "helper-gate-busy":
+        // A remedy in flight: the remedies disabled, a spinner and a label, **Quit still live**.
+        // Rendered on `versionMismatch` because that is the slow one — 719 ms end to end, measured
+        // 2026-09-01 — and the only state whose label reads "Replacing". The user asked for this
+        // after noticing the gate would accept a second press while the first was still running;
+        // a cursor change, which was the other candidate, could not be rendered here at all.
+        return NSHostingView(rootView: HelperGateHost(
+            availability: .versionMismatch(helper: TesterProtocol.version - 1,
+                                           app: TesterProtocol.version),
+            actionInFlight: .registerHelper))
 
     // Step 14. The pre-run dialog, in each of its forms.
     case "warnings":
@@ -1075,7 +1090,7 @@ func makeRootView(_ name: String) -> NSView {
             report, report-failures, report-stopped, report-stopped-by-user, report-qualified, \
             report-unidentified, report-empty, \
             helper-gate-not-found, helper-gate-not-registered, helper-gate-requires-approval, \
-            helper-gate-unreachable, helper-gate-version-mismatch, \
+            helper-gate-unreachable, helper-gate-version-mismatch, helper-gate-busy, \
             warnings, warnings-ticked, warnings-confirm or warnings-unidentified\n
             """.utf8))
         exit(2)

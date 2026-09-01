@@ -50,6 +50,10 @@ struct HelperGateSheet: View {
 
     let availability: HelperAvailability
 
+    /// The remedy currently running, or `nil` when the gate is idle. A value rather than a `Bool`
+    /// so the footer can say *which* thing is happening; see ``HelperGateAction/progressLabel(from:)``.
+    let actionInFlight: HelperGateAction?
+
     /// What a pressed button does. Injected so this view can be rendered and previewed with no
     /// model, no registration and no XPC connection behind it.
     let perform: (HelperGateAction) -> Void
@@ -105,15 +109,45 @@ struct HelperGateSheet: View {
     /// question about which state this is. The remedy is the emphasised button, because a dialog
     /// whose prominent control is Quit reads as a dead end, which is the shape the 2026-08-26
     /// decision rejected.
+    ///
+    /// ## The busy state, and why it is a spinner rather than a cursor
+    ///
+    /// While a remedy runs, the remedies are disabled and a `ProgressView` with a label appears —
+    /// **Quit stays live**, for the reason ``HelperGateAction/isEnabled(whileRunning:)`` gives.
+    ///
+    /// The user's suggestion was an hourglass cursor. There isn't one on macOS: that is a Windows
+    /// idiom, and the nearest equivalent — the spinning wait cursor — is the system's way of saying
+    /// *this app is not responding*, so using it deliberately would tell the user something false.
+    /// Two more reasons specific to this project: a cursor is **invisible to the render harness**,
+    /// which captures views and not cursors, whereas this is a renderable state with a case of its
+    /// own (`helper-gate-busy`); and a state nothing automated can see is a state that drifts, which
+    /// is the rule this whole gate was built under.
     private var footer: some View {
-        HStack {
+        HStack(spacing: 12) {
+            if let actionInFlight {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityHidden(true)
+
+                // The words carry the meaning, not the spinner (NFR-USE-8). A spinner alone says
+                // "something is happening"; this says which something, and for how long it is
+                // reasonable to expect it.
+                Text(actionInFlight.progressLabel(from: availability))
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
             Spacer()
+
             ForEach(availability.actions) { action in
                 if action.isRemedy {
                     Button(action.label) { perform(action) }
                         .buttonStyle(.borderedProminent)
+                        .disabled(!action.isEnabled(whileRunning: actionInFlight))
                 } else {
                     Button(action.label) { perform(action) }
+                        .disabled(!action.isEnabled(whileRunning: actionInFlight))
                 }
             }
         }
@@ -123,9 +157,17 @@ struct HelperGateSheet: View {
 }
 
 #Preview("Not registered") {
-    HelperGateSheet(availability: .notRegistered, perform: { _ in })
+    HelperGateSheet(availability: .notRegistered, actionInFlight: nil, perform: { _ in })
 }
 
 #Preview("Version mismatch") {
-    HelperGateSheet(availability: .versionMismatch(helper: 11, app: 12), perform: { _ in })
+    HelperGateSheet(availability: .versionMismatch(helper: 11, app: 12),
+                    actionInFlight: nil,
+                    perform: { _ in })
+}
+
+#Preview("Replacing the helper") {
+    HelperGateSheet(availability: .versionMismatch(helper: 12, app: 13),
+                    actionInFlight: .registerHelper,
+                    perform: { _ in })
 }

@@ -740,6 +740,22 @@ Every diagnosis prints one line — `helper gate: available — no modal raised`
    * **Register Helper, then Quit.** A version mismatch is *not* Quit-only — the project's own
      `ProtocolVersionCheck` wording already prescribes re-registering, and this is the state most
      likely to be argued back to a dead end.
+   * **Press Quit.** The app quits, first press. This state was not covered by the quit fix's other
+     checks, which used `notRegistered` and `requiresApproval`.
+   * **Relaunch and press Register Helper. The gate must clear**, and `pgrep -lf
+     'USBDriveTester.Helper'` must report a **different pid** than before.
+
+     ⚠️ **This step is the reason the item exists, and it was missing until 2026-08-31** — the item
+     checked only that the two buttons were present and in the right order. Pressed for the first
+     time (to cover mutation M9), the button **did nothing**: `register()` on an already-`enabled`
+     service reports success and reloads nothing, so the same daemon went on answering the same old
+     protocol version. The remedy is now unregister-then-register
+     (`HelperRegistrationRemedy.replaceRunningDaemon`). A button being present is not a check that
+     it works.
+
+     Log for a good run: `helper gate action: registerHelper from versionMismatch`, then
+     `uninstall requested`, `unregister() returned without error`, `register() succeeded`, then
+     `helper gate: available — modal dismissed, was versionMismatch`.
    * Undo by reverting the version and rebuilding.
 
 8. **One registration, not two.** With the diagnostics window open beside a cleared gate, press

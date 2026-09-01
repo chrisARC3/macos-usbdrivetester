@@ -66,9 +66,6 @@ struct DeviceListView: View {
     /// or when the helper could not be reached.
     @State private var readiness: DeviceReadiness?
 
-    /// Why the helper could not be asked, if it could not. Shown rather than swallowed:
-    /// "no banner" and "the helper says everything is fine" must not look the same.
-    @State private var readinessError: String?
 
     /// Keyboard focus for the device list.
     ///
@@ -122,7 +119,6 @@ struct DeviceListView: View {
         // controls that needed it.
         .onChange(of: discovery.selectedDeviceID) { _, _ in
             readiness = nil
-            readinessError = nil
             refreshReadiness()
         }
         // The mounted-volume set changing is the other input the banner depends on, and
@@ -574,15 +570,18 @@ struct DeviceListView: View {
     ///   answer with nothing selected, so none can be left stale by a deselection.
     @ViewBuilder
     private func readinessBanner(for device: DiscoveredDevice) -> some View {
-        if let readinessError {
-            Label("""
-                  The helper could not be asked whether this drive is ready: \
-                  \(readinessError) Install and enable it in the Privileged Helper & \
-                  Diagnostics window (Window menu, or ⇧⌘D) — only the helper can permit a run.
-                  """, systemImage: "questionmark.circle")
-                .font(.callout)
-                .fixedSize(horizontal: false, vertical: true)
-        } else if let readiness {
+        // **The "the helper could not be asked" branch was deleted on 2026-09-01**, ahead of
+        // increment 10 deleting this banner entirely. Increment 10's plan already marked it
+        // *"Superseded by increment 9"*: the launch gate makes an unusable helper an app-wide,
+        // window-modal fact, so a per-device pane restating it is redundant.
+        //
+        // It was not merely redundant, it was **wrong**, and the user reported it three times while
+        // walking chunk 13: this answer is a snapshot taken at selection time and refreshed only on
+        // selection change and mount change, so a helper that was fixed *after* the pane last looked
+        // left the message standing over a working helper, with ⇧⌘D showing `enabled` beside it.
+        // A failed check now shows nothing, which is correct — the gate has the app-wide story, and
+        // Start's own preparation is what refuses a run that cannot proceed.
+        if let readiness {
             VStack(alignment: .leading, spacing: 8) {
                 // **`readiness.helperHoldsThisDevice`, read directly.** It is a *per-device*
                 // answer, and this banner is rendered for exactly that device — which is the use
@@ -621,7 +620,6 @@ struct DeviceListView: View {
     private func refreshReadiness() {
         guard let device = discovery.selectedDevice else {
             readiness = nil
-            readinessError = nil
             return
         }
         helper.checkDeviceReadiness(bsdName: device.bsdName.rawValue) { result in
@@ -631,10 +629,11 @@ struct DeviceListView: View {
             switch result {
             case .success(let value):
                 readiness = value
-                readinessError = nil
-            case .failure(let error):
+            case .failure:
+                // Shows nothing. The helper being unusable is the launch gate's story now, and it
+                // tells it app-wide and modally; see `readinessBanner(for:)`. This branch used to
+                // set a message that outlived the condition it described.
                 readiness = nil
-                readinessError = error.localizedDescription
             }
         }
     }

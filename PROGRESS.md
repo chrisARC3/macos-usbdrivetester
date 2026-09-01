@@ -1066,8 +1066,8 @@ answering both ways.
 
 #### Checklist chunk 13 — items 1–6 and 8 PASS (2026-08-27/31). Three defects, two predictions falsified
 
-**Item 7 is the only one left** — `versionMismatch`, which edits `TesterProtocol.version`, rebuilds,
-and installs without restarting the daemon.
+~~**Item 7 is the only one left.**~~ **Item 7 passed 2026-09-01 — the chunk is complete.** It found
+the `versionMismatch` remedy inert; see below.
 
 Items 5, 6 and 8 passed on 2026-08-31 after the two fixes below landed, in one pass:
 
@@ -1164,6 +1164,65 @@ and 4 as their cover.
 Debug and Release, DerivedData wiped. 13/13 gate clients. `window-fit-check` worst case **613 pt,
 unchanged**. Render case list re-derived and identical to the probe at 36. Helper source hash
 **unmoved at `73990c90…`**; protocol **v12** unchanged; app target only.
+
+#### Chunk 13 item 7 — PASSED 2026-09-01, and it found the remedy inert
+
+**Chunk 13 is now complete: all eight items pass.**
+
+The four checks the item listed passed first time — the gate, both version numbers named, the
+two-button footer, and Quit working from `versionMismatch` (a state the quit fix had not been
+exercised against). **The item never asked anyone to press Register Helper**; it checked only that
+the buttons existed in the right order. Pressed for the first time — to cover mutation M9 — it
+**did nothing**, and the item now requires the remedy to actually clear the gate.
+
+| # | Found | Fixed by |
+|---|---|---|
+| 1 | **`register()` on an already-`enabled` service is a no-op.** Same pid, same protocol version, `register() succeeded` on the log. The one state whose message prescribes re-registering was the one where re-registering could not work | `HelperRegistrationRemedy.forGate(_:)` → unregister-then-register |
+| 2 | **A `register()` immediately after the removal settles is refused** (`Operation not permitted`), dropping the gate to `notRegistered` and costing a second press | `registerUntilAccepted(timeout:)` polls; the first attempt is refused and the second, 500 ms later, is accepted |
+
+Both are now in CONSTRAINTS §1, with the measurements. The project already knew the answer to the
+first: `install-app.sh` has printed *"(or unregister and re-register in the app's Step 3 panel)"*
+since Step 4, and the app had never done the two-step.
+
+**Confirmed by hand, one press, 732 ms end to end.**
+
+#### The gate gained a busy state — user request, 2026-09-01
+
+> *"I'm uncomfortable with the application letting the user perform a new action before the first
+> one is completed."*
+
+Correct, and it was a re-entrancy hole rather than a polish item: the remedy is a multi-step
+sequence and every button stayed pressable throughout it, including during a real window where the
+status is momentarily `notRegistered` — so a second press would have taken a different branch than
+the one pressed.
+
+Remedies are disabled while one runs, a spinner and a label appear, and **Quit stays live** — nobody
+is trapped behind a modal, and a remedy whose callback never arrived would otherwise leave every
+control dead. The label distinguishes *replacing* a running daemon from *installing* an absent one,
+because those are genuinely different operations.
+
+**The suggested hourglass cursor was declined.** macOS has no hourglass, the nearest equivalent is
+the system's "not responding" cursor, and a cursor cannot be captured by the render harness — where
+this is case 37, `helper-gate-busy`.
+
+**The busy window is 732 ms and cannot be judged by eye.** The user watched for the buttons to grey
+out, saw the progress label appear, and could not see the disable — which is drawn by the same
+evaluation of the same view body. The log now brackets the window (`gate busy:` / `gate idle: …
+finished after N ms`), because a state too short to watch is a state only an instrument can confirm.
+
+**Quit landing inside that window is accepted rather than defended against** (user decision): the
+registration still completes, the user is free to leave whenever they choose, and quitting
+mid-replacement lands the next launch on `notRegistered`, whose remedy works.
+
+#### The readiness banner's helper-unreachable branch is deleted
+
+Reported three times while walking chunk 13 — *"The helper could not be asked…"* standing over a
+working helper with ⇧⌘D showing `enabled` beside it. It is a snapshot taken at selection time,
+refreshed only on selection change and mount change. Increment 10's plan already marked this branch
+*"Superseded by increment 9"*; deleted early rather than ship another session with a banner that
+lies. A failed readiness check now shows nothing — the gate carries that story app-wide, and Start's
+own preparation refuses a run that cannot proceed. **The rest of the banner still goes in increment
+10**, which is unchanged apart from having one fewer branch to delete.
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 

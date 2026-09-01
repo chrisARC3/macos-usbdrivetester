@@ -139,13 +139,22 @@ final class HelperRegistration {
     ///   - connection: The live XPC connection, needed for steps 2 and 3.
     ///   - runIsActive: The app's view of run state. Simulated in Step 4; driven by
     ///     the run-control state machine from Step 11.
-    func uninstall(using connection: HelperConnection, runIsActive: Bool) {
+    /// - Parameter completion: run when the attempt has settled, with whether the daemon was
+    ///   actually removed. Optional and defaulted, so the diagnostics panel — which has nothing to
+    ///   do afterwards — is unchanged. The launch gate uses it to **register again straight after**,
+    ///   which is the only way to replace a running daemon; see `AppModel.performHelperGateAction`.
+    ///   It is called on every exit from this method, refusals included, so a caller can never be
+    ///   left waiting on a callback that silently never comes.
+    func uninstall(using connection: HelperConnection,
+                   runIsActive: Bool,
+                   completion: (@MainActor (Bool) -> Void)? = nil) {
         log.notice("uninstall requested (runIsActive=\(runIsActive, privacy: .public))")
 
         // 1. Cheap, local refusal first.
         if runIsActive, case .refuse(let reason) = UninstallPrecondition.evaluate(runIsActive: true) {
             lastActionMessage = reason
             log.notice("uninstall refused: a run is active")
+            completion?(false)
             return
         }
 
@@ -161,6 +170,7 @@ final class HelperRegistration {
                 self.lastActionMessage = reason
                 self.isBusy = false
                 log.notice("uninstall refused by the helper: \(reason, privacy: .public)")
+                completion?(false)
 
             case .proceed(let warning):
                 if let warning {
@@ -171,7 +181,7 @@ final class HelperRegistration {
                 // 3. Drain before removing.
                 connection.invalidate()
                 // 4. Remove.
-                self.performUnregister(warning: warning)
+                self.performUnregister(warning: warning, completion: completion)
             }
         }
     }
@@ -185,7 +195,8 @@ final class HelperRegistration {
     /// takes effect, so the settled status is more trustworthy than the thrown error.
     /// The error is therefore kept and reported only if removal genuinely did not
     /// happen.
-    private func performUnregister(warning: String?) {
+    private func performUnregister(warning: String?,
+                                   completion: (@MainActor (Bool) -> Void)? = nil) {
         Task {
             defer { isBusy = false }
 
@@ -225,7 +236,71 @@ final class HelperRegistration {
                           \(self.statusName, privacy: .public)
                           """)
             }
+
+            completion?(removed)
         }
+    }
+
+    /// Replace a daemon that is installed and running: remove it, then register again.
+    ///
+    /// **`register()` cannot replace a running daemon on its own** — measured at the keyboard on
+    /// 2026-08-31 (chunk 13 item 7). On a service that is already `enabled` it reports success and
+    /// reloads nothing, so the old process goes on serving the old protocol version. The gate's
+    /// `versionMismatch` remedy, whose own message promises exactly this, was inert.
+    ///
+    /// - Parameter completion: run when the whole sequence has settled, so a caller can re-diagnose.
+    ///   Called on refusal too, so nothing can be left waiting.
+    func replaceRunningDaemon(using connection: HelperConnection,
+                              runIsActive: Bool,
+                              completion: (@MainActor () -> Void)? = nil) {
+        uninstall(using: connection, runIsActive: runIsActive) { [weak self] removed in
+            guard let self else { return }
+            guard removed else {
+                // `uninstall` has already put the reason in `lastActionMessage` and on the log.
+                completion?()
+                return
+            }
+            Task {
+                await self.registerUntilAccepted(timeout: 15)
+                completion?()
+            }
+        }
+    }
+
+    /// Register, retrying while the system is still refusing.
+    ///
+    /// **The status reaching `notRegistered` is not the same as the system being ready to accept a
+    /// new registration.** Measured 2026-09-01: a `register()` issued the instant the removal
+    /// settled was refused with `SMAppServiceErrorDomain 1 — Operation not permitted`, leaving the
+    /// gate on `notRegistered` and needing a second press. The gate's whole design is one step
+    /// forward per press, so one press has to finish the job.
+    ///
+    /// Polling rather than a fixed delay, for the reason ``performUnregister(warning:completion:)``
+    /// already gives: these operations settle asynchronously inside the system and the settled
+    /// status is more trustworthy than what the call returned. The attempt count is logged, because
+    /// how long this actually takes is not documented anywhere and the log is where we will find out.
+    private func registerUntilAccepted(timeout: TimeInterval) async {
+        let deadline = Date().addingTimeInterval(timeout)
+        var attempts = 0
+
+        while Date() < deadline {
+            attempts += 1
+            register()
+            if status != .notRegistered {
+                log.notice("""
+                           register() accepted after \(attempts, privacy: .public) attempt(s); \
+                           status \(self.statusName, privacy: .public)
+                           """)
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+
+        log.error("""
+                  register() still refused after \(Int(timeout), privacy: .public)s and \
+                  \(attempts, privacy: .public) attempt(s); status \
+                  \(self.statusName, privacy: .public)
+                  """)
     }
 
     /// Poll `.status` until the daemon is gone or the timeout expires.

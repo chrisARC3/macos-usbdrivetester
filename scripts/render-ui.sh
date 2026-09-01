@@ -32,7 +32,7 @@
 #   now gives the captured view an opaque window-background layer, resolved inside the pinned
 #   appearance. Both appearances are verified against the shipped app.
 #
-# `view` is one of the 36 cases below, grouped by family so the list can be counted against
+# `view` is one of the 37 cases below, grouped by family so the list can be counted against
 #   `makeRootView` in tools/ui-probe/main.swift.
 #
 #   THIS LIST HAS DRIFTED FROM THE PROBE THREE TIMES, and this header said "twice" until
@@ -45,6 +45,10 @@
 #   removal having deleted three. CONSTRAINTS records all three; only two had reached this file.
 #   Re-derive rather than hand-edit; the probe is authoritative:
 #     grep -oE '^    case "[a-z0-9-]+":' tools/ui-probe/main.swift | sed 's/.*"\(.*\)":/\1/' | sort
+#
+#   (Increment 9's follow-up added `helper-gate-busy` on 2026-09-01 the same way: re-derived with
+#   the one-liner, and the probe's own message extended in the same edit — the two lists are
+#   hand-maintained and drift apart the moment one is edited alone.)
 #
 #   (Increment 8 re-derived it with that line rather than adding its case by hand, and found the
 #   PROBE'S OWN "unknown view" message had drifted the same way — missing
@@ -62,7 +66,7 @@
 #                          diagnostics-warnings-suppressed
 #     helper-gate-not-found                     helper-gate-not-registered
 #     helper-gate-requires-approval             helper-gate-unreachable
-#     helper-gate-version-mismatch
+#     helper-gate-version-mismatch             helper-gate-busy
 #     metrics              metrics-finished     metrics-idle
 #     report               report-empty         report-failures
 #                          report-qualified     report-stopped             report-stopped-by-user
@@ -84,7 +88,7 @@
 #   that presents it is on `ContentView`, so every `content-*` render compiles it — but the trigger
 #   that would ever set the state is at `ContentView`'s call site in `USBDriveTesterApp.swift`,
 #   which this script excludes by name (see SOURCES below). Nothing in a render writes
-#   `helperAvailability`, so the sheet's `isPresented` binding is false in all 36 cases. Moving the
+#   `helperAvailability`, so the sheet's `isPresented` binding is false in all 37 cases. Moving the
 #   trigger into `ContentView` would put this machine's live `SMAppService` status into every
 #   render — the ambient-state leak the appearance note above exists for.
 #

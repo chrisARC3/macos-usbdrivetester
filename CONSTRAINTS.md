@@ -183,6 +183,37 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
 
 *Full account: `progress/drive-identity-serial-numbers.md`.*
 
+### Registering and replacing the helper (`SMAppService`)
+
+Both measured at the keyboard on 2026-08-31/09-01, walking chunk 13 item 7. Neither is documented by
+Apple and both were found only because someone pressed the button.
+
+- **`register()` on a service that is already `enabled` is a no-op.** It reports success and reloads
+  nothing, so a daemon already running keeps running the code it started with. The gate's
+  `versionMismatch` remedy — whose own message reads *"Re-register the helper so the installed
+  daemon matches this app"* — was therefore **inert in the only state where it mattered**, and the
+  log showed `register() succeeded` with the same pid answering the same old protocol version
+  immediately afterwards.
+
+  **To replace a running daemon you must unregister first.** `install-app.sh` had been printing
+  exactly that — *"(or unregister and re-register in the app's Step 3 panel)"* — since Step 4, and
+  the app had never done it. `HelperRegistrationRemedy.forGate(_:)` now decides which of the two a
+  state needs, and `HelperRegistration.replaceRunningDaemon(using:runIsActive:)` performs it.
+
+- **A `register()` issued the instant a removal settles is refused** with
+  `SMAppServiceErrorDomain 1 — Operation not permitted`. The status reaching `notRegistered` is not
+  the same as the system being ready to accept a new registration. Measured: **the first attempt is
+  refused and the next one, 500 ms later, is accepted** — every time, twice. So the register polls,
+  the same way `performUnregister` already polled for the same class of behaviour.
+
+  Left unhandled this cost a press: the gate dropped to `notRegistered` and the user had to press
+  Register Helper again. **The whole replacement takes ~730 ms**, measured end to end.
+
+- **A removal survives its own approval.** Unregistering and re-registering the same bundle path
+  keeps the Background Task Management record — same `BTM uuid` either side — so the daemon comes
+  back `enabled` without a fresh trip to Login Items. This is also why chunk 13's item 3 does not
+  chain into item 4 on a Mac that has approved the app before.
+
 ### Quitting, and the run boundary
 
 - **`AppModel.mayIssueNewWork` is a precondition, not a hint.** It is false from the moment a quit is

@@ -108,6 +108,42 @@ nonisolated enum HelperGateAction: String, Equatable, Hashable, Identifiable, Ca
     /// first, and by the view to decide which button is prominent.
     var isRemedy: Bool { self != .quit }
 
+    /// Whether this button may be pressed while `inFlight` is still running.
+    ///
+    /// **Quit is the exception, deliberately.** Every remedy is disabled while one is running — the
+    /// user asked, and the app has not answered yet; a second press would start a second unregister
+    /// on top of the first, and there is a real window during `replaceRunningDaemon` where the
+    /// status is momentarily `notRegistered`, so a press landing in it would take a different branch
+    /// than the one the user thought they were pressing (user observation, 2026-09-01).
+    ///
+    /// But Quit stays live, because **nobody may be trapped behind a modal with no way out**. The
+    /// sequence is recoverable if they leave mid-flight: the worst case is a daemon removed and not
+    /// re-registered, which relaunches into `notRegistered`, a state whose remedy works. That is a
+    /// far better failure than a dialog with every control dead because a callback never came.
+    func isEnabled(whileRunning inFlight: HelperGateAction?) -> Bool {
+        inFlight == nil || self == .quit
+    }
+
+    /// What to say while this action is running. Empty for ``quit``, which never shows progress.
+    ///
+    /// Takes the availability because the honest wording differs by state: from ``versionMismatch``
+    /// this **replaces** a daemon that is installed and running, and from ``notRegistered`` it
+    /// **installs** one that is not there. Saying "installing" while removing a working daemon would
+    /// be the kind of small untruth this project keeps deleting.
+    func progressLabel(from availability: HelperAvailability) -> String {
+        switch self {
+        case .registerHelper:
+            switch HelperRegistrationRemedy.forGate(availability) {
+            case .replaceRunningDaemon: return "Replacing the helper…"
+            case .registerOnly:         return "Installing the helper…"
+            }
+        case .openLoginItems, .retry:
+            return "Checking…"
+        case .quit:
+            return ""
+        }
+    }
+
     /// The word a state's ``HelperAvailability/message`` must use for this remedy, lowercased.
     ///
     /// NFR-USE-5 requires the corrective step to be **named**, so that a user reading the paragraph
@@ -362,6 +398,47 @@ nonisolated enum HelperAvailability: Equatable {
     }
 }
 
+// MARK: - What "Register Helper" has to do
+
+/// How far the Register Helper remedy has to go to be a remedy.
+///
+/// **Found by walking chunk 13 item 7 on 2026-08-31**, and it is the reason this is a value rather
+/// than two lines inside a `switch`. From `versionMismatch` the button did nothing: the log showed
+/// `register() succeeded` and the *same* daemon (pid unchanged) answering the *same* old protocol
+/// version immediately afterwards. `SMAppService.register()` on a service that is already `enabled`
+/// reports success and reloads nothing — so the state whose own message reads *"Re-register the
+/// helper so the installed daemon matches this app"* was the one state where re-registering could
+/// not possibly do that.
+///
+/// The project already knew the answer and had never wired it in: `install-app.sh` has printed
+/// *"(or unregister and re-register in the app's Step 3 panel)"* — the **two**-step — since Step 4.
+///
+/// Split out so the mapping is unit-tested. The `SMAppService` calls themselves cannot be driven
+/// from a test without changing machine state, which the checklist's no-cover list records; what
+/// *can* be pinned is which of them each state asks for, and that is the part that was wrong.
+nonisolated enum HelperRegistrationRemedy: Equatable {
+
+    /// Install a daemon that is not installed. `register()` alone.
+    case registerOnly
+
+    /// Replace a daemon that is installed and running the wrong code. Unregister first, wait for
+    /// the removal to settle, then register — because `register()` will not reload a running one.
+    case replaceRunningDaemon
+
+    static func forGate(_ availability: HelperAvailability) -> HelperRegistrationRemedy {
+        switch availability {
+        case .versionMismatch:
+            return .replaceRunningDaemon
+
+        // **`notRegistered` must NOT unregister**, and that is not a stylistic choice: there is
+        // nothing installed to remove, and asking anyway would spend a failed round trip and ten
+        // seconds of polling before doing the thing that was always going to work.
+        case .notRegistered, .available, .notFound, .requiresApproval, .unreachable:
+            return .registerOnly
+        }
+    }
+}
+
 // MARK: - The route
 
 /// What happened at the launch gate (NFR-OBS-1).
@@ -402,6 +479,24 @@ nonisolated enum HelperGateLog {
                           \(availability.message, privacy: .public)
                           """)
         }
+    }
+
+    /// A remedy started, so the gate is busy: its buttons are disabled and a spinner is up.
+    static func busyBegan(_ action: HelperGateAction) {
+        gateLog.notice("gate busy: \(action.rawValue, privacy: .public)")
+    }
+
+    /// The remedy finished and the gate is live again — **with how long it took**.
+    ///
+    /// The duration is the point. The busy window is short enough that a person watching for the
+    /// buttons to grey out will miss it (2026-09-01), so "were they actually disabled, and for how
+    /// long?" is a question only the log can answer.
+    static func busyEnded(_ action: HelperGateAction, after start: Date?) {
+        let elapsed = start.map { Int(Date().timeIntervalSince($0) * 1000) }
+        gateLog.notice("""
+                       gate idle: \(action.rawValue, privacy: .public) finished after \
+                       \(elapsed.map(String.init) ?? "unknown", privacy: .public) ms
+                       """)
     }
 
     /// A button on the gate was pressed.

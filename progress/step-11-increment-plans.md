@@ -52,12 +52,20 @@ load-bearing:
 | **Already held** | *"This app holds exclusive access to diskN…"* | **DELETE** — `DeviceListView.swift:210` sets `.selectionDisabled(discovery.isRunActive)`, so the other-device case is unreachable; the same-device case restates a visibly running run |
 | **Checking…** | transient spinner text | **DELETE** |
 | **Full Disk Access** | the message **and the button** | **MOVES to Start** — see below |
-| **Helper unreachable** | *"The helper could not be asked… ⇧⌘D"* | **Superseded by increment 9** |
+| **Helper unreachable** | *"The helper could not be asked… ⇧⌘D"* | ~~Superseded by increment 9~~ **ALREADY DELETED, 2026-09-01** — see the note below |
 
 Once increment 9 has landed and FDA has moved, **every branch has a home or is dead**, so
-`readinessBanner(for:)`, `readiness`, `readinessError`, `refreshReadiness()` and both `.onChange`
-triggers all go. The `.onChange(of: mountedVolumeNames)` trigger exists solely to keep the
-mounted-volumes message fresh and has no surviving dependant.
+`readinessBanner(for:)`, `readiness`, `refreshReadiness()` and both `.onChange` triggers all go.
+The `.onChange(of: mountedVolumeNames)` trigger exists solely to keep the mounted-volumes message
+fresh and has no surviving dependant.
+
+> **The helper-unreachable branch and `readinessError` are already gone** (user decision,
+> 2026-09-01). They were not merely redundant once the gate landed — they were **wrong**, and the
+> user reported the message three times while walking chunk 13: it is a snapshot taken at selection
+> time, refreshed only on selection change and mount change, so a helper fixed *afterwards* left the
+> message standing over a working helper, with ⇧⌘D showing `enabled` beside it. Deleted early rather
+> than ship another session with a banner that lies. A failed readiness check now shows nothing.
+> **The rest of this section still applies unchanged** — there is simply one fewer branch to delete.
 
 ### FDA moves into the preparation sequence
 
@@ -280,6 +288,10 @@ existing chunk 6 quit boundary re-run unchanged.
 | The `Covering` row is deleted; `R-W-R-C speed` is a separate increment | 2026-08-26 |
 | The gate re-checks on app activation while gated; **no third button** on `requiresApproval` | 2026-08-27 |
 | ⌘Q under a sheet is fixed **app-wide as increment 12**, not folded into increment 9 | 2026-08-27 |
+| `versionMismatch` re-registers by **unregister-then-register**; no other state unregisters | 2026-09-01 |
+| The gate shows a **busy state** — remedies disabled, spinner + label, **Quit stays live** | 2026-09-01 |
+| A spinner, **not a wait cursor**: macOS has no hourglass, and a cursor cannot be rendered | 2026-09-01 |
+| Quit landing inside the ~730 ms busy window is **accepted, not defended against** — the user is free to leave and the state is recoverable | 2026-09-01 |
 
 **The user was warned that a launch-time fatal modal costs the helper-free link-speed check** —
 enumeration, capacity, serial and link speed are all app-side IOKit reads and work without the

@@ -358,6 +358,18 @@ final class AppModel {
     func performHelperGateAction(_ action: HelperGateAction) {
         HelperGateLog.actionTaken(action, from: helperAvailability)
 
+        // **Every remedy is asynchronous**, even the ones that look instant: all four end in
+        // `refreshHelperAvailability()`, whose answer arrives in an XPC completion. `registerHelper`
+        // from `versionMismatch` is the slow one — measured at 719 ms end to end on 2026-09-01, with
+        // a removal, a refused registration and a retry inside it. Marked in flight here and cleared
+        // in `setHelperAvailability(_:)` when the answer lands, which is the one place a diagnosis
+        // can arrive from.
+        if action.isRemedy {
+            helperGateActionInFlight = action
+            helperGateActionStartedAt = Date()
+            HelperGateLog.busyBegan(action)
+        }
+
         switch action {
         case .registerHelper:
             // **Drop the connection first.** Only one path reaches here with a connection in
@@ -374,8 +386,36 @@ final class AppModel {
             // down the owning connection and drop a live claim (NFR-REL-5). Here it is safe because
             // the gate is window-modal over the run controls at launch, so no run can exist.
             helper.invalidate()
-            registration.register()
-            refreshHelperAvailability()
+
+            switch HelperRegistrationRemedy.forGate(helperAvailability) {
+            case .registerOnly:
+                registration.register()
+                refreshHelperAvailability()
+
+            case .replaceRunningDaemon:
+                // **A running daemon cannot be replaced by registering over it** — measured
+                // 2026-08-31, chunk 13 item 7: `register() succeeded` and the same pid went on
+                // answering the same old protocol version. It has to be removed first.
+                //
+                // Through `uninstall(using:runIsActive:)` rather than a raw `unregister()`, so this
+                // keeps the helper-idle check (NFR-INST-3) and the settle-polling that already
+                // exist and are already tested. `runIsActive` is passed honestly even though the
+                // gate is window-modal at launch and no run can exist: a remedy that lies about run
+                // state to get its way is the shape of defect this project keeps finding.
+                //
+                // The completion runs on refusal too, so this cannot strand the gate waiting.
+                //
+                // **The whole two-step lives in `HelperRegistration`**, not spelled out here as
+                // `uninstall { register() }`. That is what this was first written as, and it took
+                // TWO presses: the register fired the instant the removal settled and was refused
+                // with `Operation not permitted`, dropping the gate to `notRegistered`. Retrying
+                // until the system accepts it is `SMAppService` knowledge, and it belongs beside the
+                // rest of it rather than in a switch case in the model.
+                registration.replaceRunningDaemon(using: helper,
+                                                  runIsActive: runIsActive) { [weak self] in
+                    self?.refreshHelperAvailability()
+                }
+            }
 
         case .openLoginItems:
             registration.openLoginItemsSettings()
@@ -471,6 +511,14 @@ final class AppModel {
     func setHelperAvailability(_ availability: HelperAvailability) {
         let previous = helperAvailability
         helperAvailability = availability
+        // The answer has arrived, whatever it says — so nothing is in flight any more. Cleared here
+        // rather than at each remedy's call site so there is exactly one writer, for the reason this
+        // method is the single writer of the availability itself.
+        if let action = helperGateActionInFlight {
+            HelperGateLog.busyEnded(action, after: helperGateActionStartedAt)
+        }
+        helperGateActionInFlight = nil
+        helperGateActionStartedAt = nil
         HelperGateLog.diagnosed(availability, replacing: previous)
     }
 
@@ -517,6 +565,21 @@ final class AppModel {
 
     /// Set only by the gate's Quit, and never cleared: the app is on its way out.
     private var gateIsDismissedForQuit = false
+
+    /// The gate remedy currently running, or `nil` when the gate is idle.
+    ///
+    /// Drives the sheet's busy state: remedies disabled, a spinner and a label, Quit still live.
+    /// Raised by the user on 2026-09-01 — *"I'm uncomfortable with the application letting the user
+    /// perform a new action before the first one is completed"* — and they were right: the remedy is
+    /// a multi-step sequence and every button stayed pressable throughout it.
+    private(set) var helperGateActionInFlight: HelperGateAction?
+
+    /// When the in-flight remedy started, so the busy window can be reported in milliseconds.
+    ///
+    /// **The window is too short to judge by eye** — the user watched for the buttons to grey out on
+    /// 2026-09-01, saw the progress label appear and could not see the disable, which are drawn by
+    /// the *same* evaluation of the *same* view body. A measurement settles what watching cannot.
+    private var helperGateActionStartedAt: Date?
 
     /// Whether the launch gate is on screen.
     ///

@@ -196,6 +196,7 @@ struct ContentView: View {
         .sheet(isPresented: Binding(get: { model.helperGateIsPresented },
                                     set: { _ in })) {
             HelperGateSheet(availability: model.helperAvailability,
+                            actionInFlight: model.helperGateActionInFlight,
                             perform: { model.performHelperGateAction($0) })
                 .interactiveDismissDisabled()
         }
