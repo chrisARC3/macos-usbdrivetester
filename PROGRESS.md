@@ -1064,9 +1064,28 @@ asserts the other way round: no message names a remedy it does not offer. Withou
 of `""` would pass everything. Same rule the device-operation slot check was built on — show it
 answering both ways.
 
-#### Checklist chunk 13 — WALKED 2026-08-27, items 1–4. Three defects, one prediction falsified
+#### Checklist chunk 13 — items 1–6 and 8 PASS (2026-08-27/31). Three defects, two predictions falsified
 
-Items 1, 2 and 3 pass. **Items 5, 6, 7 and 8 are still unrun.**
+**Item 7 is the only one left** — `versionMismatch`, which edits `TesterProtocol.version`, rebuilds,
+and installs without restarting the daemon.
+
+Items 5, 6 and 8 passed on 2026-08-31 after the two fixes below landed, in one pass:
+
+* **5** — *Run Report* is greyed in the Window menu under the gate, ⇧⌘R does nothing, and **nothing
+  appeared when the gate cleared**. That is the check for chunk 11.11's defect: a window-modal sheet
+  does not swallow menu commands, so without the gate clause ⇧⌘R would have queued a second sheet
+  and presented it the moment the gate was answered. This item is the only cover that rule has.
+* **6** — ⇧⌘D opens the diagnostics window from behind the gate. Wanted, not a leak.
+* **8** — Refresh in that panel agrees with what the gate acted on. The log shows **one process
+  throughout**, so one `HelperRegistration`; before increment 9 the panel built its own.
+
+The transition item 3 ends on, read off the corrected instrument:
+
+```
+daemon status changed requiresApproval -> enabled
+helper gate: available — modal dismissed, was requiresApproval
+terminate requested: runIsActive=false disposition=quitImmediately
+```
 
 **Item 1 covers M12, not M4** — the checklist said M4 and was wrong. M4 replaces the `.sheet` with
 `EmptyView` and prints `helper gate: available — no modal raised` unchanged; only a person seeing
