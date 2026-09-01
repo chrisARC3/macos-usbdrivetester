@@ -1,7 +1,9 @@
-# Step 11 — increments 9, 10 and 11, planned and approved
+# Step 11 — increments 10, 11 and 12, planned and approved
 
-**Written 2026-08-25/26, before any code.** Every decision below was taken by the user during
-scoping and is **settled**. This file exists so a cold session can execute them without
+**Written 2026-08-25/26, before any code**, for increments 9–11. **Increment 9 landed 2026-08-27
+and its section was deleted from here**, as the rule below instructs; **increment 12 was added
+2026-09-01**, unplanned, having been produced by walking increment 9's own checklist chunk. Every
+decision below was taken by the user during scoping and is **settled**. This file exists so a cold session can execute them without
 re-deriving them, and without re-opening choices that were already argued through.
 
 **This is a plan, not history.** When an increment is built, its full account goes in its commit

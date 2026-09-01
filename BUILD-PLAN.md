@@ -13,10 +13,11 @@ Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Di
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
 
-> **The step in progress is Step 11 (increments 1–8 done and gated; increment 9 next), and the
-> protocol is v12.** Increments **9, 10 and 11 are planned, approved and unwritten** — their full
+> **The step in progress is Step 11 (increments 1–9 done and gated; increment 10 next), and the
+> protocol is v12.** Increments **10, 11 and 12 are planned, approved and unwritten** — their full
 > scope is in [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which
-> must be read before starting any of them. Anything below that names an
+> must be read before starting any of them. **The human checklist is complete** as of 2026-09-01:
+> every chunk walked and passed, nothing owed. Anything below that names an
 > earlier protocol version is a dated record of what was true when it was written — the inherited
 > notes on Steps 11 and 12 especially. `PROGRESS.md` is the tracker; `CONSTRAINTS.md` is what binds.
 **Source documents:**

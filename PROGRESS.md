@@ -8,7 +8,7 @@ split, because a log a cold start is told not to read is a log that is not doing
 | **PROGRESS.md** (this file) | the step in progress |
 | **[CONSTRAINTS.md](CONSTRAINTS.md)** | **read this in full** — what binds future work: measured behaviour, settled decisions, lessons |
 | **[BUILD-PLAN.md](BUILD-PLAN.md)** | the plan, the per-step gates, the process gotchas, the test hardware |
-| **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** | **increments 9–11: planned, approved, unwritten.** Read before building any of them |
+| **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** | **increments 10–12: planned, approved, unwritten.** Read before building any of them |
 | [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Complete: every chunk walked and passed, 2026-09-01** |
 | `progress/step-NN.md` | archived history, for *"why was it done that way?"* |
 
@@ -20,7 +20,7 @@ could drift; the commit is the immutable, greppable one.
 
 ## Step 11 — IN PROGRESS. Increments 1–9 done; **increment 10 is next**
 
-> ⚠️ **Increments 10 and 11 are planned, approved and unwritten.** Their full scope, the
+> ⚠️ **Increments 10, 11 and 12 are planned, approved and unwritten.** Their full scope, the
 > decisions behind them and what must not be re-opened are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
 > **Read it before starting either** — the decisions were argued through at length and
@@ -126,6 +126,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 passed in full 2026-08-27/09-01**, and found five defects; `8b0db53`, `bd8281d`, `2ed5984` |
 | **10 ⬜** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check becomes an injected operation in `DevicePreparation`, **before the unmount**, with a two-button modal. The **readiness banner** goes entirely — every branch then has a home or is dead — and so does the **`Covering` row** | **planned and approved, unwritten.** App target only; v12 stands |
 | **11 ⬜** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which exists nowhere today. Deliberately **not** called "Progress speed" | **planned and approved, unwritten.** **Protocol v12 → v13**: hash moves, 13 gate clients, two gate scripts, hardware gates re-run |
+| **12 ⬜** | **⌘Q works under every sheet.** `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit refuses it *before* `applicationShouldTerminate`, so `QuitPolicy` never votes. ⌘Q is therefore dead under the pre-run dialog, the report sheet and the launch gate. **Unplanned**: produced by walking chunk 13, and it is the true cause of increment 5's check 6.1 | **planned and approved, unwritten.** App target only. Increment 9 fixed only the gate's own Quit button, by user decision |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -157,6 +158,26 @@ find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDr
 
 Helper **plus `Shared/`**. The recipe behind hashes recorded before 2026-08-19 is not written down
 anywhere and does not reproduce; only hashes from `a36c4f77…` onward are checkable.
+
+### Where increment 10 starts
+
+Re-derived 2026-09-01. **No tree hash is named on purpose** — it would be stale by the next commit,
+which is the failure mode this project keeps paying for. `git log --oneline -6` shows the four
+chunk-13 commits.
+
+| | |
+|---|---|
+| **Tree** | clean, on `main` |
+| **Verified** | **1073 tests, 0 failures, 134 suites** (floor 1073); zero Swift source warnings, Debug and Release, DerivedData wiped; **13/13** gate clients type-check |
+| **Helper** | source hash **`73990c90…`**, unchanged since 2026-08-24. Bumped to v13 and back three times on 2026-09-01 for chunk 13 item 7 and returns byte-identical. So **Step 10's `xpc-concurrency-check.sh` and `retention-cycle-check.sh` are still owed** — because the binary moved at increment 8's gate, not because anything failed; `metrics-check.sh` was re-run and passes |
+| **Protocol** | **v12** |
+| **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
+| **Human checklist** | **complete** — every chunk walked and passed, 2026-09-01. Nothing owed |
+| **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) was **not attached** on 2026-09-01. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
+
+**The run is read → write-back → verify**, so a test run refreshes a drive rather than erasing it —
+recorded because the opposite was said out loud on 2026-09-01 and it changes which drive somebody is
+willing to point the tool at. Not risk-free: a write failing mid-cycle can still cost data.
 
 ### What increment 8 owes
 
