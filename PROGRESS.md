@@ -9,7 +9,7 @@ split, because a log a cold start is told not to read is a log that is not doing
 | **[CONSTRAINTS.md](CONSTRAINTS.md)** | **read this in full** — what binds future work: measured behaviour, settled decisions, lessons |
 | **[BUILD-PLAN.md](BUILD-PLAN.md)** | the plan, the per-step gates, the process gotchas, the test hardware |
 | **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** | **increments 9–11: planned, approved, unwritten.** Read before building any of them |
-| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Items 7.5 and 8.3 still owed** |
+| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Complete: every chunk walked and passed, 2026-09-01** |
 | `progress/step-NN.md` | archived history, for *"why was it done that way?"* |
 
 **The full account of an increment goes in its commit message**, with this file carrying a summary
@@ -122,8 +122,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **5 ✅** | **Start owns unmount → acquire → run → release.** Deletes the three controls; relocates the pre-run gate; the abort path rolls the unmounts back and verifies the **mount table** rather than the unmount's reply; deletes the follow-the-selection rule and `helperHoldsDevice` | **done 2026-08-18 `0e09e5d`** — the checklist passed in seven chunks and found **three defects 964 tests could not reach**; see `progress/step-11-human-checklist.md` |
 | **6 ✅** | Pre-run controls relocated: the I/O-size dropdown (FR-CTRL-8), built for the first time, and the failure-mode picker (FR-CTRL-7); diagnostics scaffolding deleted. FR-CTRL-8's 2026-08-14 amendment was **built and then reversed on sight** — both controls are now dead for the whole of a run, `paused` included, and the confirmation machinery went with it as untriggerable. Neither this row nor the requirement predicted that | **done 2026-08-19 `321a820`** — see below |
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
-| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items, `e0f4415`. Item 7.5 and a recheck of chunk 8 item 3 remain owed |
-| **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 of the human checklist is owed** |
+| **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items, `e0f4415`. **Item 7.5 and the chunk 8 item 3 recheck closed 2026-09-01** |
+| **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 passed in full 2026-08-27/09-01**, and found five defects; `8b0db53`, `bd8281d`, `2ed5984` |
 | **10 ⬜** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check becomes an injected operation in `DevicePreparation`, **before the unmount**, with a two-button modal. The **readiness banner** goes entirely — every branch then has a home or is dead — and so does the **`Covering` row** | **planned and approved, unwritten.** App target only; v12 stands |
 | **11 ⬜** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which exists nowhere today. Deliberately **not** called "Progress speed" | **planned and approved, unwritten.** **Protocol v12 → v13**: hash moves, 13 gate clients, two gate scripts, hardware gates re-run |
 
@@ -175,9 +175,14 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 5. ~~**Three clean builds**~~ **passed 2026-08-24** — Debug 86 SwiftCompile tasks, Release 2, test
    168, DerivedData wiped before each, zero Swift source warnings. The test figure was 167 before
    `AppModelReportTests.swift`. ~~**The docs pass**~~ — **this is it.**
-6. ~~**The human checklist owes chunk 12 and item 7.5**~~ — **chunk 12 passed in full 2026-08-25**,
-   all eight items; it was the only cover the new link-speed read has. **7.5 still needs a run that
-   reaches its end**, and so does a one-off recheck of 8.3's moved sentence.
+6. ~~**The human checklist owes chunk 12 and item 7.5**~~ — **the checklist is complete as of
+   2026-09-01.** Chunk 12 passed in full 2026-08-25, all eight items; it was the only cover the new
+   link-speed read has. **7.5** ran on 2026-09-01 — a whole-device pass on the 125.8 MB thumb drive
+   (serial `2211190533300386001515`), 30/30 chunks in 39 s, `Completed` with no range caveat,
+   exported and compared — followed ten minutes later by a stopped run on the same drive, so the
+   wording was seen to **change** rather than merely to read correctly once. The **8.3 recheck**
+   confirmed the sentence unconditional and above the I/O size row, identical before a run and while
+   paused at a settled block.
 
 **Debts the docs pass must clear.** Each is recorded where it was found as well as here, so this
 list is a checklist rather than the only witness:
@@ -866,7 +871,7 @@ It was a false alarm: an unlink clears the directory entry and the allocation ta
 The **CONTENT check is the authority**, it samples raw blocks through the helper, and its three
 sampled chunks returned three distinct fingerprints. The residual `/dev/urandom` pattern was intact.
 
-**Still owed as human items**, as of 2026-08-25: **item 7.5** (a run allowed to complete) and a
+**Owed as human items** as of 2026-08-25, and **both closed 2026-09-01**: **item 7.5** (a run allowed to complete) and a
 **one-off recheck of chunk 8 item 3's moved sentence**. Chunk 8 items 3–7 passed 2026-08-24; chunk
 12 passed in full 2026-08-25.
 
@@ -901,7 +906,8 @@ else; the report kept `Negotiated USB link speed` where the 2026-08-04 decision 
    that would expose a stale app-side read — and the pane, the report and the exported Markdown all
    read `5 Gb/s (USB 3.0)`. Recorded on the property itself.
 
-**Still owed after this**: item 7.5, and a one-off recheck of chunk 8 item 3's moved sentence.
+~~**Still owed after this**: item 7.5, and a one-off recheck of chunk 8 item 3's moved sentence.~~
+**Both closed 2026-09-01 — the human checklist is complete.**
 
 ### Covering is mislabelled — found 2026-08-25, fix planned
 
@@ -1223,6 +1229,43 @@ refreshed only on selection change and mount change. Increment 10's plan already
 lies. A failed readiness check now shows nothing — the gate carries that story app-wide, and Start's
 own preparation refuses a run that cannot proceed. **The rest of the banner still goes in increment
 10**, which is unchanged apart from having one fewer branch to delete.
+
+#### Items 7.5 and 8.3 — PASSED 2026-09-01. The human checklist is complete
+
+The last two debts, carried since increment 8.
+
+**7.5 — a run allowed to reach its end.** Runs are whole-device and there is no size control, so the
+drive chooses the duration: the **125.8 MB thumb drive** (serial `2211190533300386001515`) is the
+only attached drive that finishes quickly. The 4 TB T5 EVO was not attached and is not needed —
+7.5 reads report wording, not the restore set — and the **1 TB T5 (`12345686DAA9`) was excluded**
+because its `/dev/urandom` fill file is a fixture this file says must be kept.
+
+```
+run authorised: drive serial 2211190533300386001515; I/O size 4194304 bytes
+retention cycle END: completed; 30/30 chunks; read/wrote/verified 125829120 B each
+run report: Completed — no currently-unreadable blocks were found
+run report exported: outcome Completed; 3416 bytes
+```
+
+Whole device, 39 s, released cleanly, exported and compared against the screen. **A stopped run ten
+minutes later on the same drive** then gave the comparison the item actually wants — the headline,
+the row label and the caveat **change** between the two, rather than one of them being printed
+unconditionally. That is the only cover `RunReportView` has: three mutations to it passed the whole
+suite, two against 1,013 tests.
+
+**8.3 — the moved sentence.** *"I/O size and failure handling are fixed once a run starts — stop the
+run to change them."* is present before any run, sits directly above the I/O size row, and reads
+identically while paused at a settled block (`run paused and settled at block 24576`, 3/30 chunks).
+It does not move, change or disappear between the two states. **"Both controls" means the two
+dropdowns**, not the run buttons — Resume and Stop stay live during a pause, and this was asked at
+the keyboard because the wording did not say so.
+
+**A correction made during this walk.** The tester was described to the user as destroying the
+drive's contents. **It does not.** The cycle is read → write-back → verify (helper, "Step 8"), so the
+same bytes are rewritten to refresh charge: `128MB_Thumb` remounted afterwards with its data intact.
+Not risk-free — a write failing mid-cycle could still cost data — but "destroys the contents" is
+materially wrong for a retention tester, and it is the kind of claim that changes which drive
+somebody is willing to point it at.
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 

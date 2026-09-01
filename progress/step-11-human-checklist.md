@@ -1,8 +1,13 @@
 # Step 11 — the human checklist
 
-**CHUNKS 1–7 PASSED 2026-08-18** (increment 5), except **7.4 and 7.5, which are new and unrun** —
-added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item list in
-`progress/step-14.md`, which increment 5 made partly unrunnable.
+**CHUNKS 1–7 PASSED IN FULL.** 1–7 on 2026-08-18 (increment 5); **7.4 on 2026-08-24** and **7.5 on
+2026-09-01**, both added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item
+list in `progress/step-14.md`, which increment 5 made partly unrunnable.
+
+> ⚠️ **This line said "7.4 and 7.5 … are new and unrun" until 2026-09-01, and 7.4 had been done
+> since 2026-08-24** — PROGRESS said so, and so did the owed-list four paragraphs below. The same
+> defect the warning box at the end of this header describes, in the paragraph directly above it.
+> **A summary that disagrees with the body is worse than no summary.**
 
 **CHUNK 8 PASSED IN FULL** — items 1–2 on 2026-08-19, items 3–7 on 2026-08-24. Item 3 had been run
 before the 2026-08-19 reversal rebuilt both controls to one rule, so its result was superseded and
@@ -23,11 +28,18 @@ the only cover that surface has at all: no test drives a SwiftUI view, and the t
 model a run produced a report live in a file that needs a helper and a drive to construct. **11.11
 found a defect**, since fixed and re-checked.
 
-**CHUNK 13 IS NEW AND UNRUN** — added 2026-08-27 by increment 9, for the launch-time helper gate.
+**CHUNK 13 PASSED IN FULL — ALL EIGHT ITEMS, 2026-08-27/09-01.** Added 2026-08-27 by increment 9, for the launch-time helper gate.
 It is the only cover the gate's *presentation* has: two mutations survive the whole suite by
 construction (the `.sheet` modifier deleted, and the trigger never called), both declared in advance,
 because the wiring sits in the one file no harness compiles. Its items 3, 4 and 7 induce states and
 **must be asked about first**; none of them touches a drive.
+
+**It found five defects**, every one of them in the seam between the model and the screen: the
+gate's Quit button dead (and ⌘Q dead under every sheet in the app, which turned out to be the real
+cause of increment 5's check 6.1); no re-check on returning from System Settings; the
+`versionMismatch` remedy inert in the one state where it is load-bearing; a second press accepted
+mid-remedy; and the readiness banner stating something false. Two of those surfaced only because an
+item was changed to require a button be **pressed** rather than **present**.
 
 **CHUNK 12 PASSED IN FULL — ALL EIGHT ITEMS, 2026-08-25.** Items 1–4 passed hard: six drives read at the
 keyboard, three distinct speeds, every one matching `usb-speed-check.sh`'s independent read of
@@ -40,13 +52,20 @@ pane. Its first four items are the only cover the new registry read has: the mut
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **What is owed, as of 2026-08-27:** three things — **item 7.5** (a run allowed to reach its
-> end, so the report says "Completed" with no range caveat), a **one-off recheck of 8.3's new
-> placement**, the sentence having moved above the I/O size row on the same day chunk 8 was walked,
-> so the walk saw it in its old position, and **the whole of chunk 13**, added by increment 9 and
-> unrun. Everything else in this file has been walked — and this
-> time that sentence was checked against the body before it was written.
+> **NOTHING IS OWED, as of 2026-09-01.** Every chunk in this file has been walked and passed. The
+> last three items closed that day: **chunk 13** in full, **item 7.5** — a whole-device run on the
+> 125.8 MB thumb drive (serial `2211190533300386001515`), 30/30 chunks in 39 s, reported `Completed`
+> with no range caveat, exported and compared — and the **8.3 recheck**, the sentence confirmed
+> unconditional and in its new place above the I/O size row, before a run and while paused.
+>
+> 7.5 got more than it asked for: a stopped run ten minutes after the completed one, same drive,
+> so the wording was seen to **change** rather than merely to read correctly once.
+>
 > Chunk 10 was walked, passed, and then deleted along with the control it covered.
+>
+> **This claim was checked against the body before it was written** — which is the discipline the
+> box below exists to enforce, and which the header of this very file had failed as recently as the
+> paragraph about 7.4.
 >
 > ⚠️ **This line read "Everything else in this file has been walked" until 2026-08-24, and it was
 > false** — chunk 8 items 3–7 were unrun the whole time, and this file's own header said so four
@@ -230,8 +249,14 @@ scroll region **by construction**, and this is the check on that claim.
 drives a SwiftUI binding, so M15 — *the dropdown does nothing at all* — passes the entire suite.
 This chunk is its only cover.
 
-**Items 1 and 2 passed 2026-08-19.** Item 3 was run and is what produced the 2026-08-19 reversal:
-the controls were rebuilt to one rule, so 3–6 below are new and unrun.
+**Items 1 and 2 passed 2026-08-19; items 3–7 on 2026-08-24; item 3 re-walked 2026-09-01.** Item 3
+was first run before the 2026-08-19 reversal rebuilt both controls to one rule, which superseded its
+result; it was re-walked on 2026-08-24, and again on 2026-09-01 after the sentence moved above the
+I/O size row on that same 08-24 — so the 08-24 walk had seen it in its old position.
+
+> ⚠️ **This paragraph read "3–6 below are new and unrun" until 2026-09-01**, four months of walks
+> after it stopped being true and while this file's own header said the opposite eight lines up.
+> Same defect as the 7.4 line, same file, same day.
 
 1. **Before a run**, change the I/O size to 8 MiB. The log says
    `I/O size changed: 4 MiB -> 8 MiB`. **Start**, and `run authorised: … I/O size 8388608 bytes`
@@ -317,9 +342,14 @@ report, would pass 1–6.
 
 ### Chunk 9 — the window's size (increment 7)
 
-> **Status: 9.1–9.6 passed at the keyboard on 2026-08-20. 9.7 was deleted on 2026-08-22** — it was
-> written after the rest were signed off, to cover the refusals collapsed in `faf9a93`. It is the
-> one item in this chunk still owed, and it is owed to **increment 8**.
+> **Status: PASSED IN FULL. 9.1–9.6 at the keyboard on 2026-08-20; 9.7 deleted on 2026-08-22**
+> rather than walked, because the sentences it counted no longer exist. It was written after the
+> rest were signed off, to cover the refusals collapsed in `faf9a93`, and those refusals went with
+> increment 8.
+>
+> ⚠️ **This box said 9.7 was deleted AND "still owed" in the same sentence, until 2026-09-01.** A
+> deleted item is not owed; it is gone. Corrected alongside two other stale status lines in this
+> file found the same day.
 
 **Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either, and
 every check here is idle except 9.3.
