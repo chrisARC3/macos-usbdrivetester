@@ -124,6 +124,12 @@ nonisolated struct DevicePreparationFailure: Equatable {
             ?? "The run could not start"
     }
 
+    /// The one-click fix this failure can offer, read off the operation that failed.
+    ///
+    /// Same route as ``alertTitle``, and for the same reason: the answer is decided once, in
+    /// `OutcomeOperation`, rather than at each site that builds a dialog out of this.
+    var remedy: RunFailureRemedy? { operation?.remedy }
+
     /// What to put in front of the user.
     ///
     /// Composed by ``VolumeMountOutcome/unmountRolledBack(failure:restore:)`` rather than restated
@@ -165,6 +171,34 @@ nonisolated struct DevicePreparationOperations {
     /// is the one place a locator is used to act rather than to display, so it is the one place the
     /// identity behind it has to be re-confirmed.
     var selectionStillNamesTheDrive: () -> Bool
+
+    /// Whether the helper has Full Disk Access (NFR-INST-4), asked **before anything is unmounted**.
+    ///
+    /// ## Why the answer is a whole `DeviceReadiness` and not a `Bool`
+    ///
+    /// Because the *message* is the helper's. `FullDiskAccessState.explanation` is where NFR-INST-4's
+    /// wording lives, and it travels in `DeviceReadiness.message`; composing a second sentence here
+    /// would be the two-copies drift `OutcomePresentation` and `HonestFraming` both exist to stop.
+    /// `needsFullDiskAccess` is the flag, and it is `blockingCause == .accessNotPermitted` — true
+    /// only for a probe that came back **denied**.
+    ///
+    /// ## Why a readiness call rather than a check of its own
+    ///
+    /// There is no other route. The protocol folds this into `checkDeviceReadiness` deliberately —
+    /// *"it answers the same question this method already asks … and widening the privileged
+    /// surface with a second query would be the wrong trade (NFR-SEC-3)"* — and the helper orders
+    /// its causes with Full Disk Access **first**, so a denied grant is reported as such even while
+    /// the drive's volumes are still mounted. That ordering is what makes asking here, before the
+    /// unmount, give the right answer rather than `volumesMounted`.
+    ///
+    /// ## Two answers that are NOT a denial, and both carry on
+    ///
+    /// A `.unknown` probe (some other `errno`) and a transport failure are the same thing to this
+    /// step: *the question was not settled*. Neither may abandon a run — the acquire re-checks the
+    /// precondition helper-side and refuses if it must, which is the guard that has always decided
+    /// this. Refusing to start on a guess would make an unreachable helper indistinguishable from a
+    /// missing permission, and send the user to a Settings pane that was never the problem.
+    var checkFullDiskAccess: (@escaping (Result<DeviceReadiness, Error>) -> Void) -> Void
 
     /// Unmount every mounted volume, **one at a time by device node** (`VolumeMounter.unmountAll`).
     /// Never a whole-disk unmount: that reaches a disk's direct partitions only and reports success
@@ -247,41 +281,69 @@ nonisolated enum DevicePreparation {
             return
         }
 
-        operations.unmount { unmountOutcome in
-            settle(operations: operations, attempts: attempts) { stillMounted in
+        // NFR-INST-4, and **the ordering is not optional** (increment 10). A denied grant found
+        // after the unmount would have taken a multi-volume drive down, put a modal on screen
+        // saying Cancel, and remounted everything for nothing — changing the user's machine to
+        // learn something that was knowable before anything was touched.
+        //
+        // Nothing has been unmounted here either, so `restore` stays `nil`: the case
+        // `DevicePreparationFailure` documents as *"nothing had been unmounted yet — which is a
+        // different fact from 'the rollback succeeded' and must not read as one."*
+        //
+        // It is after the selection check and not before it because that check is local and free
+        // while this one is an XPC round trip, and there is no reason to pay for it on a drive that
+        // has already gone.
+        operations.checkFullDiskAccess { readinessResult in
+            guard case .success(let readiness) = readinessResult,
+                  readiness.needsFullDiskAccess else {
+                // Granted, inconclusive, or unaskable — all three carry on. See the note on
+                // `checkFullDiskAccess`: only a probe that came back *denied* stops a run here.
+                unmountAndAcquire()
+                return
+            }
 
-                guard stillMounted.isEmpty else {
-                    // Whatever the dissenter said, the postcondition is what decides. A *success*
-                    // with volumes remaining has no dissenter to quote, so it gets the message that
-                    // says what was asked, what was observed, and the likeliest explanation —
-                    // rather than inventing a cause.
-                    abort(unmountOutcome.isSuccess
-                          ? VolumeMountOutcome.unmountReportedSuccessButVolumesRemain(stillMounted)
-                          : unmountOutcome.message,
-                          operation: .unmount,
-                          claimHeld: false)
-                    return
-                }
+            completion(.aborted(DevicePreparationFailure(reason: readiness.message,
+                                                         restore: nil,
+                                                         operation: .fullDiskAccess)))
+        }
 
-                operations.acquire { acquireResult in
-                    switch acquireResult {
-                    case .failure(let error):
-                        // No permissive reading: if the helper could not be reached, access was not
-                        // granted, and a run on a device nobody claimed is exactly what the mount
-                        // guard exists to prevent.
-                        abort("Exclusive access was NOT granted — the helper could not be reached: "
-                              + error.localizedDescription,
-                              operation: .acquire,
+        func unmountAndAcquire() {
+            operations.unmount { unmountOutcome in
+                settle(operations: operations, attempts: attempts) { stillMounted in
+
+                    guard stillMounted.isEmpty else {
+                        // Whatever the dissenter said, the postcondition is what decides. A *success*
+                        // with volumes remaining has no dissenter to quote, so it gets the message that
+                        // says what was asked, what was observed, and the likeliest explanation —
+                        // rather than inventing a cause.
+                        abort(unmountOutcome.isSuccess
+                              ? VolumeMountOutcome.unmountReportedSuccessButVolumesRemain(stillMounted)
+                              : unmountOutcome.message,
+                              operation: .unmount,
                               claimHeld: false)
+                        return
+                    }
 
-                    case .success(.refused(_, let message)):
-                        // FR-SAFE-4 distinguishes "still mounted" from "claimed elsewhere" and the
-                        // helper's own words carry that distinction. Reported as a refusal rather
-                        // than as a malfunction — but never as a success.
-                        abort(message, operation: .acquire, claimHeld: false)
+                    operations.acquire { acquireResult in
+                        switch acquireResult {
+                        case .failure(let error):
+                            // No permissive reading: if the helper could not be reached, access was not
+                            // granted, and a run on a device nobody claimed is exactly what the mount
+                            // guard exists to prevent.
+                            abort("Exclusive access was NOT granted — the helper could not be reached: "
+                                  + error.localizedDescription,
+                                  operation: .acquire,
+                                  claimHeld: false)
 
-                    case .success(.acquired):
-                        readGeometry()
+                        case .success(.refused(_, let message)):
+                            // FR-SAFE-4 distinguishes "still mounted" from "claimed elsewhere" and the
+                            // helper's own words carry that distinction. Reported as a refusal rather
+                            // than as a malfunction — but never as a success.
+                            abort(message, operation: .acquire, claimHeld: false)
+
+                        case .success(.acquired):
+                            readGeometry()
+                        }
                     }
                 }
             }

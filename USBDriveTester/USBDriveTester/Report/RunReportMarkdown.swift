@@ -213,8 +213,6 @@ nonisolated enum RunReportMarkdown {
                          MetricsFormatting.throughput(report.sustainedReadBytesPerSecond)))
         lines.append(row("Write throughput",
                          MetricsFormatting.throughput(report.sustainedWriteBytesPerSecond)))
-        lines.append(row("Covering",
-                         MetricsFormatting.throughput(report.coverageBytesPerSecond)))
         if let linkSpeed = report.usbLinkSpeedDescription {
             lines.append(row("Negotiated USB link speed", linkSpeed))
         }

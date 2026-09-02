@@ -1,10 +1,11 @@
-# Step 11 — increments 10, 11 and 12, planned and approved
+# Step 11 — increments 11 and 12, planned and approved
 
-**Written 2026-08-25/26, before any code**, for increments 9–11. **Increment 9 landed 2026-08-27
-and its section was deleted from here**, as the rule below instructs; **increment 12 was added
-2026-09-01**, unplanned, having been produced by walking increment 9's own checklist chunk. Every
-decision below was taken by the user during scoping and is **settled**. This file exists so a cold session can execute them without
-re-deriving them, and without re-opening choices that were already argued through.
+**Written 2026-08-25/26, before any code**, for increments 9–11. **Increments 9 and 10 have landed
+and their sections were deleted from here**, as the rule below instructs — 9 on 2026-08-27, 10 on
+2026-09-02; **increment 12 was added 2026-09-01**, unplanned, having been produced by walking
+increment 9's own checklist chunk. Every decision below was taken by the user during scoping and is
+**settled**. This file exists so a cold session can execute them without re-deriving them, and
+without re-opening choices that were already argued through.
 
 **This is a plan, not history.** When an increment is built, its full account goes in its commit
 message and its summary into `PROGRESS.md`, as always. Delete the section from here when it lands.
@@ -26,119 +27,19 @@ panel, and three separate requests came out of it:
 3. **Covering** is mislabelled, the row should go, and the metric the user actually wants does not
    exist.
 
-Those became increments 9, 10 and 11. They are ordered so that **the two app-only increments land
-before the one that costs a protocol version**.
+Those became increments 9, 10 and 11. They were ordered so that **the two app-only increments land
+before the one that costs a protocol version**, and both have.
 
-> **Increment 9 landed on 2026-08-27 and its section has been deleted from this file**, as the
-> header above instructs. Its account is in `PROGRESS.md` and in its commit message. Two things it
-> settled that increment 10 depends on: the **helper-unreachable** branch of the readiness banner is
-> now superseded in fact rather than in plan, and `HelperRegistration` lives on `AppModel`.
-> Six decisions this plan did not cover were taken during its scoping — the one worth knowing here
-> is that an app-wide **trigger** belongs in `USBDriveTesterApp.swift`, which no harness compiles,
-> while the **presentation** belongs on `ContentView`, which all three do. See CONSTRAINTS section 2.
-
----
-
-## Increment 10 — FDA moves to Start; the readiness banner and the Covering row are deleted
-
-### The readiness banner, branch by branch
-
-`DeviceListView.readinessBanner(for:)` renders five mutually exclusive states, driven by the
-helper's `blockingCause`. The user's request was to delete it; the analysis found only two branches
-load-bearing:
-
-| State | What it says | Decision |
-|---|---|---|
-| **Volumes mounted** | *"…has 3 mounted volumes (…). They must be unmounted before a test can start."* | **DELETE — it is now false.** Start owns the unmount since increment 5, so this instructs the user to do what the app does, wearing an `exclamationmark.shield` on a healthy drive |
-| **Ready** | *"…has no mounted volumes. Exclusive access has not been attempted yet…"* | **DELETE** — a paragraph saying nothing is wrong |
-| **Already held** | *"This app holds exclusive access to diskN…"* | **DELETE** — `DeviceListView.swift:210` sets `.selectionDisabled(discovery.isRunActive)`, so the other-device case is unreachable; the same-device case restates a visibly running run |
-| **Checking…** | transient spinner text | **DELETE** |
-| **Full Disk Access** | the message **and the button** | **MOVES to Start** — see below |
-| **Helper unreachable** | *"The helper could not be asked… ⇧⌘D"* | ~~Superseded by increment 9~~ **ALREADY DELETED, 2026-09-01** — see the note below |
-
-Once increment 9 has landed and FDA has moved, **every branch has a home or is dead**, so
-`readinessBanner(for:)`, `readiness`, `refreshReadiness()` and both `.onChange` triggers all go.
-The `.onChange(of: mountedVolumeNames)` trigger exists solely to keep the mounted-volumes message
-fresh and has no surviving dependant.
-
-> **The helper-unreachable branch and `readinessError` are already gone** (user decision,
-> 2026-09-01). They were not merely redundant once the gate landed — they were **wrong**, and the
-> user reported the message three times while walking chunk 13: it is a snapshot taken at selection
-> time, refreshed only on selection change and mount change, so a helper fixed *afterwards* left the
-> message standing over a working helper, with ⇧⌘D showing `enabled` beside it. Deleted early rather
-> than ship another session with a banner that lies. A failed readiness check now shows nothing.
-> **The rest of this section still applies unchanged** — there is simply one fewer branch to delete.
-
-### FDA moves into the preparation sequence
-
-**Decision A, taken 2026-08-26**, over the alternative of making Start's gate asynchronous.
-
-A new injected operation in `DevicePreparationOperations`, **placed before `unmount`**. On denied,
-`.aborted` with `restore: nil` — the case `DevicePreparationFailure` already documents as *"nothing
-had been unmounted yet — which is a different fact from 'the rollback succeeded' and must not read
-as one."* No new type is needed.
-
-**The ordering is not optional.** If the check runs after the unmount, a multi-volume drive is taken
-down, the modal says Cancel, and the volumes are remounted for nothing.
-
-The heading goes in `OutcomePresentation` as a new case beside `.unmount` / `.mount` / `.acquire` /
-`.release`, so the compiler enforces every use site. That file already owns *"what does a failed X
-call itself"*, and two copies of that sentence is the drift it exists to prevent.
-
-**The modal: "Open Full Disk Access Settings…" · "Cancel Test".** Two buttons, **decided
-2026-08-26** after the user's initial one-button proposal. NFR-INST-4 is **M (Mandatory)** and its
-third clause is *"guide the user to System Settings › Privacy & Security › Full Disk Access"* — a
-message naming the path satisfies the letter, so one button would not have breached it, but it would
-delete a working one-click remedy and contradict the remedy-first choice made for increment 9.
-
-`HelperRegistration.openFullDiskAccessSettings()` keeps a caller — now the modal. Before this
-increment its **only** caller is `DeviceListView.swift:606`.
-
-### Why moving it is an improvement, not just a relocation
-
-1. **It gains 60 tests.** In view code the FDA check has *zero* cover — any mutation survives all
-   1025 tests. `DevicePreparation.swift`'s own header says a test *"builds this with stubs and
-   asserts which of them ran, in which order, and which did not."* Cover today:
-   `DevicePreparationTests` (20 `@Test`) + `RunControllerTests` (40).
-2. **The answer becomes fresh.** The pane's verdict is a snapshot from selection time, refreshed only
-   on selection change and mount change — **grant FDA with the app open and the pane never notices.**
-3. **`DevicePreparationOperations` has only two construction sites** — `RunControllerWiring.swift`
-   and `DevicePreparationTests.swift` — so adding a field is cheap.
-
-**FDA is not per-device.** The grant is machine-wide for the helper binary; what is per-device is
-only the moment it bites. The helper's message is already app-scoped, so nothing needs rewording.
-
-**An inconclusive probe already behaves correctly.** `needsFullDiskAccess` is true only when the
-state `isDenied`, so a `.unknown` probe will not raise the modal; the run proceeds and `acquire`
-refuses if it must. Pin this with a test rather than assuming it.
-
-### The Covering row is deleted
-
-**Decided 2026-08-26.** It is always equal to the slower of Read and Write — necessarily, not
-coincidentally — and the time-remaining estimate is what the figure was for. See increment 11 for
-the full argument.
-
-**Safe for the ETA**: `estimatedRemaining` is computed helper-side in `RunMetrics` from
-`rangeBytesCovered` and arrives as its own wire field. The internal quantity stays; only the display
-goes. **No protocol change.**
-
-The definition paragraph in `RunMetricsView` must be rewritten with it — it currently explains the
-Read ≈ 2 × Covering ≈ 2 × Write relationship, and two of those three names are changing.
-
-### The gate
-
-* **New tests**: the FDA check runs **before** the unmount; `unmount` never ran on refusal; `restore`
-  is nil; an `.unknown` probe does **not** abort
-* All **60** existing preparation/controller tests still green
-* `window-fit-check.sh --limits` **re-measured** — NFR-USE-9, measured not estimated. The pane loses
-  an estimated 55–60 pt at the 3-volume fixture against a 613 pt worst case; **that estimate is from
-  line counts and must not be reported as a measurement**
-* `devices*` and `content*` renders re-taken
-* Requirements amendment: NFR-INST-4 rehomed and still discharged
-* A new human checklist chunk
-
-**No protocol change. v12 stands, helper source hash unmoved, app target only.** `DeviceReadiness`
-keeps arriving over the wire with fields the app stops reading.
+> **Increments 9 and 10 have landed and their sections are deleted from this file**, as the header
+> above instructs. Their accounts are in `PROGRESS.md` and in their commit messages.
+>
+> **What increment 10 left that increment 11 depends on.** The `Covering` row is gone from **all
+> three** surfaces — the live panel, the report sheet and the exported Markdown — and
+> `ThroughputFraming.definition` now reads *"Both rates…"*. That is wider than this file's plan said
+> (it named only `RunMetricsView`), and it is the shape `R-W-R-C speed` has to fit into: a new rate
+> means that paragraph is rewritten again, on the surface that states it once for both renderers.
+> `coverageBytesPerSecond` is still on the wire and still the ETA's quantity, documented at
+> `RunProgressSnapshot` as deliberately undisplayed.
 
 ---
 
@@ -284,10 +185,12 @@ existing chunk 6 quit boundary re-run unchanged.
 | ~~Remedy-first, not Quit-only; `.notFound` alone is Quit-only~~ **built, increment 9** | 2026-08-26 |
 | ~~The gate fires at **launch/initialization**~~ **built, increment 9** | 2026-08-26 |
 | ~~Diagnosed from `SMAppService.status` + the version handshake~~ **built, increment 9** | 2026-08-26 |
-| FDA stays a Start-time check (**option A**, inside preparation) | 2026-08-26 |
-| The FDA modal has **two** buttons | 2026-08-26 |
-| Increment 10 keeps the FDA move and the banner deletion **together** | 2026-08-26 |
-| The `Covering` row is deleted; `R-W-R-C speed` is a separate increment | 2026-08-26 |
+| ~~FDA stays a Start-time check (**option A**, inside preparation)~~ **built, increment 10** | 2026-08-26 |
+| ~~The FDA modal has **two** buttons~~ **built, increment 10** — a two-button `.alert`, so it has no render cover | 2026-08-26 |
+| ~~Increment 10 keeps the FDA move and the banner deletion **together**~~ **built** | 2026-08-26 |
+| ~~The `Covering` row is deleted~~ **built, increment 10 — from all three surfaces**; `R-W-R-C speed` is a separate increment | 2026-08-26 |
+| The `Covering` deletion covers the panel, the report sheet **and** the exported Markdown | 2026-09-02 |
+| Only a **denied** Full Disk Access probe stops a run — `.unknown` and a transport failure carry on | 2026-09-02 |
 | The gate re-checks on app activation while gated; **no third button** on `requiresApproval` | 2026-08-27 |
 | ⌘Q under a sheet is fixed **app-wide as increment 12**, not folded into increment 9 | 2026-08-27 |
 | `versionMismatch` re-registers by **unregister-then-register**; no other state unregisters | 2026-09-01 |

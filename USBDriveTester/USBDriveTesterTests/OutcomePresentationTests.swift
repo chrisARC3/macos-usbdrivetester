@@ -130,6 +130,63 @@ struct OutcomePresentationTests {
         #expect(OutcomeOperation.mount.failureTitle.contains("mounted"))
         #expect(OutcomeOperation.acquire.failureTitle.contains("Exclusive access"))
         #expect(OutcomeOperation.release.failureTitle.contains("released"))
+        #expect(OutcomeOperation.fullDiskAccess.failureTitle.contains("Full Disk Access"))
+    }
+
+    // MARK: Full Disk Access — the case with no success (increment 10)
+
+    /// **The asymmetry, written down because a reader will expect a symmetric pair.** The other
+    /// four operations run and then succeed or fail. This one is a precondition: `DevicePreparation`
+    /// reads the permission and either carries straight on or abandons, so nothing ever constructs
+    /// a success outcome for it. `true` is what stops an "access was granted" message existing that
+    /// no code path can produce — the same reason `FullDiskAccessState.explanation` is `nil` when
+    /// the permission is present.
+    @Test func aGrantedPermissionIsNotAnnounced() {
+        #expect(OutcomePresentation.forOutcome(ok: true, operation: .fullDiskAccess) == .silent)
+    }
+
+    /// And the half that matters: a denial is never quiet. It is the one thing standing between
+    /// the user and a run they asked for, and until increment 10 it was reported by a pane that
+    /// could be looked at or not.
+    @Test func aDeniedPermissionInterrupts() {
+        let route = OutcomePresentation.forOutcome(ok: false, operation: .fullDiskAccess)
+        #expect(route.interrupts)
+        #expect(route.title == "Full Disk Access has not been granted")
+    }
+
+    // MARK: The remedy
+
+    /// Exactly one operation offers a fix, and it is the one whose fix is a place the user can be
+    /// sent. A remedy on an unmount or an acquire refusal would be a button with nowhere to go.
+    @Test func onlyFullDiskAccessOffersARemedy() {
+        #expect(OutcomeOperation.fullDiskAccess.remedy == .openFullDiskAccessSettings)
+
+        for operation in OutcomeOperation.allCases where operation != .fullDiskAccess {
+            #expect(operation.remedy == nil, "\(operation) has no one-click fix to offer")
+        }
+    }
+
+    /// **Both labels are checked, and the second is the load-bearing one.** By the time this dialog
+    /// is on screen the start has already been abandoned, so the dismissal must not read as "the
+    /// run is still waiting for me" — which is what "OK" or a bare "Cancel" would.
+    @Test func aRemedyNamesBothOfItsButtons() {
+        for remedy in RunFailureRemedy.allCases {
+            #expect(!remedy.label.isEmpty)
+            #expect(!remedy.dismissLabel.isEmpty)
+            #expect(remedy.label != remedy.dismissLabel)
+        }
+
+        #expect(RunFailureRemedy.openFullDiskAccessSettings.label
+                == "Open Full Disk Access Settings…")
+        #expect(RunFailureRemedy.openFullDiskAccessSettings.dismissLabel == "Cancel Test")
+    }
+
+    /// The button says where it goes, and the title says what is missing. A remedy labelled for a
+    /// different pane is a dead end — Login Items approves the daemon, Full Disk Access is what
+    /// lets it open a raw device, and neither implies the other.
+    @Test func theRemedyNamesTheSamePermissionAsTheTitle() {
+        #expect(RunFailureRemedy.openFullDiskAccessSettings.label.contains("Full Disk Access"))
+        #expect(OutcomeOperation.fullDiskAccess.failureTitle.contains("Full Disk Access"))
     }
 
     // MARK: The log

@@ -388,6 +388,11 @@ nonisolated struct RunReport: Equatable {
     /// How fast the run covered the drive, against the wall clock. About half the read rate and
     /// about the same as the write rate, because every covered byte is read, written and read
     /// again.
+    ///
+    /// **Neither the report sheet nor the exported Markdown shows this, since Step 11 increment
+    /// 10** — see `RunProgressSnapshot.coverageBytesPerSecond` for why the row went and why the
+    /// field stayed. Kept on the report rather than dropped so that a `.md` file exported before
+    /// the change and one exported after differ by a row rather than by what the type can carry.
     let coverageBytesPerSecond: Double?
 
     let readLatencySampleCount: UInt64

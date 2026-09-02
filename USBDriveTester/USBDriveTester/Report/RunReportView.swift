@@ -343,8 +343,13 @@ struct RunReportView: View {
                          MetricsFormatting.throughput(report.sustainedReadBytesPerSecond))
                 labelled("Write throughput",
                          MetricsFormatting.throughput(report.sustainedWriteBytesPerSecond))
-                labelled("Covering",
-                         MetricsFormatting.throughput(report.coverageBytesPerSecond))
+                // `Covering` was deleted from all three surfaces in Step 11 increment 10 — the
+                // panel, this sheet and the exported Markdown. The full argument is at the panel's
+                // own row in `RunMetricsView`; the short version is that the label promised
+                // successful work and the quantity counts attempted work, and the two only part on
+                // a failing drive. Deleting it from two of the three would have left the report
+                // naming a figure the live panel refuses to, which is the drift `ThroughputFraming`
+                // exists to prevent.
                 if let linkSpeed = report.usbLinkSpeedDescription {
                     labelled("Negotiated USB link speed", linkSpeed)
                 }

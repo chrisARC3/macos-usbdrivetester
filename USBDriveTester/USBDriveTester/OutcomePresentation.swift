@@ -50,16 +50,36 @@ nonisolated enum OutcomeOperation: Equatable, CaseIterable {
     case acquire
     case release
 
+    /// NFR-INST-4's permission check, which Step 11 increment 10 moved out of the device pane and
+    /// into the start of a run. **The only case here that has no success path at all** — see
+    /// ``successIsSelfEvident``.
+    case fullDiskAccess
+
     /// The headline for a failed operation.
     ///
     /// Short and specific: an alert's title is the one line a user reliably reads, so it says what
     /// did not happen. The body carries the cause and the corrective step (NFR-USE-5).
     var failureTitle: String {
         switch self {
-        case .unmount:  return "The drive could not be unmounted"
-        case .mount:    return "The volumes could not be mounted"
-        case .acquire:  return "Exclusive access was not granted"
-        case .release:  return "The drive could not be released"
+        case .unmount:        return "The drive could not be unmounted"
+        case .mount:          return "The volumes could not be mounted"
+        case .acquire:        return "Exclusive access was not granted"
+        case .release:        return "The drive could not be released"
+        case .fullDiskAccess: return "Full Disk Access has not been granted"
+        }
+    }
+
+    /// The one-click fix this failure can offer, or `nil` when there is none.
+    ///
+    /// **Derived from the operation rather than carried beside it.** A `DevicePreparationFailure`
+    /// already names which step failed, and a second field saying which button to show would be two
+    /// statements of one fact — the shape `AppModel.helperHoldsDevice` was deleted for. An
+    /// exhaustive `switch` also means a future operation with a remedy is a compile error here
+    /// rather than a silently button-less dialog.
+    var remedy: RunFailureRemedy? {
+        switch self {
+        case .unmount, .mount, .acquire, .release: return nil
+        case .fullDiskAccess:                      return .openFullDiskAccessSettings
         }
     }
 
@@ -89,10 +109,64 @@ nonisolated enum OutcomeOperation: Equatable, CaseIterable {
     ///
     /// Acquire and release likewise say something not otherwise visible — release's message
     /// carries "macOS will normally remount the volumes shortly."
+    /// ## Full Disk Access: yes, and it is the only case here with no success to report
+    ///
+    /// The other four are operations that run and then succeed or fail. This one is a
+    /// **precondition**, and nothing constructs an outcome for it unless it is denied:
+    /// `DevicePreparation` reads the permission and either carries straight on to the unmount or
+    /// abandons. So there is no success path to present, and `true` is the honest answer — a
+    /// granted permission is not news, which is the same reason `FullDiskAccessState.explanation`
+    /// returns `nil` for `.granted`.
+    ///
+    /// Answering `false` would invent an "access was granted" message that nothing can produce.
+    /// It is written down rather than left to be re-derived because a reader coming from the four
+    /// cases above will expect a symmetric pair and there is not one.
     var successIsSelfEvident: Bool {
         switch self {
-        case .unmount:                    return true
+        case .unmount, .fullDiskAccess:   return true
         case .mount, .acquire, .release:  return false
+        }
+    }
+}
+
+/// A one-click fix a failure dialog can offer beside its Cancel.
+///
+/// A type rather than a label on the message, so the **decision** — which failures offer a remedy,
+/// and what the button says — is reachable by a test. This project cannot render an `.alert` at
+/// all: `.alert(_:isPresented:actions:message:)` takes `ViewBuilder`s of buttons and text that
+/// AppKit consumes, so there is no value to hand an `NSHostingView` and no render case can exist
+/// for one (measured in increment 9). Everything about such a dialog that is not a pure value is
+/// therefore covered by a person at the keyboard and nothing else — which is the argument for
+/// keeping as much of it as possible out of the `body`.
+///
+/// **Performing it is the view's job; deciding it is not.** `RunControlsView` maps this to the one
+/// `NSWorkspace` call it stands for.
+nonisolated enum RunFailureRemedy: Equatable, CaseIterable {
+
+    /// System Settings › Privacy & Security › Full Disk Access (NFR-INST-4).
+    case openFullDiskAccessSettings
+
+    /// The button's words.
+    ///
+    /// The ellipsis is the platform's, and it means what it means: pressing this opens another
+    /// place rather than completing the action here.
+    var label: String {
+        switch self {
+        case .openFullDiskAccessSettings: return "Open Full Disk Access Settings…"
+        }
+    }
+
+    /// What the other button says.
+    ///
+    /// **Both buttons end the run**, and this label is where that is said. By the time a dialog
+    /// carrying a remedy is on screen the start has already been abandoned — `DevicePreparation`
+    /// returned `.aborted`, nothing was unmounted and nothing was claimed. Opening System Settings
+    /// does not resume anything; the user grants the permission and presses Start again. A label
+    /// like "OK" would leave that ambiguous, and "Cancel" alone would suggest the run is still
+    /// pending somewhere.
+    var dismissLabel: String {
+        switch self {
+        case .openFullDiskAccessSettings: return "Cancel Test"
         }
     }
 }

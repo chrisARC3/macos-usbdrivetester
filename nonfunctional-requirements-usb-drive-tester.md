@@ -3,7 +3,7 @@
 **Status:** Baselined
 **Date:** 2026-06-25
 **Baselined:** 2026-06-25
-**Last amended:** 2026-08-01 (NFR-INST-4 added — Full Disk Access)
+**Last amended:** 2026-09-02 (NFR-INST-4 rehomed — the Full Disk Access check moves to the start of a run)
 **Source documents:** [USBDriveTester.md](USBDriveTester.md), [ADR-001-usb-drive-tester.md](ADR-001-usb-drive-tester.md)
 **Companion document:** [Functional Requirements](functional-requirements-usb-drive-tester.md) (Baselined 2026-06-25)
 
@@ -431,6 +431,59 @@ a user with a broken helper cannot reach them. That trade was put to the user an
 run (the D1 measurement of 2026-08-04), so a re-check able to fire mid-run would queue behind the
 call it interrupted. One consequence is load-bearing elsewhere: no run can be in flight while the
 gate is up.
+
+
+### 2026-09-02 — NFR-INST-4 rehomed: the Full Disk Access check moves to the start of a run
+
+**No wording change.** The requirement's three clauses — detect the permission, report its absence
+**before a run is attempted rather than as a run failure**, and guide the user to System Settings —
+are all still discharged. What changed is *where*, and the move makes the middle clause true in a
+way it was not before.
+
+**Where it was.** In the Selected device pane, as one branch of a readiness banner driven by the
+helper's `blockingCause`, refreshed on selection change and on mount change only.
+
+**Why that was not good enough, and it is a distinction worth keeping.** *"Report it before a run"*
+and *"report it at selection"* are not the same requirement, and the weaker one had been passing for
+the stronger. The pane's answer was a **snapshot with no expiry**: grant the permission with the app
+open and nothing invalidated it, so the pane went on asserting the opposite indefinitely. It looked
+like the earliest possible report and was in fact a stale one.
+
+> A check placed where the condition *matters* is fresh by construction. A check placed early is
+> only fresh if something invalidates it — and nothing did.
+
+**Where it is now.** An injected step of `DevicePreparation`, **before the unmount**, raising a
+two-button modal — *Open Full Disk Access Settings…* and *Cancel Test* — and abandoning the start
+with nothing unmounted and nothing claimed.
+
+**The ordering is part of the requirement being met, not an implementation detail.** After the
+unmount, a denied grant would take a multi-volume drive down, show a dialog offering only Cancel,
+and remount everything for nothing — changing the user's machine to learn something knowable before
+anything was touched.
+
+**Two buttons rather than one** (user decision 2026-08-26). A message naming the Settings path
+satisfies the third clause on its own, so one button would not have breached the requirement; it
+would have deleted a working one-click remedy and contradicted the remedy-first shape chosen for the
+launch gate.
+
+**Only a *denied* probe stops a run.** `FullDiskAccessState` has three states because the probe can
+be conclusive in only two directions, and `needsFullDiskAccess` is true for `denied` alone. An
+`.unknown` probe and an unreachable helper both carry on to the unmount, and the acquire's own
+helper-side precondition refuses if it must — the guard that has always decided this. Refusing to
+start on an inconclusive answer would send a user to a Settings pane that was never the problem.
+
+**What it gained by moving.** In view code the check had **zero** automated cover — any mutation to
+it survived the whole suite. It now sits in a type whose every operation is injected, and 9 new tests
+plus the 60 existing preparation and controller tests reach it. The dialog itself remains
+human-only: an `.alert` cannot be rendered by this project's harness.
+
+**What was deleted with it.** The rest of the readiness banner — the *volumes mounted* branch (false
+since Start took ownership of the unmount), *ready*, *checking…* and *already held* — along with
+`refreshReadiness()` and its three triggers. `DeviceListView` no longer holds an XPC connection at
+all. `DeviceReadiness` and `checkDeviceReadiness` are unchanged and still carry this answer; only
+their consumer moved.
+
+---
 
 
 ## Assumptions

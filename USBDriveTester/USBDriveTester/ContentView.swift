@@ -55,7 +55,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             if model.isWindingDown { windingDownBanner }
 
-            DeviceListView(discovery: model.discovery, helper: model.helper)
+            DeviceListView(discovery: model.discovery)
 
             Divider()
 

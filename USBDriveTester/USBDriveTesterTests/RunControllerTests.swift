@@ -613,6 +613,29 @@ struct RunControllerStateWalkTests {
         #expect(bench.failures.first?.title == "The drive could not be unmounted",
                 "headed with what did not happen, from OutcomePresentation")
         #expect(bench.releases == 0, "no claim was established, so none is released here")
+        #expect(bench.failures.first?.remedy == nil,
+                "an unmount refusal has no one-click fix, and must not offer a button to nowhere")
+    }
+
+    /// **The remedy survives the trip from the preparation to the dialog** (increment 10). The
+    /// failure names the operation, `OutcomeOperation` decides which operations have a fix, and
+    /// this is the one seam between them — a `RunFailureMessage` built without the remedy is a
+    /// one-button dialog for a problem the app knows how to fix.
+    @Test func aFullDiskAccessAbortCarriesItsRemedyToTheDialog() {
+        let bench = Bench()
+        bench.preparationOutcome = .aborted(
+            DevicePreparationFailure(reason: "This app needs Full Disk Access before it can test "
+                                           + "a drive.",
+                                     restore: nil,
+                                     operation: .fullDiskAccess))
+        bench.startAndProceed()
+
+        #expect(bench.controller.state == .idle)
+        #expect(bench.reports.isEmpty)
+        #expect(bench.failures.count == 1)
+        #expect(bench.failures.first?.title == "Full Disk Access has not been granted")
+        #expect(bench.failures.first?.remedy == .openFullDiskAccessSettings)
+        #expect(bench.releases == 0)
     }
 
     @Test func theRunEndsThroughFinishingAndReleaseToFinished() {

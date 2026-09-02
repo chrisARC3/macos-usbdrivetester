@@ -52,8 +52,15 @@ pane. Its first four items are the only cover the new registry read has: the mut
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **NOTHING IS OWED, as of 2026-09-01.** Every chunk in this file has been walked and passed. The
-> last three items closed that day: **chunk 13** in full, **item 7.5** — a whole-device run on the
+> **CHUNK 14 IS OWED, as of 2026-09-02**, and it is the only thing in this file that is. It was
+> added with increment 10 and has not been walked. Everything before it has been walked and passed.
+>
+> ⚠️ **This line said "NOTHING IS OWED" until chunk 14 was written**, and leaving it would have been
+> the precise failure the box below records — a summary carried forward without the body being read.
+> A new chunk makes the summary false the moment it is added, and the two edits belong together.
+>
+> Chunks 1–13, and the last three items to close among them on 2026-09-01: **chunk 13** in full,
+> **item 7.5** — a whole-device run on the
 > 125.8 MB thumb drive (serial `2211190533300386001515`), 30/30 chunks in 39 s, reported `Completed`
 > with no range caveat, exported and compared — and the **8.3 recheck**, the sentence confirmed
 > unconditional and in its new place above the I/O size row, before a run and while paused.
@@ -95,7 +102,8 @@ Chunks are run **one at a time**, reporting back between each. That is not cerem
 attempt ran the nine items in one go, hit "numerous problems", and stopped — and the problems were
 never enumerated. Small chunks make a partial pass reportable.
 
-Non-destructive chunks come first. Only 2, 4, 5, 6, 7 and 8 start a run.
+Non-destructive chunks come first. Only 2, 4, 5, 6, 7, 8 and 14 start a run — and **14 also
+revokes a permission**, reversibly, which is why its item 4 says to ask first.
 
 ### Prerequisites
 
@@ -814,10 +822,104 @@ machine state is not a unit test, and that one would have done it on every run o
 `.retry` is driven; **items 3 and 4 are the cover for the other two.**
 
 
+### Chunk 14 — Full Disk Access at Start, and two deletions (increment 10) *(item 3 needs a run; item 4 revokes a permission — ask first)*
+
+Increment 10 moved NFR-INST-4's Full Disk Access check out of the Selected device pane and into the
+start of a run, deleted the readiness banner entirely, and deleted the `Covering` row from all three
+surfaces that showed it.
+
+**What no test can see here, and it is most of the increment.** The FDA modal is an `.alert`, and
+this project cannot render an alert at all — `.alert(_:isPresented:actions:message:)` takes
+`ViewBuilder`s AppKit consumes, so there is no value to hand an `NSHostingView`. The *decision*
+(which failures offer a remedy, and what both buttons say) is a pure type pinned by tests; that the
+dialog appears, that its buttons are in the right order, and that the remedy button does anything
+are reachable by a person and nothing else. Item 4 is the whole of that cover.
+
+The run log is the instrument for items 1–3:
+
+    /usr/bin/log stream --predicate 'subsystem == "com.arc3solutions.USBDriveTester"' --info
+
+1. **The Selected device pane has lost the banner, and lost nothing else.** Select each attached
+   drive in turn. Below the detail rows there is **no** readiness message, no shield icon, no
+   spinner, and no gap where one used to be — the rows run straight into the caption about IOKit
+   and serial numbers. **Every row that was there before is still there**: capacity, exact size,
+   geometry, raw device, serial number, mounted volumes, USB link speed.
+
+   Select a drive with several mounted volumes and one with none. Neither shows a message about
+   mounting. That branch said volumes *"must be unmounted before a test can start"*, which Start
+   has done for itself since increment 5 — it was instructing the user to do what the app does.
+
+2. **Unmount a volume in Disk Utility with the app open.** The `Mounted volumes` row follows it
+   within a second or two. This is the check that deleting `.onChange(of: mountedVolumeNames)` cost
+   nothing: that trigger existed to refresh the banner, and the row it did not feed comes from the
+   device record, which the enumerator rebuilds on every mount change anyway.
+
+3. **A normal run still starts.** With Full Disk Access granted — the ordinary state — select the
+   scratch drive, press Start and proceed. The run begins as it always did. On the log:
+
+       run authorised: drive serial …
+
+   **No Full Disk Access dialog appears.** This is the half of the check that says the new step is
+   not refusing runs it should allow; item 4 is the half that says it refuses the one it should.
+
+4. **`accessNotPermitted` — ask before doing this, and it is the item the increment exists for.**
+   Remove **USBDriveTester** from System Settings › Privacy & Security › Full Disk Access (leave it
+   listed and toggle it off, which is the reversible form). Then press **Start** and proceed past
+   the confirmation.
+
+   Five things, and the last two are the ones no test reaches:
+
+   * a modal appears headed **"Full Disk Access has not been granted"**;
+   * its body is the **helper's own words** — *"This app needs Full Disk Access before it can test
+     a drive. Open System Settings › Privacy & Security › Full Disk Access, add USBDriveTester,
+     then try again. Administrator rights are not sufficient on their own…"*;
+   * **two buttons**, with **Open Full Disk Access Settings…** as the default and **Cancel Test**
+     beside it. Escape backs out;
+   * **press Open Full Disk Access Settings… and System Settings actually opens at that pane.**
+     The launch gate shipped a remedy that was pressed for the first time in chunk 13 and **did
+     nothing**; a remedy nobody has pressed is a remedy nobody has checked;
+   * **no volume was unmounted.** Check Finder, or the `Mounted volumes` row: the drive is exactly
+     as it was. This is the ordering the whole placement decision rests on — after the unmount, a
+     multi-volume drive would have been taken down and remounted for a run that never started.
+
+   Re-grant the permission, then **press Start again without relaunching the app**. The run starts.
+   That is the freshness property the move was made for: the old pane, asked the same question,
+   would have gone on saying the permission was missing until the selection changed.
+
+5. **The metrics panel has two rates, not three.** Start a run and look at the live panel while it
+   is going. **Read** and **Write** are there; **Covering** is gone. The paragraph beneath them
+   reads *"…Every byte is read, written back and read again, so Read runs at about twice Write."*
+   and no longer mentions Covering. Check it against the numbers on screen: Read should be about
+   twice Write.
+
+6. **The report and the export agree with it.** Let a run finish — the 125.8 MB thumb drive
+   (serial `2211190533300386001515`) is the one that finishes quickly. In **Measurements**:
+   `Read throughput`, `Write throughput`, then `Negotiated USB link speed`. **No `Covering` row.**
+   The paragraph below the table begins *"Both rates are measured over the time the run spent
+   working…"* — **"Both"**, not "All three".
+
+   Export the report and open the `.md`. The same two rows, the same paragraph, no `Covering`.
+   The window and the export are two renderers over one set of values and they have disagreed
+   before; this is the item that looks at both.
+
+7. **Nothing else lost a row.** In the same report, confirm the rows either side survived — the
+   `Drive` and `Run` tables are unchanged, `Failed block ranges` is still there, and the latency
+   block still has minimum, maximum, p99 and reads measured. A deletion that took a neighbour with
+   it would read as correct on the deleted row alone.
+
+
 ## What has no automated cover, and will not get any
 
-* **The report body.** It sits in a scroll region, so even a render stops at `## Measurements`.
-  Checks 7.2, 7.4 and 7.5 are the only things that read it.
+* **The report body.** It sits in a scroll region, so a render at a normal window height stops at
+  `## Measurements`. Checks 7.2, 7.4, 7.5 and 14.6 are what read it.
+
+  **Corrected 2026-09-02, and it is a smaller blind spot than this entry claimed.** The stop is a
+  function of the height the render was taken at, not of the scroll region: given a tall enough
+  window the region has nothing left to hide, and `render-ui.sh out.png 720 1500 report` shows the
+  **whole** body — the claim sentences, both framing paragraphs and the closing section. That is how
+  increment 10's rewrite of `ThroughputFraming.definition` was checked. What stays true is that the
+  *values* are the report's and the *wording* is only visible in the artefact; what was wrong is
+  "even a render" cannot see it.
 
 * **`RunReportView` in its entirety — measured, not assumed (increment 8).** Four mutations to
   that file passed the whole suite — one against 1,008 tests, two against 1,013, one against 1,040:
@@ -859,6 +961,16 @@ machine state is not a unit test, and that one would have done it on every run o
   or presses a button in an `.alert`, so the *wiring* between the two pre-run controls and the
   model is reachable only by a person. The decision and every word of the dialog are pure types
   and are pinned; what is not pinned is that they are called at all. Chunk 8 is the cover.
+
+* **The Full Disk Access modal, entirely (increment 10).** An `.alert` cannot be rendered by this
+  project's harness — `.alert(_:isPresented:actions:message:)` takes `ViewBuilder`s that AppKit
+  consumes, so there is no value to hand an `NSHostingView`, a fact increment 9 measured before
+  choosing a sheet for the launch gate. So while `OutcomeOperation.fullDiskAccess`, its heading and
+  `RunFailureRemedy`'s two labels are all pinned by tests, three things are not: that the alert is
+  raised, that its two buttons appear in the right order with the remedy as the default, and that
+  the remedy button **does anything**. The last is not hypothetical — the launch gate shipped a
+  remedy whose first press, in chunk 13, did nothing at all. **Chunk 14 item 4 is the whole of the
+  cover**, and the ordering half of it (no volume was unmounted) is checkable nowhere else.
 
 * **The selection half of the drive list's auto-scroll.** The list scrolls to the selected drive
   on two triggers and only one of them can be seen. A render establishes its layout once, so the

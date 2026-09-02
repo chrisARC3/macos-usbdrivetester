@@ -668,7 +668,12 @@ struct ReportMeasurementTests {
         let document = Fixture.markdown(Fixture.report())
         #expect(document.contains("| Read throughput | 517 MB/s |"))
         #expect(document.contains("| Write throughput | 491 MB/s |"))
-        #expect(document.contains("| Covering | 245 MB/s |"))
+        // **No `Covering` row, since Step 11 increment 10.** Asserted as an absence rather than
+        // simply dropped: the row was deleted from the panel, this export and the report sheet
+        // together, and a test that merely stopped mentioning it would pass just as well if the
+        // row came back. The figure it named counted *attempted* work under a label that reads as
+        // successful work.
+        #expect(document.contains("Covering") == false)
         #expect(document.contains("Read latency, minimum"))
         #expect(document.contains("Read latency, maximum"))
         #expect(document.contains("| Reads measured | 256 |"))
@@ -704,7 +709,7 @@ struct ReportMeasurementTests {
         let document = Fixture.markdown(report)
         #expect(document.contains("| Read throughput | — |"))
         #expect(document.contains("| Write throughput | — |"))
-        #expect(document.contains("| Covering | — |"))
+        #expect(document.contains("Covering") == false)
         #expect(document.contains("0 MB/s") == false)
         #expect(document.contains("-1") == false)
     }

@@ -435,7 +435,7 @@ private final class EmptyDeviceSource: DeviceSource {
 private struct EmptyDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: EmptyDeviceSource())
     var body: some View {
-        DeviceListView(discovery: discovery, helper: HelperConnection())
+        DeviceListView(discovery: discovery)
             .onAppear { discovery.start() }
     }
 }
@@ -478,7 +478,7 @@ private struct EmptyDeviceListHost: View {
 private struct DeviceListHost: View {
     @State private var discovery = DeviceDiscovery()
     var body: some View {
-        DeviceListView(discovery: discovery, helper: HelperConnection())
+        DeviceListView(discovery: discovery)
             .onAppear { discovery.start() }
     }
 }
@@ -501,6 +501,12 @@ private struct MetricsHost: View {
                 // because every byte is read twice and written once that is ~244.8 read and
                 // ~122.4 write. Write sits a hair under covering, which is what this fixture's
                 // own three failed chunks would really do.
+                //
+                // **That gap is no longer visible in this render** (Step 11 increment 10): the
+                // `Covering` row is deleted, so the one case where attempted and successful work
+                // differ — these three failed chunks — shows only as a smaller Write. The coverage
+                // value is still supplied because the snapshot carries it and the ETA is computed
+                // from the same quantity.
                 sustainedReadBytesPerSecond: 244_800_000,
                 sustainedWriteBytesPerSecond: 122_398_000,
                 coverageBytesPerSecond: 122_400_000,
@@ -812,7 +818,7 @@ private final class UnusableDeviceSource: DeviceSource {
 private struct UnusableDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: UnusableDeviceSource())
     var body: some View {
-        DeviceListView(discovery: discovery, helper: HelperConnection())
+        DeviceListView(discovery: discovery)
             .onAppear { discovery.start() }
     }
 }
@@ -821,7 +827,7 @@ private struct UnusableDeviceListHost: View {
 private struct UnmountedDeviceListHost: View {
     @State private var discovery = DeviceDiscovery(source: UnmountedDeviceSource())
     var body: some View {
-        DeviceListView(discovery: discovery, helper: HelperConnection())
+        DeviceListView(discovery: discovery)
             .onAppear { discovery.start() }
     }
 }
@@ -924,10 +930,11 @@ func makeRootView(_ name: String) -> NSView {
     case "empty":
         return NSHostingView(rootView: EmptyDeviceListHost())
     case "devices":
-        // From Step 6 the device view talks to the helper for the readiness banner.
-        // There is no daemon to reach from here, so the banner renders its "could not
-        // ask the helper" state — which is itself worth seeing laid out, since it is
-        // what a user with no helper installed gets.
+        // **This render no longer touches the helper at all** (Step 11 increment 10). It used to
+        // note that the readiness banner would show its "could not ask the helper" state here,
+        // since there is no daemon to reach from a probe. The banner is deleted and `DeviceListView`
+        // no longer takes a connection, so what is rendered is now exactly what a user sees — where
+        // before, one region of this capture was showing a state peculiar to being offscreen.
         //
         // `DeviceListHost` rather than a bare `DeviceListView`, because the store has to be
         // started or this renders the no-devices state forever. See the note on the type.

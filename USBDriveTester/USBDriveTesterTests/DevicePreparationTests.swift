@@ -56,6 +56,31 @@ private enum Fixture {
                                        cacheBypass: .bypassed,
                                        usbLinkSpeedCode: 5,
                                        message: "held")
+
+    /// A readiness answer, defaulting to the one the sequence carries on past.
+    ///
+    /// Built through the **real** `blockingCause`, not a stand-in boolean: `needsFullDiskAccess` is
+    /// derived from it, so a test that set the flag directly would agree with any change to that
+    /// derivation — the shape CONSTRAINTS names as *a test that agrees with any change is not a
+    /// check*.
+    static func readiness(cause: DeviceAccessRefusalCause = .unrecognised,
+                          message: String = "ready") -> DeviceReadiness {
+        DeviceReadiness(isReady: cause == .unrecognised,
+                        mountedVolumeCount: 0,
+                        mountedVolumeSummary: "",
+                        helperHoldsThisDevice: false,
+                        blockingCause: cause,
+                        message: message)
+    }
+
+    /// What the helper says when Full Disk Access is missing — the wording that reaches the modal.
+    static let accessDeniedMessage =
+        "This app needs Full Disk Access before it can test a drive. Open System Settings › "
+        + "Privacy & Security › Full Disk Access, add USBDriveTester, then try again."
+
+    static var accessDenied: DeviceReadiness {
+        readiness(cause: .accessNotPermitted, message: accessDeniedMessage)
+    }
 }
 
 private struct StubError: Error, LocalizedError {
@@ -72,6 +97,11 @@ private final class Bench {
 
     // What each step answers.
     var selectionStillNames = true
+
+    /// NFR-INST-4's probe. The default is a **granted** answer, so every pre-existing test in this
+    /// file exercises the path where the permission is in place and the sequence carries on — which
+    /// is what keeps them testing what they were written to test.
+    var fullDiskAccessResult: Result<DeviceReadiness, Error> = .success(Fixture.readiness())
     var unmountOutcome: VolumeMountOutcome = .succeeded("Unmounted every volume on disk8.")
     var acquireResult: Result<DeviceAcquisition, Error> = .success(.acquired("held"))
     var profileResult: Result<DeviceProfile, Error> = .success(Fixture.profile)
@@ -97,6 +127,10 @@ private final class Bench {
             selectionStillNamesTheDrive: {
                 self.steps.append("selection")
                 return self.selectionStillNames
+            },
+            checkFullDiskAccess: { done in
+                self.steps.append("fullDiskAccess")
+                done(self.fullDiskAccessResult)
             },
             unmount: { done in
                 self.steps.append("unmount")
@@ -165,7 +199,8 @@ struct DevicePreparationReadyTests {
         let bench = Bench()
         bench.prepare()
 
-        #expect(bench.steps == ["selection", "unmount", "acquire", "profile", "clearRunControl"])
+        #expect(bench.steps == ["selection", "fullDiskAccess", "unmount",
+                                "acquire", "profile", "clearRunControl"])
         #expect(bench.restoreCallCount == 0, "nothing failed, so nothing is put back")
         #expect(bench.releaseCount == 0)
         #expect(bench.completions == 1)
@@ -208,6 +243,153 @@ struct DevicePreparationReadyTests {
 
         #expect(bench.lookCount == 1)
         #expect(bench.retryCount == 0)
+    }
+}
+
+// MARK: - Full Disk Access, before anything is unmounted (NFR-INST-4)
+
+/// Step 11 increment 10 moved this check out of the Selected device pane and into the start of a
+/// run. **In view code it had zero cover** — any mutation to it survived the whole suite — and the
+/// answer it gave was a snapshot taken at selection time, refreshed on selection and mount changes
+/// only, so granting the permission with the app open left the pane asserting the opposite for as
+/// long as the app stayed running.
+///
+/// The two properties worth the move are what this suite pins: it runs **before the unmount**, and
+/// only a probe that came back **denied** stops a run.
+struct DevicePreparationFullDiskAccessTests {
+
+    /// **The ordering, and it is not ceremony.** A denied grant found after the unmount would take
+    /// a multi-volume drive down, raise a modal offering Cancel, and remount everything for nothing
+    /// — changing the user's machine to learn something that was knowable before anything was
+    /// touched.
+    @Test func thePermissionIsCheckedBeforeAnythingIsUnmounted() {
+        let bench = Bench()
+        bench.prepare()
+
+        guard let checked = bench.steps.firstIndex(of: "fullDiskAccess"),
+              let unmounted = bench.steps.firstIndex(of: "unmount") else {
+            Issue.record("both steps must run on the ready path: \(bench.steps)")
+            return
+        }
+        #expect(checked < unmounted)
+    }
+
+    /// The abort itself: nothing ran after the check, and nothing was claimed.
+    @Test func aDeniedGrantAbandonsTheRunBeforeTheUnmount() {
+        let bench = Bench()
+        bench.fullDiskAccessResult = .success(Fixture.accessDenied)
+        bench.prepare()
+
+        #expect(bench.steps == ["selection", "fullDiskAccess"])
+        #expect(bench.steps.contains("unmount") == false,
+                "no volume is taken down for a run that cannot start")
+        #expect(bench.steps.contains("acquire") == false)
+        #expect(bench.completions == 1)
+        #expect(bench.geometry == nil)
+    }
+
+    /// `restore == nil` is a **different fact** from "the rollback succeeded", and the type
+    /// documents it as such. Nothing had been unmounted, so the message must not claim volumes were
+    /// put back — the same rule the selection-changed abort follows.
+    @Test func nothingIsRestoredBecauseNothingHadBeenUnmounted() {
+        let bench = Bench()
+        bench.fullDiskAccessResult = .success(Fixture.accessDenied)
+        bench.prepare()
+
+        #expect(bench.failure?.restore == nil)
+        #expect(bench.restoreCallCount == 0)
+        #expect(bench.releaseCount == 0)
+        #expect(bench.failure?.message == bench.failure?.reason,
+                "with no restore to report, the message is the reason and nothing more")
+    }
+
+    /// **The helper's words reach the user unedited.** `FullDiskAccessState.explanation` is where
+    /// NFR-INST-4's wording lives; composing a second sentence here would be two copies of one
+    /// message, which is the drift `OutcomePresentation` and `HonestFraming` both exist to stop.
+    @Test func theHelpersOwnExplanationIsWhatTheUserIsShown() {
+        let bench = Bench()
+        bench.fullDiskAccessResult = .success(Fixture.accessDenied)
+        bench.prepare()
+
+        #expect(bench.failure?.reason == Fixture.accessDeniedMessage)
+    }
+
+    /// The heading and the remedy both come off the operation, so the dialog names the permission
+    /// rather than heading a TCC refusal with "the drive could not be unmounted".
+    @Test func theAbortIsHeadedAsAPermissionAndOffersTheSettingsRemedy() {
+        let bench = Bench()
+        bench.fullDiskAccessResult = .success(Fixture.accessDenied)
+        bench.prepare()
+
+        #expect(bench.failure?.operation == .fullDiskAccess)
+        #expect(bench.failure?.alertTitle == OutcomeOperation.fullDiskAccess.failureTitle)
+        #expect(bench.failure?.remedy == .openFullDiskAccessSettings)
+    }
+
+    // MARK: The three answers that are not a denial
+
+    /// The plain case, and the one every other test in this file runs through.
+    @Test func aGrantedPermissionCarriesStraightOnToTheUnmount() {
+        let bench = Bench()
+        bench.prepare()
+
+        #expect(bench.geometry != nil)
+        #expect(bench.failure == nil)
+    }
+
+    /// **An inconclusive probe must not abort.** `FullDiskAccessState` has three states on purpose
+    /// — the probe can only be conclusive in two directions — and `needsFullDiskAccess` is true
+    /// only for `denied`. A run stopped on `.unknown` would send the user to a Settings pane over
+    /// an `errno` that has nothing to do with TCC.
+    ///
+    /// The helper reaches `.unknown` through causes like `EACCES`, which arrives here as a
+    /// `deviceError` rather than `accessNotPermitted`.
+    @Test func anInconclusiveProbeDoesNotAbortTheRun() {
+        let bench = Bench()
+        bench.fullDiskAccessResult = .success(
+            Fixture.readiness(cause: .deviceError,
+                              message: "the raw device could not be opened (errno 5)"))
+        bench.prepare()
+
+        #expect(bench.steps.contains("unmount"))
+        #expect(bench.geometry != nil,
+                "the acquire re-checks this precondition and refuses if it must")
+        #expect(bench.failure == nil)
+    }
+
+    /// **"Could not ask" is not "denied", and this is the stronger half of the same rule.**
+    /// Aborting here would make an unreachable helper indistinguishable from a missing permission
+    /// and offer a remedy for a problem the user does not have. The acquire fails honestly a moment
+    /// later if the helper really is gone, naming what actually happened.
+    @Test func aTransportFailureDoesNotAbortTheRun() {
+        let bench = Bench()
+        bench.fullDiskAccessResult = .failure(StubError(text: "connection interrupted"))
+        bench.prepare()
+
+        #expect(bench.steps.contains("unmount"))
+        #expect(bench.geometry != nil)
+        #expect(bench.failure == nil)
+    }
+
+    /// Show the check answering **both ways** over one variable. Each test above fixes one input
+    /// and asserts one outcome; this one holds everything else identical and moves only the cause,
+    /// which is what says the branch is keyed on the permission rather than on something incidental
+    /// to how the denied case was built.
+    @Test func onlyTheDeniedCauseStopsTheRun() {
+        for cause in [DeviceAccessRefusalCause.unrecognised, .deviceError, .volumesMounted,
+                      .alreadyHeld, .claimedByAnotherProcess, .checkIncomplete,
+                      .deviceNotEligible] {
+            let bench = Bench()
+            bench.fullDiskAccessResult = .success(Fixture.readiness(cause: cause))
+            bench.prepare()
+            #expect(bench.geometry != nil, "\(cause) is not a Full Disk Access denial")
+        }
+
+        let denied = Bench()
+        denied.fullDiskAccessResult = .success(Fixture.accessDenied)
+        denied.prepare()
+        #expect(denied.geometry == nil)
+        #expect(denied.failure?.operation == .fullDiskAccess)
     }
 }
 
@@ -268,7 +450,8 @@ struct DevicePreparationRollbackTests {
         bench.selectionStillNames = false
         bench.prepare()
 
-        #expect(bench.steps == ["selection"], "nothing is unmounted, nothing is claimed")
+        #expect(bench.steps == ["selection"],
+                "the selection check short-circuits: a drive that has gone is not asked about")
         #expect(bench.restoreCallCount == 0)
         #expect(bench.failure?.restore == nil)
         #expect(bench.failure?.message == bench.failure?.reason)

@@ -120,6 +120,15 @@ extension RunController {
                 // used to *act*, so the identity behind it is re-confirmed first.
                 model.discovery.selectedDevice?.registryEntryID == device.registryEntryID
             },
+            // NFR-INST-4, asked before the unmount (increment 10). It moved here out of the
+            // Selected device pane, where the answer was a snapshot taken at selection time and
+            // refreshed on selection and mount changes only — so granting the permission with the
+            // app open left the pane asserting the opposite indefinitely. Asked where the condition
+            // matters, it is fresh by construction.
+            checkFullDiskAccess: { finished in
+                model.helper.checkDeviceReadiness(bsdName: device.bsdName.rawValue,
+                                                  completion: finished)
+            },
             unmount: { finished in mounter.unmountAll(device, completion: finished) },
             volumesStillMounted: {
                 // Read from the **mount table alone**, not by re-enumerating. `before` already

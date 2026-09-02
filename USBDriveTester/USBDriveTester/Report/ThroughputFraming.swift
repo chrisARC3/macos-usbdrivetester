@@ -37,13 +37,12 @@ nonisolated enum ThroughputFraming {
     /// a week showing figures 1.5x and 3.4x what Activity Monitor showed for the same drive with
     /// nothing on either surface to reveal the mismatch.
     static let definition = HonestFramingClaim(
-        "All three rates are measured over **the time the run spent working** — time paused, and "
+        "Both rates are measured over **the time the run spent working** — time paused, and "
         + "time between one call and the next, is excluded. While a run is going they are "
         + "therefore directly comparable to Activity Monitor or any other tool watching this "
         + "drive, and a pause does not make the drive look slower than it is. Read counts the "
-        + "verify read as well as the original read, because both are reads. Covering is how fast "
-        + "the run worked through the drive itself: every byte is read, written back and read "
-        + "again, so Read runs at about twice Covering and Write at about the same.")
+        + "verify read as well as the original read, because both are reads: every byte is read, "
+        + "written back and read again, so Read runs at about twice Write.")
 
     /// D9 (user decision 2026-08-04): this tool measures, and does not judge.
     ///

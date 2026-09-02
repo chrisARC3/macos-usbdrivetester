@@ -146,6 +146,14 @@ nonisolated enum RunStartRequest: Equatable {
 nonisolated struct RunFailureMessage: Equatable {
     let title: String
     let text: String
+
+    /// The one-click fix offered beside Cancel, or `nil` for the ordinary single-button dialog.
+    ///
+    /// **Defaulted**, so the failure sites that have no remedy to offer — a pause or a resume the
+    /// helper did not confirm — say nothing about one rather than each passing `nil`. Where a
+    /// remedy exists it comes from ``OutcomeOperation/remedy``, which is where "which failures have
+    /// a fix" is decided for the whole app.
+    var remedy: RunFailureRemedy? = nil
 }
 
 // MARK: - The controller
@@ -427,7 +435,9 @@ final class RunController {
             RunControlLog.startAborted(failure.reason)
             report(.startAborted)
             pending = nil
-            onFailure(RunFailureMessage(title: failure.alertTitle, text: failure.message))
+            onFailure(RunFailureMessage(title: failure.alertTitle,
+                                        text: failure.message,
+                                        remedy: failure.remedy))
             settledIfAtRest()
 
         case .ready(let geometry):

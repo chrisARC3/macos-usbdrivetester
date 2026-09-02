@@ -420,11 +420,20 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
   still said 34 against the probe's 31 after the Restart removal deleted three. Re-derive the list,
   never hand-edit it; the one-line `grep` is in the script's header. **Three drifts is the number
   that says this will drift again.**
-- **A render cannot see the live metrics panel, the report body, or sheet modality — and all three
-  hid a defect on 2026-08-18.** The panel polls a real helper, so offscreen it always shows the
-  unavailable state whatever the run state is; the report body sits in a scroll region, so a render
-  stops at `## Measurements`; and a window-modal sheet answers ⌘Q before `QuitPolicy` is consulted,
-  so the policy's truth table is not what decides. **An acceptance criterion derived from model
+- **A render cannot see the live metrics panel or sheet modality — and the report body turns out to
+  be a smaller blind spot than this entry claimed.** The panel polls a real helper, so offscreen it
+  always shows the unavailable state whatever the run state is; and a window-modal sheet answers ⌘Q
+  before `QuitPolicy` is consulted, so the policy's truth table is not what decides.
+
+  **The report body is reachable after all, and it is only the height that hid it** (measured
+  2026-09-02). This entry said a render "stops at `## Measurements`" because the body sits in a
+  scroll region. It stops there at a normal window height; give it
+  `render-ui.sh out.png 720 1500 report` and the region has nothing left to hide, so the **whole**
+  body renders — the claim sentences, both `ThroughputFraming` paragraphs and the closing section.
+  Increment 10's rewrite of that framing was checked that way, which is the first time the wording
+  has been read in the artefact rather than in the source — the distinction a `/verify` pass already
+  proved matters, when the exported report contradicted itself about its own denominator and the
+  source read fine either side. **Render the report tall before concluding its prose is unseeable.** **An acceptance criterion derived from model
   code alone is a guess about the presentation layer** — 6.1 of the human checklist was predicted
   from `QuitPolicy` and was wrong for exactly that reason. These are the checklist's territory, not
   the harness's; see `progress/step-11-human-checklist.md`.
@@ -828,6 +837,15 @@ Every defect this project has produced came from trusting a substitute for the r
   anyone reads the number closely.
   **When a name is in question, define it in words that do not contain it.** The restatement is
   cheap, it takes one sentence, and it is the only step in that review that found anything.
+
+  **The row was deleted in Step 11 increment 10, and it was on three surfaces rather than the one
+  the plan named** — the live panel, the report sheet and the exported Markdown, with the prose
+  explaining it written twice. All three went together: deleting two of three would have left the
+  report naming a figure the panel refuses to, and the report is the artefact a drive's history is
+  kept in. **A mislabel is as wide as the surfaces that render it, and a plan naming one of them is
+  not evidence there is only one — grep before scoping.** The quantity is untouched and still on the
+  wire, since `rangeBytesCovered` is the only correct ETA denominator; what no longer exists is a
+  label promising successful work over a number counting attempted work.
 - **"Report it before a run" and "report it at selection" are not the same requirement, and the
   weaker one can masquerade as the stronger.** NFR-INST-4's Full Disk Access check sat in the device
   pane, refreshed on selection change and on mount change only — so granting the permission with the
@@ -835,3 +853,13 @@ Every defect this project has produced came from trusting a substitute for the r
   report and was in fact a snapshot with no expiry. A check placed where the condition *matters*
   is fresh by construction; a check placed early is only fresh if something invalidates it, and
   nothing was.
+
+  **Fixed in Step 11 increment 10**: the check is a step of `DevicePreparation`, before the unmount,
+  and the pane it lived in is deleted. Two things the move settled that are worth carrying. **The
+  ordering is part of the requirement, not an implementation detail** — after the unmount, a denied
+  grant takes a multi-volume drive down and remounts it for a run that never started. And **only a
+  `denied` probe stops a run**: `FullDiskAccessState` is three-state because the probe is conclusive
+  in two directions only, so `.unknown` and an unreachable helper both carry on and let the acquire's
+  helper-side precondition decide. Refusing to start on "could not ask" would make a dead helper
+  indistinguishable from a missing permission. The full account is NFR-INST-4's 2026-09-02
+  amendment.

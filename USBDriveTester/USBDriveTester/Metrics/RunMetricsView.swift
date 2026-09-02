@@ -301,7 +301,23 @@ struct RunMetricsView: View {
         VStack(alignment: .leading, spacing: 6) {
             row("Read", MetricsFormatting.throughput(snapshot.sustainedReadBytesPerSecond))
             row("Write", MetricsFormatting.throughput(snapshot.sustainedWriteBytesPerSecond))
-            row("Covering", MetricsFormatting.throughput(snapshot.coverageBytesPerSecond))
+
+            // **`Covering` was deleted here** (Step 11 increment 10), and the reason is the name
+            // rather than the arithmetic. It was documented as *"how fast the run is covering the
+            // drive"* — a definition using its own term, which is how it survived a review in which
+            // every figure was checked against the source and the identity `Covering ≡ Write` was
+            // derived correctly. Asked for a definition that did not contain the word, the gap was
+            // one sentence away: `rangeBytesCovered` counts **attempted** work and says so in its
+            // own comment, while the label promises successful work. The two agree on a healthy
+            // drive and part on a failing one — the single occasion anyone reads the number closely.
+            //
+            // The quantity is right for its two consumers and is untouched: the ETA denominator and
+            // the progress fraction both *need* attempted, or a drive with a bad region shows a bar
+            // that never reaches 100% and an ETA that never converges.
+            //
+            // The figure the user actually wanted — bytes whose chunk outcome is `.completed`, per
+            // second — does not exist anywhere yet. It is increment 11, and it costs a protocol
+            // version.
 
             // **The definition is on screen, next to the number.** Without it these figures are
             // not checkable against anything, and the first person to check them against
@@ -310,9 +326,8 @@ struct RunMetricsView: View {
             Text("""
                  Read and Write count every byte moved against the time the run spends \
                  working, so while it is running they match what Activity Monitor reports for \
-                 this drive. Time paused does not count against them. Covering is how fast the \
-                 run is working through the drive itself: every byte is read, written back and \
-                 read again, so Read runs at about twice Covering and Write at about the same.
+                 this drive. Time paused does not count against them. Every byte is read, \
+                 written back and read again, so Read runs at about twice Write.
                  """)
                 .font(.caption)
                 .foregroundStyle(.secondary)

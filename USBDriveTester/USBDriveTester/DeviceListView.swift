@@ -48,11 +48,16 @@ struct DeviceListView: View {
 
     let discovery: DeviceDiscovery
 
-    /// Shared with every other window rather than opened again here: one `NSXPCConnection` to the
-    /// daemon per app, so a connection dropping means one thing and the helper sees one client.
-    /// The helper releases a claim when the connection that took it goes away, so two connections
-    /// would mean two different owners of the same device.
-    let helper: HelperConnection
+    // **There is no `helper` here any more** (Step 11 increment 10). This view held an
+    // `NSXPCConnection` for one reason — the readiness banner — and with that gone it asks the
+    // privileged daemon nothing at all. Everything it shows now comes from the enumerator:
+    // model, serial, capacity, geometry, mounted volumes and the negotiated link speed are all
+    // app-side IOKit reads that work with no helper running.
+    //
+    // Worth having beyond the tidiness: the `devices*` render cases no longer construct a
+    // connection, so a render cannot reach this machine's live daemon by accident. That is the
+    // ambient-state leak CONSTRAINTS records twice, closed here by construction rather than by
+    // care.
 
     /// Approximate height of one two-line device row, scaled with the user's text size.
     ///
@@ -61,11 +66,6 @@ struct DeviceListView: View {
     /// Type settings, which is a worse outcome than the dead space it is there to
     /// remove (NFR-USE-8).
     @ScaledMetric(relativeTo: .body) private var rowHeight: CGFloat = 46
-
-    /// What the helper last said about the selected device. `nil` before the first check,
-    /// or when the helper could not be reached.
-    @State private var readiness: DeviceReadiness?
-
 
     /// Keyboard focus for the device list.
     ///
@@ -110,24 +110,15 @@ struct DeviceListView: View {
             Divider()
             detail
         }
-        // The selected device changing invalidates everything below: a readiness answer
-        // is about one device, and showing one device's mount state under another's name
-        // is precisely the confusion NFR-USE-3 exists to prevent.
+        // **This view asks the helper nothing, and has three fewer triggers than it did**
+        // (Step 11 increment 10). Selecting a drive, the mounted-volume set changing and the
+        // pane appearing each used to re-run a readiness check, whose only consumer was the
+        // banner above the detail text. The banner is gone and so are they.
         //
-        // **It no longer releases anything.** Until increment 5 the claim followed the selection,
-        // because the claim did not belong to a run; now it does, and the rule is gone with the
-        // controls that needed it.
-        .onChange(of: discovery.selectedDeviceID) { _, _ in
-            readiness = nil
-            refreshReadiness()
-        }
-        // The mounted-volume set changing is the other input the banner depends on, and
-        // it changes without the selection changing — the user unmounts in Disk Utility,
-        // or macOS remounts after a run releases the drive.
-        .onChange(of: discovery.selectedDevice?.mountedVolumeNames ?? []) { _, _ in
-            refreshReadiness()
-        }
-        .onAppear { refreshReadiness() }
+        // The `.onChange(of: mountedVolumeNames)` trigger existed solely to keep the
+        // mounted-volumes message fresh, and it has no surviving dependant: the volume names
+        // still shown in the detail pane come from the device record, which the enumerator
+        // rebuilds on every mount change anyway.
     }
 
     // MARK: - Header
@@ -538,16 +529,27 @@ struct DeviceListView: View {
             // cause data loss. Please make sure any important files on the test drive are backed
             // up before starting a test."
             //
-            // Moved here from the "Mounting & exclusive access" section (2026-08-05, user
-            // decision): whether this drive is ready **is** part of the drive's state, and
-            // having it in a second pane split one question across two headings while
-            // duplicating the mounted-volume fact shown above.
+            // **The readiness banner is gone** (Step 11 increment 10). It rendered five mutually
+            // exclusive states driven by the helper's `blockingCause`, and every one of them either
+            // became false or found a better home:
             //
-            // It also fixes the stale-pane defect that prompted the merge. This banner now
-            // renders only inside `selectedDeviceIdentity(for:)`, which is called only with
-            // a device — so deselecting cannot leave a readiness answer on screen for a
-            // drive that is no longer named anywhere near it.
-            readinessBanner(for: device)
+            //   * *volumes mounted* — false since increment 5. Start owns the unmount, so this
+            //     instructed the user to do what the app does, wearing an `exclamationmark.shield`
+            //     on a healthy drive.
+            //   * *ready* and *checking…* — a paragraph saying nothing is wrong, and a spinner.
+            //   * *already held* — the other-device case is unreachable (`.selectionDisabled`
+            //     freezes the list during a run) and the same-device case restated a visibly
+            //     running run.
+            //   * *helper unreachable* — deleted 2026-09-01; the launch gate tells that story
+            //     app-wide and modally.
+            //   * *Full Disk Access* — **moved into `DevicePreparation`**, before the unmount, where
+            //     the answer is fresh by construction and 60 tests can reach it.
+            //
+            // The last one is why the deletion is an improvement rather than a subtraction. Every
+            // branch here was a snapshot taken at selection time and refreshed on selection and
+            // mount changes only, so granting the permission with the app open left this pane
+            // asserting the opposite for as long as the app stayed running. It looked like the
+            // earliest possible report and was a check with no expiry.
 
             Text("""
                  Block size and block count are as reported by IOKit. The helper \
@@ -562,81 +564,7 @@ struct DeviceListView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    /// What the helper says about the given device, or why it could not be asked.
-    ///
-    /// - Parameter device: the drive this answer is about. Taking it as a parameter rather than
-    ///   reading `discovery.selectedDevice` is what makes the no-selection case *unrepresentable*
-    ///   rather than merely handled: there is no longer a code path that renders a readiness
-    ///   answer with nothing selected, so none can be left stale by a deselection.
-    @ViewBuilder
-    private func readinessBanner(for device: DiscoveredDevice) -> some View {
-        // **The "the helper could not be asked" branch was deleted on 2026-09-01**, ahead of
-        // increment 10 deleting this banner entirely. Increment 10's plan already marked it
-        // *"Superseded by increment 9"*: the launch gate makes an unusable helper an app-wide,
-        // window-modal fact, so a per-device pane restating it is redundant.
-        //
-        // It was not merely redundant, it was **wrong**, and the user reported it three times while
-        // walking chunk 13: this answer is a snapshot taken at selection time and refreshed only on
-        // selection change and mount change, so a helper that was fixed *after* the pane last looked
-        // left the message standing over a working helper, with ⇧⌘D showing `enabled` beside it.
-        // A failed check now shows nothing, which is correct — the gate has the app-wide story, and
-        // Start's own preparation is what refuses a run that cannot proceed.
-        if let readiness {
-            VStack(alignment: .leading, spacing: 8) {
-                // **`readiness.helperHoldsThisDevice`, read directly.** It is a *per-device*
-                // answer, and this banner is rendered for exactly that device — which is the use
-                // it was always correct for. What was deleted in increment 5 is the model property
-                // it used to be copied into, because every *other* site read that copy as "the
-                // helper holds some device". The answer was never wrong; storing it was.
-                Label(readiness.message,
-                      systemImage: readiness.needsFullDiskAccess ? "hand.raised.fill"
-                                 : readiness.helperHoldsThisDevice ? "lock.fill"
-                                 : readiness.isReady ? "checkmark.shield"
-                                                     : "exclamationmark.shield")
-                    .font(.callout)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                // NFR-INST-4: the corrective control sits next to the message that asks
-                // for it. A missing Full Disk Access grant is not something the user can
-                // be expected to guess at from an errno, and it is a different pane from
-                // the Login Items approval — so it gets its own button rather than a
-                // generic "Open Settings".
-                if readiness.needsFullDiskAccess {
-                    Button("Open Full Disk Access settings…") {
-                        HelperRegistration.openFullDiskAccessSettings()
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-        } else {
-            Label("Checking with the helper…", systemImage: "ellipsis.circle")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     // MARK: - Actions
-
-    private func refreshReadiness() {
-        guard let device = discovery.selectedDevice else {
-            readiness = nil
-            return
-        }
-        helper.checkDeviceReadiness(bsdName: device.bsdName.rawValue) { result in
-            // A late reply for a device that is no longer selected must not overwrite the
-            // current one. The list rebuilds on every hot-plug, so this is not theoretical.
-            guard discovery.selectedDevice?.bsdName == device.bsdName else { return }
-            switch result {
-            case .success(let value):
-                readiness = value
-            case .failure:
-                // Shows nothing. The helper being unusable is the launch gate's story now, and it
-                // tells it app-wide and modally; see `readinessBanner(for:)`. This branch used to
-                // set a message that outlived the condition it described.
-                readiness = nil
-            }
-        }
-    }
 
     private func detailRow(_ label: String, _ value: String) -> some View {
         GridRow {

@@ -178,10 +178,39 @@ struct RunControlsView: View {
         .alert(model.runFailure?.title ?? "",
                isPresented: Binding(get: { model.runFailure != nil },
                                     set: { presented in if !presented { model.runFailure = nil } }),
-               presenting: model.runFailure) { _ in
-            Button("OK", role: .cancel) { }
+               presenting: model.runFailure) { failure in
+            // **Two buttons when the failure has a fix, one when it does not** (increment 10).
+            // Which failures have one, and what both buttons say, is `RunFailureRemedy`'s — a pure
+            // type a test can reach. What is left here is the `NSWorkspace` call it stands for,
+            // because an `.alert` cannot be rendered at all and everything inside this closure is
+            // therefore covered by a person and nothing else.
+            //
+            // The remedy is the **default action** and the dismissal takes `.cancel`, so Return
+            // opens Settings and Escape backs out — remedy-first, matching the launch gate, and
+            // the same reasoning as the quit confirmation's roles in `ContentView`.
+            //
+            // Neither button resumes anything: the start was abandoned before this appeared. See
+            // `RunFailureRemedy.dismissLabel`, which is where that is said out loud.
+            if let remedy = failure.remedy {
+                Button(remedy.label) { perform(remedy) }
+                Button(remedy.dismissLabel, role: .cancel) { }
+            } else {
+                Button("OK", role: .cancel) { }
+            }
         } message: { failure in
             Text(failure.text)
+        }
+    }
+
+    /// Carry out a remedy the failure dialog offered.
+    ///
+    /// An exhaustive `switch` on purpose: a new `RunFailureRemedy` is then a compile error here
+    /// rather than a button that does nothing — which is the defect chunk 13 found in the launch
+    /// gate, where a remedy was offered, pressed, and had no effect.
+    private func perform(_ remedy: RunFailureRemedy) {
+        switch remedy {
+        case .openFullDiskAccessSettings:
+            HelperRegistration.openFullDiskAccessSettings()
         }
     }
 

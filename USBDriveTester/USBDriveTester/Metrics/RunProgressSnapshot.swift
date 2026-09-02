@@ -90,10 +90,17 @@ nonisolated struct RunProgressSnapshot: Equatable {
     /// How fast the run is covering the drive, against the wall clock (FR-METR-5) — and the only
     /// correct ETA denominator.
     ///
-    /// Computed and unit-tested since Step 9 and logged every call, but not on the wire until
-    /// v12, so no screen could show it. Each covered byte is read, written and read again, so
-    /// ``sustainedReadBytesPerSecond`` runs at about 2 × this and
-    /// ``sustainedWriteBytesPerSecond`` at about 1 ×.
+    /// **Deliberately not displayed anywhere, since Step 11 increment 10.** The `Covering` row was
+    /// deleted from the panel, the report and the export together: `rangeBytesCovered` counts
+    /// **attempted** work while the label promised successful work, and the two only part on a
+    /// failing drive. The number is right and its name was not.
+    ///
+    /// It is kept because it is the wire's, not the app's, to remove — the reply signature cannot
+    /// change without a protocol version — and because increment 11's `R-W-R-C speed` arrives
+    /// beside it. **This is the field CONSTRAINTS warns about**: a wire field nothing displays is
+    /// how this very figure went a week computed, tested and logged while no screen could show it.
+    /// The difference now is that its absence is a decision written down here rather than an
+    /// oversight, and the ETA below is what consumes the quantity.
     let coverageBytesPerSecond: Double?
 
     /// Remaining wall-clock from measured throughput, or `nil` until there is something to

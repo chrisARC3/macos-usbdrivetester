@@ -86,11 +86,22 @@ nonisolated struct DeviceReadiness: Equatable {
     /// Open Settings for a missing Full Disk Access grant.
     let blockingCause: DeviceAccessRefusalCause
 
-    /// Human-readable summary, shown as the readiness banner.
+    /// Human-readable summary.
+    ///
+    /// **Its one surviving consumer is the Full Disk Access modal** (Step 11 increment 10). It used
+    /// to be the readiness banner's text; that banner is deleted, and what reaches the user now is
+    /// this string on the one branch that stops a run. `FullDiskAccessState.explanation` is where
+    /// the wording is written, so the app composes nothing of its own — two copies of that sentence
+    /// is the drift `OutcomePresentation` and `HonestFraming` both exist to prevent.
     let message: String
 
     /// Whether the helper lacks Full Disk Access (NFR-INST-4). Surfaced before a run is
     /// attempted, not after one fails.
+    ///
+    /// **True only for a probe that came back `denied`.** `FullDiskAccessState` is three-state
+    /// because the probe is conclusive in two directions only, and `.unknown` must never be read as
+    /// either — so this is `false` for an inconclusive answer, and `DevicePreparation` carries on
+    /// and lets the acquire's own precondition decide. Do not widen it to "not known to be granted".
     var needsFullDiskAccess: Bool { blockingCause == .accessNotPermitted }
 }
 

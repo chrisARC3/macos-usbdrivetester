@@ -18,14 +18,14 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–9 done; **increment 10 is next**
+## Step 11 — IN PROGRESS. Increments 1–10 done; **increment 11 is next**
 
-> ⚠️ **Increments 10, 11 and 12 are planned, approved and unwritten.** Their full scope, the
+> ⚠️ **Increments 11 and 12 are planned, approved and unwritten.** Their full scope, the
 > decisions behind them and what must not be re-opened are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
 > **Read it before starting either** — the decisions were argued through at length and
-> re-deriving them will not reach the same answers. Increment 9's section has been deleted from that
-> file, as its header instructs, now that the increment has landed.
+> re-deriving them will not reach the same answers. Increments 9 and 10's sections have been deleted
+> from that file, as its header instructs, now that those increments have landed.
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
@@ -124,7 +124,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **7 ✅** | **The main window's size.** It opened at screen height and its minimum did not fit a 13.3-inch Mac. `ContentView`'s height literal is deleted outright and each scrolling pane declares its own floor instead. **Unplanned** — it came out of looking at increment 6 on real hardware | **gated 2026-08-20**: chunk 9 passed in full, three clean builds, 991 tests. `321a820` + `5a4a76f` + **`faf9a93`** |
 | **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items, `e0f4415`. **Item 7.5 and the chunk 8 item 3 recheck closed 2026-09-01** |
 | **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 passed in full 2026-08-27/09-01**, and found five defects; `8b0db53`, `bd8281d`, `2ed5984` |
-| **10 ⬜** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check becomes an injected operation in `DevicePreparation`, **before the unmount**, with a two-button modal. The **readiness banner** goes entirely — every branch then has a home or is dead — and so does the **`Covering` row** | **planned and approved, unwritten.** App target only; v12 stands |
+| **10 ✅** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check is an injected operation in `DevicePreparation`, **before the unmount**, with a two-button alert. The **readiness banner** is gone entirely, and `DeviceListView` no longer holds an XPC connection at all — which the plan did not predict. **`Covering` was deleted from three surfaces, not one** | **code done 2026-09-02** — see below. Built in three chunks, suite green between each. App target only; v12 stands |
 | **11 ⬜** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which exists nowhere today. Deliberately **not** called "Progress speed" | **planned and approved, unwritten.** **Protocol v12 → v13**: hash moves, 13 gate clients, two gate scripts, hardware gates re-run |
 | **12 ⬜** | **⌘Q works under every sheet.** `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit refuses it *before* `applicationShouldTerminate`, so `QuitPolicy` never votes. ⌘Q is therefore dead under the pre-run dialog, the report sheet and the launch gate. **Unplanned**: produced by walking chunk 13, and it is the true cause of increment 5's check 6.1 | **planned and approved, unwritten.** App target only. Increment 9 fixed only the gate's own Quit button, by user decision |
 
@@ -159,21 +159,20 @@ find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDr
 Helper **plus `Shared/`**. The recipe behind hashes recorded before 2026-08-19 is not written down
 anywhere and does not reproduce; only hashes from `a36c4f77…` onward are checkable.
 
-### Where increment 10 starts
+### Where increment 11 starts
 
-Re-derived 2026-09-01. **No tree hash is named on purpose** — it would be stale by the next commit,
-which is the failure mode this project keeps paying for. `git log --oneline -6` shows the four
-chunk-13 commits.
+Re-derived 2026-09-02. **No tree hash is named on purpose** — it would be stale by the next commit,
+which is the failure mode this project keeps paying for.
 
 | | |
 |---|---|
 | **Tree** | clean, on `main` |
-| **Verified** | **1073 tests, 0 failures, 134 suites** (floor 1073); zero Swift source warnings, Debug and Release, DerivedData wiped; **13/13** gate clients type-check |
+| **Verified** | **1088 tests, 0 failures, 135 suites** (floor 1088); zero Swift source warnings, Debug and Release, DerivedData wiped; **13/13** gate clients type-check |
 | **Helper** | source hash **`73990c90…`**, unchanged since 2026-08-24. Bumped to v13 and back three times on 2026-09-01 for chunk 13 item 7 and returns byte-identical. So **Step 10's `xpc-concurrency-check.sh` and `retention-cycle-check.sh` are still owed** — because the binary moved at increment 8's gate, not because anything failed; `metrics-check.sh` was re-run and passes |
 | **Protocol** | **v12** |
-| **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
-| **Human checklist** | **complete** — every chunk walked and passed, 2026-09-01. Nothing owed |
-| **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) was **not attached** on 2026-09-01. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
+| **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty — **unchanged across increment 10**, as predicted. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
+| **Human checklist** | **chunk 14 is owed** — added by increment 10 and unwalked. Chunks 1–13 all walked and passed by 2026-09-01 |
+| **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) is **not attached** — still true on 2026-09-02, read off a live `devices` render: `General UDisk`, `Samsung Flash Drive`, two Seagate Expansions, the 1 TB Portable SSD T5 and the 990 EVO Plus. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
 
 **The run is read → write-back → verify**, so a test run refreshes a drive rather than erasing it —
 recorded because the opposite was said out loud on 2026-09-01 and it changes which drive somebody is
@@ -930,7 +929,7 @@ else; the report kept `Negotiated USB link speed` where the 2026-08-04 decision 
 ~~**Still owed after this**: item 7.5, and a one-off recheck of chunk 8 item 3's moved sentence.~~
 **Both closed 2026-09-01 — the human checklist is complete.**
 
-### Covering is mislabelled — found 2026-08-25, fix planned
+### Covering is mislabelled — found 2026-08-25, **row deleted 2026-09-02 (increment 10)**
 
 Raised by the user from the metrics panel: *Covering* always equals *Write*, which looked like an
 implementation error. It is not — the two share a numerator and a denominator, because a cycle
@@ -946,9 +945,10 @@ never converges. **The defect is the name.**
 
 Three decisions followed, and they are scheduled as increments below:
 
-* **The `Covering` row is deleted.** It is always equal to the slower of Read and Write, and the
-  time-remaining estimate is what the figure was for. App-target only; the internal quantity and the
-  ETA are untouched.
+* ~~**The `Covering` row is deleted.**~~ **Done, increment 10 (2026-09-02) — and it was three rows,
+  not one.** The panel, the report sheet and the exported Markdown all carried it, and the prose
+  explaining it existed twice. All three went together. App-target only; the internal quantity and
+  the ETA are untouched, and the wire field stays, documented as deliberately undisplayed.
 * **A new figure, `R-W-R-C speed`** — bytes whose chunk outcome is `.completed`, per second. Only
   that one outcome counts: `.verifyMismatch` ran all four steps and failed the compare, and it is
   deliberately **not** an `isPhaseFailure`, so a bare `!isPhaseFailure` test would score a retention
@@ -1287,6 +1287,128 @@ same bytes are rewritten to refresh charge: `128MB_Thumb` remounted afterwards w
 Not risk-free — a write failing mid-cycle could still cost data — but "destroys the contents" is
 materially wrong for a retention tester, and it is the kind of claim that changes which drive
 somebody is willing to point it at.
+
+### Increment 10 ✅ — FDA moves to Start; the readiness banner and the `Covering` row deleted. 2026-09-02
+
+Built in three chunks with the suite green between each, at the user's direction. **App target only:
+protocol v12 unchanged, helper source hash re-derived to `73990c90…` and unmoved**, so the two owed
+Step 10 gates are exactly as owed as they were.
+
+| | |
+|---|---|
+| **Verified** | **1088 tests, 0 failures, 135 suites** (floor 1088). 1073 → 1088 is exactly the 15 tests written and 134 → 135 exactly the one new suite |
+| **Warnings** | zero from source, Debug and Release, DerivedData wiped. SwiftCompile Debug **88** / Release **2** — unchanged from increment 9, correct because no file was added |
+| **Helper** | **untouched**, hash `73990c90…` |
+| **Window** | `window-fit-check.sh` worst case **613 pt**, `content-starting` — **unchanged**, and that was predicted before it was measured; see below |
+| **Renders** | **37 cases, unchanged.** An `.alert` cannot be rendered, so the new modal adds none |
+| **Gate clients** | 13/13 type-check |
+
+**Two things the plan did not predict, and one prediction that held.**
+
+#### `Covering` was on three surfaces, not one
+
+The plan's section is headed *"The `Covering` row is deleted"* and names only `RunMetricsView`. The
+row was also on the **report sheet** and in the **exported Markdown**, and the prose explaining it
+existed twice — once inline in the panel and once in `ThroughputFraming.definition`, which opens
+*"All three rates…"* and feeds both report renderers.
+
+**All three went** (user decision, taken at scoping 2026-09-02). Deleting two of three would have
+left the report naming a figure the live panel refuses to name — and the report is the artefact a
+drive's history is kept in, so the mislabel would have survived in the copy that gets forwarded and
+re-read months later. `ThroughputFraming.definition` now says *"Both rates…"*.
+
+**The wire field stays and is documented as deliberately undisplayed.** `coverageBytesPerSecond` is
+still the ETA's quantity helper-side and still arrives in every reply; what changed is that no screen
+shows it. CONSTRAINTS records *"a wire field nothing displays"* as a hazard — this is that field, and
+the difference now is that its absence is a decision written at the site rather than an oversight.
+
+#### `DeviceListView` no longer holds an XPC connection at all
+
+Deleting the banner left `let helper: HelperConnection` unread — the banner was its only consumer.
+Removing it changed five call sites (one in the app, four in `ui-probe`) and is worth more than the
+tidiness: **the `devices*` renders no longer construct a connection**, so a render cannot reach this
+machine's live daemon by accident. That is the ambient-state leak CONSTRAINTS records twice, closed
+by construction here rather than by care.
+
+It also **retired a note in the probe that had gone false**. The `devices` case carried a comment
+explaining that the banner would render its *"could not ask the helper"* state offscreen — so one
+region of every `devices` capture was showing a state peculiar to being rendered. That is gone: what
+the render shows is now what a user sees.
+
+#### The window-fit prediction held exactly
+
+Predicted at scoping: the gate would barely move, and a null result would not be a failure. It
+**did not move at all** — 613 pt before and after.
+
+The plan estimated the pane loses "55–60 pt at the 3-volume fixture" and correctly flagged that as a
+line count. Sharper than that, and now measured: **the harness has no daemon, so no render can ever
+show a mounted-volumes banner** — every render showed the one-line *"Checking with the helper…"*
+placeholder. And the banner sat inside the device-detail `ScrollView`, whose declared
+`deviceDetailFloor` of 104 pt is what SwiftUI sums; deleting content inside a scroll region does not
+move a declared floor. The real-hardware saving is on a state the gate cannot produce.
+
+#### A live defect the deletion removed rather than fixed
+
+PROGRESS and the source both claimed that after 2026-09-01 *"a failed readiness check now shows
+nothing."* It did not: `readiness = nil` fell to the `else` branch and rendered **"Checking with the
+helper…" indefinitely**. Harmless, and gone with the banner — recorded so the claim is not carried
+forward as though it had been true.
+
+#### What the FDA move actually gained
+
+The check runs **after the selection check and before the unmount**. Three decisions taken at
+scoping that the plan did not settle:
+
+- **After the selection check**, not before it: that check is local and free, this one is an XPC
+  round trip, and there is no reason to pay it for a drive that has gone.
+- **Only a `denied` probe stops a run.** `.unknown` and a **transport failure** both carry on, and
+  the acquire's helper-side precondition decides. Aborting on "could not ask" would make an
+  unreachable helper indistinguishable from a missing permission and offer a remedy for a problem
+  the user does not have.
+- **A two-button `.alert`, not a sheet.** Precedent both ways — `ContentView`'s quit confirmation is
+  a two-button alert and the existing preparation-failure path is an alert — against increment 9's
+  renderable gate sheet. The alert keeps one modal idiom for one class of outcome; the cost is
+  stated rather than discovered: **the dialog has no render cover at all** and chunk 14 item 4 is
+  the whole of it.
+
+`RunFailureMessage` gains a defaulted `remedy`, and `OutcomeOperation.remedy` is the exhaustive
+mapping that decides it — so a future operation with a fix is a compile error rather than a
+button-less dialog. `RunFailureRemedy` owns **both** labels, and `dismissLabel` — *"Cancel Test"* —
+is where "both buttons end the run" is written down: by the time the dialog is up the start has been
+abandoned, and "OK" would leave that ambiguous.
+
+**`OutcomeOperation.fullDiskAccess` is the first case there that can only fail**, and
+`successIsSelfEvident` returns `true` with the asymmetry stated at the site. Nothing constructs a
+success outcome for a precondition, and answering `false` would invent an "access was granted"
+message no code path can produce.
+
+#### Two traps paid for, both already written down
+
+- **`#expect`'s comment argument is a `Comment`, expressible by a string *literal*.** `"a" + "b"` is
+  a `String` expression and will not convert. It cost two failed compiles, in new test comments.
+  BUILD-PLAN's Swift list already says this.
+- **`sips --cropOffset` was silently ignored**, returning the source image unchanged with no error —
+  exactly as CONSTRAINTS records. Reading the full-height render is the way round it.
+
+#### A recorded blind spot is smaller than it says
+
+CONSTRAINTS and the checklist both list the report body under *"no automated cover, and will not get
+any"*, because *"a render stops at `## Measurements`"*. **That is a function of the height renders
+were taken at, not of the scroll region.** At `render-ui.sh out.png 720 1500 report` the region has
+nothing left to hide and the **whole** body renders — claim sentences, both framing paragraphs and
+the closing section. That is how this increment's rewrite of `ThroughputFraming.definition` was
+checked, and it is the first time that wording has been read in the artefact rather than the source.
+Corrected in both places.
+
+#### Still owed
+
+**Chunk 14 of the human checklist**, added by this increment and unwalked — seven items, of which 3–6
+start a run and item 4 revokes Full Disk Access reversibly. It is the only cover the FDA modal has,
+and its item 4 is the only check anywhere that the remedy button *does anything*: the launch gate
+shipped a remedy whose first press, in chunk 13, did nothing at all.
+
+**No mutation round has been run for this increment.**
+
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
 
