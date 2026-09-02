@@ -183,6 +183,21 @@ exactly inside out. The scratch device has since been `disk4`, `disk8`, and `dis
 
 *Full account: `progress/drive-identity-serial-numbers.md`.*
 
+**A USB bridge answers for the drive, and often declines.** `Medium Type` — the IOKit key behind the
+`Medium` row — is published by the enclosure, not the medium. Measured 2026-09-02 across six
+attached drives: the Portable SSD T5 and the 990 EVO Plus enclosure report `Solid State`; the
+125.8 MB and 256.6 GB thumb drives and both Seagate Expansions publish nothing at all. **Two of the
+three drives with no value are NAND**, so absence is not evidence of rotational media, and nothing
+may gate a warning on it — FR-WARN-2's "run this infrequently on NAND" is unconditional in
+`HonestFraming.mandatory` and must stay that way. Same shape as the SMART exclusion: what a bridge
+declines to report is not information about the drive.
+
+**Two drives on this machine share a block count.** The scratch Portable SSD T5 (`12345686DAA9`) and
+the 990 EVO Plus holding this repository (`013117100578`) are both 1,953,525,168 blocks.
+`device-identity.sh` selects on **serial** and uses the block count only to confirm, which is the
+right way round and must stay that way — a block count cannot discriminate these two, and the drive
+it would confuse the scratch device with is the one carrying the source tree.
+
 ### Registering and replacing the helper (`SMAppService`)
 
 Both measured at the keyboard on 2026-08-31/09-01, walking chunk 13 item 7. Neither is documented by

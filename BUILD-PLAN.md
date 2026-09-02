@@ -136,6 +136,20 @@ are **process**, not history.
   and takes any uncommitted work in that file with it. Re-derive the helper source hash afterwards
   and check it against the known-good value; that is what caught it.
 
+- **Reinstall before walking a human-checklist chunk, and kickstart the daemon after.** On
+  2026-09-02 chunk 14 was about to be walked against a build from the previous day that **predated
+  the increment the chunk exists to test** — `/Applications` is only as current as the last
+  `install-app.sh`, and running the suite does not update it. `strings` cannot settle it: the
+  increment's literals were absent and so were the controls, so the test is inert. **Compare the
+  installed binary's mtime against the increment's commit.** Then
+  `sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper`, because
+  `install-app.sh` replaces the helper binary underneath a running daemon and **nothing announces
+  the mismatch when the helper source has not moved.**
+- **Internal vocabulary must not reach a person at a keyboard.** The same walk stalled on an item
+  relayed as "press the remedy button": `RunFailureRemedy` is a type name and no control says
+  "remedy". The checklist itself was correct; the paraphrase was not. Restating a checklist item
+  is as capable of breaking it as editing one.
+
 **The build environment**
 
 - Full Xcode 26.5 is at **`/Applications/Development/Xcode.app`** and is **not** the selected

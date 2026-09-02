@@ -173,6 +173,8 @@ which is the failure mode this project keeps paying for.
 | **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty — **unchanged across increment 10**, as predicted. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
 | **Human checklist** | **complete — nothing owed.** Chunk 14 walked and passed in full 2026-09-02, all seven items, against a build installed that day; chunks 1–13 by 2026-09-01. No product defect found. It required a rebuild first: `/Applications` held a 2026-09-01 build, predating increment 10 |
 | **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) is **not attached** — still true on 2026-09-02, read off a live `devices` render: `General UDisk`, `Samsung Flash Drive`, two Seagate Expansions, the 1 TB Portable SSD T5 and the 990 EVO Plus. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug, built **2026-09-02 13:22**, daemon kickstarted after. Current as of increment 10 — **increment 11 moves the helper hash, so it must be reinstalled and the daemon kickstarted again before any hardware gate or checklist walk.** See BUILD-PLAN's "Verifying a step" |
+| **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`, added 2026-09-02. `LICENSE` (MIT) and `README.md` exist at the root. Commit straight to `main`; nothing is pushed unless asked. Distribution is unchanged — source only, Step 16 |
 
 **The run is read → write-back → verify**, so a test run refreshes a drive rather than erasing it —
 recorded because the opposite was said out loud on 2026-09-01 and it changes which drive somebody is
