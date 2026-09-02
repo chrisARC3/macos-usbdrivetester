@@ -52,12 +52,36 @@ pane. Its first four items are the only cover the new registry read has: the mut
 misspelled key and a pane wired to a constant both survive the entire 1025-test suite, because
 `IOKitDeviceEnumerator` needs hardware and nothing in the suite has any.
 
-> **CHUNK 14 IS OWED, as of 2026-09-02**, and it is the only thing in this file that is. It was
-> added with increment 10 and has not been walked. Everything before it has been walked and passed.
+**CHUNK 14 PASSED IN FULL — ALL SEVEN ITEMS, 2026-09-02.** Added the same day by increment 10 and
+walked the same day, against a build installed at 13:22 — **the walk was blocked once and rebuilt
+for**: the app in `/Applications` was from 2026-09-01 15:24, before increment 10 existed, so the
+first three items would have been walked against the build the chunk was written to test the
+replacement of. Item 4 is the only cover the Full Disk Access modal has anywhere: an `.alert` cannot
+be rendered by `ui-probe`, so that the dialog appears, that its two buttons are in the right order,
+and that the remedy actually opens System Settings are reachable by a person and by nothing else.
+All five of its bullets passed, including the two no test reaches — the remedy opened the pane, and
+**no volume had been unmounted**, which is the ordering the whole placement decision rests on.
+
+**It found no defects in the product.** It stalled once, on the *instruction* rather than the app:
+item 4's fourth bullet was relayed to the walker as "press the remedy button", which is
+`RunFailureRemedy`'s type name and appears nowhere on screen. This file's own line 878 says "press
+**Open Full Disk Access Settings…**" and is correct; the paraphrase was made in conversation. The
+walker stopped rather than guess, which is the right response to an instruction naming a control
+that is not there. **Recorded because the lesson is this file's own**: internal vocabulary must not
+reach a person at a keyboard, in the file or in any restatement of it.
+
+Two questions raised while walking it, both answered from source and neither a defect —
+"Read runs at about twice Write" is a counting identity of the cycle rather than a solid-state
+claim, and the `Medium` row appears exactly when the USB bridge publishes `Medium Type`. Both
+produced comment fixes; see `DiscoveredDevice.mediumType`, whose old wording invited the wrong
+inference.
+
+> **NOTHING IS OWED, as of 2026-09-02.** Every chunk in this file has been walked and passed.
 >
-> ⚠️ **This line said "NOTHING IS OWED" until chunk 14 was written**, and leaving it would have been
-> the precise failure the box below records — a summary carried forward without the body being read.
-> A new chunk makes the summary false the moment it is added, and the two edits belong together.
+> ⚠️ **This line said "NOTHING IS OWED" until chunk 14 was written, then said chunk 14 was owed,
+> and now says it again** — the round trip is the point. A new chunk makes the summary false the
+> moment it is added, and walking one makes it false again; the summary and the body are edited
+> together, every time, or this file resumes lying about itself.
 >
 > Chunks 1–13, and the last three items to close among them on 2026-09-01: **chunk 13** in full,
 > **item 7.5** — a whole-device run on the
@@ -822,7 +846,12 @@ machine state is not a unit test, and that one would have done it on every run o
 `.retry` is driven; **items 3 and 4 are the cover for the other two.**
 
 
-### Chunk 14 — Full Disk Access at Start, and two deletions (increment 10) *(item 3 needs a run; item 4 revokes a permission — ask first)*
+### Chunk 14 — Full Disk Access at Start, and two deletions (increment 10) — **PASSED IN FULL 2026-09-02** *(item 3 needs a run; item 4 revokes a permission — ask first)*
+
+> **All seven items passed 2026-09-02**, against a Debug build installed at 13:22 that day. The
+> daemon was kickstarted first: `install-app.sh` replaces the helper binary underneath a running
+> daemon, and increment 10 left the helper source untouched, so nothing would have announced the
+> mismatch. No product defect found. See the header for what it did find.
 
 Increment 10 moved NFR-INST-4's Full Disk Access check out of the Selected device pane and into the
 start of a run, deleted the readiness banner entirely, and deleted the `Covering` row from all three

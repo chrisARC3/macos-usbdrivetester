@@ -407,9 +407,10 @@ simulation-first still applies wherever the plan calls for it.
 > anything failed. `metrics-check.sh` was re-run and passes. The 4 TB T5 EVO fixture is **not
 > attached** as of 2026-09-02, and the 1 TB T5's `/dev/urandom` fill file must be kept.
 >
-> **The human checklist owes chunk 14**, added by increment 10 and unwalked; chunks 1–13 were all
-> walked and passed by 2026-09-01. Its item 4 asks for Full Disk Access to be revoked, and it is the
-> only cover the run-start Full Disk Access dialog has anywhere.
+> **The human checklist is complete — nothing owed.** Chunk 14, added by increment 10, was walked
+> and passed in full on 2026-09-02: all seven items, no product defect. Its item 4 revokes Full Disk
+> Access and is the only cover the run-start dialog has anywhere; the remedy button was pressed and
+> System Settings opened, and no volume had been unmounted. Chunks 1–13 passed by 2026-09-01.
 >
 > **`window-fit-check.sh` worst case is 613 pt** against a committed 700 pt budget, with
 > `.window-fit-exceptions` empty; **37** render cases.

@@ -31,7 +31,15 @@ import Foundation
 /// The throughput figures' meaning, stated once.
 nonisolated enum ThroughputFraming {
 
-    /// What the three rates divide by — the thing that makes them checkable against anything else.
+    /// What both rates divide by — the thing that makes them checkable against anything else.
+    ///
+    /// Said "the three rates" until 2026-09-02, one day after increment 10 deleted `Covering` and
+    /// rewrote the string below from "All three rates" to "Both rates". Found by a reader asking
+    /// whether the "twice Write" clause was a solid-state claim. **It is not, and the ratio is not
+    /// a hardware property at all**: both rates share this denominator, and the cycle reads every
+    /// byte twice and writes it once, so a clean run gives 2 on any medium. Failures are what move
+    /// it — a chunk failing its read contributes no `bytesRead`, one failing its write contributes
+    /// a read and no write. See `TesterControl.version`'s v12 note.
     ///
     /// A rate whose denominator is unstated cannot be reproduced by the reader, and this app spent
     /// a week showing figures 1.5x and 3.4x what Activity Monitor showed for the same drive with

@@ -84,9 +84,22 @@ nonisolated struct DiscoveredDevice: Identifiable, Hashable {
     /// `Product Name` from the IOKit Device Characteristics, if present (FR-DEV-6).
     let productName: String?
 
-    /// `Medium Type`, e.g. `Solid State`. Absent on most rotational drives, which is
-    /// itself informative. Captured now because it is free at enumeration time and
-    /// Step 14's "run this infrequently on NAND" warning (FR-WARN-2) will want it.
+    /// `Medium Type` from the IOKit Device Characteristics, e.g. `Solid State` (FR-DEV-6).
+    ///
+    /// **Absence means the USB bridge did not publish the key. It does not mean the medium is
+    /// rotational.** Measured 2026-09-02 across the six drives attached to this machine: the
+    /// Portable SSD T5 and the 990 EVO Plus enclosure report `Solid State`; the 125.8 MB and
+    /// 256.6 GB thumb drives and both Seagate Expansion enclosures publish nothing at all. **Two
+    /// of the three drives with no value are NAND.** This comment said absence was "itself
+    /// informative" until 2026-09-02, which invites precisely the inference the thumb drives
+    /// refute.
+    ///
+    /// **Nothing may gate a warning on this field.** It was captured because Step 14's "run this
+    /// infrequently on NAND" warning (FR-WARN-2) was expected to want it — and Step 14 shipped
+    /// that warning **unconditional**, in `HonestFraming.mandatory`, where it must stay. Keying it
+    /// off this value would drop the warning on exactly the flash drives that cannot report being
+    /// flash. Display-only: `DeviceListView` renders a `Medium` row when it is present and omits
+    /// the row when it is not, which is why the row follows the enclosure rather than the drive.
     let mediumType: String?
 
     /// Total capacity in bytes (IOKit `Size`) (FR-DEV-6, NFR-USE-3).

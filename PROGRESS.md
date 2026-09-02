@@ -171,7 +171,7 @@ which is the failure mode this project keeps paying for.
 | **Helper** | source hash **`73990c90…`**, unchanged since 2026-08-24. Bumped to v13 and back three times on 2026-09-01 for chunk 13 item 7 and returns byte-identical. So **Step 10's `xpc-concurrency-check.sh` and `retention-cycle-check.sh` are still owed** — because the binary moved at increment 8's gate, not because anything failed; `metrics-check.sh` was re-run and passes |
 | **Protocol** | **v12** |
 | **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty — **unchanged across increment 10**, as predicted. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
-| **Human checklist** | **chunk 14 is owed** — added by increment 10 and unwalked. Chunks 1–13 all walked and passed by 2026-09-01 |
+| **Human checklist** | **complete — nothing owed.** Chunk 14 walked and passed in full 2026-09-02, all seven items, against a build installed that day; chunks 1–13 by 2026-09-01. No product defect found. It required a rebuild first: `/Applications` held a 2026-09-01 build, predating increment 10 |
 | **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) is **not attached** — still true on 2026-09-02, read off a live `devices` render: `General UDisk`, `Samsung Flash Drive`, two Seagate Expansions, the 1 TB Portable SSD T5 and the 990 EVO Plus. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
 
 **The run is read → write-back → verify**, so a test run refreshes a drive rather than erasing it —
@@ -1402,10 +1402,20 @@ Corrected in both places.
 
 #### Still owed
 
-**Chunk 14 of the human checklist**, added by this increment and unwalked — seven items, of which 3–6
-start a run and item 4 revokes Full Disk Access reversibly. It is the only cover the FDA modal has,
-and its item 4 is the only check anywhere that the remedy button *does anything*: the launch gate
-shipped a remedy whose first press, in chunk 13, did nothing at all.
+~~**Chunk 14 of the human checklist**, added by this increment and unwalked.~~ **Walked and passed
+in full 2026-09-02**, all seven items, no product defect. Item 4 was the only cover the FDA modal
+has and the only check anywhere that the remedy button *does anything* — the launch gate shipped a
+remedy whose first press, in chunk 13, did nothing at all. This one opened System Settings at the
+right pane, and **no volume had been unmounted**, which is the ordering the placement decision
+rests on.
+
+**It needed a rebuild before it could start.** `/Applications` held a build from 2026-09-01 15:24,
+predating this increment; the first three items would have been walked against the build the chunk
+was written to test the replacement of. `strings` could not settle it either way — the control
+literals were absent too, so the test was inert — and the timestamp was the evidence. **Reinstall
+before walking a chunk that covers an increment**, and kickstart the daemon after: `install-app.sh`
+replaces the helper binary underneath a running daemon and nothing announces the mismatch when the
+helper source has not moved.
 
 **No mutation round has been run for this increment.**
 
