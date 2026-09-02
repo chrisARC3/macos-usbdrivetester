@@ -392,14 +392,32 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-08-18: Steps 1–10 and Step 14 are complete and committed. STEP 11 IS IN PROGRESS
-> — increments 1–5 are done, 6 and 7 remain.** The suite stands at **964 tests / 122 suites /
-> 0 failures**, protocol **v12**, zero source warnings from three clean builds. The helper's source
-> hash is `f983b4e5…`.
+> **Status, 2026-09-02: Steps 1–10 and Step 14 are complete and committed. STEP 11 IS IN PROGRESS
+> — increments 1–10 are done, 11 and 12 remain.** The suite stands at **1088 tests / 135 suites /
+> 0 failures** (floor 1088), protocol **v12**, zero source warnings from three clean builds with
+> DerivedData wiped, **13/13** gate clients type-checking. The helper's source hash is
+> `73990c90…`, unmoved since 2026-08-24.
 >
-> **All three of Step 10's hardware gates were re-run on 2026-08-18 and pass** against the current
-> binary — `metrics-check.sh` 120/0, `retention-cycle-check.sh` 15/0, `xpc-concurrency-check.sh`
-> 8/0. They were owed because the helper binary moved, not because the write path changed.
+> **Increments 11 and 12 are planned, approved and unwritten** —
+> [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) holds their scope and
+> the decisions behind them. **Read it before starting either.**
+>
+> **Two of Step 10's three hardware gates are owed** — `xpc-concurrency-check.sh` and
+> `retention-cycle-check.sh`, because the helper binary moved at increment 8's gate, not because
+> anything failed. `metrics-check.sh` was re-run and passes. The 4 TB T5 EVO fixture is **not
+> attached** as of 2026-09-02, and the 1 TB T5's `/dev/urandom` fill file must be kept.
+>
+> **The human checklist owes chunk 14**, added by increment 10 and unwalked; chunks 1–13 were all
+> walked and passed by 2026-09-01. Its item 4 asks for Full Disk Access to be revoked, and it is the
+> only cover the run-start Full Disk Access dialog has anywhere.
+>
+> **`window-fit-check.sh` worst case is 613 pt** against a committed 700 pt budget, with
+> `.window-fit-exceptions` empty; **37** render cases.
+>
+> **The repository has a remote as of 2026-09-02** — private
+> [`chrisARC3/macos-usbdrivetester`](https://github.com/chrisARC3/macos-usbdrivetester), branch
+> `main`. Nothing about the distribution decision below changes: source only, and Step 16 is still
+> where a build reaches anyone.
 >
 > One unplanned change sits between increments 5 and 6: **protocol v12**, after the displayed
 > throughput figures were reported as "way off". They divided by phase time where every other tool
