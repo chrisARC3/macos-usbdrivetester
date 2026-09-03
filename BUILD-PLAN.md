@@ -13,13 +13,21 @@ Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Di
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
 
-> **The step in progress is Step 11 (increments 1–9 done and gated; increment 10 next), and the
-> protocol is v12.** Increments **10, 11 and 12 are planned, approved and unwritten** — their full
-> scope is in [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which
-> must be read before starting any of them. **The human checklist is complete** as of 2026-09-01:
-> every chunk walked and passed, nothing owed. Anything below that names an
-> earlier protocol version is a dated record of what was true when it was written — the inherited
-> notes on Steps 11 and 12 especially. `PROGRESS.md` is the tracker; `CONSTRAINTS.md` is what binds.
+> **The step in progress is Step 11 (increments 1–11 done; increment 12 next), and the protocol is
+> v14.** Increment **12 is planned, approved and unwritten** — its full scope is in
+> [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which must be read
+> before starting it. **The human checklist owes chunk 15**, added 2026-09-03 for increment 11;
+> everything else is walked and passed. ⚠️ **Chunk 15's item 1 must be walked BEFORE the app is
+> reinstalled** — it uses the stale daemon in `/Applications` as its fixture.
+>
+> ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
+> until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
+> that was reading it. A status block is the first thing a cold session believes and the last thing
+> anyone thinks to check; edit it in the same commit as the thing it describes.
+>
+> Anything below that names an earlier protocol version is a dated record of what was true when it
+> was written — the inherited notes on Steps 11 and 12 especially. `PROGRESS.md` is the tracker;
+> `CONSTRAINTS.md` is what binds.
 **Source documents:**
 - [Product Brief](USBDriveTester.md)
 - [ADR-001](ADR-001-usb-drive-tester.md) — the 16 Action Items this plan sequences
@@ -421,10 +429,17 @@ simulation-first still applies wherever the plan calls for it.
 > anything failed. `metrics-check.sh` was re-run and passes. The 4 TB T5 EVO fixture is **not
 > attached** as of 2026-09-02, and the 1 TB T5's `/dev/urandom` fill file must be kept.
 >
-> **The human checklist is complete — nothing owed.** Chunk 14, added by increment 10, was walked
-> and passed in full on 2026-09-02: all seven items, no product defect. Its item 4 revokes Full Disk
-> Access and is the only cover the run-start dialog has anywhere; the remedy button was pressed and
-> System Settings opened, and no volume had been unmounted. Chunks 1–13 passed by 2026-09-01.
+> **The human checklist owes chunk 15**, added 2026-09-03 by increment 11 for FR-METR-1's
+> amendment. Its item 2 is the one that matters most: nothing anywhere checks that the figures
+> actually disagree with Activity Monitor by the factors the report claims, only that the report
+> claims them. A seventh item, on the v12/v14 protocol mismatch, was deleted unwalked on
+> 2026-09-03 — the fixture was destroyed by an early `install-app.sh`.
+>
+> Everything else is walked and passed. Chunk 14, added by increment 10, passed in full on
+> 2026-09-02: all seven items, no product defect. Its item 4 revokes Full Disk Access and is the
+> only cover the run-start dialog has anywhere; the remedy button was pressed and System Settings
+> opened, and no volume had been unmounted. Chunks 1–13 passed by 2026-09-01. **Four items went
+> stale and were corrected 2026-09-03**, three of them since increment 10 — see that file's header.
 >
 > **`window-fit-check.sh` worst case is 613 pt** against a committed 700 pt budget, with
 > `.window-fit-exceptions` empty; **37** render cases.
@@ -438,6 +453,12 @@ simulation-first still applies wherever the plan calls for it.
 > throughput figures were reported as "way off". They divided by phase time where every other tool
 > divides by the wall clock. See PROGRESS.md — the denominator took three attempts and two of them
 > were refuted on hardware.
+>
+> **That decision was reversed in increment 11 (protocol v14, 2026-09-02).** FR-METR-1 was amended:
+> the displayed rates divide by phase time again, because reconciling with Activity Monitor is no
+> longer an objective — a device tester should report what the device did while it was working. The
+> denominator work above still stands for `coverageBytesPerSecond` and the ETA, which never moved.
+> Read the FR document's 2026-09-02 amendment before reading the two entries as a circle.
 >
 > **The order is deliberate and is not the numbering.** Step 14 was built before Step 11 because
 > Step 11's deletion of the `Unmount All` / `Acquire` / `Release` controls was gated on Step 14's

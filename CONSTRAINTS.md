@@ -878,3 +878,42 @@ Every defect this project has produced came from trusting a substitute for the r
   helper-side precondition decide. Refusing to start on "could not ask" would make a dead helper
   indistinguishable from a missing permission. The full account is NFR-INST-4's 2026-09-02
   amendment.
+- **A protocol bump that keeps its arity is the dangerous kind, and the handshake is the only thing
+  that can see it.** Every version through v13 changed a reply's shape, so a mismatched app and
+  daemon failed to decode and something said so loudly. v14 moved three rates onto a different
+  denominator with both replies at 22 and 13 arguments unchanged: a v13 app against a v14 daemon
+  decodes perfectly and displays figures low by the ratio of running time to phase time, and nothing
+  downstream is wrong enough to notice. **When the constant moved, exactly one test in 1092 failed.**
+  Reinstall and kickstart before any hardware gate or checklist walk is a correctness requirement
+  after a bump like this, not hygiene — and a gate whose prerequisites are stale will print numbers
+  that look almost right.
+- **A number in prose that nothing asserts will drift, and "increment it" is the wrong repair.**
+  `RunMetrics.swift`'s rate table read "Five rates" over a six-row table for weeks, and the increment
+  that added a seventh row made it "Six". Both counts survived reviews in which the arithmetic below
+  them was checked line by line. The count came out rather than being corrected; where a count is
+  genuinely load-bearing, derive it from the thing it counts, as
+  `theDefinitionNamesEveryRateTheReportTabulatesAndNoOther` parses the rendered table.
+- **Search-and-replace across a codebase rewrites the prose that records what a name used to be, and
+  prose does not fail to compile.** Renaming the app-side `sustained*` rate properties to match what
+  v14 made them carry also silently rewrote a protocol-history sentence describing what those names
+  *became* in v12 — into a sentence saying two things had become themselves. The compiler is no help
+  here and neither is the test suite. After a bulk rename, grep the renamed identifiers for words
+  like "became", "until", "previously" and version numbers, and read what comes back.
+- **A prose claim can be the safety mechanism of a change, and then it needs its own assertion.**
+  FR-METR-1's 2026-09-02 amendment is defensible only because the report tells the reader these
+  figures will not match Activity Monitor. That sentence could be deleted outright with the whole
+  suite green: the tests around it checked *which rates* it named and that the document contained the
+  constant, and the second kind moves with the constant when it is edited. "The document contains
+  what the code says" is not cover for what the code says.
+- **A gate assertion can look like a check while asserting nothing, and the way to find out is to
+  run it against the mutation it exists to catch.** `metrics-check.sh`'s replacement for the covering
+  identity first compared covering against the read rate, where a running-time denominator gives
+  0.33× and a phase-time one gives 0.35× — no band tolerant of a real drive could separate them.
+  Re-anchored against a quantity counting the *same bytes*, so only the denominator differs and the
+  defect lands on exactly 1.0. **Exercise a new assertion against representative numbers before
+  trusting it**, including the values it is supposed to reject.
+- **A fixture must agree with its own headline.** A render whose report said "every comparison
+  matched" above a rate that can only fall when comparisons did not would have been read as the
+  product contradicting itself, and it was caught by looking at the rendered sheet rather than the
+  source — the same way the `Covering` mislabel was. Where one fixture serves several variants,
+  parameterise the figure that has to move with them rather than picking a value that suits one.

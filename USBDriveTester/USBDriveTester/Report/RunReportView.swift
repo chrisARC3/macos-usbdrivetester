@@ -340,9 +340,14 @@ struct RunReportView: View {
         VStack(alignment: .leading, spacing: 8) {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
                 labelled("Read throughput",
-                         MetricsFormatting.throughput(report.sustainedReadBytesPerSecond))
+                         MetricsFormatting.throughput(report.deviceReadBytesPerSecond))
                 labelled("Write throughput",
-                         MetricsFormatting.throughput(report.sustainedWriteBytesPerSecond))
+                         MetricsFormatting.throughput(report.writeBytesPerSecond))
+                // Spelled in full here and on the export, against the panel's bare `R-W-R-C`:
+                // this grid's neighbours are "Read throughput" and "Write throughput", and the
+                // panel's are "Read" and "Write".
+                labelled("R-W-R-C speed",
+                         MetricsFormatting.throughput(report.completedBytesPerSecond))
                 // `Covering` was deleted from all three surfaces in Step 11 increment 10 — the
                 // panel, this sheet and the exported Markdown. The full argument is at the panel's
                 // own row in `RunMetricsView`; the short version is that the label promised

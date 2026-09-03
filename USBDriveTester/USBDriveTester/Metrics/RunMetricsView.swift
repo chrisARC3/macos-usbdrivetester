@@ -21,21 +21,26 @@
 //  no colour keyed to a rate. Whether a measured rate indicates wear is the user's judgement, and
 //  this tool does not have what that judgement needs.
 //
-//  ## And from v12 it does not invite the comparison either (user decision 2026-08-17)
+//  ## And it does not invite the comparison either (user decision 2026-08-17, re-examined 09-02)
 //
 //  Until v12 this panel told the reader to compare these figures against the drive's advertised
-//  sustained rate. **That instruction was wrong once the rates became wall-clock**, and wrong in
-//  the one direction that matters: a manufacturer's figure is a pure sequential read or a pure
-//  sequential write, while a cycle interleaves read, write and verify. On the 4 TB T5 EVO the
-//  wall-clock write is 122 MB/s against an advertised ~460 — 27%, which reads as a dying drive
-//  and means nothing whatever about wear.
+//  sustained rate. The comparison was removed with the argument that the wall-clock write was
+//  122 MB/s against an advertised ~460 — 27%, reading as a dying drive and meaning nothing about
+//  wear, which is precisely the bias the FR document warns about: "a systematic bias toward
+//  *this drive looks worn*, on a tool whose output is a judgement about somebody's hardware".
 //
-//  That is precisely the bias the FR document warns about: manufacturing "a systematic bias
-//  toward *this drive looks worn*, on a tool whose output is a judgement about somebody's
-//  hardware". So the comparison is gone rather than reworded. The figure the comparison would
-//  have needed — bytes moved divided by the time spent moving them — is still computed and still
-//  logged every call by `RunCoordinator`; it is simply not something this screen asks the reader
-//  to act on.
+//  **That argument no longer holds and the decision does.** v14 puts the phase rates on this
+//  panel — the very figure the comparison would have needed — and on the 4 TB T5 EVO the write
+//  reads about 419 MB/s against that same ~460. Roughly 91%, not 27%. The strongest reason for
+//  deleting the comparison is gone, and pretending otherwise would leave a justification standing
+//  on a number that has changed under it.
+//
+//  What survives is the reason that never depended on the denominator: **it is a different
+//  workload.** An advertised figure is a pure sequential read or a pure sequential write; a cycle
+//  interleaves read, write and verify at 1–8 MiB. 91% of a rating earned on a different workload
+//  is not 91% of anything, and a reader invited to treat it as a percentage would be reading a
+//  wear judgement out of a number that cannot carry one. D9 stands on its own: this tool
+//  measures, and does not grade.
 //
 //  ## The negotiated link speed is not here any more (2026-08-23, user decision)
 //
@@ -299,8 +304,18 @@ struct RunMetricsView: View {
 
     private var throughput: some View {
         VStack(alignment: .leading, spacing: 6) {
-            row("Read", MetricsFormatting.throughput(snapshot.sustainedReadBytesPerSecond))
-            row("Write", MetricsFormatting.throughput(snapshot.sustainedWriteBytesPerSecond))
+            row("Read", MetricsFormatting.throughput(snapshot.deviceReadBytesPerSecond))
+            row("Write", MetricsFormatting.throughput(snapshot.writeBytesPerSecond))
+
+            // **`R-W-R-C` — the row `Covering` should have been** (Step 11 increment 11). The
+            // user's own name for it, kept as an abbreviation here to sit beside `Read` and
+            // `Write`; the report and the export spell it `R-W-R-C speed`.
+            //
+            // Deliberately **not** "Progress speed": the bar and the ETA above are driven by
+            // *attempted* bytes, so that name would promise `remaining ÷ rate` and break it
+            // precisely when a drive is failing — the same class of error as the mislabel this
+            // row exists to correct.
+            row("R-W-R-C", MetricsFormatting.throughput(snapshot.completedBytesPerSecond))
 
             // **`Covering` was deleted here** (Step 11 increment 10), and the reason is the name
             // rather than the arithmetic. It was documented as *"how fast the run is covering the
@@ -313,21 +328,34 @@ struct RunMetricsView: View {
             //
             // The quantity is right for its two consumers and is untouched: the ETA denominator and
             // the progress fraction both *need* attempted, or a drive with a bad region shows a bar
-            // that never reaches 100% and an ETA that never converges.
+            // that never reaches 100% and an ETA that never converges. It is still on the wire and
+            // still on no screen, which is a decision rather than an oversight.
             //
-            // The figure the user actually wanted — bytes whose chunk outcome is `.completed`, per
-            // second — does not exist anywhere yet. It is increment 11, and it costs a protocol
-            // version.
+            // The figure the user actually wanted is the `R-W-R-C` row above, added in increment 11
+            // at the cost of protocol v13.
 
-            // **The definition is on screen, next to the number.** Without it these figures are
-            // not checkable against anything, and the first person to check them against
-            // Activity Monitor reported them as a bug (2026-08-17) — correctly, because a rate
-            // whose denominator is unstated is not a measurement anyone else can reproduce.
+            // **The definition is on screen, next to the number, and from v14 it is doing more
+            // work than it used to.** Between v12 and v13 it explained figures that agreed with
+            // another window; it now explains figures that deliberately disagree with one, by
+            // 1.5x and 3.4x. A rate whose denominator is unstated is not a measurement anyone
+            // else can reproduce — that was true when the first reader checked against Activity
+            // Monitor and reported a bug (2026-08-17), and it is more true now that the
+            // disagreement is the intended result rather than the defect.
+            //
+            // The sentence about R-W-R-C sitting below its neighbours is not padding. It reads a
+            // third of them on a drive with nothing wrong, and a figure that looks like a fault
+            // on healthy hardware is exactly what generated that report.
             Text("""
-                 Read and Write count every byte moved against the time the run spends \
-                 working, so while it is running they match what Activity Monitor reports for \
-                 this drive. Time paused does not count against them. Every byte is read, \
-                 written back and read again, so Read runs at about twice Write.
+                 Read and Write are the drive's own speeds: each counts the bytes it moved \
+                 against the time it spent moving them, so they describe this hardware rather \
+                 than this run. They are therefore not comparable to Activity Monitor, which \
+                 divides by the whole elapsed time and will show lower figures for the same \
+                 drive. Read pools the first read and the read-back. \
+                 R-W-R-C counts only bytes that were read, written back, read again and matched, \
+                 against all the I/O time that took — a whole cycle where the other two are \
+                 single steps, so on a drive with nothing wrong it sits well below both. What \
+                 matters is the gap: it widens when a chunk the drive accepted fails to read \
+                 back, or reads back different.
                  """)
                 .font(.caption)
                 .foregroundStyle(.secondary)

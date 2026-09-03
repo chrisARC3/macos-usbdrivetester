@@ -502,14 +502,35 @@ private struct MetricsHost: View {
                 // ~122.4 write. Write sits a hair under covering, which is what this fixture's
                 // own three failed chunks would really do.
                 //
-                // **That gap is no longer visible in this render** (Step 11 increment 10): the
-                // `Covering` row is deleted, so the one case where attempted and successful work
-                // differ — these three failed chunks — shows only as a smaller Write. The coverage
-                // value is still supplied because the snapshot carries it and the ETA is computed
-                // from the same quantity.
-                sustainedReadBytesPerSecond: 244_800_000,
-                sustainedWriteBytesPerSecond: 122_398_000,
+                // **That gap is visible again from increment 11**, in the row that states it
+                // honestly. The coverage value is still supplied because the snapshot carries it
+                // and the ETA is computed from the same quantity; it is on no screen.
+                //
+                // **This is the one fixture given a divergence a reader can SEE, and the choice is
+                // deliberate.** Nothing drives a SwiftUI binding in a test, so a render is the only
+                // cover the row wiring has, and it can only discriminate if the three figures are
+                // visibly different. This models a drive returning bad data on about a fifth of
+                // its chunks: those chunks were written, so Write does not notice them, and were
+                // not confirmed, so this rate does. `chunksFailed` stays 3 because a verify
+                // mismatch is not a phase failure and is counted separately.
+                //
+                // **v14 values, and Write is deliberately ABOVE Read.** These are the 4 TB T5 EVO's
+                // real phase rates — the drive writes faster than it reads, which the wall-clock
+                // pair hid behind an exact 2:1 that came from the cycle's shape rather than the
+                // hardware. A render is the only place anyone will see that inversion before it
+                // reaches a user, so the fixture has to carry it.
+                //
+                // **The clean case is on no render, and does not need to be.** `metrics-finished`
+                // below carries clean figures but renders the placeholder — that is the whole
+                // point of that case — so its numbers never reach a pixel. A comment here claimed
+                // otherwise until 2026-09-03. What a render can show is that the row is wired to
+                // its own field and sits well below its neighbours, and clean or divergent look
+                // the same in kind: 130 against 376/419 is no more reassuring than 105 is. The
+                // difference between them is arithmetic, and the arithmetic is unit-tested.
+                deviceReadBytesPerSecond: 375_800_000,
+                writeBytesPerSecond: 418_900_000,
                 coverageBytesPerSecond: 122_400_000,
+                completedBytesPerSecond: 105_000_000,
                 estimatedRemainingSeconds: 10_620,
                 readLatencySampleCount: 101_004,
                 readLatencyMinimumNanoseconds: 8_100_000,
@@ -535,9 +556,10 @@ private struct MetricsIdleHost: View {
                 available: true,
                 fractionComplete: 0,
                 currentBlock: 0,
-                sustainedReadBytesPerSecond: -1,    // the wire's "not measured yet"
-                sustainedWriteBytesPerSecond: -1,
+                deviceReadBytesPerSecond: -1,       // the wire's "not measured yet"
+                writeBytesPerSecond: -1,
                 coverageBytesPerSecond: -1,
+                completedBytesPerSecond: -1,            // the wire's "not measured yet"
                 estimatedRemainingSeconds: -1,
                 readLatencySampleCount: 0,
                 readLatencyMinimumNanoseconds: 0,
@@ -573,9 +595,18 @@ private struct MetricsFinishedHost: View {
                 available: true,               // the helper still holds the finished run's figures
                 fractionComplete: 1,
                 currentBlock: 2_097_152,
-                sustainedReadBytesPerSecond: 244_800_000,
-                sustainedWriteBytesPerSecond: 122_400_000,
+                deviceReadBytesPerSecond: 375_800_000,
+                writeBytesPerSecond: 418_900_000,
                 coverageBytesPerSecond: 122_400_000,
+                // Nothing failed here, so this is the clean case: 129.7 is exactly what
+                // `1/c = 2/r + 1/w` gives for 375.8 and 418.9, and it equalled Write until v14.
+                //
+                // **These figures are never rendered.** This case exists to prove the panel shows
+                // the placeholder after a run ends *even when the snapshot is fully populated* —
+                // a populated snapshot that renders nothing is the assertion. They are kept
+                // consistent with v14 anyway, because a fixture carrying refuted numbers is a
+                // fixture that will mislead the next person to read it for the values.
+                completedBytesPerSecond: 129_700_000,
                 estimatedRemainingSeconds: 0,
                 readLatencySampleCount: 256,
                 readLatencyMinimumNanoseconds: 1_100_000,
@@ -650,6 +681,17 @@ private struct RunReportHost: View {
                        blocks: UInt64 = 0,
                        mode: Int = 2,
                        bypass: Int = 1,
+                       // **`R-W-R-C speed`, defaulted to the CLEAN value and parameterised so the
+                       // failure variants can lower it.** 129.7 is exactly what
+                       // `1/c = 2/r + 1/w` gives for this fixture's 375.8 and 418.9, so the
+                       // default render's figure agrees with its own headline.
+                       //
+                       // It was a hardcoded 112 for about an hour on 2026-09-03, which rendered a
+                       // report saying "every comparison matched" above a rate that can only fall
+                       // below the identity when comparisons did not. Caught by reading the
+                       // rendered sheet rather than the source — the same way the increment-10
+                       // mislabel was, and the reason renders are read at all.
+                       completedRate: Double = 129_700_000,
                        device: ReportedDevice = RunReportHost.device) -> RunReport {
         // **How the RUN ended, which from increment 8 is what decides the outcome** (FR-RPT-4).
         // Optional here, unlike on `RunReport.init?` where it is required with no default: this is
@@ -689,9 +731,13 @@ private struct RunReportHost: View {
                                     failureModeUsedCode: mode,
                                     failedRangesEncoded: encoded,
                                     failedBlockCount: blocks,
-                                    sustainedReadBytesPerSecond: 244_800_000,
-                                    sustainedWriteBytesPerSecond: 122_400_000,
+                                    // v14 phase rates, the 4 TB T5 EVO's real ones. Write above
+                                    // Read is correct for that drive and is the change most
+                                    // visible on this sheet.
+                                    deviceReadBytesPerSecond: 375_800_000,
+                                    writeBytesPerSecond: 418_900_000,
                                     coverageBytesPerSecond: 122_400_000,
+                                    completedBytesPerSecond: completedRate,
                                     readLatencySampleCount: 256,
                                     readLatencyMinimumNanoseconds: 1_100_000,
                                     readLatencyMaximumNanoseconds: 9_900_000,
@@ -973,7 +1019,11 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: RunReportHost(
             report: RunReportHost.report(rangeCount: 2,
                                          encoded: "200:2:3;5000:4:1",
-                                         blocks: 6)))
+                                         blocks: 6,
+                                         // Below the clean 129.7, matching the failures this
+                                         // variant reports. The divergence and the failed-range
+                                         // table have to agree, or the sheet argues with itself.
+                                         completedRate: 104_000_000)))
     case "report-stopped":
         return NSHostingView(rootView: RunReportHost(
             report: RunReportHost.report(didComplete: false, rangeCount: 1,

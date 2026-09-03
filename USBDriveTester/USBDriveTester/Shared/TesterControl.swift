@@ -271,7 +271,7 @@ import Foundation
     ///     refused rather than defaulted** if this build does not recognise it: quietly
     ///     resolving an unknown code to FR-FAIL-4's default would answer a caller asking to
     ///     stop on the first error with a run that writes to the whole drive.
-    ///   - reply: twenty values, in the order below.
+    ///   - reply: twenty-two values, in the order below.
     ///
     ///     **The run** — `runOutcomeCode`, `interruptedAtBlock`, `chunksProcessed`, `message`.
     ///     `runOutcomeCode` is a ``RunOutcomeCode`` raw value and it **replaced a `completed`
@@ -302,19 +302,26 @@ import Foundation
     ///     a code-level inference — and on a healthy drive there is no failure to not-stop on, so
     ///     nothing would ever reveal it.
     ///
-    ///     **The final figures (FR-RPT-2/3)** — `sustainedReadBytesPerSecond`,
-    ///     `sustainedWriteBytesPerSecond`, `coverageBytesPerSecond`, `readLatencySampleCount`,
-    ///     and the three latency figures. **Cumulative over the whole run from v11**, and here
-    ///     rather than polled from ``runProgress(reply:)`` afterwards so that they belong to this
-    ///     run or do not exist.
+    ///     **The final figures (FR-RPT-2/3)** — `deviceReadBytesPerSecond`,
+    ///     `writeBytesPerSecond`, `coverageBytesPerSecond`, `completedBytesPerSecond`,
+    ///     `readLatencySampleCount`, and the three latency figures. **Cumulative over the whole run
+    ///     from v11**, and here rather than polled from ``runProgress(reply:)`` afterwards so that
+    ///     they belong to this run or do not exist.
     ///
-    ///     **All three rates divide by the wall clock, from v12.** The two that v11 carried
-    ///     divided by *phase* time — bytes read ÷ time spent reading — which made them
-    ///     incomparable to every other throughput figure on the machine and was reported as a
-    ///     defect the first time anybody checked (see `RunMetrics`). The phase rates still exist
-    ///     in Core and are still logged every call; they are simply not on this wire, because a
-    ///     wire field nothing displays is how `coverageBytesPerSecond` went a week without ever
-    ///     reaching a screen.
+    ///     `completedBytesPerSecond` is the app's `R-W-R-C speed`: bytes in chunks that completed
+    ///     *and matched*, where `coverageBytesPerSecond` beside it counts every byte attempted.
+    ///     `.verifyMismatch` is excluded and is the reason the helper tests `== .completed` rather
+    ///     than `!isPhaseFailure`. It equalled the write rate until v14 and does not any more.
+    ///
+    ///     **Three of these four divide by phase time, from v14 — and one does not.** Read, write
+    ///     and R-W-R-C each divide by the time that moved their own bytes; `coverageBytesPerSecond`
+    ///     divides by running time, because it is the ETA's denominator and an estimate cannot be
+    ///     built on a figure that ignores the time a run spends not doing I/O.
+    ///
+    ///     This reverses v12, which reversed v11. The wall-clock pair v12 carried still exists in
+    ///     Core and is still logged every call; it is simply not on this wire, because nothing
+    ///     displays it. Read the v14 entry in ``version`` before assuming that is a mistake — the
+    ///     history looks like a loop and is not.
     ///
     ///     That property was v9's, and the mechanism behind it changed in v11 rather than
     ///     surviving. v9 read them from an observer installed *after* validation, so a refused
@@ -356,14 +363,15 @@ import Foundation
                                              Int,      // 11 failureModeUsedCode        (v9)
                                              String,   // 12 failedRangesEncoded        (v9)
                                              UInt64,   // 13 failedBlockCount           (v9)
-                                             Double,   // 14 sustainedReadBytesPerSecond  (v12)
-                                             Double,   // 15 sustainedWriteBytesPerSecond (v12)
+                                             Double,   // 14 deviceReadBytesPerSecond     (v14)
+                                             Double,   // 15 writeBytesPerSecond          (v14)
                                              Double,   // 16 coverageBytesPerSecond       (v12)
-                                             UInt64,   // 17 readLatencySampleCount     (v9)
-                                             UInt64,   // 18 readLatencyMinimumNs       (v9)
-                                             UInt64,   // 19 readLatencyMaximumNs       (v9)
-                                             UInt64,   // 20 readLatencyP99UpperBoundNs (v9)
-                                             String)   // 21 message
+                                             Double,   // 17 completedBytesPerSecond      (v14)
+                                             UInt64,   // 18 readLatencySampleCount     (v9)
+                                             UInt64,   // 19 readLatencyMinimumNs       (v9)
+                                             UInt64,   // 20 readLatencyMaximumNs       (v9)
+                                             UInt64,   // 21 readLatencyP99UpperBoundNs (v9)
+                                             String)   // 22 message
                                             -> Void)
 
     /// Tell the helper what the run in flight should do at its next chunk boundary
@@ -441,21 +449,34 @@ import Foundation
     /// mistake them for.
     ///
     /// - Parameter reply: `(available, fractionComplete, currentBlock,
-    ///   sustainedReadBytesPerSecond, sustainedWriteBytesPerSecond, coverageBytesPerSecond,
-    ///   estimatedRemainingSeconds, readLatencySampleCount, readLatencyMinimumNanoseconds,
-    ///   readLatencyMaximumNanoseconds, readLatencyP99UpperBoundNanoseconds, chunksFailed)`.
+    ///   deviceReadBytesPerSecond, writeBytesPerSecond, coverageBytesPerSecond,
+    ///   completedBytesPerSecond, estimatedRemainingSeconds, readLatencySampleCount,
+    ///   readLatencyMinimumNanoseconds, readLatencyMaximumNanoseconds,
+    ///   readLatencyP99UpperBoundNanoseconds, chunksFailed)`.
     ///
     ///   `available` is `false` when no run has started since the daemon launched; every other
     ///   value is then meaningless and is zero.
     ///
-    ///   **The three rates all divide by the wall clock** (v12), which is what makes them
-    ///   comparable to Activity Monitor and to any other tool watching the same drive. Read
-    ///   counts the verify read as well as the original — both are reads, and the kernel counts
-    ///   both — so on a healthy drive read is about 2 × covering and write about 1 × covering.
-    ///   The phase-isolated rates v11 sent instead are still computed and logged by the helper;
-    ///   they are not sent, because nothing displays them.
+    ///   **Three of the four rates divide by phase time and one does not** (v14), and which is
+    ///   which is the single most important thing on this reply:
     ///
-    ///   **The four `Double`s are `-1` when not yet known, never `0`.** A rate of zero means
+    ///     * `deviceReadBytesPerSecond` — both reads ÷ both their times. The app's `Read`.
+    ///     * `writeBytesPerSecond` — bytes written ÷ time writing. The app's `Write`.
+    ///     * `completedBytesPerSecond` — matched bytes ÷ all successful phase time. `R-W-R-C`.
+    ///     * `coverageBytesPerSecond` — covered bytes ÷ **running time**. The ETA's denominator,
+    ///       on this reply and on no screen, deliberately.
+    ///
+    ///   The first three are **not comparable to Activity Monitor** and are 1.5× and 3× above
+    ///   what it shows for the same drive; that is intended since FR-METR-1's 2026-09-02
+    ///   amendment, and `ThroughputFraming.definition` is what tells the user so. The wall-clock
+    ///   pair v12 sent instead is still computed and logged by the helper and is not sent,
+    ///   because nothing displays it — the same arrangement, in the opposite direction.
+    ///
+    ///   On a run where nothing fails the three displayed rates satisfy `1/completed =
+    ///   2/deviceRead + 1/write` exactly, and `completed` falling below that is the retention
+    ///   signal. It does **not** equal the write rate any more; it is roughly a third of it.
+    ///
+    ///   **The five `Double`s are `-1` when not yet known, never `0`.** A rate of zero means
     ///   "stalled", which is a real and alarming condition; using it for "not measured yet"
     ///   would print an alarming number to mean nothing happened. `readLatencySampleCount` plays
     ///   the same role for the three latency figures, where `0` nanoseconds is a legitimate
@@ -471,7 +492,7 @@ import Foundation
     ///   sustained figure and the negotiated link speed — which the app already holds from
     ///   ``deviceProfile(reply:)``. This tool measures; it does not diagnose.
     func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double, Double,
-                                       UInt64, UInt64, UInt64, UInt64, UInt64) -> Void)
+                                       Double, UInt64, UInt64, UInt64, UInt64, UInt64) -> Void)
 
     /// SHA-256 of a bounded range of the **held** device (Step 8, gate item 5).
     ///
@@ -1009,6 +1030,89 @@ nonisolated public enum TesterProtocol {
     ///   `bytesRead`, so `2 × covered` breaks precisely on the failing drives this tool exists to
     ///   find. The numbers must come from the side that counted the bytes.
     ///
+    /// - **13** — Step 11 increment 11: both replies gain `completedBytesPerSecond`, the app's
+    ///   **`R-W-R-C speed`** — bytes in chunks that were read, written back, read again and
+    ///   **matched**, over the same running-time denominator as v12's other rates. A **signature
+    ///   change on both replies**, so the bump is mandatory: a v12 daemon sends one argument fewer
+    ///   than this app decodes and the whole block fails, which is the loud failure rather than
+    ///   the quiet one.
+    ///
+    ///   **It is the successful-work counterpart of `coverageBytesPerSecond`, which counts
+    ///   attempted work.** That distinction is the whole reason for the bump. The `Covering` row
+    ///   the app displayed was documented as *"how fast the run is covering the drive"* — a
+    ///   definition using its own term, which is how it survived a review in which the arithmetic
+    ///   was checked line by line. Asked for a definition that did not contain the word, the gap
+    ///   was one sentence away: `rangeBytesCovered` counts attempts and the label promised
+    ///   successes. The row was deleted in increment 10; this argument is the quantity it should
+    ///   have been.
+    ///
+    ///   **Only `ChunkOutcome.completed` counts**, and the exclusion that matters is
+    ///   `.verifyMismatch`: it moved every byte and failed the compare, so it is deliberately not
+    ///   an `isPhaseFailure` and a counter written as `!isPhaseFailure` would score **a retention
+    ///   failure as a pass**, on the one figure that exists to reveal it. Pinned by
+    ///   `RunMetricsTests.aChunkThatDidNotEndCleanIsMissingFromTheCompletedRate`, which fails on
+    ///   exactly that mutation and on no other outcome.
+    ///
+    ///   `coverageBytesPerSecond` **stays on the wire and stays undisplayed**, which is a
+    ///   deliberate exception to the v12 lesson two entries above. It is the only correct ETA
+    ///   denominator — an estimate built on successful bytes never converges on a drive with a bad
+    ///   region — and `metrics-check.sh`'s denominator identity (read ≈ 2 × covering, write ≈ 1 ×
+    ///   covering) must stay anchored on it, because the new rate legitimately departs from both.
+    ///
+    ///   **On a healthy run this reads exactly as `sustainedWriteBytesPerSecond` does**, and that
+    ///   is accepted rather than a duplication to remove: a cycle writes each covered byte once
+    ///   and every chunk matches. What it buys is that a divergence *means* something, where
+    ///   `Covering`'s meant only that a write did not happen. The two gaps differ in width, and
+    ///   only the second is visible to a user, since covering is on no screen:
+    ///
+    ///       covered  - completed  =  every outcome but `.completed`
+    ///       written  - completed  =  `.verifyMismatch` and `.failedVerifying` only
+    ///
+    ///   A chunk failing its read or its write holds Write and this rate back together; they part
+    ///   only where the write **succeeded and the chunk still did not end clean**.
+    ///
+    /// - **14** — Step 11 increment 11, 2026-09-02: **FR-METR-1 amended. The three displayed
+    ///   rates go back to dividing by phase time**, reversing v12. Same arity, different meaning
+    ///   — read the warning at the end of this entry before anything else.
+    ///
+    ///   Slots 14 and 15 stop carrying `sustainedReadBytesPerSecond` and
+    ///   `sustainedWriteBytesPerSecond` and carry `deviceReadBytesPerSecond` — both reads over
+    ///   both their times — and `writeBytesPerSecond`. Slot 16 is unchanged. Slot 17 keeps its
+    ///   name and changes its denominator to `successfulPhaseNanoseconds`.
+    ///
+    ///   **Why this is not a reversion to the v12 bug.** v12 was adopted because the figures did
+    ///   not reconcile with Activity Monitor. Reconciling with Activity Monitor is no longer an
+    ///   objective: a tool that characterises a *device* should report what the device did while
+    ///   it was working, and a drive that writes at 419 MB/s while spending 29% of the run
+    ///   writing has a write speed of 419 MB/s. The 3.4× discrepancy that started this is still
+    ///   there and is now the intended reading — `ThroughputFraming.definition` disclaims the
+    ///   comparison instead of aiming at it, and that disclaimer is the load-bearing part.
+    ///
+    ///   The sustained pair is **still computed, still tested, still logged every call** by
+    ///   `RunCoordinator`, and is off the wire because nothing displays it. That is the exact
+    ///   arrangement the phase rates were in from v12 to v13; the two swapped places.
+    ///
+    ///   `coverageBytesPerSecond` stays for the ETA, unchanged, for the reason in the v13 entry.
+    ///   What it no longer anchors is `metrics-check.sh`'s rate identity: `read ≈ 2 × covering`
+    ///   described the sustained pair, which no longer reaches a screen. The three displayed
+    ///   rates instead satisfy an **exact** identity, asserted by
+    ///   `RunMetricsTests.aCleanRunSatisfiesTheReciprocalIdentity`:
+    ///
+    ///       1 / completed  =  2 / deviceRead  +  1 / write
+    ///
+    ///   ## ⚠︎ THIS IS THE FIRST VERSION WHOSE REPLY DID NOT CHANGE SHAPE
+    ///
+    ///   Both replies carry exactly the arities v13 had — 22 and 13. Every previous bump added or
+    ///   removed an argument, so a mismatched pair could not decode each other and the compiler
+    ///   or the runtime said so. **A v13 app talking to a v14 daemon decodes cleanly and displays
+    ///   wrong numbers**, off by the ratio of running time to phase time, with nothing anywhere
+    ///   to announce it.
+    ///
+    ///   The version check in `HelperConnection` is therefore the *only* guard, where before it
+    ///   was a convenience over a failure that was going to happen anyway. Reinstalling the
+    ///   daemon before any hardware gate or checklist walk stops being hygiene and becomes a
+    ///   correctness requirement: `scripts/install-app.sh`, then kickstart.
+    ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
@@ -1020,7 +1124,7 @@ nonisolated public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 12
+    public static let version = 14
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

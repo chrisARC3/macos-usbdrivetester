@@ -11,27 +11,66 @@
 //  reading, so the whole of this file is deterministic under `SteppingClock` and a convergence
 //  test needs no hardware and no wall-clock patience.
 //
-//  ## Five rates, two denominators, and picking the wrong denominator is the easy mistake
+//  ## The rates, their denominators, and picking the wrong denominator is the easy mistake
 //
 //  A cycle moves **three times** the range it covers: read the original, write it back, read it
 //  again. That alone makes several genuinely different rates, but the division that actually
-//  matters is *what each one is divided by*:
+//  matters is *what each one is divided by*.
+//
+//  **The heading used to carry a count and the count was wrong.** It read "Five rates" over a
+//  six-row table before Step 11 increment 11, and that increment made it "Six" over seven. A
+//  number in prose that nothing asserts drifts, and this one drifted through two edits without
+//  being noticed; CONSTRAINTS section 3 is the standing rule it broke. It is gone rather than
+//  corrected, because correcting it would only restart the clock.
 //
 //  | Rate | Definition | What it is for |
 //  |---|---|---|
-//  | ``MetricsSnapshot/readBytesPerSecond`` | bytes read ÷ **time spent reading** | The device's read speed while it is reading. Diagnostic; logged, never displayed. |
-//  | ``MetricsSnapshot/writeBytesPerSecond`` | bytes written ÷ **time spent writing** | The device's write speed while it is writing. Diagnostic; logged, never displayed. |
+//  | ``MetricsSnapshot/readBytesPerSecond`` | bytes read ÷ **time spent reading** | The original read's speed, alone. Diagnostic; logged, never displayed — the displayed figure pools it with the verify. |
+//  | ``MetricsSnapshot/writeBytesPerSecond`` | bytes written ÷ **time spent writing** | FR-METR-1. **What the app shows as `Write`**. |
 //  | ``MetricsSnapshot/verifyBytesPerSecond`` | bytes verified ÷ **time spent verifying** | A verify much faster than the original read is what a drive-side cache looks like. |
-//  | ``MetricsSnapshot/sustainedReadBytesPerSecond`` | (bytes read + bytes verified) ÷ **wall-clock elapsed** | FR-METR-1. **What the app shows**, and what Activity Monitor shows. |
-//  | ``MetricsSnapshot/sustainedWriteBytesPerSecond`` | bytes written ÷ **wall-clock elapsed** | FR-METR-1. **What the app shows**, and what Activity Monitor shows. |
-//  | ``MetricsSnapshot/coverageBytesPerSecond`` | range bytes covered ÷ **wall-clock elapsed** | FR-METR-5. How fast the *run* is progressing, and the only correct ETA denominator. |
+//  | ``MetricsSnapshot/deviceReadBytesPerSecond`` | (bytes read + bytes verified) ÷ **time spent on both reads** | FR-METR-1. **What the app shows as `Read`**. |
+//  | ``MetricsSnapshot/completedBytesPerSecond`` | bytes in chunks that **matched** ÷ **time spent in successful phases** | **What the app shows as `R-W-R-C speed`**. Successful work per second of I/O, where the two above are per second of *their own* I/O. |
+//  | ``MetricsSnapshot/sustainedReadBytesPerSecond`` | (bytes read + bytes verified) ÷ **running time** | What Activity Monitor shows. Diagnostic; logged, never displayed. |
+//  | ``MetricsSnapshot/sustainedWriteBytesPerSecond`` | bytes written ÷ **running time** | What Activity Monitor shows. Diagnostic; logged, never displayed. |
+//  | ``MetricsSnapshot/coverageBytesPerSecond`` | range bytes covered ÷ **running time** | FR-METR-5. How fast the *run* is progressing, and the only correct ETA denominator. On the wire, displayed nowhere. |
 //
-//  The first three divide bytes by the time that actually moved those bytes, which is why the
+//  ## THE THREE DISPLAYED RATES SATISFY AN EXACT IDENTITY (2026-09-02)
+//
+//  Because all three now divide by phase time, they are tied together by arithmetic rather than
+//  by a tolerance band. On a run where every chunk completes, with covered bytes *B* and phase
+//  times *r*, *w* and *v*:
+//
+//      Read     = 2B / (r + v)          R-W-R-C  = B / (r + w + v)
+//      Write    =  B / w
+//
+//  and therefore, by substitution and with no approximation anywhere:
+//
+//      1 / R-W-R-C  =  2 / Read  +  1 / Write
+//
+//  ``aCleanRunSatisfiesTheReciprocalIdentity`` asserts it. This **replaces** the `read ≈ 2 ×
+//  covering, write ≈ 1 × covering` band that `metrics-check.sh` carried from increment 5, and is
+//  strictly better in three ways: it is an equality rather than a ±10–20% window, it relates the
+//  figures the user can actually see rather than tying them to `coverageBytesPerSecond` — which
+//  is on no screen — and it is checkable in a unit test, where the band needed hardware.
+//
+//  **It breaks in exactly one direction, and that is the point.** A ``ChunkOutcome/verifyMismatch``
+//  contributes to *r*, *w*, *v*, `Read` and `Write` but not to ``MetricsSnapshot/bytesCompleted``,
+//  so R-W-R-C falls **below** what the other two predict. A chunk that fails its read or its write
+//  contributes to none of them — its time goes to ``MetricsSnapshot/failedPhaseNanoseconds`` — so
+//  the identity still holds and the failed-block list is what describes that run. The residual is
+//  therefore a retention signal specifically, not a general failure signal.
+//
+//  The first five divide bytes by the time that actually moved those bytes, which is why the
 //  timing accumulators below separate successful phases from failed ones. A failed read
 //  transferred nothing; folding its duration into the read accumulator would quietly depress a
 //  number labelled "read speed" with time in which no reading happened.
 //
-//  ## The displayed rates divide by RUNNING time (2026-08-18)
+//  ## RUNNING time, and why the ETA still divides by it (2026-08-18, amended 2026-09-02)
+//
+//  **Read this section for `coverageBytesPerSecond` and the ETA.** It was written when the
+//  displayed rates divided by running time too; they no longer do (see the reversal below), but
+//  every word of it still governs the two quantities that do, and the two denominators it refutes
+//  are refuted for those as well.
 //
 //  ``runningNanoseconds`` — the wall clock from the run's start to the end of its last call,
 //  **minus the gaps between calls**. Not ``elapsedNanoseconds``, and not device-plus-host either.
@@ -83,34 +122,53 @@
 //  ``elapsedNanoseconds`` is kept as the true wall clock, because it is what makes
 //  ``unaccountedNanoseconds`` mean anything.
 //
-//  ## Why the app shows these figures and not the phase ones (2026-08-17)
+//  ## THE DISPLAYED RATES WENT BACK TO PHASE TIME (FR-METR-1 amended 2026-09-02)
 //
-//  Because a phase rate is not comparable to anything else the user can see, and it was reported
-//  as a **bug** the first time somebody checked. Measured on the 4 TB T5 EVO: the helper logged
-//  `read 375.8 MB/s, write 418.9 MB/s, covering 122.4 MB/s`, while DriveSpeed and Activity
-//  Monitor — which agreed with each other exactly — showed about 245 and 122. Our read looked
-//  53% high and our write **3.4×** high.
+//  **This reverses the decision the section above was written to justify, and the reversal is a
+//  requirement change rather than a bug fix.** The history matters, because without it the record
+//  reads as a loop.
 //
-//  Nothing was wrong with the arithmetic. Every other tool on the machine divides by the wall
-//  clock, because that is the only denominator an outside observer has. We divided by phase time,
-//  so our "write speed" described the drive during the ~29% of the run it was writing, and
-//  silently omitted the rest. Both figures were correct answers to a question nobody asked.
+//  On 2026-08-17 the app divided read and write by phase time and it was reported as a **bug**.
+//  Measured on the 4 TB T5 EVO, the helper logged `read 375.8 MB/s, write 418.9 MB/s, covering
+//  122.4 MB/s`, while DriveSpeed and Activity Monitor — which agreed with each other exactly —
+//  showed about 245 and 122. Our read looked 53% high and our write **3.4×** high. Nothing was
+//  wrong with the arithmetic: every other tool on the machine divides by the wall clock, because
+//  that is the only denominator an outside observer has. Dividing by phase time meant our "write
+//  speed" described the drive during the ~29% of the run it was writing and silently omitted the
+//  rest. The figures were correct answers to a question nobody had asked. That became protocol
+//  v12 at `1a10438`.
 //
-//  The relationship is exact and worth knowing, because it is *itself* a check:
+//  **What changed on 2026-09-02 was the question.** The 2026-08-18 complaint was that the figures
+//  did not reconcile with other tools; matching them was adopted as the objective. Reconciling
+//  with Activity Monitor is no longer an objective of this product. A tool that exists to
+//  characterise a *device* should report what the device did while it was working — a drive that
+//  writes at 419 MB/s and spends 29% of the run writing has a write speed of 419 MB/s, and
+//  reporting 122 tells the user about this program's duty cycle, not about their hardware. The
+//  duty-cycle figure is the one that omits something.
+//
+//  So the same three quantities are on screen and each divides by the time that moved its own
+//  bytes. **The 3.4× is still there and is still real — it is now the intended reading, and the
+//  displayed figures are disclaimed against external comparison instead of aiming at it.**
+//  `ThroughputFraming.definition` is where that disclaimer lives, and it is the load-bearing part
+//  of this change: an undisclaimed figure 3.4× what another window shows is how this started.
+//
+//  The relationship the sustained pair satisfies is kept, because it is still true and still a
+//  check on the accounting:
 //
 //      sustained read ≈ 2 × covering        (the original read and the verify read)
 //      sustained write ≈ 1 × covering       (one write per covered byte)
 //
 //  On the measurement above: 2 × 122.4 = 244.8 and 1 × 122.4 = 122.4, which is what the two
-//  independent tools showed. A sustained read that drifts below 2 × covering means reads are
-//  failing — `chunksFailed` says the same thing, and the two agreeing is the cheap confirmation
-//  that the accounting is whole.
+//  independent tools showed. It is no longer what `metrics-check.sh` asserts on the displayed
+//  figures — the reciprocal identity at the top of this file is — because these three quantities
+//  now reach no screen.
 //
-//  The phase rates are kept, because "the drive is slow while it works" and "the drive spends a
-//  long time not working" are different faults and this tool exists to tell faults apart. They
-//  are logged every call by `RunCoordinator` and are deliberately **not** on the wire: a wire
-//  field nothing displays is how `coverageBytesPerSecond` came to be computed, tested and logged
-//  for a week without ever reaching a screen.
+//  **The roles simply swapped, and the earlier hazard swapped with them.** The sustained rates
+//  are now what the phase rates were: computed, tested, logged every call by `RunCoordinator`,
+//  and off the wire. That is a deliberate repeat of an arrangement this file warns about — a
+//  measurement that is not on the wire does not exist as far as the user is concerned — and it is
+//  accepted here for the same reason `coverageBytesPerSecond` is not: nothing displays them, and
+//  a wire field with no consumer is the other half of the same trap.
 //
 //  ## Progress advances on failure. It has to.
 //
@@ -119,6 +177,47 @@
 //  The alternative — advancing only on success — freezes the progress bar on exactly the drive
 //  this tool exists to find, at exactly the moment somebody is watching it. Whether the work
 //  *succeeded* is carried separately, by ``chunksFailed`` and the failure log.
+//
+//  ## And successful work is counted separately, because the two used to share a label
+//
+//  ``bytesCompleted`` is the counterpart: bytes in chunks whose outcome is ``ChunkOutcome/completed``
+//  and nothing else. It exists because a figure derived from ``rangeBytesCovered`` was displayed as
+//  `Covering` under a label that read as successful work, and the gap between the two shows only on
+//  a failing drive — the one occasion anyone reads the number closely. That row was deleted in Step
+//  11 increment 10; this is the quantity it should have been, added in increment 11 as the app's
+//  `R-W-R-C speed`.
+//
+//  **Only ``ChunkOutcome/completed`` counts, and the exclusion that matters is
+//  ``ChunkOutcome/verifyMismatch``.** That outcome ran all four steps and the compare failed — it is
+//  a *data* failure, not an I/O one, so it is deliberately **not** an ``ChunkOutcome/isPhaseFailure``
+//  and it contributes to every rate and both histograms above. A counter written as
+//  `!outcome.isPhaseFailure` would therefore score a retention failure — the thing this tool exists
+//  to find — as success. Test the case, do not negate the other one.
+//
+//  On a drive where nothing fails this **counter** equals ``bytesWritten`` exactly, because a cycle
+//  writes each covered byte once and every chunk matches.
+//
+//  **The displayed rates no longer inherit that equality, and that is the 2026-09-02 change's one
+//  real cost.** Increment 11 shipped `R-W-R-C speed` on the argument that it read identically to
+//  `Write` on a healthy drive and that a divergence therefore meant something. It divided by
+//  running time then, and `Write` did too. Both now divide by their own phase time, and a
+//  per-cycle rate against a per-phase rate is roughly a third of it: on the 4 TB T5 EVO figures
+//  above a **flawless** run reads about `Read 376, Write 419, R-W-R-C 130`. The row looks alarming
+//  on hardware with nothing wrong with it, which is precisely the shape of the 2026-08-17 report.
+//  What replaces the equality is the reciprocal identity at the top of this file — weaker to read
+//  off a panel by eye, stronger as a check, and the prose on both surfaces has to carry it.
+//
+//  **The two gaps are different sizes and only one of them is on screen** — worth knowing before
+//  reading a panel, and derived from the branches in ``record(_:)`` rather than assumed:
+//
+//      covered - completed  =  every outcome but `.completed`
+//      written - completed  =  `.verifyMismatch` and `.failedVerifying` only
+//
+//  A chunk that failed its *read* or its *write* holds both counters back equally, so it moves Write
+//  and `R-W-R-C speed` down together. The two part only where the write **succeeded and the chunk
+//  still did not end clean**: the verify could not be read, or it read back different bytes. Since
+//  `Covering` is displayed nowhere, that narrower gap is the one a user can actually see, and it is
+//  the more interesting of the two — it is bytes this drive accepted and could not then confirm.
 //
 //  ## What the latency histograms hold, and what they deliberately do not
 //
@@ -245,6 +344,15 @@ public struct MetricsSnapshot: Equatable, Sendable {
     public let bytesWritten: UInt64
     public let bytesVerified: UInt64
 
+    /// Bytes in chunks that completed **and matched** — successful work, where
+    /// ``rangeBytesCovered`` above is attempted work.
+    ///
+    /// Counts ``ChunkOutcome/completed`` and nothing else. ``ChunkOutcome/verifyMismatch`` moved
+    /// every byte and failed the compare, so it is excluded here while still contributing to
+    /// ``bytesRead``, ``bytesWritten`` and ``bytesVerified``. See the file header: a counter
+    /// written as `!isPhaseFailure` would score a retention failure as success.
+    public let bytesCompleted: UInt64
+
     // MARK: Time
 
     /// Wall-clock since the run started, from the injected monotonic clock.
@@ -286,6 +394,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
                 bytesRead: UInt64,
                 bytesWritten: UInt64,
                 bytesVerified: UInt64,
+                bytesCompleted: UInt64,
                 elapsedNanoseconds: UInt64,
                 readNanoseconds: UInt64,
                 writeNanoseconds: UInt64,
@@ -306,6 +415,7 @@ public struct MetricsSnapshot: Equatable, Sendable {
         self.bytesRead = bytesRead
         self.bytesWritten = bytesWritten
         self.bytesVerified = bytesVerified
+        self.bytesCompleted = bytesCompleted
         self.elapsedNanoseconds = elapsedNanoseconds
         self.readNanoseconds = readNanoseconds
         self.writeNanoseconds = writeNanoseconds
@@ -329,32 +439,55 @@ public struct MetricsSnapshot: Equatable, Sendable {
         Self.rate(bytes: bytesRead, nanoseconds: readNanoseconds)
     }
 
-    /// The **device's** write speed.
+    /// **What the app displays as `Write`** (FR-METR-1, amended 2026-09-02): the device's write
+    /// speed — bytes written ÷ the time spent writing them.
+    ///
+    /// Unchanged since Step 9; what changed is that it reaches a screen. It was displayed until
+    /// 2026-08-18, replaced by ``sustainedWriteBytesPerSecond`` after a bug report, and restored
+    /// when the requirement was amended. The file header carries why that is not a loop.
     public var writeBytesPerSecond: Double? {
         Self.rate(bytes: bytesWritten, nanoseconds: writeNanoseconds)
     }
 
     /// The verify read's speed. Diagnostic — a verify markedly faster than the original read is
     /// what a drive-side cache looks like (FR-TEST-9's neighbourhood).
+    ///
+    /// Pooled into ``deviceReadBytesPerSecond`` for display, so a caching drive raises the
+    /// displayed `Read` rather than showing up on its own. That signal is visible here and in
+    /// `RunCoordinator`'s log line, and nowhere the user looks.
     public var verifyBytesPerSecond: Double? {
         Self.rate(bytes: bytesVerified, nanoseconds: verifyNanoseconds)
     }
 
-    /// **What the app displays as "Read"** (FR-METR-1): every byte this run read — the original
-    /// read *and* the verify read — divided by the wall clock.
+    /// **What the app displays as `Read`** (FR-METR-1, amended 2026-09-02): every byte this run
+    /// read — the original read *and* the verify read — ÷ the time spent on both.
     ///
-    /// Both reads are counted because both are reads. The kernel counts them, Activity Monitor
-    /// counts them, and a figure that omitted the verify would be exactly half of what the user
-    /// can see in another window, which is the discrepancy this property exists to end.
+    /// Both reads are counted because both are reads, and a figure that omitted the verify would
+    /// silently describe half the reading the run performed. Both *times* are counted for the
+    /// same reason: pairing pooled bytes with one phase's duration is the arithmetic error this
+    /// whole area of the file exists to prevent.
     ///
-    /// Divided by ``activeNanoseconds`` rather than by read time, so it is comparable to every
-    /// other throughput figure on the machine. About 2 × ``coverageBytesPerSecond`` on a healthy
-    /// drive; markedly less means reads are failing.
+    /// Distinct from ``readBytesPerSecond``, which is the original read alone. The two differ
+    /// only when the verify runs at a different speed from the first read — which is what a
+    /// drive-side cache looks like, so they are kept separate rather than one being derived.
+    public var deviceReadBytesPerSecond: Double? {
+        Self.rate(bytes: bytesRead &+ bytesVerified,
+                  nanoseconds: readNanoseconds &+ verifyNanoseconds)
+    }
+
+    /// Every byte read ÷ ``runningNanoseconds``. **What Activity Monitor shows**, and displayed
+    /// nowhere since 2026-09-02.
+    ///
+    /// About 2 × ``coverageBytesPerSecond`` on a healthy drive; markedly less means reads are
+    /// failing. Kept because that relationship is a check on the accounting and because "the
+    /// drive is slow while it works" and "the drive spends a long time not working" are different
+    /// faults — this tool exists to tell faults apart. `RunCoordinator` logs it every call.
     public var sustainedReadBytesPerSecond: Double? {
         Self.rate(bytes: bytesRead &+ bytesVerified, nanoseconds: runningNanoseconds)
     }
 
-    /// **What the app displays as "Write"** (FR-METR-1): bytes written ÷ the wall clock.
+    /// Bytes written ÷ ``runningNanoseconds``. **What Activity Monitor shows**, and displayed
+    /// nowhere since 2026-09-02.
     ///
     /// About 1 × ``coverageBytesPerSecond``, because a cycle writes each covered byte once.
     public var sustainedWriteBytesPerSecond: Double? {
@@ -366,6 +499,34 @@ public struct MetricsSnapshot: Equatable, Sendable {
     /// the only correct ETA denominator**.
     public var coverageBytesPerSecond: Double? {
         Self.rate(bytes: rangeBytesCovered, nanoseconds: runningNanoseconds)
+    }
+
+    /// **What the app displays as `R-W-R-C speed`**: bytes that were read, written back, read
+    /// again and matched, ÷ ``successfulPhaseNanoseconds`` — the time the device spent moving
+    /// bytes, whether or not the chunk they belonged to ended clean.
+    ///
+    /// The successful-work counterpart of ``coverageBytesPerSecond``, which counts attempted work.
+    /// The denominator is deliberately *not* restricted to the phases of chunks that completed:
+    /// a mismatched chunk really did occupy the drive, and excluding its time would let a failing
+    /// drive report an undiminished rate. Successful bytes over all the I/O it took to find out.
+    ///
+    /// **Roughly a third of its two neighbours on a flawless run**, because it is a per-cycle
+    /// rate and they are per-phase — about `130` where `Read` is `376` and `Write` is `419`. It
+    /// read identically to `Write` until 2026-09-02 and no longer does; the file header records
+    /// why that equality was lost and what replaced it. Precisely, on a clean run:
+    ///
+    ///     1 / completedBytesPerSecond  =  2 / deviceReadBytesPerSecond + 1 / writeBytesPerSecond
+    ///
+    /// A ``ChunkOutcome/verifyMismatch`` or a ``ChunkOutcome/failedVerifying`` pushes this figure
+    /// **below** what that identity predicts — those chunks spend time in the denominator and
+    /// contribute nothing to the numerator. That residual is the retention signal, and it is why
+    /// this rate is on screen at all.
+    ///
+    /// Not an ETA denominator, and it must never become one — an estimate built on successful
+    /// bytes never converges on a drive with a bad region, which is what
+    /// ``coverageBytesPerSecond`` exists for and why that quantity stayed after its label went.
+    public var completedBytesPerSecond: Double? {
+        Self.rate(bytes: bytesCompleted, nanoseconds: successfulPhaseNanoseconds)
     }
 
     // MARK: - Derived: progress and ETA (FR-METR-5/6, NFR-PERF-6)
@@ -424,9 +585,20 @@ public struct MetricsSnapshot: Equatable, Sendable {
 
     // MARK: - Derived: NFR-PERF-3
 
+    /// Time the device spent in phases that **moved bytes** — read, write and verify, each of
+    /// which is already successful-only. The denominator of ``completedBytesPerSecond``.
+    ///
+    /// Named for the explicit contrast with ``failedPhaseNanoseconds``, and deliberately not
+    /// called anything resembling ``deviceNanoseconds``: the two differ by exactly that term, and
+    /// a pair of similar names meaning different spans of time is how a denominator gets picked
+    /// wrong. Which is this file's subject.
+    public var successfulPhaseNanoseconds: UInt64 {
+        readNanoseconds &+ writeNanoseconds &+ verifyNanoseconds
+    }
+
     /// Time the **device** was busy: every phase, successful or not.
     public var deviceNanoseconds: UInt64 {
-        readNanoseconds &+ writeNanoseconds &+ verifyNanoseconds &+ failedPhaseNanoseconds
+        successfulPhaseNanoseconds &+ failedPhaseNanoseconds
     }
 
     /// **The number NFR-PERF-3 has never had.** Host work as a fraction of device I/O time.
@@ -492,6 +664,7 @@ public struct RunMetrics {
     private var bytesRead: UInt64 = 0
     private var bytesWritten: UInt64 = 0
     private var bytesVerified: UInt64 = 0
+    private var bytesCompleted: UInt64 = 0
 
     private var readNanoseconds: UInt64 = 0
     private var writeNanoseconds: UInt64 = 0
@@ -564,6 +737,15 @@ public struct RunMetrics {
         if measurement.outcome.isPhaseFailure { chunksFailed &+= 1 }
         if measurement.outcome == .verifyMismatch { chunksMismatched &+= 1 }
 
+        // Successful work, and the one counter here that advances on nothing but `.completed`.
+        //
+        // Written as `== .completed` and never as `!measurement.outcome.isPhaseFailure`, which
+        // would read as the same test and is not: `.verifyMismatch` moved every byte and failed
+        // the compare, so it is deliberately not a phase failure. The negated form would count a
+        // retention failure — the fault this whole tool exists to find — as success, on the
+        // figure a user reads to find it.
+        if measurement.outcome == .completed { bytesCompleted &+= bytes }
+
         hostOverheadNanoseconds &+= measurement.hostOverheadNanoseconds
 
         // The read. It succeeded unless the outcome says it was the read that failed.
@@ -620,6 +802,7 @@ public struct RunMetrics {
                                bytesRead: bytesRead,
                                bytesWritten: bytesWritten,
                                bytesVerified: bytesVerified,
+                               bytesCompleted: bytesCompleted,
                                elapsedNanoseconds: elapsed,
                                readNanoseconds: readNanoseconds,
                                writeNanoseconds: writeNanoseconds,

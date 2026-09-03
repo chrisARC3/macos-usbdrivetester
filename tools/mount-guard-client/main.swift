@@ -408,7 +408,8 @@ for command in commands {
                 outcomeCode, interruptedAtBlock, chunks, failedRangeCount, failureSummary,
                 cacheBypass, fastestBytesPerSecond, bufferBytesHeld, hostOverheadFraction,
                 helperCoreFraction, failureModeUsed, failedRangesEncoded, failedBlockCount,
-                readBytesPerSecond, writeBytesPerSecond, coveringBytesPerSecond, latencySamples,
+                readBytesPerSecond, writeBytesPerSecond, coveringBytesPerSecond,
+                completedBytesPerSecond, latencySamples,
                 latencyMinimum, latencyMaximum, latencyP99Upper, message in
 
                 // Protocol v10 replaced the reply's `completed` boolean with a `RunOutcomeCode`,

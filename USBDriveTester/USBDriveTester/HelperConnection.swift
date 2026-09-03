@@ -223,17 +223,31 @@ nonisolated struct RunCycleOutcome: Equatable {
     /// The daemon's CPU as a fraction of one core over the run (BUILD-PLAN 9.5a), or `nil`.
     let helperCoreFraction: Double?
 
-    /// Bytes read per second of **wall clock** over the run — original reads and verify reads
-    /// together (FR-RPT-2) — or `nil` when nothing was measured.
-    let sustainedReadBytesPerSecond: Double?
+    /// **The device's read speed** over the run — original reads and verify reads together, over
+    /// the time spent on both (FR-RPT-2, v14) — or `nil` when nothing was measured.
+    let deviceReadBytesPerSecond: Double?
 
-    /// Bytes written per second of **wall clock** over the run (FR-RPT-2).
-    let sustainedWriteBytesPerSecond: Double?
+    /// **The device's write speed** over the run: bytes written ÷ time spent writing (FR-RPT-2,
+    /// v14). Legitimately above the read rate on a drive that writes faster than it reads.
+    let writeBytesPerSecond: Double?
 
-    /// How fast the run covered the drive, against the wall clock (FR-METR-5). About half the
-    /// read rate and about the same as the write rate, because every covered byte is read,
-    /// written and read again.
+    /// How fast the run covered the drive, **against running time** (FR-METR-5) — the one rate on
+    /// this reply that did not move to phase time in v14, because it is the ETA's denominator.
+    /// About a third of the two above and not directly comparable to them.
+    ///
+    /// **Attempted work**, and displayed nowhere — see ``completedBytesPerSecond`` below and
+    /// `RunProgressSnapshot.coverageBytesPerSecond` for why it stays on the wire regardless.
     let coverageBytesPerSecond: Double?
+
+    /// **`R-W-R-C speed`** (v14): bytes in chunks that were read, written back, read again and
+    /// matched, over all successful phase time — successful work, where the rate above is
+    /// attempted work.
+    ///
+    /// It equalled ``writeBytesPerSecond`` on a clean run until v14 and no longer does; it is
+    /// roughly a third of it, being a per-cycle rate beside per-phase ones. The relationship that
+    /// replaced the equality is `1/completed = 2/deviceRead + 1/write`, and falling below what
+    /// that predicts is what a divergence means.
+    let completedBytesPerSecond: Double?
 
     /// How many original reads the three latency figures are computed over. `0` makes them all
     /// `nil`, because `0` nanoseconds is a legitimate reading and cannot be its own sentinel.
@@ -250,11 +264,11 @@ nonisolated struct RunCycleOutcome: Equatable {
 
     /// Decode one `runRetentionCycle` reply.
     ///
-    /// **Every parameter is labelled, and that is the point.** The reply block is nineteen
-    /// positional values, six of which are adjacent same-typed numbers — two `Double` rates, four
-    /// `UInt64` latency figures — and it is assembled in the helper's `main.swift` and consumed
-    /// in a closure, neither of which any unit test can reach. A transposition there compiles,
-    /// runs, and puts read throughput under "write" in an exported report.
+    /// **Every parameter is labelled, and that is the point.** The reply block is twenty-two
+    /// positional values, eight of which are adjacent same-typed numbers — four `Double` rates
+    /// from v13, four `UInt64` latency figures — and it is assembled in the helper's `main.swift`
+    /// and consumed in a closure, neither of which any unit test can reach. A transposition there
+    /// compiles, runs, and puts read throughput under "write" in an exported report.
     ///
     /// Labelling does not make that impossible, but it puts each value's name beside it at the
     /// one call site where the mistake would be made, and `RunCycleOutcomeTests` pins the decode
@@ -272,9 +286,10 @@ nonisolated struct RunCycleOutcome: Equatable {
          failureModeUsedCode: Int,
          failedRangesEncoded: String,
          failedBlockCount: UInt64,
-         sustainedReadBytesPerSecond: Double,
-         sustainedWriteBytesPerSecond: Double,
+         deviceReadBytesPerSecond: Double,
+         writeBytesPerSecond: Double,
          coverageBytesPerSecond: Double,
+         completedBytesPerSecond: Double,
          readLatencySampleCount: UInt64,
          readLatencyMinimumNanoseconds: UInt64,
          readLatencyMaximumNanoseconds: UInt64,
@@ -299,9 +314,10 @@ nonisolated struct RunCycleOutcome: Equatable {
         self.bufferBytesHeld = bufferBytesHeld
         self.hostOverheadFraction = WireSentinel.rate(hostOverheadFraction)
         self.helperCoreFraction = WireSentinel.rate(helperCoreFraction)
-        self.sustainedReadBytesPerSecond = WireSentinel.rate(sustainedReadBytesPerSecond)
-        self.sustainedWriteBytesPerSecond = WireSentinel.rate(sustainedWriteBytesPerSecond)
+        self.deviceReadBytesPerSecond = WireSentinel.rate(deviceReadBytesPerSecond)
+        self.writeBytesPerSecond = WireSentinel.rate(writeBytesPerSecond)
         self.coverageBytesPerSecond = WireSentinel.rate(coverageBytesPerSecond)
+        self.completedBytesPerSecond = WireSentinel.rate(completedBytesPerSecond)
         self.readLatencySampleCount = readLatencySampleCount
         self.readLatencyMinimum = latency(readLatencyMinimumNanoseconds)
         self.readLatencyMaximum = latency(readLatencyMaximumNanoseconds)
@@ -619,12 +635,12 @@ final class HelperConnection {
                 runOutcomeCode, interruptedAtBlock, chunks, failedRangeCount, failureSummary,
                 cacheBypassCode, _, bufferBytesHeld, hostOverheadFraction, helperCoreFraction,
                 failureModeUsedCode, failedRangesEncoded, failedBlockCount,
-                sustainedReadBytesPerSecond, sustainedWriteBytesPerSecond, coverageBytesPerSecond,
-                readLatencySampleCount,
+                deviceReadBytesPerSecond, writeBytesPerSecond, coverageBytesPerSecond,
+                completedBytesPerSecond, readLatencySampleCount,
                 readLatencyMinimum, readLatencyMaximum, readLatencyP99Upper, message in
 
-                // Straight into a labelled initialiser, one value per line. Twenty positional
-                // values with six adjacent same-typed numbers among them is exactly where a
+                // Straight into a labelled initialiser, one value per line. Twenty-two positional
+                // values with eight adjacent same-typed numbers among them is exactly where a
                 // transposition hides, and this closure is not reachable by any unit test.
                 finish(.success(RunCycleOutcome(
                     runOutcomeCode: runOutcomeCode,
@@ -639,9 +655,10 @@ final class HelperConnection {
                     failureModeUsedCode: failureModeUsedCode,
                     failedRangesEncoded: failedRangesEncoded,
                     failedBlockCount: failedBlockCount,
-                    sustainedReadBytesPerSecond: sustainedReadBytesPerSecond,
-                    sustainedWriteBytesPerSecond: sustainedWriteBytesPerSecond,
+                    deviceReadBytesPerSecond: deviceReadBytesPerSecond,
+                    writeBytesPerSecond: writeBytesPerSecond,
                     coverageBytesPerSecond: coverageBytesPerSecond,
+                    completedBytesPerSecond: completedBytesPerSecond,
                     readLatencySampleCount: readLatencySampleCount,
                     readLatencyMinimumNanoseconds: readLatencyMinimum,
                     readLatencyMaximumNanoseconds: readLatencyMaximum,
@@ -660,15 +677,17 @@ final class HelperConnection {
     func runProgress(completion: @escaping (Result<RunProgressSnapshot, Error>) -> Void) {
         withProxy(completion, on: currentProgressConnection()) { tester, finish in
             tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
-                                 coveringRate, remainingSeconds, latencySamples, latencyMinimum,
+                                 coveringRate, completedRate, remainingSeconds, latencySamples,
+                                 latencyMinimum,
                                  latencyMaximum, latencyP99Upper, chunksFailed in
                 finish(.success(RunProgressSnapshot(
                     available: available,
                     fractionComplete: fraction,
                     currentBlock: currentBlock,
-                    sustainedReadBytesPerSecond: readRate,
-                    sustainedWriteBytesPerSecond: writeRate,
+                    deviceReadBytesPerSecond: readRate,
+                    writeBytesPerSecond: writeRate,
                     coverageBytesPerSecond: coveringRate,
+                    completedBytesPerSecond: completedRate,
                     estimatedRemainingSeconds: remainingSeconds,
                     readLatencySampleCount: latencySamples,
                     readLatencyMinimumNanoseconds: latencyMinimum,

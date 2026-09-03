@@ -210,9 +210,15 @@ nonisolated enum RunReportMarkdown {
         lines.append("| | |")
         lines.append("|---|---|")
         lines.append(row("Read throughput",
-                         MetricsFormatting.throughput(report.sustainedReadBytesPerSecond)))
+                         MetricsFormatting.throughput(report.deviceReadBytesPerSecond)))
         lines.append(row("Write throughput",
-                         MetricsFormatting.throughput(report.sustainedWriteBytesPerSecond)))
+                         MetricsFormatting.throughput(report.writeBytesPerSecond)))
+        // Increment 11's `R-W-R-C speed`, on this surface at the same time as the sheet and the
+        // panel. Increment 10 established the rule when it deleted `Covering` from all three: a
+        // rate one surface names and another refuses is the drift `ThroughputFraming` exists to
+        // end, and this file is the copy that gets forwarded and re-read months later.
+        lines.append(row("R-W-R-C speed",
+                         MetricsFormatting.throughput(report.completedBytesPerSecond)))
         if let linkSpeed = report.usbLinkSpeedDescription {
             lines.append(row("Negotiated USB link speed", linkSpeed))
         }

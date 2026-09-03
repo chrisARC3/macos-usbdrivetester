@@ -76,12 +76,29 @@ claim, and the `Medium` row appears exactly when the USB bridge publishes `Mediu
 produced comment fixes; see `DiscoveredDevice.mediumType`, whose old wording invited the wrong
 inference.
 
-> **NOTHING IS OWED, as of 2026-09-02.** Every chunk in this file has been walked and passed.
+**That first question outlived its answer.** The 2:1 was a counting identity *because both rates
+divided by running time*; asked again on 2026-09-02, it led to FR-METR-1 being amended, and Read
+and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel now reads Write
+**above** Read. The answer given here was correct for the build it was given about.
+
+> **CHUNK 15 IS OWED, as of 2026-09-03.** Everything else in this file has been walked and passed.
 >
-> ⚠️ **This line said "NOTHING IS OWED" until chunk 14 was written, then said chunk 14 was owed,
-> and now says it again** — the round trip is the point. A new chunk makes the summary false the
-> moment it is added, and walking one makes it false again; the summary and the body are edited
-> together, every time, or this file resumes lying about itself.
+> ⚠️ **This line said "NOTHING IS OWED" until chunk 15 was written, on 2026-09-03** — which is the
+> third time round this loop. A new chunk makes the summary false the moment it is added, and
+> walking one makes it false again; the summary and the body are edited together, every time, or
+> this file resumes lying about itself. Chunk 15 was added for increment 11 and FR-METR-1's
+> amendment. **Its item 1 — the v12/v14 mismatch walk — was deleted on 2026-09-03 without being
+> walked**: `install-app.sh` ran before it and the daemon restarted from the new binary, taking the
+> only free fixture with it. See the chunk's own header for what still covers that guard and what
+> does not.
+>
+> Four items elsewhere in this file went stale and were corrected on 2026-09-03: **2.3**, **7.2**
+> and **13.7** named the `Covering` row, which increment 10 deleted on 2026-09-02 without updating
+> this file, and 2.3 additionally asserted that Activity Monitor **agrees** with the panel, which
+> FR-METR-1's amendment reversed. **14.5 and 14.6 are left as written** and annotated at their
+> chunk: they are a record of a passed walk, not a live procedure, and chunk 15 covers the same
+> ground against v14. A checklist that instructs a walker to verify something false produces a
+> confident failure report against a correct build, which is worse than having no item at all.
 >
 > Chunks 1–13, and the last three items to close among them on 2026-09-01: **chunk 13** in full,
 > **item 7.5** — a whole-device run on the
@@ -180,8 +197,16 @@ had no equivalent of, and it is what proves Start claims nothing.
 1. **Proceed** → `run issued: true`, then `run authorised: drive serial …`
 2. **All three** volumes unmount, `Vol_APFS` included. If `Vol_APFS` alone survives, stop: that is
    the `…Whole` defect.
-3. The panel shows `Read` / `Write` / `Covering`, with Read ≈ 2 × Covering, and **Activity Monitor
-   agrees**. This is the check that closes the 2026-08-17 report at the surface it was made on.
+3. The panel shows `Read` / `Write` / `R-W-R-C`. **Activity Monitor will NOT agree, and must not**:
+   expect it to show roughly 245/122 against the panel's ~376/419 on the 4 TB T5 EVO. Write above
+   Read is correct — that drive writes faster than it reads. `R-W-R-C` around a third of both is
+   correct on a clean run. Read the paragraph under the figures and check it says so.
+
+   *Rewritten 2026-09-03. It read "`Read` / `Write` / `Covering`, with Read ≈ 2 × Covering, and
+   Activity Monitor agrees" — every clause of which is now false: `Covering` was deleted from the
+   panel in increment 10, and FR-METR-1's 2026-09-02 amendment made the disagreement with Activity
+   Monitor the requirement. Left standing, this item would have produced a confident failure report
+   against a correct build.*
 4. **Stop** → every volume back.
 
 ### 3 — the abort path *(writes)*
@@ -238,8 +263,12 @@ raised once one has. The guard in `promptDismissed` now defends an unreachable s
 
 1. **The first run after a fresh launch** names model, serial and capacity. First specifically —
    later runs looked correct even with the original defect present.
-2. The report shows `Read throughput` / `Write throughput` / `Covering`, the definition paragraph,
-   and the not-graded paragraph — **on screen and in the exported `.md`, identically**.
+2. The report shows `Read throughput` / `Write throughput` / `R-W-R-C speed`, the definition
+   paragraph, and the not-graded paragraph — **on screen and in the exported `.md`, identically**.
+
+   *Corrected 2026-09-03. It named `Covering`, which increment 10 deleted from all three surfaces
+   on 2026-09-02 — this item went stale that day and was not updated with it. `R-W-R-C speed`
+   replaced it in increment 11.*
 3. At the app's **smallest** window, with the three-volume drive selected, Start / Pause / Stop are
    all reachable without resizing or scrolling.
 
@@ -688,9 +717,13 @@ is taken on demand and this list is what makes it a habit.
    only the second copy was removed.
 
 7. **The metrics panel has lost the row, and nothing else.** With a run under way, the *Live run
-   metrics* panel shows **Read, Write and Covering** and **no** *USB link negotiated at* row. The
-   paragraph under them still explains what Read, Write and Covering are measured against, and the
-   latency block below is untouched.
+   metrics* panel shows **Read, Write and R-W-R-C** and **no** *USB link negotiated at* row. The
+   paragraph under them still explains what those three are measured against, and the latency block
+   below is untouched.
+
+   *Corrected 2026-09-03: this said "Read, Write and Covering", twice. The row it names was deleted
+   by increment 10 on 2026-09-02 and replaced by `R-W-R-C` in increment 11. The item's actual
+   subject — that the link-speed row went and nothing else did — is unaffected.*
 
 8. **The report still has both numbers together.** Stop the run and read the report. Its
    measurement block still shows **Negotiated USB link speed** among the throughput rows. This is
@@ -846,6 +879,13 @@ machine state is not a unit test, and that one would have done it on every run o
 `.retry` is driven; **items 3 and 4 are the cover for the other two.**
 
 
+> **Chunk 14's items 5 and 6 describe a build that no longer exists, and are left as written.**
+> They passed on 2026-09-02 against increment 10 and are a record of that walk, not a live
+> procedure. Increment 11 then added `R-W-R-C` to the panel and both report surfaces, and
+> FR-METR-1's 2026-09-02 amendment removed the "about twice Write" relationship those items
+> check — Read and Write no longer share a denominator, so the ratio they assert is not a
+> property of the current build. **Chunk 15 covers the same ground against v14; walk that.**
+
 ### Chunk 14 — Full Disk Access at Start, and two deletions (increment 10) — **PASSED IN FULL 2026-09-02** *(item 3 needs a run; item 4 revokes a permission — ask first)*
 
 > **All seven items passed 2026-09-02**, against a Debug build installed at 13:22 that day. The
@@ -935,6 +975,123 @@ The run log is the instrument for items 1–3:
    `Drive` and `Run` tables are unchanged, `Failed block ranges` is still there, and the latency
    block still has minimum, maximum, p99 and reads measured. A deletion that took a neighbour with
    it would read as correct on the deleted row alone.
+
+
+### Chunk 15 — the throughput denominators after FR-METR-1's amendment (increment 11) — **OWED** *(items 1–3, 5 and 6 need a run; item 4 is dry)*
+
+Increment 11 added `R-W-R-C speed` to all three surfaces, then FR-METR-1 was amended mid-increment
+and the three displayed rates moved from running time to **phase time** (protocol v14). This chunk
+is the only place the change is checked against reality rather than against a fixture.
+
+**Read the FR document's 2026-09-02 amendment before walking this.** Several items below ask you to
+confirm that figures **disagree** with another tool. That is the requirement, not a defect, and an
+item that looks wrong to a walker who has not read the amendment will be reported as one.
+
+**What no test can see here.**
+
+* **That the disclaimer is TRUE.** `theDefinitionWarnsThatTheFiguresDoNotMatchAnOutsideObserver`
+  asserts the report *says* these figures will not match Activity Monitor. Nothing anywhere checks
+  that they actually don't, by roughly the factors claimed. Item 3 is the whole of that cover, and
+  it is the item that matters most: the disclaimer is what makes the amendment defensible, and a
+  disclaimer that is wrong about reality is worse than none.
+* **The row wiring on real data.** No test drives a SwiftUI binding. The renders cover it with
+  fixtures; only a run covers it with numbers the drive produced.
+* **The quiet version mismatch had an item here and it was deleted on 2026-09-03**, at the user's
+  decision, without being walked. It asked the walker to launch the app against the **v12** daemon
+  still in `/Applications` and confirm the launch-time gate caught the mismatch — the only fixture
+  the guard would ever get for free, since v14 was the first version whose replies did not change
+  shape. `install-app.sh` was run before the item was walked and the daemon restarted from the new
+  binary, so the fixture was gone.
+  **What still covers it:** `theProtocolVersionIsFourteen` proves the constant moved,
+  `metrics-check.sh` asserts the running daemon matches, and `helper-gate-version-mismatch` has a
+  render in both appearances. **What nothing covers:** a real stale daemon producing that real
+  sheet, end to end. Carried as a known gap rather than as an owed item, because the next protocol
+  bump recreates the fixture and increment 12 is app-side and will not bump anything.
+
+The run log is the instrument throughout:
+
+    /usr/bin/log stream --predicate 'subsystem == "com.arc3solutions.USBDriveTester"' --info
+
+---
+
+1. **The panel's three figures, on the 4 TB T5 EVO.** Start a run and read the *Live run metrics*
+   panel. Expect approximately:
+
+   | | |
+   |---|---|
+   | `Read` | ~376 MB/s |
+   | `Write` | ~419 MB/s |
+   | `R-W-R-C` | ~130 MB/s |
+
+   **Write above Read is correct** — that drive genuinely writes faster than it reads, and the
+   figures shown until 2026-09-02 hid it behind an exact 2:1 that came from the cycle's shape. If
+   Read is about twice Write you are looking at a v13 build; go back to item 1.
+
+   **`R-W-R-C` at roughly a third of both is correct on a drive with nothing wrong.** It is a
+   per-cycle rate beside two per-phase rates. This is the figure most likely to be reported as a
+   fault, which is why the paragraph beneath says so before it says anything about gaps.
+
+2. **Activity Monitor disagrees, and by about the right amount.** ⭐ *The item this chunk exists for.*
+
+   With the run still going, open Activity Monitor's **Disk** tab and read the same drive. Expect
+   roughly **245 MB/s read and 122 MB/s write** — that is, the app's Read about **1.5×** and its
+   Write about **3.4×** what Activity Monitor shows.
+
+   Now read the paragraph under the panel's figures. It must say these are the drive's own speeds,
+   measured over the time it spent doing that work, and **not comparable to Activity Monitor**.
+   Check that what it claims and what the two screens show are the same story.
+
+   **Record the four numbers**, app and Activity Monitor, read at the same moment. They are the
+   evidence that the disclaimer describes reality; nothing in the suite can produce them.
+
+   If Activity Monitor **agrees** with the app, that is a failure: the rates have gone back to
+   dividing by running time.
+
+3. **The identity holds on real numbers.** From item 1's three figures, compute:
+
+       2 / Read  +  1 / Write        against        1 / R-W-R-C
+
+   They should agree to within a couple of percent on a clean run. At 376 / 419 / 130 that is
+   `0.00532 + 0.00239 = 0.00771` against `0.00769`.
+
+   This is the relationship that replaced `Read ≈ 2 × Covering`, and `metrics-check.sh` asserts it
+   at 2%. Doing it once by hand is worth more than trusting the script, because the script and the
+   app read the same helper: an arithmetic error shared by both would satisfy the gate and be
+   visible here.
+
+   **A shortfall in `R-W-R-C` alone is the retention signal** — bytes the drive accepted and could
+   not read back unchanged. If it comes out low, check `chunks failed` and the report's failed-range
+   table before concluding the arithmetic is wrong.
+
+4. **The idle panel shows dashes, not zeroes or minus ones.** Before starting a run — or on a
+   freshly launched app with a drive selected — all three rates read `—`. A `0 MB/s` means
+   *stalled*, which is a real and alarming condition, and a `-1.0 MB/s` is the wire sentinel
+   reaching a screen. Neither is acceptable and both have happened in this project's history.
+
+5. **The report and the export agree, and both explain themselves.** Let a run finish, or stop one.
+   In **Measurements**: `Read throughput`, `Write throughput`, `R-W-R-C speed`, then `Negotiated USB
+   link speed`. The paragraph below the table begins *"Each rate is measured over the time the drive
+   spent doing that work…"* and names Activity Monitor as a tool these figures will **not** match.
+
+   Export the `.md` and open it. **The same three rows and the same paragraph, identically.** The
+   exported file is the copy that gets forwarded and re-read months later, detached from any screen,
+   so it is the artefact that most needs to carry the disclaimer.
+
+   Increment 10 established the rule this checks: a rate one surface names and another refuses is
+   drift, and `ThroughputFraming` exists to make the two impossible to separate.
+
+6. **A pause still costs nothing, and the ETA still converges.** Start a whole-device run on the
+   125.8 MB thumb drive (serial `2211190533300386001515`), let it get going, **Pause** for a
+   minute, then **Resume**.
+
+   The ETA must not inflate across the pause, and the progress figure must not stall its own
+   estimate. **This is the one denominator the amendment did not move**: `coverageBytesPerSecond`
+   still divides by running time, precisely so an estimate is not built on a figure that ignores
+   the time a run spends not doing I/O.
+
+   It is checked here because it now has less company than it used to. Until v14 the displayed rates
+   shared this denominator, so a defect in it showed up on three figures at once; now it shows up
+   only in the ETA, and only to somebody watching one.
 
 
 ## What has no automated cover, and will not get any

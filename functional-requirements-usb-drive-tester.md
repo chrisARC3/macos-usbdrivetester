@@ -116,7 +116,7 @@ This document specifies the **functional requirements** — the observable behav
 
 | ID | Requirement | Priority | Source |
 |----|-------------|----------|--------|
-| FR-METR-1 | The system shall measure and maintain the average read throughput and average write throughput during a run. | M | PB Features |
+| FR-METR-1 | The system shall measure and maintain the average read throughput and average write throughput during a run, **each divided by the time the device spent performing that operation**, so that the figures describe the device's I/O rate rather than the run's aggregate rate. Read counts the verify read as well as the original, over the time spent on both. | M | PB Features; **revised 2026-09-02** |
 | FR-METR-2 | The system shall display read and write throughput in the GUI. | M | PB Features |
 | FR-METR-3 | The system shall capture per-chunk read latency statistics, including at minimum the minimum, maximum, and a high percentile (e.g., p99). | M | PB Features |
 | FR-METR-4 | The system shall display the read-latency statistics in the GUI. | M | PB Features; Action Item 8 |
@@ -162,10 +162,10 @@ This document specifies the **functional requirements** — the observable behav
 Changes made after the 2026-06-25 baseline. Recorded here so the delta from the
 baselined set is auditable rather than silently absorbed into the tables above.
 
-> **Latest: 2026-08-06/07 — four GUI decisions from Step 10**, at the end of this section. No
-> requirement text changes, but one of them records a **measured** constraint on any code that
-> unmounts, and another explains why the live metrics panel no longer retains a finished run
-> without FR-METR being affected.
+> **Latest: 2026-09-02 — FR-METR-1 revised: throughput is measured over PHASE time**, at the end of
+> this section. It reverses an implementation decision taken on 2026-08-18 and closes an ambiguity
+> in the baseline text that let two opposite implementations both satisfy it literally. Read that
+> entry before concluding the project has gone in a circle.
 
 ### 2026-07-30 — FR-SAFE-5 revised; FR-SAFE-6 and FR-SAFE-7 added
 
@@ -856,3 +856,104 @@ render, and it caught all three mutations that alter what is displayed.
 straight out of `ioreg` and agreed with the app exactly: the 4 TB PSSD T5 EVO reports code 3,
 SuperSpeed 5 Gb/s. The feature earned itself on its first render — that drive is 10 Gb/s-capable and
 is negotiating half of it, which is the situation the change exists to expose.
+
+### 2026-09-02 — FR-METR-1 revised: throughput is measured over PHASE time
+
+**Trigger.** The user asked why the displayed write rate was about half the displayed read rate, was
+shown that the 2:1 came from the *cycle's shape* rather than from the drive, and concluded that the
+figures were answering the wrong question.
+
+> *"I no longer want this application to reflect the same read and write speeds as Apple Activity
+> Monitor. Instead, I want the application to report the actual measured average read and write
+> speeds for the i/o's themselves."* — user, 2026-09-02
+
+**FR-METR-1 — revised.** Read and write throughput are each divided by **the time the device spent
+performing that operation**, not by the run's elapsed working time. Read pools the original read and
+the verify read over the time spent on both.
+
+**The baseline text did not have to change to permit either reading, which is the real defect being
+fixed.** It said *"the average read throughput and average write throughput during a run"* and named
+no denominator, so the phase-time implementation satisfied it literally until 2026-08-18, and the
+wall-clock implementation satisfied it literally afterwards. The revision states the denominator so
+that a third reading cannot be adopted without amending this row.
+
+#### Why this is not a reversion to the 2026-08-18 defect
+
+It reverses that decision, and the record has to say why the project has not gone in a circle.
+
+On 2026-08-17 a bug was reported: *"our speed measurements are way off. Reported read speeds are
+about 50% above actual and reported write speeds are over 3x above actual."* Against the 4 TB T5 EVO
+the app showed 375.8 MB/s read and 418.9 write where DriveSpeed and Activity Monitor — agreeing with
+each other exactly — showed about 245 and 122. That became protocol v12.
+
+**Nothing was miscounted then and nothing is miscounted now.** The complaint was that the figures did
+not reconcile with other tools, and reconciliation was adopted as the objective. That objective is
+withdrawn. A tool that exists to characterise a *device* should report what the device did while it
+was working: a drive that writes at 419 MB/s and spends 29% of the run writing has a write speed of
+419 MB/s, and reporting 122 describes this program's duty cycle rather than the user's hardware.
+
+The same 1.5× and 3.4× discrepancies are therefore back, and are now **the intended reading**. What
+makes that defensible rather than a repeat is that the reader is told: `ThroughputFraming.definition`
+states the denominator and names the tool these figures will not match, on the panel, the report
+sheet and the exported Markdown, from one string. An undisclaimed figure 3.4× what another window
+shows is how the original report happened; the disclaimer is not commentary on this change but the
+half of it that makes the other half safe. It is asserted by
+`RunReportTests.theDefinitionWarnsThatTheFiguresDoNotMatchAnOutsideObserver`, which was written when
+it turned out that deleting the sentence outright left the whole suite green.
+
+#### What did NOT change, and why
+
+**FR-METR-5/6 and the ETA.** `coverageBytesPerSecond` still divides by running time and remains the
+ETA's denominator. A phase rate has no idea how much of a run is not I/O, so an estimate built on one
+cannot converge, and NFR-PERF-6 requires convergence. This is now the only displayed-adjacent rate on
+that denominator, and `metrics-check.sh` asserts it separately for exactly that reason.
+
+**FR-METR-2, FR-METR-3/4, FR-RPT-2/3.** Unaffected in wording. The same three figures are displayed
+in the same three places under the same labels.
+
+**NFR-PERF-3.** `hostOverheadFraction` divides host time by device I/O time and is untouched.
+
+**D9 — measured, never graded.** Unaffected, and re-examined rather than assumed. The advertised-rate
+comparison was deleted from the panel on 2026-08-17 partly because the wall-clock write read 122 MB/s
+against an advertised ~460 — 27%, which "reads as a dying drive". At phase time it reads about 419
+against that same ~460, roughly 91%, so **that particular argument no longer holds**. The decision
+stands on the reason that never depended on the denominator: an advertised figure is a pure
+sequential read or write, a cycle interleaves read, write and verify at 1–8 MiB, and 91% of a rating
+earned on a different workload is not 91% of anything.
+
+#### The consequences worth knowing before reading a panel
+
+**`R-W-R-C speed` no longer equals Write, and now reads about a third of its neighbours on a healthy
+drive.** It was added five days earlier, in this same increment, on the argument that it read
+identically to Write on a clean run and that a divergence therefore meant something. That equality
+held only while both divided by running time. It is a per-cycle rate beside two per-phase rates, so a
+flawless run on the T5 EVO reads about `Read 376, Write 419, R-W-R-C 130`. **A row a third the size
+of its neighbours on hardware with nothing wrong is exactly the shape of the 2026-08-17 report**,
+which is why the definition paragraph leads with the healthy case before naming the gap.
+
+**Write is legitimately above Read.** That drive writes faster than it reads, and the wall-clock pair
+hid it behind an exact 2:1 that came from the cycle rather than the hardware.
+
+**What replaced the equality is stronger.** All three displayed rates share one denominator, so on a
+clean run they satisfy an identity exactly, with no tolerance:
+
+    1 / R-W-R-C  =  2 / Read  +  1 / Write
+
+It is the *residual* that carries the meaning: a `.verifyMismatch` spends time in R-W-R-C's
+denominator and contributes nothing to its numerator, so R-W-R-C falling below what Read and Write
+predict is a retention signal specifically. This replaced `metrics-check.sh`'s `read ≈ 2 × covering`
+band, which needed a ±10–20% window; the identity is asserted at 2% on hardware and at floating-point
+exactness in a unit test. A mutation reverting R-W-R-C to running time moves it by 0.2% and is
+caught — the old band would have missed the same defect by a factor of fifty.
+
+#### Protocol v14, and the reason it needs more care than a bump usually does
+
+**Both replies kept their arity** — 22 and 13. Slots 14 and 15 stopped carrying the wall-clock pair
+and carry the phase rates; slot 17 kept its name and changed its denominator. Every previous version
+changed shape somewhere, so a mismatched app and daemon failed to decode and something said so.
+
+**A v13 app talking to a v14 daemon decodes cleanly and displays wrong numbers**, low by the ratio of
+running time to phase time, with nothing in the reply to reveal it. When the constant moved, exactly
+one test in 1092 failed — the compiler had nothing to object to. The handshake in `HelperConnection`
+is the only guard, so reinstalling the daemon before any hardware gate or checklist walk is a
+correctness requirement here rather than hygiene.

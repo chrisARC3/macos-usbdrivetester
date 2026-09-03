@@ -87,9 +87,10 @@ struct RunProgressSnapshotDecodingTests {
         let snapshot = RunProgressSnapshot(available: true,
                                            fractionComplete: 0,
                                            currentBlock: 0,
-                                           sustainedReadBytesPerSecond: -1,
-                                           sustainedWriteBytesPerSecond: -1,
+                                           deviceReadBytesPerSecond: -1,
+                                           writeBytesPerSecond: -1,
                                            coverageBytesPerSecond: -1,
+                                           completedBytesPerSecond: -1,
                                            estimatedRemainingSeconds: -1,
                                            readLatencySampleCount: 0,
                                            readLatencyMinimumNanoseconds: 0,
@@ -97,8 +98,8 @@ struct RunProgressSnapshotDecodingTests {
                                            readLatencyP99UpperBoundNanoseconds: 0,
                                            chunksFailed: 0)
 
-        #expect(snapshot.sustainedReadBytesPerSecond == nil)
-        #expect(snapshot.sustainedWriteBytesPerSecond == nil)
+        #expect(snapshot.deviceReadBytesPerSecond == nil)
+        #expect(snapshot.writeBytesPerSecond == nil)
         #expect(snapshot.estimatedRemaining == nil)
     }
 
@@ -107,7 +108,8 @@ struct RunProgressSnapshotDecodingTests {
     /// sample count.
     @Test func latencyFiguresAreNilWhenThereAreNoSamplesEvenThoughZeroIsAValidLatency() {
         let none = RunProgressSnapshot(available: true, fractionComplete: 0, currentBlock: 0,
-                                       sustainedReadBytesPerSecond: -1, sustainedWriteBytesPerSecond: -1, coverageBytesPerSecond: -1,
+                                       deviceReadBytesPerSecond: -1, writeBytesPerSecond: -1, coverageBytesPerSecond: -1,
+                                                                                                          completedBytesPerSecond: -1,
                                        estimatedRemainingSeconds: -1,
                                        readLatencySampleCount: 0,
                                        readLatencyMinimumNanoseconds: 0,
@@ -121,7 +123,8 @@ struct RunProgressSnapshotDecodingTests {
 
         // Same zeroes, but samples exist — now they are real measurements of zero.
         let measured = RunProgressSnapshot(available: true, fractionComplete: 0, currentBlock: 0,
-                                           sustainedReadBytesPerSecond: -1, sustainedWriteBytesPerSecond: -1, coverageBytesPerSecond: -1,
+                                           deviceReadBytesPerSecond: -1, writeBytesPerSecond: -1, coverageBytesPerSecond: -1,
+                                                                                                              completedBytesPerSecond: -1,
                                            estimatedRemainingSeconds: -1,
                                            readLatencySampleCount: 12,
                                            readLatencyMinimumNanoseconds: 0,
@@ -136,9 +139,10 @@ struct RunProgressSnapshotDecodingTests {
         let snapshot = RunProgressSnapshot(available: true,
                                            fractionComplete: 0.25,
                                            currentBlock: 1_048_576,
-                                           sustainedReadBytesPerSecond: 492_870_060,
-                                           sustainedWriteBytesPerSecond: 431_000_000,
+                                           deviceReadBytesPerSecond: 492_870_060,
+                                           writeBytesPerSecond: 431_000_000,
                                            coverageBytesPerSecond: 210_000_000,
+                                           completedBytesPerSecond: 204_000_000,
                                            estimatedRemainingSeconds: 12.5,
                                            readLatencySampleCount: 256,
                                            readLatencyMinimumNanoseconds: 8_100_000,
@@ -148,7 +152,7 @@ struct RunProgressSnapshotDecodingTests {
 
         #expect(snapshot.fractionComplete == 0.25)
         #expect(snapshot.currentBlock == 1_048_576)
-        #expect(snapshot.sustainedReadBytesPerSecond == 492_870_060)
+        #expect(snapshot.deviceReadBytesPerSecond == 492_870_060)
         #expect(snapshot.estimatedRemaining == 12.5)
         #expect(snapshot.readLatencyMinimum == .nanoseconds(8_100_000))
         #expect(snapshot.chunksFailed == 3)
@@ -156,7 +160,8 @@ struct RunProgressSnapshotDecodingTests {
 
     @Test func aFractionOutsideZeroToOneIsClamped() {
         let over = RunProgressSnapshot(available: true, fractionComplete: 1.5, currentBlock: 0,
-                                       sustainedReadBytesPerSecond: -1, sustainedWriteBytesPerSecond: -1, coverageBytesPerSecond: -1,
+                                       deviceReadBytesPerSecond: -1, writeBytesPerSecond: -1, coverageBytesPerSecond: -1,
+                                                                                                          completedBytesPerSecond: -1,
                                        estimatedRemainingSeconds: -1, readLatencySampleCount: 0,
                                        readLatencyMinimumNanoseconds: 0,
                                        readLatencyMaximumNanoseconds: 0,
@@ -167,7 +172,7 @@ struct RunProgressSnapshotDecodingTests {
     @Test func theUnavailableSnapshotSaysNothing() {
         let snapshot = RunProgressSnapshot.unavailable
         #expect(!snapshot.isAvailable)
-        #expect(snapshot.sustainedReadBytesPerSecond == nil)
+        #expect(snapshot.deviceReadBytesPerSecond == nil)
         #expect(!snapshot.hasLatencySamples)
     }
 }
@@ -301,9 +306,10 @@ struct RunMetricsPanelVisibilityTests {
     private func snapshot(available: Bool) -> RunProgressSnapshot {
         available
             ? RunProgressSnapshot(available: true, fractionComplete: 1, currentBlock: 2_097_152,
-                                  sustainedReadBytesPerSecond: 517_000_000,
-                                  sustainedWriteBytesPerSecond: 491_000_000,
+                                  deviceReadBytesPerSecond: 517_000_000,
+                                  writeBytesPerSecond: 491_000_000,
                                   coverageBytesPerSecond: 245_000_000,
+                                  completedBytesPerSecond: 238_000_000,
                                   estimatedRemainingSeconds: 0,
                                   readLatencySampleCount: 256,
                                   readLatencyMinimumNanoseconds: 1_100_000,

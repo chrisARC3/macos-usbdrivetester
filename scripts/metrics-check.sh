@@ -55,12 +55,15 @@
 #   because this step changed what the engine accumulates.
 #
 # PREREQUISITES
-#   * The helper must be registered, enabled, running from /Applications, and at **protocol v12**.
-#     v12 reshaped BOTH replies: the two throughput arguments became wall-clock figures under new
-#     names and a third, `coverageBytesPerSecond`, was added. A v11 daemon replies with twenty
-#     arguments where this expects twenty-one, so the decode fails outright — which is the loud
-#     failure the handshake exists to produce. Before that, v11 changed the MEANING of nine
-#     arguments without changing the signature, which would have been the quiet one.
+#   * The helper must be registered, enabled, running from /Applications, and at **protocol v14**.
+#     **v14 is the quiet kind of change and the handshake is the only thing that catches it.**
+#     It kept both replies' arities — 22 and 13 — and moved the three displayed rates back onto
+#     phase time. A v13 daemon decodes into this script's expectations perfectly and reports
+#     figures that are well-formed, plausible, and low by the ratio of running time to phase time.
+#     Nothing downstream would notice: every assertion below would pass except the identity, and
+#     that one would read as a drive fault rather than a version mismatch.
+#     (v13 before it added a 22nd argument, so a v12 daemon fails to decode — the loud kind. v12
+#     was loud too. v11 was quiet, changing the meaning of nine arguments; this is the second.)
 #     Re-install (scripts/install-app.sh), then unregister and re-register in the app — the script
 #     only copies files — and confirm with Check version.
 #   * Full Disk Access (NFR-INST-4).
@@ -145,7 +148,7 @@ cat <<EOF
      verified byte-for-byte on this drive in Step 8 — but this script does not re-prove it.
      Run scripts/retention-cycle-check.sh for the fingerprinted proof.
 
-  Requires the helper at protocol v12. Expect about a minute.
+  Requires the helper at protocol v14. Expect about a minute.
 
   Press Return to continue, or Ctrl-C to abort.
 
@@ -257,13 +260,13 @@ if [[ "$HELPER_PROTOCOL" == "$EXPECTED_PROTOCOL" && -n "$HELPER_PROTOCOL" ]]; th
     check pass "the running daemon implements protocol v${HELPER_PROTOCOL}"
 else
     check fail "protocol mismatch: daemon v${HELPER_PROTOCOL:-<none>}, expected v${EXPECTED_PROTOCOL:-?}"
-    echo "        v12 (Step 11, between increments 5 and 6) reshaped BOTH replies: the two" >&2
-    echo "        throughput arguments" >&2
-    echo "        became wall-clock figures under new names, and coverageBytesPerSecond was added." >&2
-    echo "        A v11 daemon sends twenty arguments where this expects twenty-one, so the decode" >&2
-    echo "        fails outright — the loud failure. v11 before it was the quiet kind: it changed" >&2
-    echo "        the MEANING of nine arguments without changing the signature, so a v10 daemon" >&2
-    echo "        answered with figures that were well-formed, plausible and wrong." >&2
+    echo "        v14 (Step 11 increment 11, 2026-09-02) moved the three DISPLAYED rates back to" >&2
+    echo "        phase time under FR-METR-1's amendment, WITHOUT changing either reply's arity." >&2
+    echo "        That makes this the quiet kind of mismatch: a v13 daemon decodes cleanly here" >&2
+    echo "        and answers with figures that are well-formed, plausible, and low by the ratio" >&2
+    echo "        of running time to phase time. This handshake is the only thing that sees it." >&2
+    echo "        Re-install and kickstart the daemon; do not read the numbers below until you" >&2
+    echo "        have, because they will look almost right." >&2
     echo "        Re-install (scripts/install-app.sh), then unregister and re-register in the app" >&2
     echo "        — install-app.sh only copies files — and confirm with Check protocol version." >&2
     exit 1
@@ -338,11 +341,12 @@ for SIZE in $SWEEP; do
 
     # 2. THE REPLY'S FIGURES AGREE WITH THE POLL'S. Same six numbers by two independent routes:
     #    `REPLY_*` came back inside `runRetentionCycle`'s reply, `FINAL_*` from a `runProgress`
-    #    poll issued after it. The reply is twenty-one positional values assembled in the helper's
-    #    `main.swift` — seven of them adjacent same-typed numbers from v12 — and no unit test can
+    #    poll issued after it. The reply is twenty-two positional values assembled in the helper's
+    #    `main.swift` — eight of them adjacent same-typed numbers from v13 — and no unit test can
     #    reach that assembly. A transposition there compiles, runs, and puts read throughput under
     #    "write" in an exported report. This is what makes it visible.
     for FIELD in READ_BYTES_PER_SECOND WRITE_BYTES_PER_SECOND COVERING_BYTES_PER_SECOND \
+                 RWRC_BYTES_PER_SECOND \
                  LATENCY_SAMPLES LATENCY_MIN_NS LATENCY_MAX_NS; do
         REPLY_VALUE="$(size_value "$SIZE" "REPLY_${FIELD}")"
         POLL_VALUE="$(size_value "$SIZE" "FINAL_${FIELD}")"
@@ -463,30 +467,83 @@ sys.exit(0 if a >= 0 and abs(a - b) <= 0.0001 else 1)"; then
         check fail "${MIB} MiB: read throughput ${READ_RATE:-?} B/s is not transport-plausible"
     fi
 
-    # --- THE THREE RATES SHARE ONE DENOMINATOR (protocol v12, FR-METR-1/5).
+    # --- THE THREE DISPLAYED RATES SATISFY AN EXACT IDENTITY (protocol v14, FR-METR-1).
     #
-    # This is the assertion that would have caught the 2026-08-17 report on hardware. Until v12
-    # the app divided read and write by *phase* time and covering by the wall clock, so the three
-    # were not on one scale and nothing here could have compared them. They now all divide by the
-    # wall clock, which forces an arithmetic identity on a healthy run:
+    #     1 / R-W-R-C  =  2 / Read  +  1 / Write
     #
-    #     read ≈ 2 × covering     (the original read and the verify read)
-    #     write ≈ 1 × covering    (one write per covered byte)
+    # This REPLACES the `read ≈ 2 × covering, write ≈ 1 × covering` band that stood from v12 to
+    # v13, and the replacement is not like-for-like — it is a much sharper instrument.
     #
-    # A 10% band, because a run with failed chunks legitimately reads less than twice its coverage
-    # — that is the signal, not noise — and this gate runs on a healthy drive. If this fails on
-    # good hardware, a rate has gone back to dividing by something other than the wall clock, and
-    # the figure on the user's screen no longer matches what Activity Monitor shows them.
-    if python3 - "$READ_RATE" "$WRITE_RATE" "$COVER_RATE" <<'RATIO'; then
+    # The old band related the displayed pair to `coverageBytesPerSecond`, which is on no screen,
+    # and needed a 10–20% window because covering divides by running time while the rates did not
+    # carry its host overhead. v14 puts Read, Write and R-W-R-C all on phase time, host overhead
+    # is in none of them, and the identity above is therefore **exact** — it falls straight out of
+    # `2B/(r+v)`, `B/w` and `B/(r+w+v)` with nothing approximated anywhere.
+    #
+    # 2% here, and that is loose. A mutation reverting R-W-R-C to running time moved it by 0.2%
+    # and `RunMetricsTests.aCleanRunSatisfiesTheReciprocalIdentity` caught it at four orders of
+    # magnitude inside tolerance; the old band would have missed the same defect by a factor of
+    # fifty. The margin here is for a real drive's jitter, not for the arithmetic.
+    #
+    # **A failing drive breaks it downward, and that is the signal.** A verify mismatch spends
+    # time in R-W-R-C's denominator and contributes nothing to its numerator, so `completed` falls
+    # below what Read and Write predict. This gate runs on healthy hardware, so a break here means
+    # a denominator has moved — not that the drive is failing. If it ever fires on a drive that is
+    # genuinely mismatching, FAILED_BLOCKS says so in the same output.
+    RWRC_RATE="$(size_value "$SIZE" FINAL_RWRC_BYTES_PER_SECOND)"
+    if python3 - "$READ_RATE" "$WRITE_RATE" "$RWRC_RATE" <<'RATIO'; then
 import sys
-read, write, cover = (float(v) for v in sys.argv[1:4])
-sys.exit(0 if cover > 0
-         and abs(read / cover - 2.0) <= 0.2
-         and abs(write / cover - 1.0) <= 0.1 else 1)
+read, write, rwrc = (float(v) for v in sys.argv[1:4])
+if not (read > 0 and write > 0 and rwrc > 0):
+    sys.exit(1)
+predicted = 1.0 / (2.0 / read + 1.0 / write)
+sys.exit(0 if abs(rwrc / predicted - 1.0) <= 0.02 else 1)
 RATIO
-        check pass "${MIB} MiB: read/write/covering share one denominator — $(python3 -c "print(f\"{float('$READ_RATE')/float('$COVER_RATE'):.2f}x / {float('$WRITE_RATE')/float('$COVER_RATE'):.2f}x covering\")")"
+        check pass "${MIB} MiB: 1/R-W-R-C = 2/Read + 1/Write holds — $(python3 -c "
+r, w, c = float('$READ_RATE'), float('$WRITE_RATE'), float('$RWRC_RATE')
+print(f\"{c/1e6:.1f} MB/s against {1.0/(2.0/r + 1.0/w)/1e6:.1f} predicted\")")"
     else
-        check fail "${MIB} MiB: the rates do not share a denominator — read=${READ_RATE:-?} write=${WRITE_RATE:-?} covering=${COVER_RATE:-?}; expected read≈2x and write≈1x covering"
+        check fail "${MIB} MiB: the displayed rates do not satisfy the identity — read=${READ_RATE:-?} write=${WRITE_RATE:-?} r-w-r-c=${RWRC_RATE:-?}; a denominator has moved, or chunks are failing (see FAILED_BLOCKS)"
+    fi
+
+    # --- AND COVERING IS STILL ON RUNNING TIME, which is what makes the ETA converge.
+    #
+    # The identity above cannot see this: covering is not in it. Without this assertion, moving
+    # coverage onto phase time too would pass every check in this file while inflating the ETA's
+    # denominator by the run's host overhead — the 2026-08-18 pause defect, in a new place.
+    #
+    # **Asserted against R-W-R-C rather than against Read, and the difference matters.** Both count
+    # the same bytes on a clean run — every covered byte completed — so the ONLY thing separating
+    # them is the denominator: `covering / R-W-R-C` is exactly the fraction of running time that
+    # was I/O. Move covering to phase time and the two become identical, so this catches the change
+    # as a jump to 1.0.
+    #
+    # A band against the read rate would not. Covering on running time gives about 0.33x Read on
+    # the 4 TB T5 EVO; covering on phase time gives about 0.35x. Any band loose enough to tolerate
+    # a real drive's jitter would contain both, and the check would have looked like a check while
+    # asserting nothing — which is the failure mode this whole file exists to avoid.
+    #
+    # Measured 0.944 on that drive: the ~5.6% is host overhead plus the scheduling between chunks.
+    # The band allows a slower host, and stops short of 1.0 because 1.0 is the defect.
+    #
+    # Safe only because this loop already asserts FAILED_BLOCKS is 0 — on a drive that is
+    # mismatching, R-W-R-C legitimately falls and this ratio legitimately rises.
+    #
+    # **What it cannot distinguish, stated so nobody assumes otherwise.** Any denominator landing
+    # within ~5% of running time reads as running time here. A third of the pooled read rate, for
+    # instance, is 125.3 MB/s against the true 122.4 and sails through — no band tolerant of a
+    # slower host could separate those. That is accepted rather than tightened: `coverageBytesPerSecond`
+    # divides a byte count by a nanosecond count, so a rate is not a value it can accidentally
+    # take, and narrowing this to catch an unreachable mutation would only make the gate flaky.
+    # The reachable one — the whole quantity moving to phase time — lands exactly on 1.0.
+    if python3 - "$COVER_RATE" "$RWRC_RATE" <<'COVERING'; then
+import sys
+cover, rwrc = (float(v) for v in sys.argv[1:3])
+sys.exit(0 if cover > 0 and rwrc > 0 and 0.80 <= cover / rwrc <= 0.995 else 1)
+COVERING
+        check pass "${MIB} MiB: covering still divides by running time — $(python3 -c "print(f\"{float('$COVER_RATE')/float('$RWRC_RATE'):.3f} of R-W-R-C, so {(1-float('$COVER_RATE')/float('$RWRC_RATE'))*100:.1f}% of the run was not I/O\")")"
+    else
+        check fail "${MIB} MiB: covering=${COVER_RATE:-?} against r-w-r-c=${RWRC_RATE:-?} — at 1.0 the ETA's denominator has moved to phase time; below 0.80 the run is spending implausibly little time on I/O"
     fi
 done
 
@@ -630,15 +687,20 @@ for LABEL in misaligned partial badmode; do
     READ_RATE="$(grep -m1 -- "\[$LABEL\] READ_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
     WRITE_RATE="$(grep -m1 -- "\[$LABEL\] WRITE_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
     COVER_RATE="$(grep -m1 -- "\[$LABEL\] COVERING_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
+    # v13 put a fourth rate on the refusal path. This loop is the ONLY cover that path has
+    # anywhere — no unit test reaches the helper's reply assembly — so a rate added to it and not
+    # added here is a sentinel nobody checks.
+    RWRC_RATE="$(grep -m1 -- "\[$LABEL\] RWRC_BYTES_PER_SECOND=" "$OUTPUT" | sed 's/.*=//' || true)"
     SAMPLES="$(grep -m1 -- "\[$LABEL\] LATENCY_SAMPLES=" "$OUTPUT" | sed 's/.*=//' || true)"
     RANGES="$(grep -m1 -- "\[$LABEL\] RANGES_ENCODED=" "$OUTPUT" | sed 's/.*=//' || true)"
 
     if [[ "$OUTCOME" == "0" && "$CHUNKS_SEEN" == "0" && "$MODE_USED" == "0" \
           && "$READ_RATE" == "-1.0" && "$WRITE_RATE" == "-1.0" && "$COVER_RATE" == "-1.0" \
+          && "$RWRC_RATE" == "-1.0" \
           && "$SAMPLES" == "0" && -z "$RANGES" ]]; then
         check pass "the refused '${LABEL}' call reported no outcome, no mode and no figures"
     else
-        check fail "the refused '${LABEL}' call reported figures — outcome=${OUTCOME:-?} chunks=${CHUNKS_SEEN:-?} mode=${MODE_USED:-?} read=${READ_RATE:-?} write=${WRITE_RATE:-?} covering=${COVER_RATE:-?} samples=${SAMPLES:-?} ranges='${RANGES}'"
+        check fail "the refused '${LABEL}' call reported figures — outcome=${OUTCOME:-?} chunks=${CHUNKS_SEEN:-?} mode=${MODE_USED:-?} read=${READ_RATE:-?} write=${WRITE_RATE:-?} covering=${COVER_RATE:-?} r-w-r-c=${RWRC_RATE:-?} samples=${SAMPLES:-?} ranges='${RANGES}'"
     fi
 done
 

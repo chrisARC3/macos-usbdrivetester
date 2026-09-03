@@ -59,9 +59,10 @@ private enum Fixture {
                       failedBlockCount: UInt64 = 0,
                       failureModeUsedCode: Int = 2,
                       cacheBypassCode: Int = 1,
-                      sustainedReadBytesPerSecond: Double = 517_000_000,
-                      sustainedWriteBytesPerSecond: Double = 491_000_000,
+                      deviceReadBytesPerSecond: Double = 517_000_000,
+                      writeBytesPerSecond: Double = 491_000_000,
                       coverageBytesPerSecond: Double = 245_000_000,
+                      completedBytesPerSecond: Double = 238_000_000,
                       readLatencySampleCount: UInt64 = 256,
                       readLatencyMinimumNanoseconds: UInt64 = 1_100_000,
                       readLatencyMaximumNanoseconds: UInt64 = 9_900_000,
@@ -78,9 +79,10 @@ private enum Fixture {
                         failureModeUsedCode: failureModeUsedCode,
                         failedRangesEncoded: failedRangesEncoded,
                         failedBlockCount: failedBlockCount,
-                        sustainedReadBytesPerSecond: sustainedReadBytesPerSecond,
-                        sustainedWriteBytesPerSecond: sustainedWriteBytesPerSecond,
+                        deviceReadBytesPerSecond: deviceReadBytesPerSecond,
+                        writeBytesPerSecond: writeBytesPerSecond,
                         coverageBytesPerSecond: coverageBytesPerSecond,
+                        completedBytesPerSecond: completedBytesPerSecond,
                         readLatencySampleCount: readLatencySampleCount,
                         readLatencyMinimumNanoseconds: readLatencyMinimumNanoseconds,
                         readLatencyMaximumNanoseconds: readLatencyMaximumNanoseconds,
@@ -142,9 +144,10 @@ struct ReportExistenceTests {
                                     chunksProcessed: 0,
                                     failureModeUsedCode: 0,   // no run happened
                                     cacheBypassCode: 0,
-                                    sustainedReadBytesPerSecond: -1,
-                                    sustainedWriteBytesPerSecond: -1,
+                                    deviceReadBytesPerSecond: -1,
+                                    writeBytesPerSecond: -1,
                                     coverageBytesPerSecond: -1,
+                                    completedBytesPerSecond: -1,
                                     readLatencySampleCount: 0)
         #expect(RunReport(reply: refused, endedBy: .callFailed(reason: "refused"),
                           startBlock: 0, blockCount: 2_097_152,
@@ -668,6 +671,9 @@ struct ReportMeasurementTests {
         let document = Fixture.markdown(Fixture.report())
         #expect(document.contains("| Read throughput | 517 MB/s |"))
         #expect(document.contains("| Write throughput | 491 MB/s |"))
+        // Increment 11. A distinct fixture value, so this cannot pass with write's figure in it —
+        // on real healthy hardware the two are equal and no assertion could tell them apart.
+        #expect(document.contains("| R-W-R-C speed | 238 MB/s |"))
         // **No `Covering` row, since Step 11 increment 10.** Asserted as an absence rather than
         // simply dropped: the row was deleted from the panel, this export and the report sheet
         // together, and a test that merely stopped mentioning it would pass just as well if the
@@ -699,16 +705,18 @@ struct ReportMeasurementTests {
     /// An unmeasured figure renders as something visibly not a number. `0 MB/s` would mean
     /// *stalled*, which is a real and very different condition.
     @Test func unmeasuredFiguresRenderAsAnEmDashAndNeverAsZero() {
-        let reply = Fixture.reply(sustainedReadBytesPerSecond: -1,
-                                  sustainedWriteBytesPerSecond: -1,
+        let reply = Fixture.reply(deviceReadBytesPerSecond: -1,
+                                  writeBytesPerSecond: -1,
                                   coverageBytesPerSecond: -1,
+                                  completedBytesPerSecond: -1,
                                   readLatencySampleCount: 0)
         let report = Fixture.report(reply)
-        #expect(report.sustainedReadBytesPerSecond == nil)
+        #expect(report.deviceReadBytesPerSecond == nil)
 
         let document = Fixture.markdown(report)
         #expect(document.contains("| Read throughput | — |"))
         #expect(document.contains("| Write throughput | — |"))
+        #expect(document.contains("| R-W-R-C speed | — |"))
         #expect(document.contains("Covering") == false)
         #expect(document.contains("0 MB/s") == false)
         #expect(document.contains("-1") == false)
@@ -716,7 +724,7 @@ struct ReportMeasurementTests {
 
     /// A genuinely stalled drive reports zero, and that must survive as a measurement.
     @Test func aZeroRateIsPrintedBecauseItIsAMeasurement() {
-        let reply = Fixture.reply(sustainedReadBytesPerSecond: 0)
+        let reply = Fixture.reply(deviceReadBytesPerSecond: 0)
         // Falls through to kB/s at this magnitude, which is still a number and still zero.
         #expect(Fixture.markdown(Fixture.report(reply)).contains("| Read throughput | 0 kB/s |"))
     }
@@ -742,6 +750,85 @@ struct ReportMeasurementTests {
                 "the export no longer carries the shared definition verbatim")
         #expect(document.contains(ThroughputFraming.notGraded.markdown),
                 "the export no longer carries the shared not-graded framing verbatim")
+    }
+
+    /// **The definition must name every rate the table shows, and must not explain one it does
+    /// not** — and the list is read out of the rendered document rather than written here.
+    ///
+    /// This is the drift that has already happened twice in this file's history, both times in a
+    /// sentence stating a *count*. Increment 10 deleted `Covering` from the table and left "All
+    /// three rates" standing for a day; increment 11 added `R-W-R-C speed` and the same sentence
+    /// had to move a third time. A count in prose is a fact about the table, and nothing
+    /// recomputes prose.
+    ///
+    /// Deriving the labels is what makes this self-maintaining: a fourth rate added to the report
+    /// and not to the definition fails here without anybody remembering to edit a test.
+    @Test func theDefinitionNamesEveryRateTheReportTabulatesAndNoOther() throws {
+        let document = Fixture.markdown(Fixture.report())
+        let definition = ThroughputFraming.definition.plain
+
+        // Table rows carrying a byte-rate unit. The link-speed row reads `Gb/s` and is not one.
+        let rateNames = document
+            .split(separator: "\n")
+            .filter { $0.hasPrefix("| ") }
+            .filter { $0.contains("MB/s") || $0.contains("GB/s") || $0.contains("kB/s") }
+            .compactMap { $0.split(separator: "|").first?.trimmingCharacters(in: .whitespaces) }
+            .compactMap { $0.split(separator: " ").first.map(String.init) }
+
+        // An empty parse is not a pass. Three rates today; more would still have to be named.
+        #expect(rateNames.count >= 3,
+                "parsed \(rateNames.count) rate row(s) — the table or this parse has moved")
+
+        for rate in rateNames {
+            #expect(definition.contains(rate),
+                    "the report tabulates a \(rate) rate the definition never explains")
+        }
+
+        // The other half, without which a definition naming everything would pass unconditionally:
+        // it must not explain a figure no surface shows. `coverageBytesPerSecond` is on the wire
+        // and on no screen, deliberately, since increment 10.
+        #expect(definition.lowercased().contains("covering") == false,
+                "the definition explains a rate no surface displays")
+        #expect(document.contains("Covering") == false)
+    }
+
+    /// **The definition must warn that these figures will not match another tool, and this is the
+    /// only thing asserting it.**
+    ///
+    /// FR-METR-1's 2026-09-02 amendment put the displayed rates back on phase time, where they
+    /// read about 1.5× and 3.4× what Activity Monitor shows for the same drive. That exact
+    /// discrepancy was filed as a bug on 2026-08-17 and was the reason for the v12 denominator;
+    /// the amendment is defensible **only** because the reader is now told. The disclaimer is not
+    /// commentary on the change, it is the half of it that makes the other half safe.
+    ///
+    /// Nothing covered it. `theDefinitionNamesEveryRateTheReportTabulatesAndNoOther` checks which
+    /// rates are named, `theReportStatesWhatItsThroughputFiguresMean` compares the document
+    /// against the constant — and both move together when the constant is edited, so the sentence
+    /// could have been deleted outright with 1092 tests green. Written when that was noticed
+    /// while trying to mutate it.
+    ///
+    /// **Asserted on meaning, not on a magic string.** The tool has to be named, because "measured
+    /// over the time the drive spent doing that work" is technically complete and would not stop
+    /// anyone opening Activity Monitor and concluding this app is broken. And the claim has to be
+    /// a *denial*: the pre-v14 wording named the same tool to promise agreement, so naming alone
+    /// would pass on a sentence saying the opposite of what is now true.
+    @Test func theDefinitionWarnsThatTheFiguresDoNotMatchAnOutsideObserver() throws {
+        let definition = ThroughputFraming.definition.plain
+
+        #expect(definition.contains("Activity Monitor"),
+                "the definition must name the tool these figures will not agree with")
+
+        // The sentence carrying the name must deny comparability rather than assert it.
+        let sentence = try #require(
+            definition.split(separator: ".").first(where: { $0.contains("Activity Monitor") }),
+            "no sentence names Activity Monitor")
+        #expect(sentence.contains("not comparable"),
+                "Activity Monitor is named without denying comparability: \(sentence)")
+
+        // The v12-to-v13 wording, which named the tool to promise the opposite. Its return would
+        // mean the figures and the sentence describing them had come apart again.
+        #expect(definition.contains("directly comparable") == false,
+                "the definition promises agreement with a tool it will disagree with")
     }
 
     /// The plain rendering a non-Markdown surface uses is *derived*, so it cannot say something

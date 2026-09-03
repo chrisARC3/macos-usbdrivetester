@@ -10,15 +10,22 @@
 //  converging over a long run whose true remaining time is known at every step**
 //  (``ETATests/theETAConvergesTowardTheTrueRemainingTimeAsARunProceeds``).
 //
-//  ## The three assertions that would catch a real regression
+//  ## The assertions that would catch a real regression
 //
-//  Most of what follows is arithmetic. Three tests are not:
+//  Most of what follows is arithmetic. These are not.
+//
+//  **No count in this heading, deliberately.** `RunMetrics.swift` carried one for its rate table,
+//  it was wrong at "Five" over six rows, and Step 11 increment 11 made it wrong at "Six" over
+//  seven without anyone noticing. A number in prose that nothing asserts is a number that drifts.
 //
 //  | Test | The defect it exists to catch |
 //  |---|---|
 //  | ``ThroughputTests/coverageIsAboutOneThirdOfTheReadRateAndTheyAreNotInterchangeable`` | Using read throughput as the ETA denominator. A cycle moves 3× its range, so that mistake makes every estimate ~3× too optimistic — and it looks right. |
 //  | ``ProgressTests/progressAdvancesThroughAChunkThatFailed`` | Progress that counts only successes. It freezes on exactly the drive this tool exists to find, at the moment somebody is watching hardest. |
 //  | ``LatencyAttributionTests/aFailedReadsDurationIsNotReadLatency`` | Folding a failed read's duration into the latency distribution, conflating "this drive is slow" with "this drive is broken". |
+//  | ``ThroughputTests/aChunkThatDidNotEndCleanIsMissingFromTheCompletedRate`` | Counting successful work as `!isPhaseFailure`. `.verifyMismatch` is not a phase failure, so the negated form scores a **retention failure as a pass** — on the one figure that exists to show it. |
+//  | ``ThroughputTests/aCleanRunSatisfiesTheReciprocalIdentity`` | A displayed rate quietly going back to a wall-clock denominator. `1/R-W-R-C = 2/Read + 1/Write` holds only while all three divide by phase time, and it is exact — so it catches a drift the old `≈ 2 × covering` band was too wide to see. |
+//  | ``ThroughputTests/theDisplayedReadPoolsBothReadsAndBothTheirTimes`` | `Read` wired to one phase. At equal phase times every rate here collapses to one number and any wiring passes; only an uneven fixture can tell pooled bytes over pooled time from `readBytesPerSecond`. |
 //
 //  ## Fixed durations, not random ones
 //
@@ -67,6 +74,31 @@ private enum Metrics {
                          hostOverheadNanoseconds: overhead)
     }
 
+    /// A clean chunk whose three phases take **different** times.
+    ///
+    /// The symmetric ``healthyChunk`` cannot tell `deviceReadBytesPerSecond` from
+    /// `readBytesPerSecond`, or either from `writeBytesPerSecond` — at equal phase times every
+    /// rate in the file collapses to one number, and a test built on it would pass with the
+    /// display wired to any of them. Anything asserting a *relationship between* rates uses this.
+    ///
+    /// The default shape mirrors the 4 TB T5 EVO, where the write is about twice the read speed.
+    static func unevenChunk(index: UInt64,
+                            read: UInt64 = tenMilliseconds,
+                            write: UInt64 = 5 * millisecond,
+                            verify: UInt64 = tenMilliseconds,
+                            overhead: UInt64 = 50_000) -> ChunkMeasurement {
+        ChunkMeasurement(byteLength: chunkBytes,
+                         endBlock: (index + 1) * blocksPerChunk,
+                         outcome: .completed,
+                         readNanoseconds: read,
+                         writeNanoseconds: write,
+                         verifyNanoseconds: verify,
+                         hostOverheadNanoseconds: overhead)
+    }
+
+    /// Wall clock one ``unevenChunk`` occupies at its default shape.
+    static let unevenChunkWall: UInt64 = 2 * tenMilliseconds + 5 * millisecond + 50_000
+
     /// A fresh accumulator over `chunks` chunks of `chunkBytes`, started at clock zero.
     static func metrics(chunks: UInt64, byteLength: Int = chunkBytes) -> RunMetrics {
         RunMetrics(chunksPlanned: chunks,
@@ -112,9 +144,53 @@ struct ThroughputTests {
         expectClose(snapshot.readBytesPerSecond, expectedPhaseRate, "read rate")
         expectClose(snapshot.writeBytesPerSecond, expectedPhaseRate, "write rate")
         expectClose(snapshot.verifyBytesPerSecond, expectedPhaseRate, "verify rate")
+        // Pooled: twice the bytes over twice the time, which at equal phase times is the same
+        // number. `theDisplayedReadPoolsBothReadsAndBothTheirTimes` is where that is not true.
+        expectClose(snapshot.deviceReadBytesPerSecond, expectedPhaseRate, "device read rate")
         #expect(snapshot.bytesRead == 41_943_040)
         #expect(snapshot.bytesWritten == 41_943_040)
         #expect(snapshot.bytesVerified == 41_943_040)
+        #expect(snapshot.successfulPhaseNanoseconds == 300_000_000)
+    }
+
+    /// **What the app displays as `Read`, and the one shape that can tell it apart from a
+    /// single-phase rate.**
+    ///
+    /// A verify markedly faster than the original read is what a drive-side cache looks like, so
+    /// the two are not interchangeable and the pooled figure is neither of them. This fixture
+    /// makes the verify twice the original read's speed and pins all four values, which is the
+    /// only way a display wired to `readBytesPerSecond` — or to `verifyBytesPerSecond`, or to a
+    /// naive mean of the two — fails rather than passing by symmetry.
+    ///
+    /// **Both times are pooled with both byte counts.** Dividing pooled bytes by one phase's
+    /// duration is the arithmetic error this whole file exists to prevent, and it would show up
+    /// here as `2B/p` rather than `2B/1.5p`.
+    @Test func theDisplayedReadPoolsBothReadsAndBothTheirTimes() throws {
+        var metrics = Metrics.metrics(chunks: 10)
+        var now: UInt64 = 0
+        for index in UInt64(0) ..< 10 {
+            // Verify at half the original read's duration: the cache signal.
+            metrics.record(Metrics.unevenChunk(index: index,
+                                               read: Metrics.tenMilliseconds,
+                                               write: Metrics.tenMilliseconds,
+                                               verify: 5 * Metrics.millisecond))
+            now &+= 25 * Metrics.millisecond &+ 50_000
+        }
+        let snapshot = metrics.snapshot(atNanoseconds: now)
+
+        let bytes = 41_943_040.0                    // 10 x 4 MiB, each read once and verified once
+        expectClose(snapshot.readBytesPerSecond, bytes / 0.1, "original read: B ÷ 0.1 s")
+        expectClose(snapshot.verifyBytesPerSecond, bytes / 0.05, "verify: B ÷ 0.05 s — twice as fast")
+        expectClose(snapshot.deviceReadBytesPerSecond, 2 * bytes / 0.15,
+                    "displayed Read: 2B ÷ 0.15 s — both reads over both their times")
+
+        // Distinct from every rate it could be mistakenly wired to, which is the assertion.
+        let displayed = try #require(snapshot.deviceReadBytesPerSecond)
+        let original = try #require(snapshot.readBytesPerSecond)
+        let verify = try #require(snapshot.verifyBytesPerSecond)
+        #expect(displayed > original, "pooling a faster verify in must raise the figure")
+        #expect(displayed < verify, "but not to the verify's own speed")
+        expectClose(displayed, 4.0 / 3.0 * original, "exactly 2B/1.5p against the original's B/p")
     }
 
     /// **The anti-collapse test.** A cycle moves three times the range it covers, so the rate
@@ -201,18 +277,29 @@ struct ThroughputTests {
 
         #expect(snapshot.readBytesPerSecond == nil)
         #expect(snapshot.writeBytesPerSecond == nil)
+        #expect(snapshot.verifyBytesPerSecond == nil)
         #expect(snapshot.coverageBytesPerSecond == nil)
         #expect(snapshot.sustainedReadBytesPerSecond == nil)
         #expect(snapshot.sustainedWriteBytesPerSecond == nil)
+        // The three the app displays, which is the reason this test is worth more than it looks:
+        // a `0` here reaches the wire as "stalled" rather than "not measured" and renders as
+        // `0 MB/s` on an idle panel.
+        #expect(snapshot.deviceReadBytesPerSecond == nil)
+        #expect(snapshot.completedBytesPerSecond == nil)
+        #expect(snapshot.successfulPhaseNanoseconds == 0)
         #expect(snapshot.hostOverheadFraction == nil)
         #expect(snapshot.estimatedRemainingNanoseconds == nil)
     }
 
-    /// **What the app displays**: bytes moved ÷ the time the run spent working.
+    /// **What Activity Monitor shows**: bytes moved ÷ the time the run spent working.
+    ///
+    /// Displayed by the app until 2026-09-02 and displayed nowhere since — see the file header.
+    /// Kept and still asserted, because the two relationships below are a check on the accounting
+    /// that survives the requirement change: a sustained read that drifts below twice covering
+    /// means reads are failing, and `chunksFailed` should be saying so too.
     ///
     /// Read counts the verify read as well as the original, because both are reads and the
-    /// kernel counts both. A figure that omitted the verify would be exactly half of what the
-    /// user sees in Activity Monitor.
+    /// kernel counts both.
     @Test func theSustainedRatesDivideByWorkingTimeAndCountBothReads() throws {
         var metrics = Metrics.metrics(chunks: 10)
         var now: UInt64 = 0
@@ -247,9 +334,15 @@ struct ThroughputTests {
     /// For a perfectly symmetric cycle the arithmetic gives exactly 1.5× and 3×. The real run's
     /// slightly uneven phase times perturbed those into the 1.53 and 3.42 that were reported.
     ///
-    /// Pinned here so that putting a phase rate back on a display fails a test rather than a
-    /// user. Both kinds of rate are kept — "slow while working" and "spends a long time not
-    /// working" are different faults — but only one kind is comparable to anything.
+    /// **Read this test's name as history, not as policy.** It was pinned so that putting a phase
+    /// rate back on a display would fail a test rather than a user. FR-METR-1 was amended on
+    /// 2026-09-02 to require exactly that, so what it now pins is the **size of the divergence
+    /// the product has chosen to accept**: the displayed figures sit 1.5× and 3× above what
+    /// another window shows for the same drive, and `ThroughputFraming.definition` is what has to
+    /// carry that. The assertions did not change; only what they are evidence for did.
+    ///
+    /// Both kinds of rate are still kept — "slow while working" and "spends a long time not
+    /// working" are different faults — and the sustained pair is now the one nothing displays.
     @Test func aPhaseRateOverstatesWhatAnOutsideObserverCanSee() throws {
         var metrics = Metrics.metrics(chunks: 10)
         var now: UInt64 = 0
@@ -259,7 +352,8 @@ struct ThroughputTests {
         }
         let snapshot = metrics.snapshot(atNanoseconds: now)
 
-        let phaseRead = try #require(snapshot.readBytesPerSecond)
+        // The two the app displays, so the factors below are the ones a user is looking at.
+        let phaseRead = try #require(snapshot.deviceReadBytesPerSecond)
         let phaseWrite = try #require(snapshot.writeBytesPerSecond)
         let sustainedRead = try #require(snapshot.sustainedReadBytesPerSecond)
         let sustainedWrite = try #require(snapshot.sustainedWriteBytesPerSecond)
@@ -270,6 +364,142 @@ struct ThroughputTests {
                     "the read rate v11 displayed was 1.5x what an outside observer measured")
         expectClose(phaseWrite / sustainedWrite, 3.0, relativeTolerance: 0.01,
                     "the write rate v11 displayed was 3x what an outside observer measured")
+    }
+
+    // MARK: R-W-R-C speed (Step 11 increment 11)
+
+    /// **The exact identity the three displayed rates satisfy, and the check that replaced the
+    /// covering band on 2026-09-02.**
+    ///
+    ///     1 / R-W-R-C  =  2 / Read  +  1 / Write
+    ///
+    /// It falls straight out of the three definitions once they share phase time as a
+    /// denominator: `Read` is `2B/(r+v)`, `Write` is `B/w`, and `R-W-R-C` is `B/(r+w+v)`.
+    ///
+    /// **Asserted at the default tolerance and not a loosened one, which is the point.** The
+    /// relationship this replaces — `read ≈ 2 × covering, write ≈ 1 × covering` — needed a 10–20%
+    /// band because covering divides by running time and so carries host overhead the phase rates
+    /// do not. These three all divide by phase time, host overhead is in none of them, and the
+    /// identity is therefore exact to floating point. A band that wide could not have caught a
+    /// rate 6% out; this catches one 0.001% out.
+    ///
+    /// **On an uneven fixture deliberately.** At equal phase times `Read` and `Write` are the
+    /// same number and the identity degenerates to `1/x = 3/y`, which a wrong wiring could
+    /// satisfy by accident. Here they are `10B` and `20B` — as far apart as the real drive's.
+    ///
+    /// This test replaced `onACleanRunTheCompletedRateEqualsWriteAndCovering`, whose claim was
+    /// true only while all three divided by running time. That equality is gone; see the file
+    /// header for why it was not worth keeping the denominator to preserve it.
+    @Test func aCleanRunSatisfiesTheReciprocalIdentity() throws {
+        var metrics = Metrics.metrics(chunks: 10)
+        var now: UInt64 = 0
+        for index in UInt64(0) ..< 10 {
+            metrics.record(Metrics.unevenChunk(index: index))     // 10 ms / 5 ms / 10 ms
+            now &+= Metrics.unevenChunkWall
+        }
+        let snapshot = metrics.snapshot(atNanoseconds: now)
+
+        let read = try #require(snapshot.deviceReadBytesPerSecond)
+        let write = try #require(snapshot.writeBytesPerSecond)
+        let completed = try #require(snapshot.completedBytesPerSecond)
+
+        // 10 x 4 MiB. r = 0.1 s, w = 0.05 s, v = 0.1 s.
+        let bytes = 41_943_040.0
+        #expect(snapshot.bytesCompleted == 10 * UInt64(Metrics.chunkBytes))
+        #expect(snapshot.successfulPhaseNanoseconds == 250_000_000)
+        expectClose(read, 2 * bytes / 0.20, "Read: both reads over both their times")
+        expectClose(write, bytes / 0.05, "Write: the device's write speed")
+        expectClose(completed, bytes / 0.25, "R-W-R-C: successful bytes over all the I/O")
+
+        expectClose(1 / completed, 2 / read + 1 / write,
+                    "1/R-W-R-C = 2/Read + 1/Write, exactly, on a run where nothing failed")
+
+        // And the consequence a user will actually see: the row sits well below both neighbours
+        // on a flawless drive — a fifth of Write and two fifths of Read at this fixture's shape,
+        // about a third of each at the T5 EVO's. Pinned because it looks like a fault and is not.
+        #expect(completed < read && completed < write)
+        expectClose(completed / write, 0.2, "a per-cycle rate against a per-phase one")
+        expectClose(completed / read, 0.4, "and against the other")
+    }
+
+    /// **The reason the figure exists: what a divergence means, and how wide it is.**
+    ///
+    /// Three outcomes, one chunk of ten, and the two gaps behave differently:
+    ///
+    ///   * `.verifyMismatch` — every byte moved, the compare failed. **Write does not notice; this
+    ///     rate does.** An accumulator written as `!isPhaseFailure` would score it as success,
+    ///     which is scoring a retention failure as a pass on the drive this tool exists to find.
+    ///   * `.failedVerifying` — the write landed, the verify could not be read back. Same shape:
+    ///     written, never confirmed.
+    ///   * `.failedWriting` — the control. The write never happened, so Write and this rate fall
+    ///     *together*. Without this row the test could not tell "counts successes" from "counts
+    ///     writes", and a counter wired to `bytesWritten` would pass the other two.
+    @Test(arguments: [
+        // outcome, written, completed, successful phase ns, residual against the clean identity
+        (ChunkOutcome.verifyMismatch,  UInt64(10), UInt64(9), UInt64(300_000_000), 0.900_000_000),
+        (ChunkOutcome.failedVerifying, UInt64(10), UInt64(9), UInt64(290_000_000), 0.931_034_483),
+        (ChunkOutcome.failedWriting,   UInt64(9),  UInt64(9), UInt64(280_000_000), 0.964_285_714),
+    ])
+    func aChunkThatDidNotEndCleanIsMissingFromTheCompletedRate(
+        outcome: ChunkOutcome,
+        writtenChunks: UInt64,
+        completedChunks: UInt64,
+        successfulPhaseNanoseconds: UInt64,
+        residual: Double
+    ) throws {
+        var metrics = Metrics.metrics(chunks: 10)
+        var now: UInt64 = 0
+        for index in UInt64(0) ..< 10 {
+            if index == 4 {
+                metrics.record(ChunkMeasurement(
+                    byteLength: Metrics.chunkBytes,
+                    endBlock: (index + 1) * Metrics.blocksPerChunk,
+                    outcome: outcome,
+                    readNanoseconds: Metrics.tenMilliseconds,
+                    writeNanoseconds: Metrics.tenMilliseconds,
+                    // The verify never ran on the chunk whose write failed.
+                    verifyNanoseconds: outcome == .failedWriting ? nil : Metrics.tenMilliseconds,
+                    hostOverheadNanoseconds: 50_000))
+            } else {
+                metrics.record(Metrics.healthyChunk(index: index))
+            }
+            now &+= Metrics.healthyChunkWall
+        }
+        let snapshot = metrics.snapshot(atNanoseconds: now)
+        let chunk = UInt64(Metrics.chunkBytes)
+
+        // The byte counters are exact integers, so assert those and not only the rates.
+        #expect(snapshot.rangeBytesCovered == 10 * chunk, "covering always counts the attempt")
+        #expect(snapshot.bytesWritten == writtenChunks * chunk)
+        #expect(snapshot.bytesCompleted == completedChunks * chunk)
+        #expect(snapshot.successfulPhaseNanoseconds == successfulPhaseNanoseconds,
+                "a failed phase's time belongs to failedPhaseNanoseconds, not to the denominator")
+
+        let read = try #require(snapshot.deviceReadBytesPerSecond)
+        let write = try #require(snapshot.writeBytesPerSecond)
+        let completed = try #require(snapshot.completedBytesPerSecond)
+
+        // **The other two displayed rates do not move at all.** Every phase in this fixture runs
+        // at 4 MiB / 10 ms whether or not its chunk ended clean, and a failed phase takes its
+        // bytes and its time out of the same rate together — so `Read` and `Write` read exactly
+        // 419,430,400 B/s in all three cases. That is the whole argument for the third row: on
+        // this drive the two figures a user would naturally watch are identical to a healthy
+        // drive's, and only `R-W-R-C speed` is different.
+        expectClose(read, 419_430_400, "Read is untouched by the failure")
+        expectClose(write, 419_430_400, "and so is Write")
+
+        // What a clean run at these two rates would have given, from the identity.
+        let predicted = 1 / (2 / read + 1 / write)
+        expectClose(completed, Double(completedChunks) * 4_194_304
+                               / (Double(successfulPhaseNanoseconds) / 1e9), "R-W-R-C speed")
+        expectClose(completed / predicted, residual, relativeTolerance: 0.000_01,
+                    "R-W-R-C falls below what Read and Write predict — the retention signal")
+        #expect(completed < predicted)
+
+        // Deliberately not asserted against `coverageBytesPerSecond` any more: covering divides
+        // by running time and this rate divides by phase time, so their ratio mixes the failure
+        // signal with the run's host overhead and means neither thing cleanly. The gap that is
+        // still worth stating is the one above, against figures on the same denominator.
     }
 }
 
@@ -592,18 +822,24 @@ struct ChunkOutcomeTests {
     /// Which counters each outcome moves, in one table. The point is the *differences* between
     /// rows: a failed write still has a valid read latency, a failed read has nothing at all,
     /// and a verify mismatch is timing-wise a complete chunk.
+    ///
+    /// **`countsCompleted` is the column that discriminates**, and `.verifyMismatch` is the row it
+    /// discriminates on: every other column on that row is `true`, because the chunk moved all its
+    /// bytes, and this one is `false`, because the compare failed. An accumulator written as
+    /// `!outcome.isPhaseFailure` passes every other assertion in this table and fails only here.
     @Test(arguments: [
-        (ChunkOutcome.completed,       true,  true,  true,  UInt64(0), UInt64(0)),
-        (ChunkOutcome.verifyMismatch,  true,  true,  true,  UInt64(0), UInt64(1)),
-        (ChunkOutcome.failedReading,   false, false, false, UInt64(1), UInt64(0)),
-        (ChunkOutcome.failedWriting,   true,  false, false, UInt64(1), UInt64(0)),
-        (ChunkOutcome.failedVerifying, true,  true,  false, UInt64(1), UInt64(0)),
+        (ChunkOutcome.completed,       true,  true,  true,  true,  UInt64(0), UInt64(0)),
+        (ChunkOutcome.verifyMismatch,  true,  true,  true,  false, UInt64(0), UInt64(1)),
+        (ChunkOutcome.failedReading,   false, false, false, false, UInt64(1), UInt64(0)),
+        (ChunkOutcome.failedWriting,   true,  false, false, false, UInt64(1), UInt64(0)),
+        (ChunkOutcome.failedVerifying, true,  true,  false, false, UInt64(1), UInt64(0)),
     ])
     func eachOutcomeMovesExactlyTheCountersItShould(
         outcome: ChunkOutcome,
         countsRead: Bool,
         countsWrite: Bool,
         countsVerify: Bool,
+        countsCompleted: Bool,
         expectedFailures: UInt64,
         expectedMismatches: UInt64
     ) {
@@ -625,6 +861,7 @@ struct ChunkOutcomeTests {
         #expect(snapshot.bytesRead == (countsRead ? chunk : 0))
         #expect(snapshot.bytesWritten == (countsWrite ? chunk : 0))
         #expect(snapshot.bytesVerified == (countsVerify ? chunk : 0))
+        #expect(snapshot.bytesCompleted == (countsCompleted ? chunk : 0))
         #expect(snapshot.readLatency.count == (countsRead ? 1 : 0))
         #expect(snapshot.verifyLatency.count == (countsVerify ? 1 : 0))
         #expect(snapshot.chunksFailed == expectedFailures)
@@ -655,6 +892,14 @@ struct ChunkOutcomeTests {
         #expect(snapshot.failedPhaseNanoseconds == 0)
         #expect(snapshot.readLatency.count == 1)
         #expect(snapshot.verifyLatency.count == 1)
+
+        // ...and it is still not successful work. Every byte moved, so it is in all three volume
+        // counters; the compare failed, so it is in none of the successful one. This is the single
+        // assertion that separates `== .completed` from `!isPhaseFailure`.
+        #expect(snapshot.bytesRead == UInt64(Metrics.chunkBytes))
+        #expect(snapshot.bytesWritten == UInt64(Metrics.chunkBytes))
+        #expect(snapshot.bytesVerified == UInt64(Metrics.chunkBytes))
+        #expect(snapshot.bytesCompleted == 0)
     }
 }
 

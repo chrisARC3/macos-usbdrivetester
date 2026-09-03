@@ -31,26 +31,52 @@ import Foundation
 /// The throughput figures' meaning, stated once.
 nonisolated enum ThroughputFraming {
 
-    /// What both rates divide by — the thing that makes them checkable against anything else.
+    /// What the three rates divide by — the thing that makes them mean anything at all.
     ///
-    /// Said "the three rates" until 2026-09-02, one day after increment 10 deleted `Covering` and
-    /// rewrote the string below from "All three rates" to "Both rates". Found by a reader asking
-    /// whether the "twice Write" clause was a solid-state claim. **It is not, and the ratio is not
-    /// a hardware property at all**: both rates share this denominator, and the cycle reads every
-    /// byte twice and writes it once, so a clean run gives 2 on any medium. Failures are what move
-    /// it — a chunk failing its read contributes no `bytesRead`, one failing its write contributes
-    /// a read and no write. See `TesterControl.version`'s v12 note.
+    /// **Rewritten four times, and this one reverses the last.** "All three rates" until increment
+    /// 10 deleted `Covering`, "Both rates" for one week, three again from increment 11's
+    /// `R-W-R-C speed`, and now a denominator change that inverts the middle clause: the figures
+    /// went from *directly comparable* to Activity Monitor to *deliberately not*. Each rewrite
+    /// reached the report sheet and the exported Markdown from this one string, which is the
+    /// argument for the string existing.
     ///
-    /// A rate whose denominator is unstated cannot be reproduced by the reader, and this app spent
-    /// a week showing figures 1.5x and 3.4x what Activity Monitor showed for the same drive with
-    /// nothing on either surface to reveal the mismatch.
+    /// ## This paragraph is now the load-bearing part of the change, not a caption for it
+    ///
+    /// From v12 to v13 it explained figures that agreed with another window. It now explains
+    /// figures that disagree with one by 1.5x and 3.4x — the exact discrepancy a reader reported
+    /// as a bug on 2026-08-17, which FR-METR-1's 2026-09-02 amendment makes the intended reading.
+    /// The amendment is only safe because this sentence exists: an undisclaimed figure 3.4x what
+    /// Activity Monitor shows is how the whole episode started, and the difference between then
+    /// and now is entirely that the reader is told.
+    ///
+    /// So the wording states the denominator **and** names the tool it will not match. Naming the
+    /// tool is deliberate: "measured over time spent working" is technically complete and would
+    /// not stop anyone opening Activity Monitor and concluding the app is wrong.
+    ///
+    /// ## The R-W-R-C clause, and why it leads with the healthy case
+    ///
+    /// It used to equal Write and now runs at roughly a third of it — Read ~376, Write ~419,
+    /// R-W-R-C ~130 on the 4 TB T5 EVO with **nothing wrong**. A row a third the size of its
+    /// neighbours reads as a fault, so the clause has to say "expected" before it says "gap", or
+    /// the paragraph explains the interesting case and leaves the common one looking broken.
+    ///
+    /// The gap named is still `Write − R-W-R-C` in substance — `.verifyMismatch` plus
+    /// `.failedVerifying`, bytes the drive accepted and could not confirm — but it can no longer
+    /// be phrased as a shortfall against Write, because R-W-R-C is below Write on every run. What
+    /// replaces it is the reciprocal identity, which holds exactly on a clean run and is what
+    /// `metrics-check.sh` asserts. That is too much arithmetic for a report, so the prose says
+    /// what a divergence *means* and leaves the formula to `RunMetrics`.
     static let definition = HonestFramingClaim(
-        "Both rates are measured over **the time the run spent working** — time paused, and "
-        + "time between one call and the next, is excluded. While a run is going they are "
-        + "therefore directly comparable to Activity Monitor or any other tool watching this "
-        + "drive, and a pause does not make the drive look slower than it is. Read counts the "
-        + "verify read as well as the original read, because both are reads: every byte is read, "
-        + "written back and read again, so Read runs at about twice Write.")
+        "Each rate is measured over **the time the drive spent doing that work** — Read over the "
+        + "time spent reading, Write over the time spent writing. They describe this drive rather "
+        + "than this run, and are therefore **not comparable to Activity Monitor**, which divides "
+        + "by the whole elapsed time and will report lower figures for the same drive. Read counts "
+        + "the read-back as well as the first read, because both are reads. **R-W-R-C speed** "
+        + "counts only the bytes that completed the whole cycle and matched, measured over all the "
+        + "I/O that took — a whole read-write-read cycle, where the other two are single steps, so "
+        + "on a run where nothing failed it is expected to sit well below both. It falls further "
+        + "when the drive accepted bytes it could not then read back unchanged, and the failed "
+        + "ranges above are where those are listed.")
 
     /// D9 (user decision 2026-08-04): this tool measures, and does not judge.
     ///

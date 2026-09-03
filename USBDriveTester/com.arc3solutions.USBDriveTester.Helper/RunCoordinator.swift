@@ -533,13 +533,24 @@ enum RunCoordinator {
         }
 
         metricsLog.notice("""
-                          run metrics — DISPLAYED (over running time, what the app shows): \
+                          run metrics — DISPLAYED, over phase time (v14; read pools the original \
+                          and the verify over both their times, R-W-R-C is successful bytes over \
+                          all successful phase time and runs about a third of its neighbours on a \
+                          clean drive): \
+                          read \(rate(snapshot.deviceReadBytesPerSecond), privacy: .public), \
+                          write \(rate(snapshot.writeBytesPerSecond), privacy: .public), \
+                          R-W-R-C \(rate(snapshot.completedBytesPerSecond), privacy: .public); \
+                          OVER RUNNING TIME (what Activity Monitor shows; covering is on the wire \
+                          for the ETA, the other two are on neither the wire nor a screen and \
+                          this line is their only home): \
+                          covering \(rate(snapshot.coverageBytesPerSecond), privacy: .public), \
                           read \(rate(snapshot.sustainedReadBytesPerSecond), privacy: .public), \
-                          write \(rate(snapshot.sustainedWriteBytesPerSecond), privacy: .public), \
-                          covering \(rate(snapshot.coverageBytesPerSecond), privacy: .public); \
-                          DEVICE-ONLY (over time in that phase, never displayed, ~1.5x and ~3x \
-                          the figures above): reading \(rate(snapshot.readBytesPerSecond), privacy: .public), \
-                          writing \(rate(snapshot.writeBytesPerSecond), privacy: .public); \
+                          write \(rate(snapshot.sustainedWriteBytesPerSecond), privacy: .public); \
+                          ORIGINAL READ ALONE (the verify's own speed beside it — a verify much \
+                          faster than the original is what a drive-side cache looks like, and \
+                          pooling them for display hides that): \
+                          reading \(rate(snapshot.readBytesPerSecond), privacy: .public), \
+                          verifying \(rate(snapshot.verifyBytesPerSecond), privacy: .public); \
                           read latency min \(milliseconds(snapshot.readLatency.minimumNanoseconds), privacy: .public) \
                           max \(milliseconds(snapshot.readLatency.maximumNanoseconds), privacy: .public) \
                           p99 <= \(milliseconds(snapshot.readLatency.p99?.upperBoundNanoseconds), privacy: .public) \

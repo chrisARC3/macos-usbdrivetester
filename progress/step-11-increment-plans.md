@@ -1,11 +1,11 @@
-# Step 11 — increments 11 and 12, planned and approved
+# Step 11 — increment 12, planned and approved
 
-**Written 2026-08-25/26, before any code**, for increments 9–11. **Increments 9 and 10 have landed
-and their sections were deleted from here**, as the rule below instructs — 9 on 2026-08-27, 10 on
-2026-09-02; **increment 12 was added 2026-09-01**, unplanned, having been produced by walking
-increment 9's own checklist chunk. Every decision below was taken by the user during scoping and is
-**settled**. This file exists so a cold session can execute them without re-deriving them, and
-without re-opening choices that were already argued through.
+**Written 2026-08-25/26, before any code**, for increments 9–11. **Increments 9, 10 and 11 have
+landed and their sections were deleted from here**, as the rule below instructs — 9 on 2026-08-27,
+10 on 2026-09-02, 11 on 2026-09-03; **increment 12 was added 2026-09-01**, unplanned, having been
+produced by walking increment 9's own checklist chunk. Every decision below was taken by the user
+during scoping and is **settled**. This file exists so a cold session can execute them without
+re-deriving them, and without re-opening choices that were already argued through.
 
 **This is a plan, not history.** When an increment is built, its full account goes in its commit
 message and its summary into `PROGRESS.md`, as always. Delete the section from here when it lands.
@@ -40,78 +40,6 @@ before the one that costs a protocol version**, and both have.
 > means that paragraph is rewritten again, on the surface that states it once for both renderers.
 > `coverageBytesPerSecond` is still on the wire and still the ETA's quantity, documented at
 > `RunProgressSnapshot` as deliberately undisplayed.
-
----
-
-## Increment 11 — `R-W-R-C speed`, protocol v13
-
-### The finding that produced it
-
-The user observed from the metrics panel that **Covering always equals Write** and judged it
-suspicious. It is not an implementation error — the two share a numerator and a denominator, because
-a cycle writes each covered byte exactly once, so for N bytes in wall time T: Read = 2N/T,
-Write = N/T, Covering = N/T.
-
-But the user then insisted the term be defined **without using the word "covered" in it**, and that
-exposed a real discrepancy. `RunMetrics.swift:118`:
-
-> `rangeBytesCovered` and `currentBlock` count **attempted** work, not successful work.
-
-So the displayed figure is **sectors attempted per second**, under a label that plainly reads as
-successful work.
-
-**The arithmetic is right for both its consumers.** The ETA denominator and the progress fraction
-(`min(1, rangeBytesCovered / deviceBytesTotal)`) each *need* attempted — otherwise a drive with a bad
-region shows a bar that never reaches 100% and an ETA that never converges. **The defect is the
-name**, which is why increment 10 deletes the row rather than changing the number.
-
-### The new figure
-
-**Bytes whose chunk outcome is `.completed`, per second**, divided by running time to match the other
-displayed rates.
-
-**Only `.completed` counts.** From `RetentionRun.swift:635` there are five outcomes:
-
-| Outcome | Counts? | |
-|---|---|---|
-| `.completed` | ✅ | all four steps, compare passed |
-| `.verifyMismatch` | ❌ | all four ran, **bytes differed** — the failure this tool exists to find |
-| `.failedReading` / `.failedWriting` / `.failedVerifying` | ❌ | I/O stopped partway |
-
-⚠️ **`.verifyMismatch` is deliberately not an `isPhaseFailure`.** A bare `!isPhaseFailure` test would
-score a retention failure as a success. It must be excluded explicitly.
-
-The quantity exists nowhere today. `bytesVerified` is **not** it — it counts bytes that completed a
-verify *read*, and a `.verifyMismatch` still adds to it.
-
-### The name
-
-**`R-W-R-C speed`**, the user's own. **Not "Progress speed"** — the progress bar and the ETA are both
-driven by attempted bytes, so that name would promise `ETR = remaining ÷ rate` and break it
-**precisely when a drive is failing**, which is the one time anyone looks hard. That is the same
-class of error as the mislabel this increment exists to fix.
-
-*"Verified throughput"* was considered as plainer English and set aside — it risks reading as "the
-verify phase only", which is a third thing again.
-
-### Know this before building it
-
-**On a healthy run, `R-W-R-C speed` will read exactly the same as Write** — successful bytes =
-attempted bytes = written bytes when nothing fails. Deleting Covering for duplicating Write and
-adding a figure that also duplicates Write does **not** remove the duplication. It makes it *mean*
-something: a divergence now says "a chunk failed I/O **or** the data came back wrong", where
-Covering's said only "a write did not happen". The user was told this and accepted it.
-
-**Keep Write.** It and Read are what reconcile against Activity Monitor — the property added after
-the 2026-08-17 defect report, when v11's phase-isolated figures read 1.5× and 3.4× high.
-
-### The cost — the reason this increment is last
-
-* new accumulator in `RunMetrics`, new wire field → **protocol v12 → v13**
-* **helper source hash moves** (currently `73990c90d6a5b43a9dc2b3791284b33501acbe7f6752c38bfdde266b9d696cbb`)
-* **13 gate clients** rebuilt via `build-tools.sh`
-* `metrics-check.sh` and `retention-cycle-check.sh` both assert v12 explicitly
-* daemon restart, and the **Step 10 hardware gates re-run**
 
 ---
 
@@ -191,6 +119,11 @@ existing chunk 6 quit boundary re-run unchanged.
 | ~~The `Covering` row is deleted~~ **built, increment 10 — from all three surfaces**; `R-W-R-C speed` is a separate increment | 2026-08-26 |
 | The `Covering` deletion covers the panel, the report sheet **and** the exported Markdown | 2026-09-02 |
 | Only a **denied** Full Disk Access probe stops a run — `.unknown` and a transport failure carry on | 2026-09-02 |
+| ~~`R-W-R-C` on all three surfaces; on a healthy run it reads exactly as Write, and that is accepted~~ **built, increment 11 — then the equality was withdrawn** | 2026-09-02 |
+| ~~Write stays, because Write and Read are what reconcile against Activity Monitor~~ **REVERSED 2026-09-02**: reconciling with Activity Monitor is no longer an objective. FR-METR-1 amended; see that document | 2026-09-02 |
+| **FR-METR-1: the displayed rates divide by PHASE time.** Read pools both reads over both their times; `R-W-R-C` divides by all successful phase time; covering stays on running time for the ETA | 2026-09-02 |
+| The app-side rate properties were **renamed** to match — `sustained*` describes what Core still computes, not what the wire carries | 2026-09-03 |
+| Protocol **v14**, not folded into the uncommitted v13 — v13 stays as written, so the record is chronological | 2026-09-02 |
 | The gate re-checks on app activation while gated; **no third button** on `requiresApproval` | 2026-08-27 |
 | ⌘Q under a sheet is fixed **app-wide as increment 12**, not folded into increment 9 | 2026-08-27 |
 | `versionMismatch` re-registers by **unregister-then-register**; no other state unregisters | 2026-09-01 |

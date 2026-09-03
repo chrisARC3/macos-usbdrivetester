@@ -171,7 +171,7 @@ which is the failure mode this project keeps paying for.
 | **Helper** | source hash **`73990c90…`**, unchanged since 2026-08-24. Bumped to v13 and back three times on 2026-09-01 for chunk 13 item 7 and returns byte-identical. So **Step 10's `xpc-concurrency-check.sh` and `retention-cycle-check.sh` are still owed** — because the binary moved at increment 8's gate, not because anything failed; `metrics-check.sh` was re-run and passes |
 | **Protocol** | **v12** |
 | **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty — **unchanged across increment 10**, as predicted. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
-| **Human checklist** | **complete — nothing owed.** Chunk 14 walked and passed in full 2026-09-02, all seven items, against a build installed that day; chunks 1–13 by 2026-09-01. No product defect found. It required a rebuild first: `/Applications` held a 2026-09-01 build, predating increment 10 |
+| **Human checklist** | **chunk 15 owed; everything else walked and passed.** Chunk 15 was added 2026-09-03 for increment 11 and FR-METR-1's amendment — its item on the v12/v14 protocol mismatch was deleted unwalked on 2026-09-03, the fixture having been destroyed by an early `install-app.sh`. Chunk 14 passed in full 2026-09-02, all seven items; chunks 1–13 by 2026-09-01. Four items elsewhere went stale and were corrected 2026-09-03 — 2.3, 7.2 and 13.7 named the `Covering` row deleted by increment 10, and 2.3 also asserted Activity Monitor agrees with the panel, which FR-METR-1's amendment reversed |
 | **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) is **not attached** — still true on 2026-09-02, read off a live `devices` render: `General UDisk`, `Samsung Flash Drive`, two Seagate Expansions, the 1 TB Portable SSD T5 and the 990 EVO Plus. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, built **2026-09-02 13:22**, daemon kickstarted after. Current as of increment 10 — **increment 11 moves the helper hash, so it must be reinstalled and the daemon kickstarted again before any hardware gate or checklist walk.** See BUILD-PLAN's "Verifying a step" |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`, added 2026-09-02. `LICENSE` (MIT) and `README.md` exist at the root. Commit straight to `main`; nothing is pushed unless asked. Distribution is unchanged — source only, Step 16 |
@@ -1420,6 +1420,186 @@ replaces the helper binary underneath a running daemon and nothing announces the
 helper source has not moved.
 
 **No mutation round has been run for this increment.**
+
+
+
+### Increment 11 ✅ — `R-W-R-C speed`, then FR-METR-1 amended mid-increment. Protocol v14. 2026-09-02/03
+
+**Two changes in one increment, and the second reversed part of the first.** Built in eight chunks
+with the suite green between each. Chunks 1–3 added `R-W-R-C speed` on protocol v13; chunks 4–8
+amended FR-METR-1 and moved the three displayed rates onto phase time, taking the protocol to v14.
+The requirement change is recorded in
+[functional-requirements](functional-requirements-usb-drive-tester.md), *2026-09-02 — FR-METR-1
+revised*, including why it is not a reversion to the 2026-08-18 defect.
+
+| | |
+|---|---|
+| **Verified** | **1093 tests, 0 failures, 135 suites** (floor 1093). 1088 → 1093 is +2 (chunk 1), +1 (chunk 3), +1 net (chunk 4: one test replaced, two added), +1 (chunk 6). No new suite |
+| **Warnings** | zero **from source** across three clean builds with DerivedData wiped before each. SwiftCompile **Debug 88 / Release 2 / test 171** — Debug unchanged from increments 9 and 10, correct because no file was added to the app target. The one `warning:` line in a clean build is `appintentsmetadataprocessor`, a toolchain notice with no source location |
+| **Helper** | hash moved twice: `73990c90…` → `827b3760…` (v13, chunk 2) → `417c55ae…` (chunk 4) → **`e6888aa5…`** (v14, chunk 5) |
+| **Window** | `window-fit-check.sh` worst case **613 pt**, `content-starting` — **unchanged**, predicted before measured, twice |
+| **Renders** | **37 cases, unchanged** across both changes; **74/74 taken at the gate**, every case in both appearances, none blank |
+| **Gate clients** | 13/13 type-check |
+| **Hardware** | `metrics-check.sh` **128 PASS / 0 FAIL** on the 1 TB scratch T5 (`disk7`, serial `12345686DAA9`), daemon at **v14**. The reciprocal identity holds at all four I/O sizes with a **residual of 0.00000%** — see below |
+| **Mutations** | **9 in the gate round, 7 caught, 2 survived — both declared in advance.** Covers increments 11 and 10 in one round, at the user's direction. Eight more were run during the chunks; two of those found real gaps rather than confirming cover — see below |
+
+#### The mid-increment reversal, in one paragraph
+
+The user asked why displayed Write was about half displayed Read. The answer is that it was not a
+property of the drive: both rates divided by running time, and a cycle reads every byte twice and
+writes it once, so the 2:1 came from the cycle's shape on any medium. The 4 TB T5 EVO's *phase*
+rates were logged the whole time at `read 375.8, write 418.9` — **it writes faster than it reads**,
+and the displayed pair inverted that. The user's conclusion was that the figures answered the wrong
+question, and FR-METR-1 was amended.
+
+#### Two mutations found gaps instead of confirming cover
+
+**The disclaimer was unasserted.** `ThroughputFraming.definition`'s "not comparable to Activity
+Monitor" clause is the entire reason the amendment is defensible — an undisclaimed figure 3.4× what
+another window shows is how the 2026-08-17 report happened. Deleting the sentence outright left all
+1092 tests green: the rate-naming test checks *which* rates are named, and the framing test compares
+the document against the constant, so both move together when the constant is edited. Closed by
+`theDefinitionWarnsThatTheFiguresDoNotMatchAnOutsideObserver`, which requires the tool to be named
+**and** the sentence naming it to be a denial — naming alone passes on the pre-v14 wording, which
+named the same tool to promise agreement.
+
+**`metrics-check.sh`'s first replacement assertion was worthless.** The reciprocal identity does not
+contain covering, so moving covering to phase time too would have passed every check in the file
+while inflating the ETA's denominator — the 2026-08-18 pause defect in a new place. The first attempt
+anchored covering against the read rate, where running time gives 0.33× and phase time gives 0.35×:
+any band loose enough for a real drive contains both. Re-anchored against `R-W-R-C`, which counts the
+same bytes on a clean run, so the ratio *is* the I/O fraction of running time (0.944 measured) and the
+defect lands exactly on 1.0.
+
+#### What replaced the equality R-W-R-C was built on
+
+Increment 11's own settled premise — *on a healthy run the new figure reads exactly the same as
+Write* — held only while both divided by running time. It is gone. All three displayed rates now
+share a denominator, so on a clean run:
+
+    1 / R-W-R-C  =  2 / Read  +  1 / Write
+
+**Exact, not a band**, because host overhead is in none of the three. This replaced
+`metrics-check.sh`'s `read ≈ 2 × covering, write ≈ 1 × covering`, which needed ±10–20% because
+covering carries overhead the rates do not. Measured against it: reverting R-W-R-C to running time
+moves the figure by **0.2%** and is caught four orders of magnitude inside tolerance; the old band
+would have missed the same defect by a factor of fifty.
+
+The cost is on screen. `R-W-R-C` is a per-cycle rate beside two per-phase rates, so a **flawless**
+run reads about `Read 376, Write 419, R-W-R-C 130`. A row a third the size of its neighbours on good
+hardware is the shape of the original bug report, which is why the definition paragraph states the
+healthy case before it names the gap.
+
+#### Protocol v14 is the quiet kind of bump
+
+**Both replies kept their arity** — 22 and 13. Slots 14/15 swapped the wall-clock pair for the phase
+rates; slot 17 kept its name and changed its denominator. Every previous version changed shape
+somewhere, so a mismatched pair failed to decode. **A v13 app against a v14 daemon decodes cleanly
+and shows numbers low by the ratio of running time to phase time.** When the constant moved, exactly
+one test in 1092 failed; the compiler had nothing to object to. `metrics-check.sh`'s prerequisite
+note now says not to read its numbers until the daemon is reinstalled, because they will look almost
+right.
+
+#### The identity, measured
+
+`metrics-check.sh` on the 1 TB scratch T5, all four I/O sizes, `chunksFailed` 0 throughout:
+
+| I/O | Read | Write | R-W-R-C | identity predicts | covering ÷ R-W-R-C |
+|---|---|---|---|---|---|
+| 1 MiB | 486.7 | 489.6 | 162.6 | 162.6 | 0.972 |
+| 2 MiB | 486.6 | 488.8 | 162.4 | 162.4 | 0.975 |
+| 4 MiB | 479.1 | 489.0 | 160.8 | 160.8 | 0.975 |
+| 8 MiB | 480.4 | 488.4 | 161.0 | 161.0 | 0.975 |
+
+**The residual is 0.00000%**, not "within tolerance". The gate allows 2% for a real drive's jitter
+and did not need any of it: the three rates are computed from the same accumulators with host
+overhead in none of their denominators, so on a run where nothing fails the identity is exact to
+floating point. **A band could not have done this.** The `read ≈ 2 × covering` check it replaced ran
+at ±10–20% because covering carries overhead the rates do not; here the same 2.5% of running time
+that is *not* I/O shows up cleanly as the covering ratio instead of contaminating the assertion.
+
+**This drive reads and writes at nearly the same speed** — 487 against 489 — where the 4 TB T5 EVO
+writes markedly faster than it reads, 376 against 419. Both are correct and the difference is the
+hardware's. Worth knowing before reading chunk 15, whose expected figures are the T5 EVO's: **"Write
+above Read" is a property of that drive, not of the amendment.**
+
+#### The identity, measured
+
+`metrics-check.sh` on the 1 TB scratch T5, all four I/O sizes, `chunksFailed` 0 throughout:
+
+| I/O | Read | Write | R-W-R-C | identity predicts | covering ÷ R-W-R-C |
+|---|---|---|---|---|---|
+| 1 MiB | 486.7 | 489.6 | 162.6 | 162.6 | 0.972 |
+| 2 MiB | 486.6 | 488.8 | 162.4 | 162.4 | 0.975 |
+| 4 MiB | 479.1 | 489.0 | 160.8 | 160.8 | 0.975 |
+| 8 MiB | 480.4 | 488.4 | 161.0 | 161.0 | 0.975 |
+
+**The residual is 0.00000%**, not "within tolerance". The gate allows 2% for a real drive's jitter
+and did not need any of it: the three rates are computed from the same accumulators with host
+overhead in none of their denominators, so on a run where nothing fails the identity is exact to
+floating point. **A band could not have done this.** The `read ≈ 2 × covering` check it replaced ran
+at ±10–20% because covering carries overhead the rates do not; here the same 2.5% of running time
+that is *not* I/O shows up cleanly as the covering ratio instead of contaminating the assertion.
+
+**This drive reads and writes at nearly the same speed** — 487 against 489 — where the 4 TB T5 EVO
+writes markedly faster than it reads, 376 against 419. Both are correct and the difference is the
+hardware's. Worth knowing before reading chunk 15, whose expected figures are the T5 EVO's: **"Write
+above Read" is a property of that drive, not of the amendment.**
+
+#### The gate's mutation round — increments 11 and 10 together
+
+| | Increment | Mutation | Predicted | Actual |
+|---|---|---|---|---|
+| M1 | 11 | successful work counted as `!isPhaseFailure` | caught | caught — 3 tests |
+| M2 | 11 | `R-W-R-C` reverted to the v13 denominator | caught | caught — 2 tests |
+| M3 | 11 | failed-phase time folded into `R-W-R-C`'s denominator | caught | caught — 1 test |
+| M4 | 11 | pooled read bytes over one phase's time | caught | caught — 4 tests |
+| M5 | 11 | **helper sends the v13 wall-clock pair on the wire** | **SURVIVES** | survived |
+| M6 | 11 | **panel row wired to Write** | **SURVIVES** | survived |
+| M7 | 11 | the disclaimer inverted back to the v13 promise | caught — 1 test | caught |
+| M8 | 10 | Full Disk Access widened to "not known to be granted" | caught | caught — 1 test |
+| M9 | 10 | the deleted `Covering` row returns to the export only | caught | caught — 3 tests |
+
+**Both survivals were declared before the round and are structural, not gaps.** M5 sits in the
+helper's reply assembly, which no unit test can reach — `metrics-check.sh`'s REPLY/FINAL agreement
+loop is its only cover, on hardware. M6 is a SwiftUI binding, which nothing drives — the renders are
+its only cover, which is why `ui-probe`'s running fixture carries a deliberate visible divergence.
+
+**M8 had to be run twice, and the first attempt is the more useful result.** It was written as
+`blockingCause != .none`, which does not compile: the enum has no such case. The round recorded it as
+"caught" because the suite did not succeed — and that is the wrong conclusion from the right
+observation. **A mutation that does not compile is not a result**: it proves the anchor was wrong,
+not that anything is covered. Re-run as `== .accessNotPermitted || == .checkIncomplete` — the exact
+widening `needsFullDiskAccess`'s doc comment forbids — it was caught by
+`onlyTheDeniedCauseStopsTheRun`, a test named for the invariant. A driver that reports pass/fail
+without distinguishing a build break from a test failure will manufacture confidence; this one now
+prints the test count, which is what exposed it.
+
+#### Three smaller findings
+
+- **A count in prose had been wrong through two edits.** `RunMetrics.swift`'s rate table read "Five
+  rates" over six rows at `HEAD`, and chunk 1 made it "Six" over seven. Removed rather than
+  incremented, in both that file and `RunMetricsTests`.
+- **A blanket rename rewrote history.** Renaming the app-side `sustained*` properties to match what
+  they now carry also rewrote a sentence in `RunCycleOutcomeTests` recording what those names *used
+  to be*, into nonsense — and it compiled, because prose does not. Repaired; the rest of the rename
+  set was audited for the same damage and that was the only site.
+- **A render fixture contradicted its own headline.** The clean `report` case was first given a
+  divergent R-W-R-C, rendering a sheet that said "every comparison matched" above a rate that only
+  falls when comparisons did not. Caught by reading the rendered sheet. The rate is now a parameter,
+  clean by default, with `report-failures` passing a degraded one.
+
+#### Corrections to earlier records
+
+**Increment 10's `metrics-finished` claim was wrong, and this increment repeated it before catching
+it.** That render case carries a fully populated snapshot and renders the **placeholder** — that is
+the assertion it exists to make — so its figures never reach a pixel. A comment claiming both the
+clean and divergent panel states were "on a render" was inherited and restated in chunk 3 before
+being checked. Corrected in `ui-probe`. The clean case is on the report render instead.
+
+**Still owed, unchanged by this increment:** no mutation round for increment 10;
+`xpc-concurrency-check.sh` and `retention-cycle-check.sh` from increment 8. The helper hash moved
+again here, so both remain owed on the same terms.
 
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five

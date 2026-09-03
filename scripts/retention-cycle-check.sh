@@ -10,7 +10,9 @@
 #
 #   1. Confirms the live daemon speaks the protocol THIS BUILD expects — read from
 #      `TesterProtocol.version` at compile time, never hard-coded here, so a bump cannot leave
-#      this script asserting a stale number. (v12 as of 2026-08-18.) A daemon that is
+#      this script asserting a stale number. (v14 as of 2026-09-02 — and this parenthesis is the
+#      one hard-coded version in the file, which duly went stale twice while the assertion it
+#      annotates never could.) A daemon that is
 #      too old fails the call as a transport error, which reads like a broken connection rather
 #      than "the installed helper is out of date".
 #   2. Draws a RANDOM start LBA, aligned to one 4 MiB chunk and at least 1 GiB clear of the end

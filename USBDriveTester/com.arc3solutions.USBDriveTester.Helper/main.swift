@@ -645,8 +645,8 @@ final class TesterControlImpl: NSObject, TesterControl {
                            failureModeCode: Int,
                            reply: @escaping (Int, UInt64, UInt64, Int, String, Int, Double, Int,
                                              Double, Double, Int, String, UInt64, Double,
-                                             Double, Double, UInt64, UInt64, UInt64, UInt64,
-                                             String) -> Void) {
+                                             Double, Double, Double, UInt64, UInt64, UInt64,
+                                             UInt64, String) -> Void) {
 
         /// Every refusal path replies with **no figures at all** — rates `-1`, latency sample
         /// count `0`, no ranges, a `failureModeUsedCode` of `0` and a `runOutcomeCode` of `0`,
@@ -676,7 +676,10 @@ final class TesterControlImpl: NSObject, TesterControl {
             reply(RunOutcomeCode.unrecognised.rawValue, 0, 0, 0, "",
                   CacheBypassOutcome.unrecognised.rawValue, 0, 0, -1, -1,
                   FailureModeCode.unrecognised.rawValue, "", 0,
-                  -1, -1, -1, 0, 0, 0, 0,
+                  // Four rates from v14, all "not measured". `completedBytesPerSecond` joined
+                  // this line, so `metrics-check.sh`'s "reported no figures" assertions — the
+                  // only cover this path has anywhere — must grow to cover it too.
+                  -1, -1, -1, -1, 0, 0, 0, 0,
                   detail)
         }
 
@@ -771,15 +774,22 @@ final class TesterControlImpl: NSObject, TesterControl {
                   result.failureMode.wireCode,
                   encodedRanges,
                   failures.failedBlockCount,
-                  // FR-RPT-2's figures, all three against the **wall clock** from v12 — which is
-                  // what makes them comparable to Activity Monitor, to DriveSpeed, and to each
-                  // other. Read counts the verify read as well as the original, so a healthy run
-                  // lands at about 2 × covering for read and 1 × for write. The phase-isolated
-                  // rates are still logged by `RunCoordinator`; they are not sent, because no
-                  // screen shows them.
-                  result.metrics?.sustainedReadBytesPerSecond ?? -1,
-                  result.metrics?.sustainedWriteBytesPerSecond ?? -1,
+                  // FR-RPT-2's figures. **The first two divide by phase time from v14** — the
+                  // device's own read and write speed, not the run's aggregate — which is what
+                  // FR-METR-1's 2026-09-02 amendment requires and is deliberately NOT comparable
+                  // to Activity Monitor. Read pools the original and the verify, over both their
+                  // times. The wall-clock pair v12 sent is still logged by `RunCoordinator` and
+                  // is not sent, because no screen shows it.
+                  result.metrics?.deviceReadBytesPerSecond ?? -1,
+                  result.metrics?.writeBytesPerSecond ?? -1,
+                  // Covering stays on running time: it is the ETA's denominator and an estimate
+                  // cannot be built on a figure that ignores time the run spends not doing I/O.
                   result.metrics?.coverageBytesPerSecond ?? -1,
+                  // Successful work — chunks that completed AND matched — over all successful
+                  // phase time. Roughly a THIRD of the two rates above on a flawless drive, and
+                  // no longer equal to write; below what `1/c = 2/r + 1/w` predicts when a
+                  // written chunk did not end clean, which is the retention signal.
+                  result.metrics?.completedBytesPerSecond ?? -1,
                   latency?.count ?? 0,
                   latency?.minimumNanoseconds ?? 0,
                   latency?.maximumNanoseconds ?? 0,
@@ -855,7 +865,7 @@ final class TesterControlImpl: NSObject, TesterControl {
     // it is safe to call once a second for the whole of a run.
 
     func runProgress(reply: @escaping (Bool, Double, UInt64, Double, Double, Double, Double,
-                                       UInt64, UInt64, UInt64, UInt64, UInt64) -> Void) {
+                                       Double, UInt64, UInt64, UInt64, UInt64, UInt64) -> Void) {
 
         guard let snapshot = MetricsChannel.snapshot else {
             // Either no device is held, or the held claim's session has issued no call yet.
@@ -865,20 +875,24 @@ final class TesterControlImpl: NSObject, TesterControl {
             // From Step 11 this can no longer return a *previous* run's figures: the session is a
             // property of the claim, so releasing the device destroyed them. That is what
             // preserves protocol v9's property at run scope.
-            reply(false, 0, 0, -1, -1, -1, -1, 0, 0, 0, 0, 0)
+            reply(false, 0, 0, -1, -1, -1, -1, -1, 0, 0, 0, 0, 0)
             return
         }
 
         // `-1` for a rate that has not been measured yet. Zero would print as "0 MB/s", which
         // means *stalled* — a real and alarming condition — and using it for "nothing has
         // happened yet" would show an alarm to report an absence.
-        // Wall-clock rates from v12. Read is both reads — original and verify — because both
-        // are reads and the kernel counts both; a figure that omitted the verify would be half
-        // of what the user can see in Activity Monitor, which is the discrepancy this reply was
-        // reshaped to end (2026-08-17, measured on the 4 TB T5 EVO).
-        let readRate = snapshot.sustainedReadBytesPerSecond ?? -1
-        let writeRate = snapshot.sustainedWriteBytesPerSecond ?? -1
+        // Phase-time rates from v14 (FR-METR-1 amended 2026-09-02): the device's own speeds, not
+        // the run's aggregate. Read pools the original and the verify over both their times —
+        // both are reads. These are 1.5x and 3x what Activity Monitor shows for the same drive
+        // and that is intended; `ThroughputFraming.definition` is what says so to the user.
+        let readRate = snapshot.deviceReadBytesPerSecond ?? -1
+        let writeRate = snapshot.writeBytesPerSecond ?? -1
+        // The one that did NOT move: covering is the ETA's denominator and stays on running time.
         let coveringRate = snapshot.coverageBytesPerSecond ?? -1
+        // `R-W-R-C speed`. Beside covering deliberately: covering is attempted work and is the
+        // ETA's denominator, this is successful work and is what the panel shows.
+        let completedRate = snapshot.completedBytesPerSecond ?? -1
         let remaining = snapshot.estimatedRemainingNanoseconds
             .map { Double($0) / 1_000_000_000 } ?? -1
 
@@ -893,6 +907,7 @@ final class TesterControlImpl: NSObject, TesterControl {
               readRate,
               writeRate,
               coveringRate,
+              completedRate,
               remaining,
               latency.count,
               latency.minimumNanoseconds ?? 0,

@@ -375,25 +375,38 @@ nonisolated struct RunReport: Equatable {
 
     // MARK: What was measured (FR-RPT-2/3)
 
-    /// Bytes read per second of **wall clock** — original reads and verify reads together.
+    /// **The device's read speed** — original reads and verify reads together, over the time
+    /// spent on both (v14).
     ///
-    /// Wall-clock from v12, so a reader can reproduce it with any tool that watches the drive.
-    /// The figure this replaced divided by time-spent-reading, which nothing outside this app
-    /// could check and which read 53% high against Activity Monitor (2026-08-17).
-    let sustainedReadBytesPerSecond: Double?
+    /// Divided by phase time, so a reader **cannot** reproduce it with a tool that watches the
+    /// drive from outside, and it reads about 1.5× what one shows. That was treated as a defect
+    /// from v12 to v13 and is the requirement from 2026-09-02: this tool reports what the device
+    /// did while it was working. The exported document says so in as many words —
+    /// `ThroughputFraming.definition` reaches this file's Markdown and the report sheet alike.
+    let deviceReadBytesPerSecond: Double?
 
-    /// Bytes written per second of **wall clock**.
-    let sustainedWriteBytesPerSecond: Double?
+    /// **The device's write speed**: bytes written ÷ time spent writing (v14). About 3.4× what an
+    /// outside observer sees, and above the read rate on a drive that writes faster than it reads.
+    let writeBytesPerSecond: Double?
 
-    /// How fast the run covered the drive, against the wall clock. About half the read rate and
-    /// about the same as the write rate, because every covered byte is read, written and read
-    /// again.
+    /// How fast the run covered the drive, **against running time** — the one rate here that did
+    /// not move to phase time in v14, because it is the ETA's denominator. About a third of the
+    /// two above and not directly comparable to them.
     ///
     /// **Neither the report sheet nor the exported Markdown shows this, since Step 11 increment
     /// 10** — see `RunProgressSnapshot.coverageBytesPerSecond` for why the row went and why the
     /// field stayed. Kept on the report rather than dropped so that a `.md` file exported before
     /// the change and one exported after differ by a row rather than by what the type can carry.
     let coverageBytesPerSecond: Double?
+
+    /// **`R-W-R-C speed`** (v14): bytes read, written back, read again and **matched**, per second
+    /// of successful phase time — the successful-work counterpart of the attempted work above.
+    ///
+    /// Shown on both report surfaces and on the live panel. It equalled ``writeBytesPerSecond``
+    /// on a clean run until v14; it is now roughly a third of it, and what a reader should check
+    /// instead is `1/completed = 2/deviceRead + 1/write`. Below that prediction means bytes were
+    /// written and never confirmed good, and the failed-range table above says which.
+    let completedBytesPerSecond: Double?
 
     let readLatencySampleCount: UInt64
     let readLatencyMinimum: Duration?
@@ -627,9 +640,10 @@ extension RunReport {
         self.failedRanges = reply.failedRanges
         self.totalFailedRangeCount = reply.failedRangeCount
         self.failedBlockCount = reply.failedBlockCount
-        self.sustainedReadBytesPerSecond = reply.sustainedReadBytesPerSecond
-        self.sustainedWriteBytesPerSecond = reply.sustainedWriteBytesPerSecond
+        self.deviceReadBytesPerSecond = reply.deviceReadBytesPerSecond
+        self.writeBytesPerSecond = reply.writeBytesPerSecond
         self.coverageBytesPerSecond = reply.coverageBytesPerSecond
+        self.completedBytesPerSecond = reply.completedBytesPerSecond
         self.readLatencySampleCount = reply.readLatencySampleCount
         self.readLatencyMinimum = reply.readLatencyMinimum
         self.readLatencyMaximum = reply.readLatencyMaximum
