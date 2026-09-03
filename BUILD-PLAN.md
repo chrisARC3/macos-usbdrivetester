@@ -16,9 +16,10 @@ test target fixed to the designated scratch device with disk images removed as a
 > **The step in progress is Step 11 (increments 1–11 done; increment 12 next), and the protocol is
 > v14.** Increment **12 is planned, approved and unwritten** — its full scope is in
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which must be read
-> before starting it. **The human checklist owes chunk 15**, added 2026-09-03 for increment 11;
-> everything else is walked and passed. ⚠️ **Chunk 15's item 1 must be walked BEFORE the app is
-> reinstalled** — it uses the stale daemon in `/Applications` as its fixture.
+> before starting it. **The human checklist is complete** — chunk 15 was added and walked on
+> 2026-09-03, five items, all passed; everything else was already walked and passed. **Two hardware
+> gate scripts are still owed**, `xpc-concurrency-check.sh` and `retention-cycle-check.sh`; they are
+> not checklist items and are described below.
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -426,14 +427,19 @@ simulation-first still applies wherever the plan calls for it.
 >
 > **Two of Step 10's three hardware gates are owed** — `xpc-concurrency-check.sh` and
 > `retention-cycle-check.sh`, because the helper binary moved at increment 8's gate, not because
-> anything failed. `metrics-check.sh` was re-run and passes. The 4 TB T5 EVO fixture is **not
-> attached** as of 2026-09-02, and the 1 TB T5's `/dev/urandom` fill file must be kept.
+> anything failed. `metrics-check.sh` was re-run and passes. The 4 TB T5 EVO fixture **is attached
+> as of 2026-09-03** (`disk6`, `PSSD T5 EVO`), along with the 125.8 MB thumb drive (`disk4`) and the
+> 1 TB scratch T5 (`disk7`) — chunk 15 was walked on the first two. The 1 TB T5's `/dev/urandom`
+> fill file must be kept.
 >
-> **The human checklist owes chunk 15**, added 2026-09-03 by increment 11 for FR-METR-1's
-> amendment. Its item 2 is the one that matters most: nothing anywhere checks that the figures
-> actually disagree with Activity Monitor by the factors the report claims, only that the report
-> claims them. A seventh item, on the v12/v14 protocol mismatch, was deleted unwalked on
-> 2026-09-03 — the fixture was destroyed by an early `install-app.sh`.
+> **The human checklist is complete. Chunk 15 was added and walked on 2026-09-03** — five items,
+> all passed, no product defect. Its item 2 was the one that mattered: nothing anywhere checked that
+> the figures actually disagree with Activity Monitor by the factors the report claims, only that
+> the report claims them. **They do** — 1.48× on Read and 3.55× on Write, against ~1.5× and ~3.4×
+> claimed. Two of the chunk's original seven items were deleted unwalked: the v12/v14 protocol
+> mismatch (fixture destroyed by an early `install-app.sh`) and the idle-panel em dashes (the item
+> was wrong about the app and inverted — it would have passed on a build with the defect it was
+> written to catch). Full record in `PROGRESS.md`, increment 11.
 >
 > Everything else is walked and passed. Chunk 14, added by increment 10, passed in full on
 > 2026-09-02: all seven items, no product defect. Its item 4 revokes Full Disk Access and is the

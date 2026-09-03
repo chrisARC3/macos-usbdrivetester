@@ -917,3 +917,38 @@ Every defect this project has produced came from trusting a substitute for the r
   product contradicting itself, and it was caught by looking at the rendered sheet rather than the
   source — the same way the `Covering` mislabel was. Where one fixture serves several variants,
   parameterise the figure that has to move with them rather than picking a value that suits one.
+- **A new human-checklist item must be checked against the items already in the file, not only
+  against the source.** Chunk 15's item 4 asked a walker to confirm three em-dashed rate rows on the
+  idle metrics panel. There are no rows there — `RunMetricsView` shows a placeholder — and the
+  rows-behind-the-placeholder state it described is **a defect that had been found and fixed**, the
+  placeholder being *"replaced rather than overlaid"* for exactly that reason. **The item would have
+  passed on the broken build and invited a false failure report on the correct one.** Check 11.4,
+  walked and passed a fortnight earlier, described the same panel correctly 600 lines away in the
+  same document. `grep` the checklist for the screen a new item names before writing it; a checklist
+  that instructs someone to verify something false is worse than having no item at all.
+- **A deletion is not finished when the item is gone — every cross-reference to a number above it is
+  now wrong, and prose references do not fail to compile.** Deleting chunk 15's original item 1 left
+  the chunk's own preamble pointing at "item 3" for a check that had become item 2, and it went
+  unnoticed until the walk. De-numbering item 4 during that same walk then left two entries numbered
+  `4.`. Three numbering defects in one chunk of five items. **After removing a numbered item,
+  re-read the whole section for references to positions, not just for references to the item.**
+- **Verify the installed build by symbol, not by timestamp, before any checklist walk.** Chunk 14's
+  walk was blocked by a stale `/Applications` build and had to be restarted; chunk 15's pre-flight
+  instead checked the installed binary for the identifiers the change introduced and for the ones it
+  removed — `deviceReadBytesPerSecond` present 30 times, `sustainedReadBytesPerSecond` zero times,
+  the new disclaimer string present and the superseded one absent. A timestamp suggests; a symbol
+  settles. It costs seconds and it protects a walk that costs a person an hour.
+- **An external instrument is worth more than the item that summons it.** Chunk 15 asked only that
+  Activity Monitor *disagree* with the app by roughly the claimed factors. Reading the two figures
+  side by side also confirmed the cycle's shape from outside the app (its read ÷ its write = 1.966
+  against the 2:1 the cycle implies), recovered `coverageBytesPerSecond` — the row increment 10
+  deleted — from a tool sharing no code with the app, landing it inside `metrics-check.sh`'s own
+  band, and put a number on host overhead (**3.28% of running time**) where the amendment had only
+  had an argument. **When a check reaches outside the system, record everything it saw, not only the
+  answer to the question asked.**
+- **Point-valued expectations in a checklist generate defect reports against healthy hardware.**
+  Chunk 15's item 1 carried `ui-probe`'s fixture figures — 376 / 419 / 130 MB/s — and the walk read
+  344 / 419 / 122, which was reported as Read being "about 10% too high". Nothing was wrong: one
+  rate drifted between sessions and the other two followed it correctly through the identity.
+  **Give a human a band and a relationship to check, never a number to match**; the relationship is
+  the test, and on this project the absolute figures are explicitly not.

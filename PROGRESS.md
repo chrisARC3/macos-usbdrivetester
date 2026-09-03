@@ -9,7 +9,7 @@ split, because a log a cold start is told not to read is a log that is not doing
 | **[CONSTRAINTS.md](CONSTRAINTS.md)** | **read this in full** — what binds future work: measured behaviour, settled decisions, lessons |
 | **[BUILD-PLAN.md](BUILD-PLAN.md)** | the plan, the per-step gates, the process gotchas, the test hardware |
 | **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** | **increments 10–12: planned, approved, unwritten.** Read before building any of them |
-| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Complete: every chunk walked and passed, 2026-09-01** |
+| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Complete: every chunk walked and passed, chunk 15 on 2026-09-03** |
 | `progress/step-NN.md` | archived history, for *"why was it done that way?"* |
 
 **The full account of an increment goes in its commit message**, with this file carrying a summary
@@ -18,14 +18,23 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–10 done; **increment 11 is next**
+## Step 11 — IN PROGRESS. Increments 1–11 done; **increment 12 is next**
 
-> ⚠️ **Increments 11 and 12 are planned, approved and unwritten.** Their full scope, the
-> decisions behind them and what must not be re-opened are in
+> ⚠️ **Increment 12 is planned, approved and unwritten.** Its full scope, the decisions behind it
+> and what must not be re-opened are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
-> **Read it before starting either** — the decisions were argued through at length and
-> re-deriving them will not reach the same answers. Increments 9 and 10's sections have been deleted
-> from that file, as its header instructs, now that those increments have landed.
+> **Read it before starting it** — the decisions were argued through at length and
+> re-deriving them will not reach the same answers. Increments 9, 10 and 11's sections have been
+> deleted from that file, as its header instructs, now that those increments have landed.
+>
+> ⚠️ **This block said "increments 1–10 done; increment 11 is next" and "increments 11 and 12 are
+> unwritten" until 2026-09-03, with increment 11 committed at `05b7ea7` and its docs commit at
+> `c0d2596`.** That docs commit updated `BUILD-PLAN.md`'s lead block and missed this one — **the
+> same defect, in the same pass that was correcting it elsewhere.** The index row three lines above
+> was stale in the other direction, still claiming the checklist complete as of 2026-09-01 while
+> chunk 15 was owed. **When a status block is edited, every other status block in the repository is
+> edited in the same commit**; `grep -rn "increment 1[01]" *.md` is the check, and this project has
+> now paid for skipping it four times.
 
 Run-control state machine: start / pause / resume / stop / restart. FR-CTRL-1…9, NFR-REL-10.
 
@@ -171,7 +180,7 @@ which is the failure mode this project keeps paying for.
 | **Helper** | source hash **`73990c90…`**, unchanged since 2026-08-24. Bumped to v13 and back three times on 2026-09-01 for chunk 13 item 7 and returns byte-identical. So **Step 10's `xpc-concurrency-check.sh` and `retention-cycle-check.sh` are still owed** — because the binary moved at increment 8's gate, not because anything failed; `metrics-check.sh` was re-run and passes |
 | **Protocol** | **v12** |
 | **Gates** | `window-fit-check.sh` worst case **613 pt**, `.window-fit-exceptions` empty — **unchanged across increment 10**, as predicted. **37** render cases; the script's list and `tools/ui-probe`'s own unknown-view message are both hand-maintained and have drifted three times — re-derive, never hand-edit |
-| **Human checklist** | **chunk 15 owed; everything else walked and passed.** Chunk 15 was added 2026-09-03 for increment 11 and FR-METR-1's amendment — its item on the v12/v14 protocol mismatch was deleted unwalked on 2026-09-03, the fixture having been destroyed by an early `install-app.sh`. Chunk 14 passed in full 2026-09-02, all seven items; chunks 1–13 by 2026-09-01. Four items elsewhere went stale and were corrected 2026-09-03 — 2.3, 7.2 and 13.7 named the `Covering` row deleted by increment 10, and 2.3 also asserted Activity Monitor agrees with the panel, which FR-METR-1's amendment reversed |
+| **Human checklist** | **complete at this point: chunks 1–14 walked and passed, nothing owed.** Chunk 14 passed in full 2026-09-02, all seven items; chunks 1–13 by 2026-09-01. Chunk 15 did not exist yet — increment 11 wrote it and then walked it, both on 2026-09-03; **that walk is recorded in increment 11's own section, not here.** Four items elsewhere were later found stale and corrected 2026-09-03 — 2.3, 7.2 and 13.7 named the `Covering` row deleted by increment 10, and 2.3 also asserted Activity Monitor agrees with the panel, which FR-METR-1's amendment reversed. ⚠️ **This row described 2026-09-03 state inside a block titled "where increment 11 starts" until 2026-09-03**; a snapshot block that gets edited with later news stops being a snapshot |
 | **Fixture** | the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) is **not attached** — still true on 2026-09-02, read off a live `devices` render: `General UDisk`, `Samsung Flash Drive`, two Seagate Expansions, the 1 TB Portable SSD T5 and the 990 EVO Plus. **The 1 TB T5's `/dev/urandom` fill file must be kept** |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, built **2026-09-02 13:22**, daemon kickstarted after. Current as of increment 10 — **increment 11 moves the helper hash, so it must be reinstalled and the daemon kickstarted again before any hardware gate or checklist walk.** See BUILD-PLAN's "Verifying a step" |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`, added 2026-09-02. `LICENSE` (MIT) and `README.md` exist at the root. Commit straight to `main`; nothing is pushed unless asked. Distribution is unchanged — source only, Step 16 |
@@ -1442,6 +1451,7 @@ revised*, including why it is not a reversion to the 2026-08-18 defect.
 | **Gate clients** | 13/13 type-check |
 | **Hardware** | `metrics-check.sh` **128 PASS / 0 FAIL** on the 1 TB scratch T5 (`disk7`, serial `12345686DAA9`), daemon at **v14**. The reciprocal identity holds at all four I/O sizes with a **residual of 0.00000%** — see below |
 | **Mutations** | **9 in the gate round, 7 caught, 2 survived — both declared in advance.** Covers increments 11 and 10 in one round, at the user's direction. Eight more were run during the chunks; two of those found real gaps rather than confirming cover — see below |
+| **Human checklist** | **chunk 15 walked 2026-09-03 — five items, all passed, no product defect.** Two of its original seven were deleted unwalked. Written at chunk 15 of this increment and walked after the commit; the walk is recorded below |
 
 #### The mid-increment reversal, in one paragraph
 
@@ -1600,6 +1610,87 @@ being checked. Corrected in `ui-probe`. The clean case is on the report render i
 **Still owed, unchanged by this increment:** no mutation round for increment 10;
 `xpc-concurrency-check.sh` and `retention-cycle-check.sh` from increment 8. The helper hash moved
 again here, so both remain owed on the same terms.
+
+#### Chunk 15 walked — 2026-09-03, after the commit. Five items, all passed
+
+Against the build installed at 12:52 and daemon PID 71058, up since 13:08:46 — the same daemon that
+passed `metrics-check.sh` 128/0. **The build was proved to be v14 before the walk started, by symbol
+rather than by timestamp**: `deviceReadBytesPerSecond` present 30 times in the installed binary,
+`sustainedReadBytesPerSecond` **zero** times, `not comparable to Activity Monitor` present,
+`directly comparable` absent. That pre-flight exists because chunk 14's walk was blocked by a stale
+`/Applications` build and had to be restarted; it costs seconds and it settles the question a
+timestamp only suggests.
+
+| | 4 TB T5 EVO | 125.8 MB thumb |
+|---|---|---|
+| `Read` / `Write` / `R-W-R-C` | 344 / 419 / 122 MB/s | 17 / 5 / 3 MB/s |
+| Activity Monitor read / write | 232 / 118 MB/s | not read |
+| identity residual | **0.047%**, and **0.19%** on a second run | unresolvable at 1 MB/s granularity |
+
+**The disclaimer is true, which is what the chunk existed to establish.** App Read ÷ Activity
+Monitor read = **1.48×** against the ~1.5× the report claims; app Write ÷ its write = **3.55×**
+against ~3.4×. Nothing in the suite can produce those four numbers, and until this walk the report
+had been asserting a disagreement that had never been observed.
+
+**Activity Monitor turned out to be worth more than the item asked of it, in three ways.**
+
+* **232 ÷ 118 = 1.966.** An instrument outside the app confirming the cycle moves two reads per
+  write. Nothing else in the project checks the cycle's shape from outside.
+* **Its write figure *is* `coverageBytesPerSecond`** — the `Covering` row increment 10 deleted —
+  recovered from an instrument sharing no code with the app, and landing **inside
+  `metrics-check.sh`'s own band**: 118/122 = 0.967 against a band of 0.80–0.995.
+* **Host overhead measured 3.28% of running time.** The whole amendment rests on that overhead
+  being present in the running-time denominator and absent from the phase-time one. It had been an
+  argument; it is now a number.
+
+**Read and Write no longer share a ratio, and two drives demonstrate it in opposite directions.**
+The thumb drive reads at 3.4× its write speed; the T5 EVO writes at 1.2× its read speed. Under v13
+both would have read exactly 2:1, because that ratio was a property of the cycle rather than of the
+hardware. That is the amendment's whole purpose, observed rather than reasoned.
+
+**Both exports matched `ThroughputFraming.definition` character for character** — 819 chars, two
+drives, diffed against source reconstructed from the Swift literals rather than compared by eye. The
+sheet's own rendering was confirmed from a `render-ui.sh out.png 720 1500 report` that was **looked
+at**, not merely produced, and the sheet was separately confirmed to display the thumb drive run's
+real values (`17 / 5 / 3 MB/s`, `480 Mb/s`) — the row wiring on real data, which no test reaches.
+
+**The pause item passed with corroboration from the export.** 40.0 s of I/O reconstructed from the
+report's own rates, against check 7.5's independent record of *30 chunks in 39 s* on that drive;
+elapsed 83 s, leaving 43 s of pause and overhead. Had running time counted the pause, coverage would
+have fallen about 1.9× and taken the ETA with it.
+
+##### No product defect. One defect in the checklist, and it was inverted
+
+**Item 4 — "the idle panel shows dashes, not zeroes or minus ones" — was deleted mid-walk.** There
+are no rate rows before a run: `RunMetricsView` shows `idlePlaceholder` instead, and the
+rows-behind-the-placeholder state the item described is **a defect that was found and fixed** — the
+placeholder is *"replaced rather than overlaid"* precisely because an overlay once left em-dashes
+visible behind it. **So the item would have passed on the broken build and invited a false failure
+report on the correct one.** The walker read the screen, recognised the placeholder as correct, and
+reported the item rather than the app.
+
+**This file already contained the correct description.** Check 11.4, walked and passed 2026-08-20,
+says the idle panel is *"exactly its two lines of copy"* — 600 lines from the item that contradicted
+it. Writing a new checklist item did not include reading what the checklist already said about the
+same screen. And the em dash was never uncovered:
+`unmeasuredFiguresRenderAsAnEmDashAndNeverAsZero` drives the wire sentinel `-1` through `RunReport`
+into the rendered markdown and asserts `—` on all three rows, end to end.
+
+**Two stale cross-references were found in the same chunk**, both left by the *first* deletion:
+the "what no test can see" bullet still said the Activity Monitor check was "item 3" when it had
+become item 2, and de-numbering item 4 left two entries numbered `4.` until it was caught. **Three
+numbering defects in one chunk of five items** — a deletion is not finished when the item is gone.
+
+**Item 1's expected figures were point values and have been widened to bands.** They were taken from
+`ui-probe`'s fixtures (376/419/130); the walk read 344/419/122, and the walker reported Read as
+"about 10% too high", which is a defect report against healthy hardware. Write landed exactly and
+`R-W-R-C` moved *because* Read did — the identity predicts 121.9 from 344 and 419. One figure
+drifted and the other two followed it correctly. **Item 3 is the test; the absolute figures are
+not.**
+
+**Item 3 cannot be walked on a slow drive**, and that is arithmetic rather than a fault: at 17/5/3
+MB/s every figure is rounded to a whole MB/s before display, which puts the prediction anywhere in
+`[2.912, 3.377]` against an observed bucket of `[2.5, 3.5)`. Recorded at the item.
 
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five

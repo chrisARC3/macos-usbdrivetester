@@ -81,7 +81,14 @@ divided by running time*; asked again on 2026-09-02, it led to FR-METR-1 being a
 and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel now reads Write
 **above** Read. The answer given here was correct for the build it was given about.
 
-> **CHUNK 15 IS OWED, as of 2026-09-03.** Everything else in this file has been walked and passed.
+> **NOTHING IS OWED IN THIS FILE, as of 2026-09-03.** Chunk 15 was written and walked the same
+> day — five items, all passed, **no defect in the product and one in this file** (its item 4,
+> deleted mid-walk; see below). Every other chunk was already walked and passed.
+>
+> **Two hardware gate scripts are still owed and they are not checklist items** —
+> `xpc-concurrency-check.sh` and `retention-cycle-check.sh`, from increment 8, because the helper
+> binary moved rather than because anything failed. They live in `BUILD-PLAN.md`; this file does
+> not track them, and "nothing is owed" above means nothing on *this* list.
 >
 > ⚠️ **This line said "NOTHING IS OWED" until chunk 15 was written, on 2026-09-03** — which is the
 > third time round this loop. A new chunk makes the summary false the moment it is added, and
@@ -91,6 +98,15 @@ and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel
 > walked**: `install-app.sh` ran before it and the daemon restarted from the new binary, taking the
 > only free fixture with it. See the chunk's own header for what still covers that guard and what
 > does not.
+>
+> **A second item was deleted from chunk 15 on 2026-09-03, mid-walk: its item 4, the idle panel's
+> em dashes.** That one was not merely unwalkable — it was **wrong about the app and inverted**.
+> It asked for three rate rows before a run, where the panel shows a placeholder and no rows at
+> all, and the state it described is a fixed defect: it would have passed on the broken build and
+> invited a false failure report on the correct one. The walker caught it at the screen. Old items
+> 5 and 6 are now 4 and 5. **Chunk 15 therefore has five items, and two of its original seven were
+> deleted before either could be walked** — a rate worth noticing in a chunk written to close a
+> requirement change.
 >
 > Four items elsewhere in this file went stale and were corrected on 2026-09-03: **2.3**, **7.2**
 > and **13.7** named the `Covering` row, which increment 10 deleted on 2026-09-02 without updating
@@ -977,11 +993,46 @@ The run log is the instrument for items 1–3:
    it would read as correct on the deleted row alone.
 
 
-### Chunk 15 — the throughput denominators after FR-METR-1's amendment (increment 11) — **OWED** *(items 1–3, 5 and 6 need a run; item 4 is dry)*
+### Chunk 15 — the throughput denominators after FR-METR-1's amendment (increment 11) — **PASSED IN FULL, 2026-09-03** *(all five items; two of the original seven were deleted unwalked)*
 
 Increment 11 added `R-W-R-C speed` to all three surfaces, then FR-METR-1 was amended mid-increment
 and the three displayed rates moved from running time to **phase time** (protocol v14). This chunk
 is the only place the change is checked against reality rather than against a fixture.
+
+**WALKED 2026-09-03, against the build installed at 12:52 and daemon PID 71058 up since 13:08:46 —
+the same daemon that passed `metrics-check.sh` 128/0.** The build was confirmed to be v14 *before*
+the walk, headlessly and by symbol rather than by timestamp: `deviceReadBytesPerSecond` present in
+the installed binary 30 times, `sustainedReadBytesPerSecond` **zero** times, the "not comparable to
+Activity Monitor" string present and "directly comparable" absent. That check exists because
+chunk 14's walk was blocked by a stale `/Applications` build and had to be restarted.
+
+**No defect was found in the product. One was found in this file** — see item 4, deleted mid-walk.
+
+**What the walk established, in one place:**
+
+| | 4 TB T5 EVO | 125.8 MB thumb |
+|---|---|---|
+| `Read` | 344 MB/s | 17 MB/s |
+| `Write` | 419 MB/s | 5 MB/s |
+| `R-W-R-C` | 122 MB/s | 3 MB/s |
+| Activity Monitor read / write | 232 / 118 MB/s | not read |
+| identity residual | **0.047 %** *(and 0.19 % on a second run)* | unresolvable — see item 3 |
+
+* **The disclaimer is true, by the factors claimed.** App Read ÷ Activity Monitor read = **1.48×**
+  against the claimed ~1.5×; app Write ÷ Activity Monitor write = **3.55×** against ~3.4×. This is
+  the only measurement of that anywhere, and it is what makes the amendment defensible.
+* **Activity Monitor gave three things back for free.** Its read ÷ its write = **1.966**, an
+  external instrument confirming the cycle moves two reads per write. Its *write* figure **is**
+  `coverageBytesPerSecond` — the `Covering` row increment 10 deleted — recovered from outside the
+  app and landing **inside `metrics-check.sh`'s own band** (118/122 = 0.967, band 0.80–0.995), from
+  an instrument sharing no code with it. And the gap between the two denominators, the thing the
+  whole amendment rests on, **measures 3.28 % of running time**: host overhead is now a number
+  rather than an argument.
+* **Read and Write no longer share a ratio, and two drives prove it.** The thumb drive reads at
+  **3.4× its write speed**; the T5 EVO **writes** at 1.2× its read speed. Under v13 both would have
+  read exactly 2:1, because that ratio was a property of the cycle rather than of the hardware.
+* **Both exports matched `ThroughputFraming.definition` character for character** — 819 chars,
+  two drives, diffed against source rather than compared by eye.
 
 **Read the FR document's 2026-09-02 amendment before walking this.** Several items below ask you to
 confirm that figures **disagree** with another tool. That is the requirement, not a defect, and an
@@ -991,11 +1042,22 @@ item that looks wrong to a walker who has not read the amendment will be reporte
 
 * **That the disclaimer is TRUE.** `theDefinitionWarnsThatTheFiguresDoNotMatchAnOutsideObserver`
   asserts the report *says* these figures will not match Activity Monitor. Nothing anywhere checks
-  that they actually don't, by roughly the factors claimed. Item 3 is the whole of that cover, and
-  it is the item that matters most: the disclaimer is what makes the amendment defensible, and a
-  disclaimer that is wrong about reality is worse than none.
+  that they actually don't, by roughly the factors claimed. **Item 2** is the whole of that cover,
+  and it is the item that matters most: the disclaimer is what makes the amendment defensible, and
+  a disclaimer that is wrong about reality is worse than none.
+  **Walked 2026-09-03: 1.48× and 3.55× against the claimed ~1.5× and ~3.4×. It is true.**
+
+  > ⚠️ **This bullet said "Item 3" until 2026-09-03**, and had done since the chunk was written —
+  > left behind when the original item 1 was deleted and everything above it shifted down. Third
+  > instance of the same defect in this one chunk, alongside item 4 and the header summary. **A
+  > deletion is not finished when the item is gone: every cross-reference to a number above it is
+  > now wrong**, and prose references do not fail to compile.
 * **The row wiring on real data.** No test drives a SwiftUI binding. The renders cover it with
   fixtures; only a run covers it with numbers the drive produced.
+  **Closed 2026-09-03**: the report sheet displayed `17 / 5 / 3 MB/s` and `480 Mb/s` for the thumb
+  drive's run — the same four values its export carries, read off the screen by the walker. The
+  structure and wording were confirmed separately from a `render-ui.sh out.png 720 1500 report`
+  looked at rather than merely produced.
 * **The quiet version mismatch had an item here and it was deleted on 2026-09-03**, at the user's
   decision, without being walked. It asked the walker to launch the app against the **v12** daemon
   still in `/Applications` and confirm the launch-time gate caught the mismatch — the only fixture
@@ -1017,11 +1079,20 @@ The run log is the instrument throughout:
 1. **The panel's three figures, on the 4 TB T5 EVO.** Start a run and read the *Live run metrics*
    panel. Expect approximately:
 
-   | | |
-   |---|---|
-   | `Read` | ~376 MB/s |
-   | `Write` | ~419 MB/s |
-   | `R-W-R-C` | ~130 MB/s |
+   | | expected | observed 2026-09-03 |
+   |---|---|---|
+   | `Read` | 340–380 MB/s | 344, then 352 |
+   | `Write` | 410–425 MB/s | 419, then 417 |
+   | `R-W-R-C` | follows from the other two — see item 3 | 122, then 124 |
+
+   **The bands are wide on purpose.** They were point values (376 / 419 / 130) until 2026-09-03,
+   taken from `ui-probe`'s fixtures; the first walk read 344 / 419 / 122 and the walker reported
+   Read as "about 10% too high", which is a defect report against a healthy drive. Write landed on
+   its figure exactly and `R-W-R-C` moved *because* Read did — 344 and 419 predict 121.9 through
+   item 3's identity, and 376 and 419 predict 129.8, which is the fixture. **One figure drifted and
+   the other two followed it correctly.** Session-to-session variation of this size on a solid-state
+   drive is not a fault, and this project has a standing rule against building guards for it.
+   **Do not judge this item on the absolute figures — item 3 is the test.**
 
    **Write above Read is correct** — that drive genuinely writes faster than it reads, and the
    figures shown until 2026-09-02 hid it behind an exact 2:1 that came from the cycle's shape. If
@@ -1044,6 +1115,19 @@ The run log is the instrument throughout:
    **Record the four numbers**, app and Activity Monitor, read at the same moment. They are the
    evidence that the disclaimer describes reality; nothing in the suite can produce them.
 
+   **PASSED 2026-09-03. The four numbers, 4 TB T5 EVO, one moment:**
+
+   | | app | Activity Monitor | ratio | claimed |
+   |---|---|---|---|---|
+   | Read | 344 MB/s | 232 MB/s | **1.48×** | ~1.5× |
+   | Write | 419 MB/s | 118 MB/s | **3.55×** | ~3.4× |
+
+   Read Activity Monitor's **Disk** tab against the process
+   `com.arc3solutions.USBDriveTester.Helper`, **not** `USBDriveTester` — the app does no I/O and
+   its row shows nothing, which reads as a failure of this item. At the default 4 MiB I/O size each
+   phase lasts about 10 ms, so Activity Monitor's sample window spans a hundred-odd whole cycles
+   and the figure sits steady rather than swinging between the phases.
+
    If Activity Monitor **agrees** with the app, that is a failure: the rates have gone back to
    dividing by running time.
 
@@ -1063,24 +1147,80 @@ The run log is the instrument throughout:
    not read back unchanged. If it comes out low, check `chunks failed` and the report's failed-range
    table before concluding the arithmetic is wrong.
 
-4. **The idle panel shows dashes, not zeroes or minus ones.** Before starting a run — or on a
-   freshly launched app with a drive selected — all three rates read `—`. A `0 MB/s` means
-   *stalled*, which is a real and alarming condition, and a `-1.0 MB/s` is the wire sentinel
-   reaching a screen. Neither is acceptable and both have happened in this project's history.
+   **PASSED 2026-09-03, twice.** Panel figures 344/419/122 gave `0.00820059` against `0.00819672`
+   — predicted 121.94, observed 122, residual **0.047 %**. A second run's *report* figures,
+   352/417/124, gave residual **0.19 %**. Both are inside a 2 % tolerance by more than an order of
+   magnitude, and the arithmetic was done off the screen rather than through the helper, which is
+   what the item asks for.
 
-5. **The report and the export agree, and both explain themselves.** Let a run finish, or stop one.
+   **It cannot be walked on a slow drive, and that is arithmetic rather than a fault.** The thumb
+   drive displays 17 / 5 / 3 MB/s, every figure rounded to a whole MB/s before it is shown. Read in
+   `[16.5,17.5)` and Write in `[4.5,5.5)` put predicted `R-W-R-C` anywhere in `[2.912, 3.377]`,
+   while a displayed 3 means the true value is somewhere in `[2.5, 3.5)`. The intervals overlap
+   almost entirely: consistent, and untestable. **Walk this item on a drive fast enough to give
+   three significant digits.**
+
+**~~Item 4 as numbered until 2026-09-03 — "The idle panel shows dashes, not zeroes or minus
+ones."~~ DELETED 2026-09-03 without being walked. The item was wrong about the app, and it was
+inverted.** *(Left unnumbered deliberately: a struck-through `4.` in the list competes with the
+live item 4 below it, which is exactly the collision this record is about.)*
+
+   It asked for three rate rows reading `—` before a run starts. **There are no rows before a
+   run.** `RunMetricsView` shows `idlePlaceholder` instead — *"Measurements appear here while a
+   run is under way. When one finishes, its results … open in the run report, where they can be
+   exported."* — and the rows-behind-the-placeholder state the item describes is **a defect that
+   was found and fixed**. The comment at the top of `RunMetricsView.body` records it: the
+   placeholder is *"replaced rather than overlaid"*, because an overlay left a row of em-dashes
+   visible **behind** it, "so the panel showed empty measurements and a note saying there were
+   none — two statements of the same thing, one of which looked like data."
+
+   **So the item passed on the broken build and invited a false failure report on the correct
+   one** — the exact inversion this file warns about in its own header, now found in a chunk
+   written three paragraphs below that warning. The walker read the screen, recognised the
+   placeholder as correct, and reported the item rather than the app.
+
+   **And this file already knew.** Check 11.4, walked and passed on 2026-08-20, says the idle
+   panel is *"exactly its two lines of copy"*. The contradiction was 600 lines apart in one
+   document, and writing the new item did not include reading what the file already said about
+   the same surface. **A new checklist item must be checked against the existing ones that touch
+   its screen**, not only against the source — the search that would have caught this is
+   `grep -n "idle" ` on this file, and it takes seconds.
+
+   **What covers the em dash instead, which is more than the item asked for.**
+   `unmeasuredFiguresRenderAsAnEmDashAndNeverAsZero` drives the wire sentinel `-1` through
+   `RunReport` into the rendered markdown and asserts `—` on all three rows — end to end, wire to
+   artefact. `everyFormatterRendersAnUnknownAsAnEmDash` pins every formatter's unknown. The
+   `0 MB/s`-means-*stalled* distinction the item existed to protect is
+   `MetricsFormatting.throughput`'s `>= 0` guard, and the first of those tests exercises exactly
+   it. `metrics-idle` renders the placeholder in both appearances.
+
+   **Numbering:** old items 5 and 6 are now 4 and 5. This is the second item deleted from this
+   chunk; the first was the v12/v14 mismatch walk, recorded in the chunk's header above.
+
+4. **The report and the export agree, and both explain themselves.** Let a run finish, or stop one.
    In **Measurements**: `Read throughput`, `Write throughput`, `R-W-R-C speed`, then `Negotiated USB
    link speed`. The paragraph below the table begins *"Each rate is measured over the time the drive
    spent doing that work…"* and names Activity Monitor as a tool these figures will **not** match.
 
-   Export the `.md` and open it. **The same three rows and the same paragraph, identically.** The
+   Export the `.md` and open it. **The same four rows, in that order, and the same paragraph,
+   identically.** The
    exported file is the copy that gets forwarded and re-read months later, detached from any screen,
    so it is the artefact that most needs to carry the disclaimer.
 
    Increment 10 established the rule this checks: a rate one surface names and another refuses is
    drift, and `ThroughputFraming` exists to make the two impossible to separate.
 
-6. **A pause still costs nothing, and the ETA still converges.** Start a whole-device run on the
+   **PASSED 2026-09-03, on both drives, and "identically" was checked rather than eyeballed.** Each
+   export's paragraph was diffed against `ThroughputFraming.definition` reconstructed from source:
+   **819 characters, exact match, both files**. Row order confirmed on screen and in both exports.
+   The sheet's own rendering was read from a `render-ui.sh out.png 720 1500 report` — four rows in
+   order, both framing paragraphs entire, the Activity Monitor sentence intact, `Export report…`
+   and `Done` present.
+
+   **Diff the export against source; do not compare two screens.** One is a mechanical check that
+   fails on a single character, the other is a person reading the same paragraph twice.
+
+5. **A pause still costs nothing, and the ETA still converges.** Start a whole-device run on the
    125.8 MB thumb drive (serial `2211190533300386001515`), let it get going, **Pause** for a
    minute, then **Resume**.
 
@@ -1092,6 +1232,12 @@ The run log is the instrument throughout:
    It is checked here because it now has less company than it used to. Until v14 the displayed rates
    shared this denominator, so a defect in it showed up on three figures at once; now it shows up
    only in the ETA, and only to somebody watching one.
+
+   **PASSED 2026-09-03: the ETA held steady across the pause**, and the exported report corroborates
+   it. Read 17 MB/s over 2 × 125.83 MB puts read+verify at 14.8 s and Write 5 MB/s puts write at
+   25.2 s, so **40.0 s of I/O** — against check 7.5's independent record of *30 chunks in 39 s* on
+   this same drive. Elapsed was 83 s, leaving 43 s of pause and overhead. **Had running time counted
+   the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
 ## What has no automated cover, and will not get any
