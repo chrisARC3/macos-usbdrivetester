@@ -1423,7 +1423,7 @@ helper source has not moved.
 
 
 
-### Increment 11 ✅ — `R-W-R-C speed`, then FR-METR-1 amended mid-increment. Protocol v14. 2026-09-02/03
+### Increment 11 ✅ — `R-W-R-C speed`, then FR-METR-1 amended mid-increment. Protocol v14. 2026-09-02/03, `05b7ea7`
 
 **Two changes in one increment, and the second reversed part of the first.** Built in eight chunks
 with the suite green between each. Chunks 1–3 added `R-W-R-C speed` on protocol v13; chunks 4–8
@@ -1436,7 +1436,7 @@ revised*, including why it is not a reversion to the 2026-08-18 defect.
 |---|---|
 | **Verified** | **1093 tests, 0 failures, 135 suites** (floor 1093). 1088 → 1093 is +2 (chunk 1), +1 (chunk 3), +1 net (chunk 4: one test replaced, two added), +1 (chunk 6). No new suite |
 | **Warnings** | zero **from source** across three clean builds with DerivedData wiped before each. SwiftCompile **Debug 88 / Release 2 / test 171** — Debug unchanged from increments 9 and 10, correct because no file was added to the app target. The one `warning:` line in a clean build is `appintentsmetadataprocessor`, a toolchain notice with no source location |
-| **Helper** | hash moved twice: `73990c90…` → `827b3760…` (v13, chunk 2) → `417c55ae…` (chunk 4) → **`e6888aa5…`** (v14, chunk 5) |
+| **Helper** | hash moved three times across the increment: `73990c90…` → `827b3760…` (v13, chunk 2) → `417c55ae…` (chunk 4) → **`e6888aa5…`** (v14, chunk 5). **`e6888aa5af72…3f627` at `05b7ea7`** — the tree `metrics-check.sh` actually ran against. **Still `e6888aa5…` at `9fead44`**, the app-icon commit on top of it: that commit's diff contains no `.swift` file at all, so every gate result in this table still stands at `HEAD`. Recipe: `find <helper> <Shared> -name '*.swift' \| sort \| xargs cat \| shasum -a 256` |
 | **Window** | `window-fit-check.sh` worst case **613 pt**, `content-starting` — **unchanged**, predicted before measured, twice |
 | **Renders** | **37 cases, unchanged** across both changes; **74/74 taken at the gate**, every case in both appearances, none blank |
 | **Gate clients** | 13/13 type-check |
