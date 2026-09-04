@@ -34,7 +34,10 @@ DISK="$(resolve_target scratch "$DEVICE_ARGUMENT")" || exit 1
 # from a "run" button rather than a terminal — sudo cannot ask for a password and the
 # script would otherwise stall or die with nothing useful on screen. Say so instead.
 if ! sudo -n true 2>/dev/null && [[ ! -t 0 ]]; then
-    cat >&2 <<'MSG'
+    # Derived, not hard-coded: this repository lives on a removable volume and has
+    # already moved once (1TB_Samsung -> 1TB_UGreen, 2026-09-04), which turned a
+    # pasteable instruction into a path that does not exist.
+    cat >&2 <<MSG
 error: this script needs an interactive terminal.
 
   It runs one command as root (the probe itself), because /dev/rdiskN is
@@ -43,7 +46,7 @@ error: this script needs an interactive terminal.
 
   Open Terminal and run it there:
 
-      cd /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester
+      cd $(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
       ./scripts/exclusivity-probe.sh
 
 MSG

@@ -20,6 +20,10 @@ could drift; the commit is the immutable, greppable one.
 
 ## Step 11 — IN PROGRESS. Increments 1–11 done; **increment 12 is next**
 
+> **Cold start? Read *Where increment 12 starts* below** — it is the only status block in this file
+> that is current, re-derived 2026-09-04. Then `progress/step-11-increment-plans.md`, which holds
+> increment 12's full scope and nothing else.
+
 > ⚠️ **Increment 12 is planned, approved and unwritten.** Its full scope, the decisions behind it
 > and what must not be re-opened are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
@@ -144,6 +148,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 
 ### Where increment 8 starts
 
+> **A dated snapshot, not the current state.** For that, read *Where increment 12 starts* below.
+
 Re-derived on 2026-08-20 rather than quoted. **No tree hash is named on purpose** — it would be
 stale by the next commit, which is the failure mode this project keeps paying for. `git log
 --oneline -6` shows increment 7's three commits.
@@ -170,6 +176,8 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 
 ### Where increment 11 starts
 
+> **A dated snapshot, not the current state.** For that, read *Where increment 12 starts* below.
+
 Re-derived 2026-09-02. **No tree hash is named on purpose** — it would be stale by the next commit,
 which is the failure mode this project keeps paying for.
 
@@ -188,6 +196,28 @@ which is the failure mode this project keeps paying for.
 **The run is read → write-back → verify**, so a test run refreshes a drive rather than erasing it —
 recorded because the opposite was said out loud on 2026-09-01 and it changes which drive somebody is
 willing to point the tool at. Not risk-free: a write failing mid-cycle can still cost data.
+
+### Where increment 12 starts
+
+**Re-derived 2026-09-04, and this is the block a cold start should read.** The two above it are
+dated snapshots of earlier moments and are not current. No tree hash is named, on purpose.
+
+| | |
+|---|---|
+| **Working tree** | clean, on `main`, nothing unpushed. ⚠️ **The repository moved on 2026-09-04** from `/Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester` to **`/Volumes/1TB_UGreen/…`**, same path below the volume. It is still on a **removable volume**, so builds still go outside it. Two pasteable checklist commands and two gate-script error messages named the old path and were corrected; the scripts now derive it |
+| **Verified** | **1093 tests, 0 failures, 135 suites in 49 s — re-run 2026-09-04 on the new volume**, so the move is proven not to have broken the build rather than assumed (floor `scripts/.test-floor` = 1093). Zero Swift source warnings Debug and Release with DerivedData wiped, and 13/13 gate clients type-checking, are increment 11's gate figures and were not re-measured today |
+| **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`**, re-derived 2026-09-04 and unchanged since `05b7ea7`. **All three of Step 10's hardware gates pass at this hash** — `metrics-check.sh` 128/0, `xpc-concurrency-check.sh` 0 failures, `retention-cycle-check.sh` 15/15 whole-device |
+| **Protocol** | **v14** |
+| **Gates** | `window-fit-check.sh` worst case **613 pt**, `content-starting`; **37** render cases, 74 renders in both appearances |
+| **Human checklist** | **complete — 15 chunks, nothing owed.** Chunk 15 was written and walked 2026-09-03 |
+| **Owed** | **nothing.** First time since increment 8 |
+| **Fixture** | all three test drives attached 2026-09-04: **`disk6`** PSSD T5 EVO 4 TB, **`disk7`** Portable SSD T5 1 TB (the scratch, serial `12345686DAA9`), **`disk4`** UDisk 125.8 MB thumb (serial `2211190533300386001515`). ⚠️ **The 1 TB T5's `fill.bin` is deleted** — the retention gate passed on the residual `/dev/urandom` pattern, which survived the unlink. Restore it before that gate is needed again |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug, built **2026-09-03 12:52**; daemon **PID 71058 since 13:08:46**, still running 2026-09-04. Current for the helper hash above — **increment 12 is app-side and will not move it**, so a reinstall is only needed to see the app change |
+| **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
+
+**Increment 12 is app-side only.** It touches no file in the helper hash set, so every gate result
+in this block stands until it does — and if a change makes the hash move, the three hardware gates
+lapse with it. Check the hash before assuming they hold.
 
 ### What increment 8 owes
 

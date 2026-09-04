@@ -1,5 +1,12 @@
 # Step 11 — the human checklist
 
+> **The absolute paths in this file were rewritten on 2026-09-04.** This repository lives on a
+> **removable volume** and moved from `/Volumes/1TB_Samsung/…` to `/Volumes/1TB_UGreen/…`, which
+> silently turned two pasteable commands — checks **12.2** and **13.7** — into paths that do not
+> exist. If a command here fails with *no such file or directory*, that is the reason: re-derive
+> the root with `git rev-parse --show-toplevel` and paste that instead. The two gate scripts that
+> printed the same path in an error message now derive it rather than carrying it as text.
+
 **CHUNKS 1–7 PASSED IN FULL.** 1–7 on 2026-08-18 (increment 5); **7.4 on 2026-08-24** and **7.5 on
 2026-09-01**, both added by increment 8 for FR-RPT-4's "stopped by user". Replaces the nine-item
 list in `progress/step-14.md`, which increment 5 made partly unrunnable.
@@ -683,7 +690,7 @@ is taken on demand and this list is what makes it a habit.
 2. **It agrees with an independent instrument.** Run
 
    ```bash
-   /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester/scripts/usb-speed-check.sh
+   /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/scripts/usb-speed-check.sh
    ```
 
    and find the selected drive by product name. Its code must map to the speed the pane shows —
@@ -843,7 +850,7 @@ Every diagnosis prints one line — `helper gate: available — no modal raised`
    v13 — the real scenario this state exists for.
 
    ```bash
-   /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester/scripts/install-app.sh
+   /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/scripts/install-app.sh
    ```
 
    * The gate appears, headed *"The installed helper is a different version from this app."*, and the

@@ -88,7 +88,10 @@ trap cleanup EXIT
 # --- Preflight ---------------------------------------------------------------
 
 if ! sudo -n true 2>/dev/null && [[ ! -t 0 ]]; then
-    cat >&2 <<'MSG'
+    # Derived, not hard-coded: this repository lives on a removable volume and has
+    # already moved once (1TB_Samsung -> 1TB_UGreen, 2026-09-04), which turned a
+    # pasteable instruction into a path that does not exist.
+    cat >&2 <<MSG
 error: this script needs an interactive terminal.
 
   Phase B runs a holder process as root, because /dev/rdiskN is root:operator.
@@ -96,7 +99,7 @@ error: this script needs an interactive terminal.
 
   Open Terminal and run it there:
 
-      cd /Volumes/1TB_Samsung/AI_Stuff/claude-code-folder/USBDriveTester
+      cd $(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
       ./scripts/claim-contention-test.sh
 
 MSG

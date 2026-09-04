@@ -14,7 +14,9 @@ test target fixed to the designated scratch device with disk images removed as a
 "Test hardware")
 
 > **The step in progress is Step 11 (increments 1–11 done; increment 12 next), and the protocol is
-> v14.** Increment **12 is planned, approved and unwritten** — its full scope is in
+> v14.** ⚠️ **The repository moved on 2026-09-04** to
+> `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester` — still a **removable volume**,
+> so builds still go outside it, and any absolute path written down before that date is wrong. Increment **12 is planned, approved and unwritten** — its full scope is in
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which must be read
 > before starting it. **The human checklist is complete** — chunk 15 was added and walked on
 > 2026-09-03, five items, all passed; everything else was already walked and passed. **Nothing else
@@ -433,8 +435,17 @@ simulation-first still applies wherever the plan calls for it.
 > bytes at block 1482268672. The two that had been owed since increment 8 were owed because the
 > helper binary moved, never because anything failed. The 4 TB T5 EVO fixture **is attached
 > as of 2026-09-03** (`disk6`, `PSSD T5 EVO`), along with the 125.8 MB thumb drive (`disk4`) and the
-> 1 TB scratch T5 (`disk7`) — chunk 15 was walked on the first two. The 1 TB T5's `/dev/urandom`
-> fill file must be kept.
+> 1 TB scratch T5 (`disk7`) — chunk 15 was walked on the first two. All three were still attached on
+> 2026-09-04.
+>
+> ⚠️ **The 1 TB T5's `fill.bin` is deleted, and the rule that it "must be kept" was already broken
+> when the retention gate ran on 2026-09-03.** The gate passed because the residual `/dev/urandom`
+> pattern survived the unlink — `df` read the volume at 1% used and the CONTENT check found three
+> distinct fingerprints anyway. That is luck, not design: a drive that discards those blocks puts
+> the next run back to zeros, where the CONTENT check is the only thing between that and a vacuous
+> pass. **Restore it before that gate is needed again:**
+>
+>     dd if=/dev/urandom of=/Volumes/Test_Drive/fill.bin bs=4m status=progress
 >
 > **The human checklist is complete. Chunk 15 was added and walked on 2026-09-03** — five items,
 > all passed, no product defect. Its item 2 was the one that mattered: nothing anywhere checked that
