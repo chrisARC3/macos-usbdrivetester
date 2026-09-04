@@ -1312,10 +1312,18 @@ including window class names.
 
    > This route did not exist before increment 12. Increment 9 fixed only the button on the sheet.
 
-4. **⌘Q under the failure alert is refused, and the item is greyed.** *(needs a run)* Induce a
-   failure the way 7.8 does — select a drive, press Start, answer the prompt, then pull the drive.
+4. **⌘Q under the failure alert is refused, and the item is greyed.** *(a run is asked for and must
+   fail; nothing is written)* Induce it exactly the way **7.8** does — **pull the drive after
+   selecting it**, so *preparation* fails. Do **not** pull a drive during a run: this item needs a
+   run that cannot start, not one interrupted. The 125.8 MB UDisk thumb is the cheapest fixture.
+
    With the failure alert up, open the app menu: **Quit USBDriveTester is greyed**. ⌘Q does nothing.
    Dismiss the alert; ⌘Q quits.
+
+   > ⚠️ **This item said "press Start, answer the prompt, then pull the drive" when it was written on
+   > 2026-09-04, and that is a paraphrase of 7.8 that changed what it asks for** — it puts the walker
+   > in the middle of a write for no reason. Corrected before it was ever walked. The lesson is this
+   > file's own, recorded at chunk 14: restating an item is as capable of breaking it as editing one.
 
    > **This is the one behaviour change nobody asked for**, and it is here because of that. A failure
    > alert is the only modal in this app the user did not open, so a ⌘Q at that instant is a
