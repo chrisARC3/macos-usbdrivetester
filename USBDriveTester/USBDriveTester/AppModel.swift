@@ -852,23 +852,41 @@ final class AppModel {
     ///
     /// Chunk 0 could not make that distinction and logged one line for both, which would have read
     /// as a failure on every ordinary quit-during-a-run.
+    ///
+    /// **`.terminating` is an ERROR, and getting that wrong hid a defect for a walk** (2026-09-04).
+    /// The first version discriminated on `quitState == .idle` alone, so the wind-down's own
+    /// refused termination — `.terminating`, nothing left to try again — would have been reported
+    /// as *"the app's own guard answered it"*. It is the opposite: the app has decided to go and
+    /// did not.
     private func reportARefusedTermination(after context: String) {
         scheduleOnNextTurn { [weak self] in
             guard let self else { return }
 
-            guard self.quitState == .idle else {
+            // **The inventory is on BOTH branches, and the notice one is the load-bearing copy.**
+            // It was on the error branch only until 2026-09-04, and that is what made checklist
+            // 16.7 unwalkable: the reading it asks for — what AppKit has attached one turn after
+            // the quit confirmation is raised, which is the only measurement of whether a SwiftUI
+            // `.alert` is a window-modal sheet at all — arrives on *this* branch, because the
+            // app's own guard has just answered `.askFirst`.
+            let inventory = AttachedSheets.inventory()
+
+            switch self.quitState {
+            case .confirming, .windingDown:
                 quitLog.notice("""
                                quit command: still running after \(context, privacy: .public) — \
-                               the app's own guard answered it
+                               the app's own guard answered it, state=\
+                               \(String(describing: self.quitState), privacy: .public); \
+                               \(inventory, privacy: .public)
                                """)
-                return
-            }
 
-            quitLog.error("""
-                          quit command: still running after \(context, privacy: .public) with \
-                          nothing pending — the termination was refused; \
-                          \(AttachedSheets.inventory(), privacy: .public)
-                          """)
+            case .idle, .terminating:
+                quitLog.error("""
+                              quit command: still running after \(context, privacy: .public) with \
+                              nothing left to try — the termination was refused, state=\
+                              \(String(describing: self.quitState), privacy: .public); \
+                              \(inventory, privacy: .public)
+                              """)
+            }
         }
     }
 
@@ -944,6 +962,59 @@ final class AppModel {
         beginRelease()
     }
 
+    /// Take down every modal the model knows about, because the user has already said quit.
+    ///
+    /// **Deliberately blunter than ⌘Q's dismissal, and the difference is the whole point.**
+    /// `QuitPolicy.disposition(underModals:)` refuses three surfaces because a ⌘Q arriving under
+    /// one of them may be walking past a question nobody answered. By the time this runs the
+    /// question has been asked *and answered*: the user pressed **Cancel and Quit**. User decision,
+    /// 2026-09-04 — *"if quitting is enabled, it should abandon whatever it was doing and just
+    /// quit."*
+    ///
+    /// ## What this fixes, found at the keyboard 2026-09-04
+    ///
+    /// **Cancel and Quit did not quit**, and had not since increment 8. A stopped run raises the
+    /// report (`onReport` fires before `releaseTheDrive`, `RunController.swift`), so by the time
+    /// the wind-down asked to terminate there was a sheet attached and `NSApp.terminate(_:)` was
+    /// refused *before* `applicationShouldTerminate` — the same defect increment 12 fixed for every
+    /// other route, on the one route nobody had routed through the fix. Checklist 6.3 passed on
+    /// 2026-08-18; the report became a sheet on 2026-08-22. It was never re-walked, and
+    /// `QuitSequence` logged nothing, so thirteen days and four increments went by in silence.
+    ///
+    /// The loop over `allCases` earns its keep by being **exhaustive**: a sixth modal is a compile
+    /// error here as well as in `QuitPolicy`, so a new surface cannot silently become a new way for
+    /// a confirmed quit to be refused.
+    private func discardEveryModalForTheWindDown() {
+        for modal in AppModal.allCases {
+            switch modal {
+            case .runReport:
+                // The one that was actually blocking it. Nobody can read a report the app is
+                // leaving with — export is its only persistence — so this costs nothing.
+                reportIsPresented = false
+
+            case .runFailure:
+                // Reachable: a run that *fails* raises this and settles, so a wind-down waiting on
+                // the boundary meets it on the way out.
+                runFailure = nil
+
+            case .preRunPrompt:
+                pendingPrompt = nil
+
+            case .helperGate:
+                gateIsDismissedForQuit = true
+
+            case .quitConfirmation:
+                // **Not cleared, and this is the one case where clearing would be a defect rather
+                // than a courtesy.** The confirmation's presentation *is* ``quitState``, so setting
+                // it back would cancel the very quit this is performing. It cannot be on screen
+                // anyway: `cancelAndQuit()` left `.confirming` before this could run.
+                break
+            }
+        }
+
+        dismissAttachedSheets()
+    }
+
     /// Terminate, once. See `QuitSequence` for the once-only and no-hang properties.
     private func beginRelease() {
         guard quitSequence == nil else { return }
@@ -957,7 +1028,17 @@ final class AppModel {
             // Recorded *before* terminating: the second `applicationShouldTerminate` this triggers
             // has to be able to tell the app's own quit from a user pressing ⌘Q again.
             self.quitState = .terminating
-            self.terminateAction()
+
+            // **The same shape as ⌘Q's dismiss arm, and for the same reason.** Take the modals down
+            // through SwiftUI, then ask for the termination on the following turn once SwiftUI has
+            // acted — `endSheet(_:)` cannot do it, measured in the shipped app 2026-08-31. This
+            // route was left out of increment 12 and that is what checklist 16.5 caught.
+            self.discardEveryModalForTheWindDown()
+            self.scheduleOnNextTurn { [weak self] in
+                guard let self else { return }
+                self.terminateAction()
+                self.reportARefusedTermination(after: "the wind-down")
+            }
         }
         quitSequence = sequence
         sequence.begin()

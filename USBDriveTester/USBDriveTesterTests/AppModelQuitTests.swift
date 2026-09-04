@@ -341,6 +341,69 @@ struct AppModelQuitTests {
         #expect(bench.model.quitConfirmationIsPresented)
     }
 
+    /// **The wind-down discards the report the dying run just raised, and only then terminates.**
+    ///
+    /// The regression test for a defect that shipped for thirteen days: *Cancel and Quit* did not
+    /// quit. `RunController` fires `onReport` before it releases the drive, so by the time the
+    /// wind-down asked AppKit to terminate there was a report sheet attached — and
+    /// `NSApp.terminate(_:)` is refused *before* `applicationShouldTerminate` while one is. Every
+    /// other route through this app was fixed in increment 12; this one was not routed through the
+    /// fix, and nothing could see it because `QuitSequence` logged nothing at all.
+    ///
+    /// Found by walking checklist 16.5 on 2026-09-04. Checklist 6.3 passed on 2026-08-18 and the
+    /// report became a sheet on 2026-08-22, four days later; it was never re-walked.
+    ///
+    /// The order is asserted rather than the end state, because the end state is identical either
+    /// way round and only one of the two orders works.
+    @Test func theWindDownDiscardsTheReportBeforeItTerminates() {
+        let bench = Bench()
+        var pending: (@MainActor () -> Void)?
+        bench.model.scheduleOnNextTurn = { pending = $0 }
+        bench.startARun()
+        _ = bench.model.quitRequested()
+        bench.model.cancelAndQuit()
+
+        // What a stopped run does on its way out: `RunController` fires `onReport` before it
+        // releases the drive, so the sheet is up before the boundary the quit is waiting for
+        // arrives. The flag is set directly rather than through `runProduced(_:)` because building
+        // a real `RunReport` needs a helper reply, and the flag is the whole of the presentation.
+        bench.model.reportIsPresented = true
+        bench.endTheRun()
+
+        #expect(!bench.model.reportIsPresented, "…and the wind-down takes it down…")
+        #expect(bench.terminations == 0, "…before it has asked AppKit for anything")
+
+        pending?()
+        #expect(bench.terminations == 1)
+        #expect(bench.model.quitState == .terminating)
+    }
+
+    /// **And it discards the failure alert too**, which is the other one a wind-down can meet: a
+    /// run that *fails* raises it and settles in the same breath, so the boundary the quit is
+    /// waiting for arrives with a modal already on screen.
+    ///
+    /// Not the same question as ⌘Q's, and the difference is the whole of why the wind-down has its
+    /// own dismissal. `QuitPolicy.disposition(underModals:)` **refuses** a ⌘Q under this alert,
+    /// because that keystroke may be walking past a question nobody answered. By the time the
+    /// wind-down runs the question has been asked and answered — the user pressed *Cancel and
+    /// Quit* — and a modal must not be able to hold the app back after that (user decision,
+    /// 2026-09-04).
+    @Test func theWindDownDiscardsTheFailureAlertAsWell() {
+        let bench = Bench()
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.startARun()
+        _ = bench.model.quitRequested()
+        bench.model.cancelAndQuit()
+
+        bench.model.runFailure = RunFailureMessage(title: "The run could not be stopped cleanly",
+                                                   text: "The helper did not confirm.")
+        bench.endTheRun()
+
+        #expect(bench.model.runFailure == nil)
+        #expect(bench.model.presentedModals.isEmpty, "nothing is left to refuse the termination")
+        #expect(bench.terminations == 1)
+    }
+
     // MARK: - ⌘Q from under a modal (increment 12, chunk 2)
 
     /// Every combination of the five surfaces, and what the model says is on screen for each.
@@ -639,6 +702,10 @@ struct AppModelQuitTests {
     /// makes the promise stronger, not weaker.
     @Test func quittingWaitsForTheRunToSettleAndThenGoes() {
         let bench = Bench()
+        // **The wind-down takes a run-loop turn from 2026-09-04**: it takes down whatever
+        // modal is on screen through SwiftUI before it asks AppKit to terminate, and
+        // SwiftUI needs the turn to act. Made synchronous so the assertions stay direct.
+        bench.model.scheduleOnNextTurn = { $0() }
         bench.startARun()
         _ = bench.model.quitRequested()
 
@@ -657,6 +724,10 @@ struct AppModelQuitTests {
     /// exactly like a button that does nothing.
     @Test func quittingAfterTheRunHasAlreadyFinishedDoesNotWaitForever() {
         let bench = Bench()
+        // **The wind-down takes a run-loop turn from 2026-09-04**: it takes down whatever
+        // modal is on screen through SwiftUI before it asks AppKit to terminate, and
+        // SwiftUI needs the turn to act. Made synchronous so the assertions stay direct.
+        bench.model.scheduleOnNextTurn = { $0() }
         bench.startARun()
         _ = bench.model.quitRequested()      // the dialog goes up while the run is live
 
@@ -674,6 +745,10 @@ struct AppModelQuitTests {
     /// for at all. Without the stop, the wind-down would wait for ever.
     @Test func quittingAPausedRunStopsItRatherThanWaitingForACallThatWillNeverReturn() {
         let bench = Bench()
+        // **The wind-down takes a run-loop turn from 2026-09-04**: it takes down whatever
+        // modal is on screen through SwiftUI before it asks AppKit to terminate, and
+        // SwiftUI needs the turn to act. Made synchronous so the assertions stay direct.
+        bench.model.scheduleOnNextTurn = { $0() }
         bench.startARun()
         bench.pauseTheRun()
         _ = bench.model.quitRequested()
@@ -713,6 +788,10 @@ struct AppModelQuitTests {
 
     @Test func aSecondQuitDuringTheWindDownDoesNotTerminateEarly() {
         let bench = Bench()
+        // **The wind-down takes a run-loop turn from 2026-09-04**: it takes down whatever
+        // modal is on screen through SwiftUI before it asks AppKit to terminate, and
+        // SwiftUI needs the turn to act. Made synchronous so the assertions stay direct.
+        bench.model.scheduleOnNextTurn = { $0() }
         bench.startARun()
         _ = bench.model.quitRequested()
         bench.model.cancelAndQuit()

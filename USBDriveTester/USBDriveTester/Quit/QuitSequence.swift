@@ -39,6 +39,7 @@
 //
 
 import Foundation
+import os
 
 /// Releases the device and terminates the app, once.
 @MainActor
@@ -90,28 +91,49 @@ final class QuitSequence {
 
     /// Start the sequence. Idempotent: a second call does nothing, so a stray second trigger
     /// cannot start a second release or a second deadline.
+    ///
+    /// **Every step is logged, added 2026-09-04 after this path failed for thirteen days in total
+    /// silence** (NFR-OBS-1). *Cancel and Quit* raised the report sheet and then asked AppKit to
+    /// terminate, which AppKit refuses while a sheet is attached — and because nothing here said
+    /// anything, the whole wind-down was invisible: the last line on the log was
+    /// `run control: finishing -> finished` and then nothing at all. The **absence** of
+    /// `applicationShouldTerminate`'s own line was the only evidence there was, and reading it
+    /// takes somebody who already suspects the answer. This is the file that should have said so.
     func begin() {
         guard !hasBegun else { return }
         hasBegun = true
 
         guard let release else {
             // Nothing is held, so there is nothing to release and nothing to wait for.
-            finish()
+            quitLog.notice("wind-down: nothing held")
+            finish(because: "there was nothing to release")
             return
         }
 
+        quitLog.notice("wind-down: releasing, then terminating")
+
         // Armed *before* the release is issued, deliberately. A release that fails synchronously
         // and never calls back would otherwise leave nothing scheduled at all.
-        schedule(deadlineSeconds) { [weak self] in self?.finish() }
-        release { [weak self] in self?.finish() }
+        schedule(deadlineSeconds) { [weak self] in self?.finish(because: "the deadline expired") }
+        release { [weak self] in self?.finish(because: "the release was acknowledged") }
     }
 
     /// Whether the sequence has already terminated. Exposed for tests; nothing else needs it.
     var isFinished: Bool { hasFinished }
 
-    private func finish() {
-        guard !hasFinished else { return }
+    /// - Parameter reason: which of the two ways in got here, so a clean release can be told from a
+    ///   helper that accepted the message and never replied. **Those are otherwise
+    ///   indistinguishable from outside**, and the second is the case the deadline exists for.
+    private func finish(because reason: String) {
+        guard !hasFinished else {
+            quitLog.notice("wind-down: \(reason, privacy: .public), but it had already finished")
+            return
+        }
         hasFinished = true
+        quitLog.notice("wind-down finished: \(reason, privacy: .public) — terminating now")
         terminate()
     }
 }
+
+private nonisolated let quitLog = Logger(subsystem: HelperIdentity.loggingSubsystem,
+                                         category: "quit")

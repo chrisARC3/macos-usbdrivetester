@@ -296,8 +296,29 @@ deliberately not bound to the persisted preference.
    > If ⌘Q quits from here, that is a serious finding — not a cosmetic one.
 2. ⌘Q during a run **asks**, and **the run keeps going underneath the dialog**. *Continue Testing*
    resumes as if nothing happened.
-3. *Cancel and Quit* stops at a chunk boundary, releases, quits — every volume back, EFI not
-   mounted.
+3. *Cancel and Quit* stops at a chunk boundary, releases, **and the app actually goes** — every
+   volume back, EFI not mounted. Watch for the log line `wind-down finished: … — terminating now`
+   followed by `terminate requested: … disposition=quitImmediately`. **Neither line appearing while
+   the app stays up is the defect below.**
+
+   > ⚠️ **THIS ITEM PASSED ON 2026-08-18 AND WAS BROKEN FOUR DAYS LATER, AND NOBODY LOOKED AGAIN
+   > FOR THIRTEEN DAYS.** Increment 8 made the run report a **sheet** on 2026-08-22. A stopped run
+   > raises the report before it releases the drive, so from that day the wind-down asked AppKit to
+   > terminate with a sheet attached — and `NSApp.terminate(_:)` is refused *before*
+   > `applicationShouldTerminate` while one is. *Cancel and Quit* dismissed the dialog, stopped the
+   > test, released the drive, and **left the app running**.
+   >
+   > Found by walking chunk **16.5** on 2026-09-04, thirteen days and four increments later. Fixed
+   > the same day: the wind-down now takes every modal down through SwiftUI and terminates on the
+   > following turn, the same mechanism ⌘Q uses, and `QuitSequence` — which had emitted nothing
+   > since it was written — now logs every step. `theWindDownDiscardsTheReportBeforeItTerminates`
+   > is the regression test.
+   >
+   > **The lesson is about this file, not about the app.** An item that passes is not a fact about
+   > the build that comes after it. Increment 8 changed the presentation of the very thing this
+   > item quits out of, and nothing re-ran it, because "chunks 1–7 passed in full" reads like a
+   > property rather than a date. **Walk 6.3 again after any change to what a finished or stopped
+   > run puts on screen.**
 4. ⌘Q after a run has finished quits **immediately**. 3 and 4 are the pair: one must wait, the
    other must not, and the same code decides both.
 
@@ -1357,6 +1378,18 @@ including window class names.
    still there and the run is still going. Answer it normally.
 
    > A quit is already being asked about; a second question behind the first is not an answer to it.
+   >
+   > ⚠️ **OPEN DEFECT, found on the first walk of this item, 2026-09-04. This step FAILS today.**
+   > The second ⌘Q was **not** greyed: it logged a full press reading `confirming=false` and was
+   > answered `askFirst` all over again, so the app re-asked a question that was already on screen.
+   > Between the two presses — with nothing touched — the model went from `.confirming` back to
+   > `.idle`, which only `quitConfirmationIsPresented`'s setter can do (`AppModel.swift`): SwiftUI
+   > writes `false` into the alert binding and the setter reads that as a dismissal.
+   >
+   > **Not yet diagnosed, deliberately.** The log could not separate "the alert is not a sheet" from
+   > "the alert was already gone", because the line carried no inventory — item 7's bug, now fixed.
+   > Walk item 7 first; its `state=` and sheet count are what will settle this. **Do not treat a
+   > failure here as new** until that has been read.
 
 6. **Two modals at once are refused — the only way to see the ambiguity guard by hand.** Start a
    **short** run. Press ⌘Q to raise the confirmation, then **leave it up and let the run finish
@@ -1373,19 +1406,30 @@ including window class names.
    > If this is fiddly to induce, say so and skip it — the property has cover over all 32
    > combinations in `AppModelQuitTests`. What is uncovered is only the greying.
 
-7. **What a SwiftUI `.alert` really is — read one log line.** During a run press ⌘Q once to raise the
-   confirmation, then look for the `quit command: still running after a press with nothing in the way
-   — the app's own guard answered it` line that follows a turn later. **Copy its inventory.**
+7. **What a SwiftUI `.alert` really is — read one log line.** During a run, press ⌘Q **once** to
+   raise the confirmation. About a third of a second later this appears:
 
-   > That line arrives with the confirmation already on screen, and its inventory names the window
-   > class. `1 sheet(s) [SheetPresentationWindow]` confirms what this app has assumed — that a
-   > SwiftUI `.alert` on macOS is a window-modal sheet like any other, which is why the defect covers
-   > **five** surfaces and not the three the increment plan named. `0 sheet(s)` overturns it.
+       quit command: still running after a press with nothing in the way — the app's own guard
+       answered it, state=confirming; N window(s), M sheet(s) [...]; key=...
+
+   **Copy the whole line.** Two readings come off it, and both matter:
+
+   * **`M sheet(s)` and the class name.** The line arrives with the confirmation already on screen.
+     `1 sheet(s) [SheetPresentationWindow]` — the class items 3 and 6.1 show for a real `.sheet` —
+     confirms what this app has assumed, that a SwiftUI `.alert` on macOS is a window-modal sheet
+     like any other, which is why this defect covers **five** surfaces and not the three the
+     increment plan named. **`0 sheet(s)` overturns it**, and then ⌘Q was never dead under the two
+     alerts at all and the count in CONSTRAINTS §1 is wrong.
+   * **`state=`.** It should read `confirming`. Anything else means the model has already forgotten
+     that the dialog it is looking at is on screen — see item 5.
+
+   > **Nothing shipped depends on the sheet answer** — the refusals under the alerts are the user's
+   > decision of 2026-09-04, not a workaround for AppKit — but the app acts on the belief, so it
+   > should be a measurement rather than an assumption.
    >
-   > **Nothing shipped depends on the answer** — the refusals under the alerts are the user's
-   > decision, not a workaround for AppKit — but the app acts on the belief, so it should be a
-   > measurement. This is the only route left to take it: ⌘Q is greyed in every state where an alert
-   > is up, so no press reaches a log from there.
+   > ⚠️ **This item was unwalkable when it was written**, because the line it names carried no
+   > inventory: it was on the `error` branch of `reportARefusedTermination` only, and this line is
+   > the `notice` branch. Found on the first walk, 2026-09-04, fixed the same day.
 
 8. **Nothing anywhere prints `sheet(s) attached and the model accounts for none of them`.** That
    error means a window-modal surface exists that nothing in the app has an opinion about — the exact
@@ -1409,6 +1453,17 @@ including window class names.
   increment 10's rewrite of `ThroughputFraming.definition` was checked. What stays true is that the
   *values* are the report's and the *wording* is only visible in the artefact; what was wrong is
   "even a render" cannot see it.
+
+* **Which of the two refusals a log line reports (increment 12, 2026-09-04).**
+  `reportARefusedTermination` tells the app's own guard voting against a quit (a `notice`) from
+  AppKit silently refusing one (an `error`), and **nothing automated reads a log line**, so the
+  discriminator has no cover at all. Mutation **W4** widens the notice branch to swallow
+  `.terminating` — the state a wind-down that failed to terminate is left in — and passes all
+  **1,123** tests. Declared in advance and measured rather than argued.
+
+  It matters because that exact misclassification is what a first draft of this code did, and it
+  would have reported the *Cancel and Quit* defect as normal behaviour on the very walk that found
+  it. Chunk 6.3 and chunk 16 items 7 and 8 are the cover: they ask a person to read the lines.
 
 * **The greying of the Quit item (increment 12).** `AppModel.mayQuitFromMenu` is pinned over all 32
   combinations of the five modal surfaces, and `quitRequestedFromMenu()` re-checks the same rule so a
