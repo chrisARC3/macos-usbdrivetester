@@ -26,9 +26,10 @@ test target fixed to the designated scratch device with disk images removed as a
 > at expectations increment 12 changed. Chunks 1–15 are walked and passed (chunk 15 added and walked
 > 2026-09-03, five items). **The hardware gates are not owed** — `metrics-check.sh`,
 > `xpc-concurrency-check.sh` and `retention-cycle-check.sh` all passed 2026-09-03, and increment 12
-> **did not move the helper hash**, so those results still stand. ⚠️ **The installed app is from
-> 2026-09-03 12:52 and is older than increment 12**, so chunk 16 needs a reinstall first; the daemon
-> does not need kickstarting.
+> **did not move the helper hash**, so those results still stand. ⚠️ **The installed app is chunk
+> 0's build (2026-09-04 08:47) and carries none of chunks 1–2**, so chunk 16 needs a reinstall
+> first — **and a daemon kickstart after it**, for the reason the rule below gives: nothing
+> announces the mismatch precisely when the helper source has not moved.
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
