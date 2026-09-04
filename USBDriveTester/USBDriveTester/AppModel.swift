@@ -465,37 +465,17 @@ final class AppModel {
         }
     }
 
-    /// Quits from the launch gate, which needs the sheet gone first.
+    /// Quits from the launch gate. The sheet has to go down first, and the *mechanism* for that is
+    /// shared with ⌘Q — see ``dismissThenTerminate(_:)``, which holds the history.
     ///
-    /// **Third attempt, and the first two are recorded because they each looked correct.**
-    ///
-    /// 1. `terminateAction()` alone — dead. `NSApp.terminate(_:)` is refused while a sheet is
-    ///    attached, *before* `applicationShouldTerminate` is consulted, so `QuitPolicy` never voted
-    ///    and nothing was logged.
-    /// 2. `AttachedSheets.endAll()` then `terminateAction()` — still dead. An AppKit probe said this
-    ///    worked; the probe was not the app. In the app the log read `1 still flagged afterwards`
-    ///    and **no** `terminate requested` line ever followed: `endSheet(_:)` does not take down a
-    ///    sheet SwiftUI owns, because SwiftUI's binding still reads `true` and it keeps it.
-    ///
-    /// So the sheet is taken down **through SwiftUI**, by making `helperGateIsPresented` read
-    /// `false`, and the termination is asked for on the following turn once SwiftUI has acted.
-    /// `endAll()` stays as well: it is a no-op when there is nothing attached, and it costs nothing
-    /// to also close an AppKit session if one is somehow live.
-    ///
-    /// **It reports its own failure.** If the app is still running a turn after `terminateAction()`,
-    /// that is logged as an error — because the entire history of this defect is a button that did
-    /// nothing silently, and the next person to break it should not need a probe to find out.
+    /// **What is deliberately NOT shared is the decision.** This button does not consult
+    /// `QuitPolicy.disposition(underModals:)`; only the menu item does. The button *is* the
+    /// decision, taken by a user who is looking at the gate and has nowhere else to go — and
+    /// routing it through the policy would make it refuse the moment a second modal happened to be
+    /// flagged, which is the single worst place in this app to reintroduce a Quit that does
+    /// nothing.
     private func quitFromGate() {
-        gateIsDismissedForQuit = true
-        dismissAttachedSheets()
-
-        scheduleOnNextTurn { [weak self] in
-            guard let self else { return }
-            self.terminateAction()
-            self.scheduleOnNextTurn {
-                quitLog.error("still running after terminate — the gate's Quit is blocked again")
-            }
-        }
+        dismissThenTerminate(.helperGate)
     }
 
     /// Store a diagnosis and log the transition. **The only writer of ``helperAvailability``.**
@@ -645,6 +625,52 @@ final class AppModel {
         }
     }
 
+    // MARK: - Quitting from under a modal (increment 12)
+
+    /// Which of the app's window-modal surfaces this model believes are on screen.
+    ///
+    /// **Derived, never stored.** Each of the five is already a fact this class holds for its own
+    /// reasons — ``pendingPrompt`` because a menu command outside the view has to see it,
+    /// ``helperGateIsPresented`` because SwiftUI is the only thing that can take that sheet down —
+    /// and a sixth stored copy would be five facts free to disagree with the five they mirror.
+    /// This reads them; it remembers nothing.
+    ///
+    /// **It is the model's belief, not AppKit's count**, and the two can honestly differ: SwiftUI
+    /// cannot present two sheets on one window and **queues** the second invisibly (measured at the
+    /// keyboard 2026-08-21, chunk 11.11). That is why `QuitPolicy.disposition(underModals:)`
+    /// refuses outright when more than one is flagged, and why ``quitRequestedFromMenu()`` logs
+    /// `AttachedSheets.inventory()` beside this — a disagreement between the two is the reading
+    /// worth having.
+    var presentedModals: Set<AppModal> {
+        var presented: Set<AppModal> = []
+        if quitConfirmationIsPresented { presented.insert(.quitConfirmation) }
+        if helperGateIsPresented       { presented.insert(.helperGate) }
+        if pendingPrompt != nil        { presented.insert(.preRunPrompt) }
+        if runFailure != nil           { presented.insert(.runFailure) }
+        if reportIsPresented           { presented.insert(.runReport) }
+        return presented
+    }
+
+    /// Whether the **Quit** menu item is offered at all.
+    ///
+    /// Greying it is the whole of how a refusal is *shown*. There is nowhere on a menu item to put
+    /// prose, and the half of this defect that actually mattered was never "⌘Q is unavailable" —
+    /// it was "⌘Q is available and does nothing".
+    ///
+    /// **The cost is stated rather than hidden: a disabled item runs no action, so ⌘Q under the
+    /// pre-run prompt now logs nothing at all.** A reader of the log sees silence there, and this
+    /// is where they find out why it is silence by design. What replaces the line is a thing a
+    /// person can see without a log, which the line never was.
+    ///
+    /// **This is not a way to strand the user.** Every state that greys it is a modal with its own
+    /// buttons; the Dock icon's Quit is unaffected either way (it calls `NSApp.terminate(_:)`
+    /// directly, which no app-declared command can intercept), and under a modal ⌘Q was dead
+    /// before this increment regardless.
+    var mayQuitFromMenu: Bool {
+        if case .refuse = QuitPolicy.disposition(underModals: presentedModals) { return false }
+        return true
+    }
+
     /// The app's own **Quit** menu item was chosen — ⌘Q, or Apple menu ▸ Quit (increment 12).
     ///
     /// ## Why this app declares its own Quit at all
@@ -659,30 +685,31 @@ final class AppModel {
     /// What *does* reach the app under a sheet is an **app-declared menu command**. Measured at the
     /// keyboard on 2026-08-21 (chunk 11.11): ⇧⌘R ran with the pre-run dialog up, and SwiftUI queued
     /// the report behind it rather than swallowing the command. Replacing AppKit's Quit item with
-    /// one of the app's own is therefore the only route by which any rule can be consulted.
+    /// one of the app's own is therefore the only route by which any rule can be consulted — and on
+    /// 2026-09-04 chunk 0 measured that the *declared* ⌘Q does fire under a sheet, which is the one
+    /// premise the whole design rests on and was not covered by the ⇧⌘R measurement.
     ///
-    /// ## What this does TODAY, which is nothing but log
+    /// ## What it does
     ///
-    /// **Increment 12 chunk 0 is a pre-flight, and this is deliberately behaviour-neutral.** The
-    /// one thing the whole design rests on — that a *declared* **⌘Q** fires while a sheet is
-    /// attached — is measured for ⇧⌘R and **not** for this, and a design committed to before its
-    /// premise is measured is what this project's pre-flights exist to prevent. So this ends no
-    /// sheet, takes no decision, and hands the request straight to ``terminateAction``, exactly as
-    /// AppKit's own item did. Two tests pin that: one that it terminates once, one that it ends
-    /// nothing.
-    ///
-    /// It also takes no vote. The vote stays where it was — `applicationShouldTerminate` asks
-    /// ``quitRequested()`` — so the during-a-run confirmation is reached by this route on the same
-    /// terms as every other, rather than by a second copy of the rule living here.
+    /// Asks `QuitPolicy.disposition(underModals:)` and then performs the answer, and nothing more:
+    /// the three arms are *request*, *discard one modal then request*, and *refuse and say why*.
+    /// **It still takes no vote about the run.** That stays where it was —
+    /// `applicationShouldTerminate` asks ``quitRequested()`` — so the during-a-run confirmation is
+    /// reached by this route on the same terms as every other. The two tables **compose**: a report
+    /// discarded while the run is still `finishing` meets `.askFirst` a turn later, which is why
+    /// they are not one table.
     ///
     /// ## The log lines are the instrument, not scaffolding (NFR-OBS-1)
     ///
     /// This path emitted nothing at all until 2026-08-27, which is why chunk 13's dead Quit button
-    /// could not be diagnosed from the archive and needed an AppKit probe to explain. Two lines,
-    /// and **the second one's absence is the measurement**: if the app is still running a turn
-    /// after `terminateAction()`, AppKit refused the termination; if it is not, the line never
-    /// appears and `AppLifecycleDelegate`'s `terminate requested` does instead.
+    /// could not be diagnosed from the archive and needed an AppKit probe to explain. The inventory
+    /// is logged on **every** press, including the ones that go straight through, because the
+    /// interesting reading is the disagreement between what the model flags and what AppKit has
+    /// attached — and a line printed only on the interesting presses cannot show you that a press
+    /// was ordinary.
     func quitRequestedFromMenu() {
+        let presented = presentedModals
+
         quitLog.notice("""
                        quit command: prompt=\(self.pendingPrompt != nil, privacy: .public) \
                        report=\(self.reportIsPresented, privacy: .public) \
@@ -691,11 +718,142 @@ final class AppModel {
                        failure=\(self.runFailure != nil, privacy: .public); \
                        \(AttachedSheets.inventory(), privacy: .public)
                        """)
+        reportAnyModalNothingAccountsFor(given: presented)
 
-        terminateAction()
+        switch QuitPolicy.disposition(underModals: presented) {
+        case .requestTermination:
+            terminateAction()
+            reportARefusedTermination(after: "a press with nothing in the way")
 
-        scheduleOnNextTurn {
-            quitLog.notice("quit command: still running a turn later — the termination was refused")
+        case .dismiss(let modal):
+            quitLog.notice("quit command: discarding the \(modal.loggingName, privacy: .public)")
+            dismissThenTerminate(modal)
+
+        case .refuse(let reason):
+            quitLog.notice("quit command refused: \(reason, privacy: .public)")
+        }
+    }
+
+    /// Take one modal down through SwiftUI, then ask for the termination on the following turn.
+    ///
+    /// **Third attempt at this, and the first two are recorded because they each looked correct.**
+    ///
+    /// 1. `terminateAction()` alone — dead. `NSApp.terminate(_:)` is refused while a sheet is
+    ///    attached, *before* `applicationShouldTerminate` is consulted, so `QuitPolicy` never voted
+    ///    and nothing was logged.
+    /// 2. `AttachedSheets.endAll()` then `terminateAction()` — still dead. An AppKit probe said this
+    ///    worked; the probe was not the app. In the app the log read `1 still flagged afterwards`
+    ///    and **no** `terminate requested` line ever followed: `endSheet(_:)` does not take down a
+    ///    sheet SwiftUI owns, because SwiftUI's binding still reads `true` and it keeps it.
+    ///
+    /// So the sheet is taken down **through SwiftUI**, by ``dismissForQuit(_:)`` making that
+    /// surface's presentation state read `false`, and the termination is asked for on the following
+    /// turn once SwiftUI has acted. `endAll()` stays as well: it is a no-op when nothing is
+    /// attached, and it costs nothing to also close an AppKit session if one is somehow live.
+    ///
+    /// **The ordering is the whole fix**, and swapping the two restores the defect — which is why
+    /// the tests assert the order rather than merely that both ran.
+    ///
+    /// **One turn, and no timer.** The hop exists because SwiftUI acts on a state change between
+    /// turns; it is not a wait for a dismissal animation, and nothing here depends on how long one
+    /// takes. The increment plan's *"no delay is needed"* bullet predates the 2026-08-31
+    /// measurement above and is wrong as written.
+    private func dismissThenTerminate(_ modal: AppModal) {
+        dismissForQuit(modal)
+        dismissAttachedSheets()
+
+        scheduleOnNextTurn { [weak self] in
+            guard let self else { return }
+            self.terminateAction()
+            self.reportARefusedTermination(after: "discarding the \(modal.loggingName)")
+        }
+    }
+
+    /// Take **this** modal down, through the only thing that can take it down — its own
+    /// presentation state.
+    ///
+    /// **Exhaustive on purpose, and paired with the policy's switch.** A sixth case added to
+    /// `AppModal` is a compile error in both, so the two cannot drift into a surface the policy has
+    /// an opinion about and nothing knows how to dismiss.
+    ///
+    /// The three surfaces a quit may not discard are reachable here only from a caller that ignored
+    /// the policy, so they log and do nothing. Deliberately **not** a `fatalError`: what this
+    /// increment replaces is an app that silently would not quit, and shipping one that dies on the
+    /// way out instead would be a poor trade.
+    private func dismissForQuit(_ modal: AppModal) {
+        switch modal {
+        case .helperGate:
+            // The *availability* is deliberately left alone: the app is quitting, not becoming
+            // healthy, and saying otherwise would be a lie on the way out. Never cleared — this
+            // flag means "on the way out", and there is no way back from it.
+            gateIsDismissedForQuit = true
+
+        case .runReport:
+            reportIsPresented = false
+
+        case .preRunPrompt, .runFailure, .quitConfirmation:
+            quitLog.error("""
+                          refusing to discard the \(modal.loggingName, privacy: .public) for a \
+                          quit: it has to be answered
+                          """)
+        }
+    }
+
+    /// Log a sheet that is attached while the model accounts for **no** modal at all.
+    ///
+    /// This is the shape of every instance of this defect so far: a surface is added, nothing is
+    /// taught to have an opinion about it, and ⌘Q dies under it silently. The five flags are what
+    /// the policy reasons about, so a sixth surface nobody added a flag for reads here as "nothing
+    /// on screen", gets `.requestTermination`, and is refused by AppKit exactly as before this
+    /// increment — with the one difference that this line then says so.
+    ///
+    /// **Only the *nothing accounted for* case is an error.** A model flagging two while AppKit
+    /// shows one is expected rather than wrong — SwiftUI queues the second — and is already legible
+    /// in the inventory line beside it.
+    private func reportAnyModalNothingAccountsFor(given presented: Set<AppModal>) {
+        let attached = AttachedSheets.attachedCount
+        guard presented.isEmpty, attached > 0 else { return }
+
+        quitLog.error("""
+                      quit command: \(attached, privacy: .public) sheet(s) attached and the model \
+                      accounts for none of them — a surface nothing has an opinion about; \
+                      \(AttachedSheets.inventory(), privacy: .public)
+                      """)
+    }
+
+    /// Report a termination that was asked for and did not happen.
+    ///
+    /// **The absence of this line is the measurement**, which is why it is emitted from a scheduled
+    /// closure rather than guarded by a condition: if the app went, nothing runs and
+    /// `AppLifecycleDelegate`'s `terminate requested` is the last word instead.
+    ///
+    /// It tells the two refusals apart, and they are not the same event:
+    ///
+    ///   * the app's **own** guard voting against it — a run is active, so the confirmation is up
+    ///     and a wind-down is being asked about. That is the run-boundary promise working, and it
+    ///     is a `notice`;
+    ///   * **AppKit** refusing it before the delegate is consulted, with nothing pending to explain
+    ///     it. That is this increment's defect, back again, and it is an `error`.
+    ///
+    /// Chunk 0 could not make that distinction and logged one line for both, which would have read
+    /// as a failure on every ordinary quit-during-a-run.
+    private func reportARefusedTermination(after context: String) {
+        scheduleOnNextTurn { [weak self] in
+            guard let self else { return }
+
+            guard self.quitState == .idle else {
+                quitLog.notice("""
+                               quit command: still running after \(context, privacy: .public) — \
+                               the app's own guard answered it
+                               """)
+                return
+            }
+
+            quitLog.error("""
+                          quit command: still running after \(context, privacy: .public) with \
+                          nothing pending — the termination was refused; \
+                          \(AttachedSheets.inventory(), privacy: .public)
+                          """)
         }
     }
 

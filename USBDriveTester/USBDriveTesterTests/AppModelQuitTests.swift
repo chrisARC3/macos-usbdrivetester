@@ -119,6 +119,15 @@ struct AppModelQuitTests {
 
         var terminations: Int { recorder.terminations }
 
+        /// The drive a pre-run prompt names. `ReportedDevice` rather than `DiscoveredDevice`:
+        /// `PreRunPrompt` carries what the *report* would say, so the prompt and the report name
+        /// the drive identically. Nothing here reads the fields — only that a prompt exists.
+        static let promptedDrive = ReportedDevice(modelDescription: "Samsung Portable SSD T5 EVO",
+                                                  usbSerialNumber: "S6XVNS0X000000A",
+                                                  bsdNameAtRunTime: "disk4",
+                                                  capacityBytes: 4_000_787_030_016,
+                                                  logicalBlockSize: 512)
+
         /// Drive a run to `running`, through the same two steps the UI takes.
         func startARun() {
             _ = model.runControl?.startRequested(warningsSuppressed: false)
@@ -136,6 +145,38 @@ struct AppModelQuitTests {
         /// The run came back. This is what `cycleIsRunning = false` used to be.
         func endTheRun() {
             sequencer?.emit(.runEnded(StubSequencer.completed))
+        }
+
+        /// Put the model into exactly the state that presents `modals` (increment 12).
+        ///
+        /// Exists so the two derived properties can be walked across the **whole** 32-subset space
+        /// rather than at whichever two or three combinations a test happened to pick. Three of
+        /// these surfaces were added in three different increments and each one silently killed
+        /// ⌘Q; a check that only visits the combinations someone thought of is the same shape of
+        /// mistake wearing a test's clothes.
+        ///
+        /// **The confirmation needs a run, and that is the state rather than a limitation here.**
+        /// `.confirming` is reachable only from `quitRequested()` voting `.askFirst`, and that vote
+        /// needs a run in flight. A helper that reached it by any other route would be putting the
+        /// model into a state the app cannot be in, and pinning behaviour there.
+        func present(_ modals: Set<AppModal>) {
+            if modals.contains(.quitConfirmation) {
+                startARun()
+                _ = model.quitRequested()
+            }
+            if modals.contains(.helperGate) {
+                model.setHelperAvailability(.requiresApproval)
+            }
+            if modals.contains(.preRunPrompt) {
+                model.pendingPrompt = .briefConfirmation(Self.promptedDrive)
+            }
+            if modals.contains(.runFailure) {
+                model.runFailure = RunFailureMessage(title: "The drive could not be prepared",
+                                                     text: "It reported no usable geometry.")
+            }
+            if modals.contains(.runReport) {
+                model.reportIsPresented = true
+            }
         }
     }
 
@@ -224,10 +265,14 @@ struct AppModelQuitTests {
                 "the quit is requested by the guard, not entered here")
     }
 
-    // MARK: - The app's own Quit menu item (increment 12, chunk 0)
+    // MARK: - The app's own Quit menu item (increment 12)
 
-    /// **Chunk 0 is a pre-flight and must change no behaviour**, so this pins the two halves of
-    /// "does exactly what AppKit's item did": it terminates, once.
+    /// **With nothing in the way, ⌘Q does exactly what AppKit's item did**: it terminates, once.
+    ///
+    /// Written for chunk 0, where it pinned a pre-flight that changed no behaviour, and kept
+    /// unchanged through chunk 2 because it is the same property either way — the empty modal set
+    /// is `QuitPolicy.disposition(underModals:)`'s `.requestTermination`, and that arm must stay
+    /// indistinguishable from the item this one replaced.
     ///
     /// `scheduleOnNextTurn` is made synchronous deliberately. The backstop that runs there exists
     /// to *report* a refused termination, and a backstop that terminated a second time would be
@@ -242,14 +287,13 @@ struct AppModelQuitTests {
         #expect(bench.terminations == 1)
     }
 
-    /// **And it ends no sheet**, which is the half that says the pre-flight is not the fix.
+    /// **And with nothing in the way it ends no sheet**, which is not as obvious as it sounds.
     ///
-    /// Ending a sheet from the general quit path is what chunks 1–2 are for, and it is gated on a
-    /// per-surface decision the user took on 2026-09-04: the report may be discarded, the pre-run
-    /// prompt and the failure alert may not. Doing it here — before that decision has a type to
-    /// live in — would dismiss prompts nobody answered, which is the exact reason this was scoped
-    /// out of increment 9.
-    @Test func theMenuQuitEndsNoSheetYet() {
+    /// The blunt version of this whole increment — *end every sheet, then quit* — is what was
+    /// scoped out of increment 9, because under the pre-run dialog it dismisses a prompt nobody
+    /// answered. This is the assertion that says the blunt version was not what got built: a quit
+    /// that has nothing to discard goes around discarding nothing.
+    @Test func theMenuQuitWithNothingInTheWayEndsNoSheet() {
         let bench = Bench()
         var sheetsEnded = 0
         bench.model.dismissAttachedSheets = { sheetsEnded += 1 }
@@ -295,6 +339,213 @@ struct AppModelQuitTests {
         #expect(reply == .terminateCancel)
         #expect(bench.model.quitState == .confirming)
         #expect(bench.model.quitConfirmationIsPresented)
+    }
+
+    // MARK: - ⌘Q from under a modal (increment 12, chunk 2)
+
+    /// Every combination of the five surfaces, and what the model says is on screen for each.
+    ///
+    /// **All 32 subsets rather than a handful**, for the reason the increment exists: three of
+    /// these were added in three separate increments, each one silently killed ⌘Q, and each time
+    /// the reason was that nothing had to have an opinion about the new one. A property checked at
+    /// the combinations somebody thought of would repeat that mistake in a test.
+    ///
+    /// It is also what makes `AppModal` **reachable**: the enum and the model's flags are separate
+    /// declarations, and a case nothing can produce would give the policy an opinion about a state
+    /// the app can never be in.
+    @Test func theModelAccountsForEveryCombinationOfModalsItCanPresent() {
+        for subset in Self.everySubsetOfTheModals() {
+            let bench = Bench()
+            bench.present(subset)
+
+            #expect(bench.model.presentedModals == subset,
+                    "wanted \(Self.names(subset)), got \(Self.names(bench.model.presentedModals))")
+        }
+    }
+
+    /// **The menu item is greyed exactly where the policy refuses**, over the same 32 subsets.
+    ///
+    /// The `.disabled` in `USBDriveTesterApp` reads this property, and nothing automated compiles
+    /// that file — so this is where "the refusal is visible" is actually pinned. Asserting it
+    /// against `QuitPolicy` rather than against a copied list is deliberate: a second list would be
+    /// the same rule written twice, free to drift, which is the shape of defect this project has
+    /// deleted twice already.
+    @Test func theMenuItemIsOfferedExactlyWhereThePolicyDoesNotRefuse() {
+        for subset in Self.everySubsetOfTheModals() {
+            let bench = Bench()
+            bench.present(subset)
+
+            var policyRefuses = false
+            if case .refuse = QuitPolicy.disposition(underModals: subset) { policyRefuses = true }
+
+            #expect(bench.model.mayQuitFromMenu != policyRefuses, "case=\(Self.names(subset))")
+        }
+    }
+
+    /// **Every modal the policy says may be discarded is one the model can actually take down.**
+    ///
+    /// The pairing test, and the one that earns `dismissForQuit(_:)` being an exhaustive switch
+    /// rather than a lookup. The two switches are separate declarations: a sixth case that the
+    /// policy answers `.dismiss` for and the model silently does nothing about would be this whole
+    /// defect rebuilt inside the fix for it — a ⌘Q that is offered, runs, and leaves the sheet up.
+    @Test func everyModalThePolicyDiscardsIsActuallyTakenDown() {
+        for modal in AppModal.allCases {
+            guard QuitPolicy.disposition(underModals: [modal]) == .dismiss(modal) else { continue }
+            let bench = Bench()
+            bench.model.scheduleOnNextTurn = { $0() }
+            bench.present([modal])
+            #expect(bench.model.presentedModals == [modal], "case=\(modal.loggingName)")
+
+            bench.model.quitRequestedFromMenu()
+
+            #expect(bench.model.presentedModals.isEmpty, "case=\(modal.loggingName)")
+            #expect(bench.terminations == 1, "case=\(modal.loggingName)")
+        }
+    }
+
+    /// **…and every modal it refuses is left exactly where it was, with nothing asked for.**
+    ///
+    /// The other half, and the one the user's decision of 2026-09-04 is made of: only the report
+    /// and the launch gate may be discarded, so the pre-run prompt, the failure alert and the quit
+    /// confirmation must each survive a press untouched. `dismissAttachedSheets` is watched as well
+    /// as the flags, because the blunt fix this increment rejected would end the sheet without
+    /// clearing anything and look correct from the model's side.
+    @Test func everyModalThePolicyRefusesIsLeftExactlyWhereItWas() {
+        for modal in AppModal.allCases {
+            guard case .refuse = QuitPolicy.disposition(underModals: [modal]) else { continue }
+            let bench = Bench()
+            var sheetsEnded = 0
+            bench.model.scheduleOnNextTurn = { $0() }
+            bench.model.dismissAttachedSheets = { sheetsEnded += 1 }
+            bench.present([modal])
+
+            bench.model.quitRequestedFromMenu()
+
+            #expect(bench.model.presentedModals.contains(modal), "case=\(modal.loggingName)")
+            #expect(bench.terminations == 0, "case=\(modal.loggingName)")
+            #expect(sheetsEnded == 0, "case=\(modal.loggingName)")
+            #expect(!bench.model.mayQuitFromMenu, "case=\(modal.loggingName)")
+        }
+    }
+
+    /// **The sheet is down before the termination is even asked for**, which is the whole fix.
+    ///
+    /// `scheduleOnNextTurn` is captured rather than made synchronous here, so the test can stand in
+    /// the gap between the two and look: SwiftUI has been told to drop the sheet, and nothing has
+    /// been asked of AppKit yet. A version that asserted only the end state would pass with the two
+    /// in either order — and in the wrong order the termination is refused, silently, which is the
+    /// defect this replaces.
+    @Test func theReportIsAlreadyDownBeforeTheTerminationIsAskedFor() {
+        let bench = Bench()
+        var pending: (@MainActor () -> Void)?
+        bench.model.scheduleOnNextTurn = { pending = $0 }
+        bench.present([.runReport])
+
+        bench.model.quitRequestedFromMenu()
+
+        #expect(!bench.model.reportIsPresented, "SwiftUI has been told to drop it…")
+        #expect(bench.terminations == 0, "…and nothing has been asked of AppKit yet")
+
+        pending?()
+        #expect(bench.terminations == 1, "and then, a turn later, it is")
+    }
+
+    /// **⌘Q under the launch gate ends sheets before terminating**, in that order.
+    ///
+    /// The same assertion `quittingFromTheGateEndsTheSheetBeforeTerminating` makes about the gate's
+    /// own Quit button, made about the keystroke — because from chunk 2 the two share a mechanism
+    /// and not a caller, and a shared mechanism with one test is one route covered.
+    @Test func aQuitUnderTheLaunchGateEndsSheetsBeforeTerminating() {
+        let bench = Bench()
+        var steps: [String] = []
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.model.dismissAttachedSheets = { steps.append("sheets") }
+        bench.model.terminateAction = { steps.append("terminate") }
+        bench.present([.helperGate])
+
+        bench.model.quitRequestedFromMenu()
+
+        #expect(steps == ["sheets", "terminate"])
+        #expect(!bench.model.helperGateIsPresented)
+        #expect(bench.model.helperAvailability == .requiresApproval,
+                "the app is quitting, not becoming healthy")
+    }
+
+    /// **Two modals flagged discards neither**, even when both are individually discardable.
+    ///
+    /// This is the ambiguity guard reaching the model, and the reason it exists is that the model
+    /// cannot see SwiftUI's presentation queue: with two flagged it does not know which is on
+    /// screen, and taking down the one that is *not* leaves the termination refused with nothing to
+    /// show for it. The gate and the report are chosen precisely because the policy would discard
+    /// either one alone.
+    @Test func aQuitUnderTwoModalsDiscardsNeitherOfThem() {
+        let bench = Bench()
+        var sheetsEnded = 0
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.model.dismissAttachedSheets = { sheetsEnded += 1 }
+        bench.present([.helperGate, .runReport])
+
+        bench.model.quitRequestedFromMenu()
+
+        #expect(bench.model.presentedModals == [.helperGate, .runReport])
+        #expect(bench.terminations == 0)
+        #expect(sheetsEnded == 0)
+    }
+
+    /// **Discarding the report does not quit past the run guard**, and the two tables compose.
+    ///
+    /// The report is raised from `finishing`, which is run-active — so this state is ordinary
+    /// rather than contrived. The modal table answers *"is anything in the way"* and the run table
+    /// answers *"would quitting abandon a run"*; collapsing them into one would be one flag stating
+    /// two facts, and here that would mean a keystroke that discards a report **and walks out of a
+    /// live run** without asking.
+    @Test func discardingTheReportStillLeavesTheRunGuardToAnswer() {
+        let bench = Bench()
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.startARun()
+        bench.model.reportIsPresented = true
+        let delegate = AppLifecycleDelegate()
+        delegate.model = bench.model
+
+        bench.model.quitRequestedFromMenu()
+        let reply = delegate.applicationShouldTerminate(NSApplication.shared)
+
+        #expect(!bench.model.reportIsPresented, "the report is discarded…")
+        #expect(reply == .terminateCancel, "…and the run guard still asks")
+        #expect(bench.model.quitConfirmationIsPresented)
+    }
+
+    /// **The gate's own Quit button shares the mechanism and not the decision.**
+    ///
+    /// With a second modal flagged the policy refuses, so ⌘Q is greyed — and the button must work
+    /// anyway. It *is* the decision, taken by a user looking at a gate they cannot get past, and a
+    /// dead Quit there is the single worst place in this app to reintroduce the defect the policy
+    /// exists to remove. Routing the button through the policy is the obvious tidiness and this is
+    /// the test that refuses it.
+    @Test func theGatesOwnQuitIgnoresThePolicyThatWouldRefuseAKeystroke() {
+        let bench = Bench()
+        bench.model.scheduleOnNextTurn = { $0() }
+        bench.present([.helperGate, .runReport])
+        #expect(!bench.model.mayQuitFromMenu, "⌘Q is refused here — two modals are flagged")
+
+        bench.model.performHelperGateAction(.quit)
+
+        #expect(bench.terminations == 1)
+        #expect(!bench.model.helperGateIsPresented)
+    }
+
+    /// Every subset of the five modals, in bitmask order. See
+    /// ``theModelAccountsForEveryCombinationOfModalsItCanPresent()`` for why all 32.
+    private static func everySubsetOfTheModals() -> [Set<AppModal>] {
+        let all = AppModal.allCases
+        return (0 ..< (1 << all.count)).map { mask in
+            Set(all.enumerated().filter { mask & (1 << $0.offset) != 0 }.map(\.element))
+        }
+    }
+
+    /// A readable name for a subset, so a failure over 32 cases says which one.
+    private static func names(_ modals: Set<AppModal>) -> String {
+        modals.isEmpty ? "nothing" : modals.map(\.loggingName).sorted().joined(separator: " + ")
     }
 
     // MARK: - Closing the MAIN window quits (user decision 2026-08-06)

@@ -172,9 +172,10 @@ struct USBDriveTesterApp: App {
             // and a rule about which of them a quit may discard needs a path that is entered at
             // all. See `AppModel.quitRequestedFromMenu()`, which is where that is written out.
             //
-            // **A trigger, never a decision** — the rule this file's header records. Today the
-            // model method only logs and terminates, which is what AppKit's item did; chunks 1–2
-            // put the decision in a pure type this file does not contain.
+            // **A trigger, never a decision** — the rule this file's header records. What a quit
+            // does about each of those five surfaces is `QuitPolicy.disposition(underModals:)`, a
+            // pure type with a truth table and 15 tests; this file only names the command and
+            // hands the press to the model.
             CommandGroup(replacing: .appTermination) {
                 QuitCommand(model: model)
             }
@@ -205,9 +206,21 @@ struct USBDriveTesterApp: App {
 /// target name, `USBDriveTester`. A replacement that reads differently would be the one visible
 /// sign that the standard item is gone, on a menu where nothing else changed.
 ///
-/// **Not disabled by anything yet.** AppKit's item was always enabled and chunk 0 changes no
-/// behaviour; the states where a quit is refused get their `.disabled` in chunk 2, which is what
-/// turns a refusal from silent into visible.
+/// **Greyed where a quit is refused**, which is the whole of how a refusal is shown: there is
+/// nowhere on a menu item to put prose, and the half of this defect that mattered was never "⌘Q is
+/// unavailable" but "⌘Q is available and does nothing". `AppModel.mayQuitFromMenu` is the
+/// condition, and it asks `QuitPolicy.disposition(underModals:)` rather than reading flags of its
+/// own.
+///
+/// **The action re-checks the same rule**, and that repetition is not redundancy: nothing automated
+/// compiles this file, so a rule living only in a `.disabled` is a rule that can be deleted in
+/// silence — measured by mutation R12 in increment 8. The item greys *and* the press refuses.
+///
+/// **What the modifier uniquely buys, and what it costs.** Delete it and ⌘Q under the pre-run
+/// prompt is *offered*: it runs, refuses, and logs — a keystroke that appears to do nothing, which
+/// is this increment's whole subject. Keep it and a refused press runs no action at all, so it logs
+/// nothing either. The greying is then the only report a refusal makes, and the only way to check
+/// it is to look at the menu (human checklist, chunk 16).
 ///
 /// Handed the model rather than reading it from the environment, for the reason the two commands
 /// below give: a `Scene`'s `commands` builder has no environment.
@@ -218,6 +231,7 @@ private struct QuitCommand: View {
     var body: some View {
         Button("Quit USBDriveTester") { model.quitRequestedFromMenu() }
             .keyboardShortcut("q")
+            .disabled(!model.mayQuitFromMenu)
     }
 }
 
