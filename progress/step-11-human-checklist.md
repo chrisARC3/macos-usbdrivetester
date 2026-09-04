@@ -43,7 +43,7 @@ because the wiring sits in the one file no harness compiles. Its items 3, 4 and 
 
 **It found five defects**, every one of them in the seam between the model and the screen: the
 gate's Quit button dead (and ⌘Q dead under every sheet in the app, which turned out to be the real
-cause of increment 5's check 6.1); no re-check on returning from System Settings; the
+cause of increment 5's check 6.1 — fixed app-wide by increment 12, and walked as chunk 16); no re-check on returning from System Settings; the
 `versionMismatch` remedy inert in the one state where it is load-bearing; a second press accepted
 mid-remedy; and the readiness banner stating something false. Two of those surfaced only because an
 item was changed to require a button be **pressed** rather than **present**.
@@ -88,17 +88,28 @@ divided by running time*; asked again on 2026-09-02, it led to FR-METR-1 being a
 and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel now reads Write
 **above** Read. The answer given here was correct for the build it was given about.
 
-> **NOTHING IS OWED IN THIS FILE, as of 2026-09-03.** Chunk 15 was written and walked the same
-> day — five items, all passed, **no defect in the product and one in this file** (its item 4,
-> deleted mid-walk; see below). Every other chunk was already walked and passed.
+> **CHUNK 16 IS OWED, and two items elsewhere are owed a RE-WALK, as of 2026-09-04.** Increment 12
+> added chunk 16 — nine items, ⌘Q under every modal — and changed what two already-passed items must
+> now show: **6.1** (the refusal under the pre-run dialog is unchanged, but the item now asks for the
+> menu to be *greyed*, where before it asked only that nothing happen) and **11.7** (⌘Q under the
+> report now **discards it and quits**, which reverses that item's expectation for the second time —
+> it is the answer to the question 11.7 left open "until this has been seen"). **13.4** gained a
+> line and does not need re-walking on its own. Nothing else in this file is affected.
+>
+> **This block was rewritten in the same commit as the chunk**, which is what the ⚠️ four paragraphs
+> below demands and what it has caught this file failing three times.
+>
+> **Everything else was walked and passed.** Chunk 15 was written and walked on 2026-09-03 — five
+> items, all passed, **no defect in the product and one in this file** (its item 4, deleted mid-walk;
+> see below).
 >
 > **The two hardware gate scripts that had been owed since increment 8 were run and passed the
 > same day** — `xpc-concurrency-check.sh` 0 failures, `retention-cycle-check.sh` 15/15 over the
 > whole device. They are not checklist items and live in `BUILD-PLAN.md`; "nothing is owed" above
 > means nothing on *this* list, and as of 2026-09-03 nothing is owed on that one either.
 >
-> ⚠️ **This line said "NOTHING IS OWED" until chunk 15 was written, on 2026-09-03** — which is the
-> third time round this loop. A new chunk makes the summary false the moment it is added, and
+> ⚠️ **This line said "NOTHING IS OWED" until chunk 15 was written, on 2026-09-03** — which was the
+> third time round this loop, and chunk 16 on 2026-09-04 is the fourth. A new chunk makes the summary false the moment it is added, and
 > walking one makes it false again; the summary and the body are edited together, every time, or
 > this file resumes lying about itself. Chunk 15 was added for increment 11 and FR-METR-1's
 > amendment. **Its item 1 — the v12/v14 mismatch walk — was deleted on 2026-09-03 without being
@@ -266,9 +277,23 @@ deliberately not bound to the persisted preference.
 
 ### 6 — the quit boundary *(writes)*
 
-1. **⌘Q and File ▸ Quit do nothing while the dialog is open** — the sheet is window-modal and
-   intercepts them before `QuitPolicy` is consulted. **Wanted behaviour (user decision
-   2026-08-18)**, and safe because nothing is claimed yet. Cancel, then ⌘Q quits immediately.
+1. **Open the app menu — the bold one named *USBDriveTester* — while the dialog is up.
+   *Quit USBDriveTester* is GREYED OUT**, and ⌘Q does nothing. Cancel the dialog, and ⌘Q quits immediately.
+
+   > **Rewritten 2026-09-04 by increment 12; the behaviour it asks for changed, the decision behind
+   > it did not.** This item used to read *"⌘Q and File ▸ Quit do nothing while the dialog is
+   > open"*, and that was walked and passed — but what it was describing was a **silent** refusal:
+   > `NSApp.terminate(_:)` is a no-op while a sheet is attached, refused before
+   > `applicationShouldTerminate`, so `QuitPolicy` was never consulted and nothing was logged. The
+   > item was recording an accident that happened to match the decision.
+   >
+   > The refusal was re-affirmed on 2026-09-04 — the pre-run dialog is the last thing between a
+   > selected drive and a write, and a keystroke meaning "leave" must not answer it. What changed is
+   > that the app now *decides* to refuse instead of being unable to try, and **says so by greying
+   > the item**. So the greying is the whole of what is new here, and it is the part no test can
+   > see: nothing automated compiles the file the `.disabled` lives in.
+   >
+   > If ⌘Q quits from here, that is a serious finding — not a cosmetic one.
 2. ⌘Q during a run **asks**, and **the run keeps going underneath the dialog**. *Continue Testing*
    resumes as if nothing happened.
 3. *Cancel and Quit* stops at a chunk boundary, releases, quits — every volume back, EFI not
@@ -602,31 +627,29 @@ need a real run; 8–10 do not.
    > nothing was clipped. What a render cannot answer is whether the sheet really gets that size,
    > because a sheet has its own window.
 
-7. **Press ⌘Q while the report is up. Expect it to do nothing.** Then press **Escape** to dismiss
-   the report and ⌘Q again — now the app quits. Try the close button too: it should be dead while
-   the report is up, and work once it is gone.
+7. **Press ⌘Q while the report is up. The report goes and the app quits — one keystroke, both.**
+   *Quit USBDriveTester* is **not** greyed here. Also try the close button: it should still be dead
+   while the report is up, and work once it is gone.
 
-   > **This item's expectation was reversed on 2026-08-21, before it had ever been walked, and the
-   > reversal is the point of keeping it.** It first read *"the app quits"*, derived from
-   > `QuitPolicy`: no run is active whenever a report is on screen, so the policy answers
-   > `.quitImmediately`. **The policy is not what decides.** A window-modal sheet intercepts ⌘Q
-   > before `applicationShouldTerminate` is reached — observed on hardware for the pre-run dialog on
-   > 2026-08-18, recorded at `RunControlsView`, and met again by a person on 2026-08-21 — and the
-   > report is the same kind of sheet on the same window.
+   > **This item's expectation has now been reversed twice, and the second reversal is the answer to
+   > the question the first one left open.**
    >
-   > That is the second time in one increment that an acceptance criterion derived from model code
-   > has been wrong about the presentation layer, both times in this area. CONSTRAINTS already says
-   > it; the docs pass should say it louder.
+   > It first read *"the app quits"*, derived from `QuitPolicy`: no run is active whenever a report
+   > is on screen, so the policy answered `.quitImmediately`. On 2026-08-21 that was reversed to
+   > *"expect it to do nothing"* — **the policy was not what decided.** A window-modal sheet blocks
+   > ⌘Q before `applicationShouldTerminate` is reached, and the report is the same kind of sheet as
+   > the pre-run dialog on the same window. That reversal was right, and the underlying cause was
+   > measured six days later: `NSApp.terminate(_:)` is refused by AppKit *before* the delegate.
    >
-   > So the check is now: **does the report behave like the pre-run dialog?** If ⌘Q *does* quit
-   > here, that is the finding, and it means two sheets on one window differ in a way nothing
-   > predicts.
+   > It was left explicitly open **"until this has been seen"** whether the report *ought* to block
+   > quitting. It has been seen, and on **2026-09-04 the user decided: it ought not.** A report is a
+   > document you have finished reading. Increment 12 built the custom Quit command that the
+   > 2026-08-21 note said would make this a real option, and the report is the one run-time surface
+   > a quit may discard. The pre-run dialog's refusal was re-affirmed in the same decision.
    >
-   > Whether the report *ought* to block quitting is a separate question, deliberately left open
-   > until this has been seen. The pre-run dialog blocking it is recorded as **wanted** — it is the
-   > last thing between a selected drive and a write. A report is a document you have finished
-   > reading, and one keystroke dismisses it. Today's finding that menu commands are *not*
-   > intercepted makes a custom Quit command a real option if the answer is "it should not".
+   > So the check is back to *"the app quits"* — by a different route, and for a reason rather than
+   > by accident. If ⌘Q does **nothing** here, the fix has regressed; if it quits but leaves the
+   > report's sheet on screen for an instant first, say so, because the ordering is the fix.
 
 8. **Ask for a run that cannot start** — the easiest is to pull the drive after selecting it, or
    otherwise make preparation fail. The failure is reported **and no report sheet appears**. A sheet
@@ -818,6 +841,13 @@ Every diagnosis prints one line — `helper gate: available — no modal raised`
      app still running. `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit
      refuses it before `applicationShouldTerminate` is consulted, so `QuitPolicy` never gets a vote.
      The gate now ends the sheet before terminating. CONSTRAINTS §1 carries the measurement.
+
+     **Increment 12 moved the mechanism under this button without changing what it does**
+     (2026-09-04): it and ⌘Q now share `dismissThenTerminate(_:)`. It deliberately does **not**
+     consult the new modal policy — a Quit button on a screen you cannot get past must never be able
+     to refuse — so this remains a regression check for the button in its own right, not a duplicate
+     of chunk 16. Also press **⌘Q** here: the gate is a surface a quit may discard, so that quits
+     too.
    * Relaunch. Press **Open Login Items…**. System Settings opens at Login Items & Extensions.
    * Enable USBDriveTester under *Allow in the Background* and **switch back to the app without
      pressing anything**. **The gate must clear by itself.** Log: `helper gate: available — modal
@@ -1247,6 +1277,97 @@ live item 4 below it, which is exactly the collision this record is about.)*
    the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
+### Chunk 16 — ⌘Q under every modal (increment 12) *(item 4 needs a run; the rest are dry)*
+
+**Read this first.** The app no longer uses AppKit's Quit item. It declares its own, so that a
+keystroke arriving under a sheet reaches code at all — AppKit refuses `NSApp.terminate(_:)` *before*
+`applicationShouldTerminate` while a sheet is attached, which is why ⌘Q was dead under all five of
+this app's window-modal surfaces and why the launch gate's own Quit button needed fixing separately
+in increment 9. Everything below is about the replacement.
+
+**Two items elsewhere belong to this increment and are not repeated here**: **6.1** (⌘Q under the
+pre-run dialog is refused, and now says so) and **11.7** (⌘Q under the report discards it and
+quits — an expectation reversed twice, most recently by the decision of 2026-09-04). Walk those in
+their own chunks. **13.4** also gained a line: the gate's Quit button shares the new mechanism.
+
+**The log is half the check.** `log stream --predicate 'subsystem == "com.arc3solutions.USBDriveTester"'`,
+or Console filtered to that subsystem, category `quit`. Every press that reaches the app prints one
+`quit command: …` line with the five flags **and an inventory of what AppKit actually has attached**,
+including window class names.
+
+1. **The item is where it was and reads what it read.** Open the app menu — the bold one named
+   *USBDriveTester*. The last item is **Quit USBDriveTester**, ⌘Q, black, at the bottom under a
+   separator. Nothing above it moved.
+
+   > The title must match what AppKit generated (`Quit ` + `CFBundleName`). A replacement that reads
+   > differently would be the one visible sign that the standard item is gone.
+
+2. **⌘Q with nothing on screen quits.** The baseline. Log: one `quit command: prompt=false
+   report=false gate=false confirming=false failure=false; …` followed by
+   `terminate requested: runIsActive=false disposition=quitImmediately`.
+
+3. **⌘Q under the launch gate quits — the keystroke, not the button.** Induce the gate the way 13.3
+   describes (Login Items toggle, then relaunch). Press **⌘Q**. The gate goes and the app quits. Log:
+   `quit command: … gate=true …` then `quit command: discarding the helper gate`.
+
+   > This route did not exist before increment 12. Increment 9 fixed only the button on the sheet.
+
+4. **⌘Q under the failure alert is refused, and the item is greyed.** *(needs a run)* Induce a
+   failure the way 7.8 does — select a drive, press Start, answer the prompt, then pull the drive.
+   With the failure alert up, open the app menu: **Quit USBDriveTester is greyed**. ⌘Q does nothing.
+   Dismiss the alert; ⌘Q quits.
+
+   > **This is the one behaviour change nobody asked for**, and it is here because of that. A failure
+   > alert is the only modal in this app the user did not open, so a ⌘Q at that instant is a
+   > keystroke aimed at an app that just interrupted them. The user decided on 2026-09-04 that it is
+   > refused rather than obeyed. If that reads badly at the keyboard, say so — it is one line in
+   > `QuitPolicy.disposition(underModals:)` to change.
+
+5. **⌘Q while the quit confirmation is up is refused.** During a run, press ⌘Q — the confirmation
+   appears (that is 6.2). Now press **⌘Q again**, and open the app menu: **greyed**. The dialog is
+   still there and the run is still going. Answer it normally.
+
+   > A quit is already being asked about; a second question behind the first is not an answer to it.
+
+6. **Two modals at once are refused — the only way to see the ambiguity guard by hand.** Start a
+   **short** run. Press ⌘Q to raise the confirmation, then **leave it up and let the run finish
+   underneath it** (the run deliberately keeps going through `.confirming`). The moment it settles,
+   the report is raised behind the confirmation. Open the app menu: **Quit is greyed**, and it stays
+   greyed until you answer the confirmation.
+
+   > Both of those surfaces would be answerable alone — the confirmation refuses, the report is
+   > discarded — so this is not two refusals colliding. It is the model declining to guess: SwiftUI
+   > cannot show two sheets on one window and queues the second invisibly, so with two flagged the
+   > app does not know which one you are looking at, and taking down the wrong one would leave the
+   > termination refused with nothing to show for it.
+   >
+   > If this is fiddly to induce, say so and skip it — the property has cover over all 32
+   > combinations in `AppModelQuitTests`. What is uncovered is only the greying.
+
+7. **What a SwiftUI `.alert` really is — read one log line.** During a run press ⌘Q once to raise the
+   confirmation, then look for the `quit command: still running after a press with nothing in the way
+   — the app's own guard answered it` line that follows a turn later. **Copy its inventory.**
+
+   > That line arrives with the confirmation already on screen, and its inventory names the window
+   > class. `1 sheet(s) [SheetPresentationWindow]` confirms what this app has assumed — that a
+   > SwiftUI `.alert` on macOS is a window-modal sheet like any other, which is why the defect covers
+   > **five** surfaces and not the three the increment plan named. `0 sheet(s)` overturns it.
+   >
+   > **Nothing shipped depends on the answer** — the refusals under the alerts are the user's
+   > decision, not a workaround for AppKit — but the app acts on the belief, so it should be a
+   > measurement. This is the only route left to take it: ⌘Q is greyed in every state where an alert
+   > is up, so no press reaches a log from there.
+
+8. **Nothing anywhere prints `sheet(s) attached and the model accounts for none of them`.** That
+   error means a window-modal surface exists that nothing in the app has an opinion about — the exact
+   shape of this defect each of the three times it was introduced. Scan the whole chunk's log for it.
+
+9. **Out of scope, so it is not a finding.** The Dock icon's ▸ *Quit* calls `NSApp.terminate(_:)`
+   directly and cannot be intercepted by any app-declared command, so under a modal it does what it
+   always did: nothing. The report's **Export report…** panel and its error alert are `runModal()`
+   app-modal panels, which behave as they do in every Mac app.
+
+
 ## What has no automated cover, and will not get any
 
 * **The report body.** It sits in a scroll region, so a render at a normal window height stops at
@@ -1259,6 +1380,22 @@ live item 4 below it, which is exactly the collision this record is about.)*
   increment 10's rewrite of `ThroughputFraming.definition` was checked. What stays true is that the
   *values* are the report's and the *wording* is only visible in the artefact; what was wrong is
   "even a render" cannot see it.
+
+* **The greying of the Quit item (increment 12).** `AppModel.mayQuitFromMenu` is pinned over all 32
+  combinations of the five modal surfaces, and `quitRequestedFromMenu()` re-checks the same rule so a
+  refused press refuses even with the modifier gone. What nothing automated can see is the
+  `.disabled(!model.mayQuitFromMenu)` in `USBDriveTesterApp.swift` — no harness compiles that file,
+  the same hole mutation **R12** measured in increment 8.
+
+  Delete it and every test still passes: ⌘Q under the pre-run prompt would be *offered*, run, refuse
+  and log — a keystroke that looks like it does nothing, which is the whole defect this increment
+  removed. **The greying is the only report a refusal makes to a person**, because a disabled item
+  runs no action and therefore logs nothing either. Chunk 16 items 4, 5 and 6 and check 6.1 are what
+  read it.
+
+  The same file's `CommandGroup(replacing: .appTermination)` is uncovered for the same reason: delete
+  it and the app falls back to AppKit's Quit item, every test passes, and ⌘Q is silently dead under
+  all five surfaces again. Chunk 16 item 1 is the check that the app's own item is there at all.
 
 * **`RunReportView` in its entirety — measured, not assumed (increment 8).** Four mutations to
   that file passed the whole suite — one against 1,008 tests, two against 1,013, one against 1,040:

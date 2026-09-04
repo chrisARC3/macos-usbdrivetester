@@ -93,6 +93,12 @@ final class AppLifecycleDelegate: NSObject, NSApplicationDelegate {
     /// looked identical from outside: **this was never called**, or it was called and answered
     /// `.terminateCancel`. Chunk 13 hit both and could distinguish neither, because this path said
     /// nothing at all. A missing log line here is now itself the diagnosis.
+    ///
+    /// Increment 12 gave the first cause a voice of its own — the app declares its own Quit, and
+    /// `AppModel.quitRequestedFromMenu()` logs what was on screen and what it decided — so the two
+    /// are now told apart by what is *present* as well as by what is missing. This method's vote is
+    /// unchanged by that increment, deliberately: the modal table answers "is anything in the way",
+    /// this one answers "would quitting abandon a run", and they compose.
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         // No model means the main window has never appeared, so nothing can have started a run.
         // Quitting is unambiguously fine, and refusing it would strand an app with no UI.

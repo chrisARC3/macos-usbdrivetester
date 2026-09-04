@@ -240,11 +240,18 @@ final class AppModel {
     /// the termination *before* `applicationShouldTerminate` is consulted, so `QuitPolicy` is never
     /// asked at all. 6.1 saw the symptom and this file recorded a guess beside it.
     ///
-    /// It fails safe — a run is never abandoned — but silently, and it is **not confined to the
-    /// pre-run dialog**: ⌘Q is dead under the report sheet and the launch gate too. The gate's own
-    /// Quit button is fixed locally in `performHelperGateAction(_:)`, where the measurement is
-    /// written out. Fixing it for **every** route is a separate increment by decision of
-    /// 2026-08-27, because ending a sheet in general dismisses prompts nobody answered.
+    /// It failed safe — a run was never abandoned — but silently, and it was **not confined to the
+    /// pre-run dialog**: ⌘Q was dead under the report sheet and the launch gate too, and under the
+    /// two `.alert`s as well, since a SwiftUI alert on macOS is a window-modal sheet like any other.
+    /// Increment 9 fixed only the gate's own Quit button, locally.
+    ///
+    /// **Fixed app-wide in increment 12 (2026-09-04), and the AppKit fact is unchanged.**
+    /// `NSApp.terminate(_:)` is still refused before the delegate while a sheet is attached; what
+    /// changed is that the app now declares its **own** Quit command, which does run under a sheet,
+    /// and that command asks `QuitPolicy.disposition(underModals:)` per surface. The report and the
+    /// launch gate are discarded and the app goes; the pre-run prompt, the failure alert and the
+    /// quit confirmation are refused **visibly**, with the menu item greyed. Blunt "end every sheet
+    /// then quit" was rejected for the reason 2026-08-27 gave: it dismisses prompts nobody answered.
     ///
     /// ## And while the launch gate is up (increment 9)
     ///
@@ -441,23 +448,24 @@ final class AppModel {
             // | yes | **never reached** | the app survives |
             //
             // AppKit refuses the termination *before* consulting the delegate, so `QuitPolicy` never
-            // gets a vote — the guard is not bypassed, it is never asked. Ending the sheet in this
-            // same turn is enough; the probe measured the completion handler running synchronously
-            // and the delegate then being reached. **No delay and no polling**, which is what makes
-            // this a fix rather than a race: a version that terminated "a run-loop turn later" would
-            // be resting on a dismissal animation nobody has measured.
+            // gets a vote — the guard is not bypassed, it is never asked. That is an AppKit fact and
+            // it still holds; what increment 12 changed is that the app declares its own Quit
+            // command, which *does* run under a sheet, so there is now a path a rule can live in.
             //
-            // **The ordering is the whole fix**, and swapping these two lines restores the defect —
-            // which is why a test asserts the order rather than merely that both ran.
+            // ## Why this was here and not in `terminateAction` — and where it went
             //
-            // ## Why this is here and not in `terminateAction`
+            // The same defect killed **⌘Q under every one of this app's five window-modal
+            // surfaces**, and fixing it here fixed only this button. That was deliberate (user
+            // decision, 2026-08-27): the general fix lands in the app's most safety-critical path,
+            // and "end the sheet then quit" is too blunt, because under the pre-run dialog it
+            // dismisses a prompt nobody answered. It was scoped as its own increment, and increment
+            // 12 built it — as a per-surface rule in `QuitPolicy.disposition(underModals:)` rather
+            // than as one blunt call.
             //
-            // Because the same defect kills **⌘Q under every sheet in this app** — the pre-run
-            // dialog and the report sheet as much as this gate — and fixing it there would fix all
-            // of them. That is the right fix and it is deliberately not this one (user decision,
-            // 2026-08-27): it lands in the app's most safety-critical path, and "end the sheet then
-            // quit" is too blunt in general, because doing it under the pre-run dialog dismisses a
-            // prompt the user never answered. Scoped as its own increment; see the plans file.
+            // **This button did not move into that rule, and must not.** It shares only the
+            // mechanism, `dismissThenTerminate(_:)`. See ``quitFromGate()`` for why: routing it
+            // through the policy would make it refuse whenever a second modal happened to be
+            // flagged, on the one screen the user cannot get past.
             //
             // Here it is safe for the reason the `registerHelper` case gives: the gate is
             // window-modal over the run controls at launch, so no run can exist to be abandoned.
@@ -528,8 +536,15 @@ final class AppModel {
     /// Detaches any sheet attached to one of the app's windows, so that a termination is not
     /// silently refused. See the `.quit` case of `performHelperGateAction(_:)` for the measurement.
     ///
+    /// **Belt and braces, not the fix.** A sheet SwiftUI owns comes down only when its presentation
+    /// state reads `false` — `endSheet(_:)` leaves it attached and the termination still refused,
+    /// measured in the shipped app 2026-08-31 — so ``dismissForQuit(_:)`` is what actually takes one
+    /// down. This runs beside it because it costs nothing and closes an AppKit session if one is
+    /// somehow live.
+    ///
     /// Injected for the same two consumers as `terminateAction` — the tests and `tools/ui-probe` —
-    /// and so a test can assert that it runs *before* the termination, which is the fix.
+    /// and so a test can assert that it runs *before* the termination, which is the ordering the
+    /// fix depends on.
     var dismissAttachedSheets: () -> Void = { AttachedSheets.endAll() }
 
     /// Runs a closure on the next run-loop turn. Injected so a test can make it synchronous and

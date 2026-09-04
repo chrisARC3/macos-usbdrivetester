@@ -1,14 +1,25 @@
-# Step 11 — increment 12, planned and approved
+# Step 11 — the settled decisions from increments 9–12
 
-**Written 2026-08-25/26, before any code**, for increments 9–11. **Increments 9, 10 and 11 have
-landed and their sections were deleted from here**, as the rule below instructs — 9 on 2026-08-27,
-10 on 2026-09-02, 11 on 2026-09-03; **increment 12 was added 2026-09-01**, unplanned, having been
-produced by walking increment 9's own checklist chunk. Every decision below was taken by the user
-during scoping and is **settled**. This file exists so a cold session can execute them without
-re-deriving them, and without re-opening choices that were already argued through.
+**Written 2026-08-25/26, before any code**, for increments 9–11. **All four increments have now
+landed and every plan section was deleted from here**, as the rule below instructs — 9 on
+2026-08-27, 10 on 2026-09-02, 11 on 2026-09-03, and **12 on 2026-09-04**. Increment 12 was added
+2026-09-01, unplanned, having been produced by walking increment 9's own checklist chunk. Every
+decision below was taken by the user during scoping and is **settled**. This file exists so a cold
+session does not re-open choices that were already argued through.
+
+**No increment is planned here right now.** What remains is the settled-decision table, which
+outlives the plans it came from.
 
 **This is a plan, not history.** When an increment is built, its full account goes in its commit
 message and its summary into `PROGRESS.md`, as always. Delete the section from here when it lands.
+
+> **Two of increment 12's "know this before building it" bullets were wrong, and that is why the
+> section is gone rather than annotated.** It named **three** sheets — the app has **five**
+> window-modal surfaces, because a SwiftUI `.alert` on macOS is presented as a sheet — and it said
+> *"no delay is needed and none should be used"*, which was the AppKit probe's measurement and does
+> not hold for a sheet SwiftUI owns; one run-loop turn is required, and it is not a wait for an
+> animation. Both corrections are at their sites in the source, in CONSTRAINTS §1, and in the
+> increment's commit messages.
 
 > **Read `CONSTRAINTS.md` and `PROGRESS.md` first.** This file assumes both. It carries only what
 > is not yet anywhere else.
@@ -43,69 +54,6 @@ before the one that costs a protocol version**, and both have.
 
 ---
 
-## Increment 12 — ⌘Q works under every sheet
-
-**Not planned in advance; produced by walking chunk 13 on 2026-08-27.** Scoped here rather than
-folded into increment 9 by explicit user decision the same day: *"fix the gate only and proceed."*
-
-### The defect
-
-`NSApp.terminate(_:)` is a **silent no-op while a sheet is attached** — measured on an AppKit probe,
-recorded in CONSTRAINTS §1 with the table. AppKit refuses the termination *before*
-`applicationShouldTerminate` is consulted, so `QuitPolicy` is never asked and nothing is logged.
-
-**⌘Q is therefore dead under every sheet in this app**: the pre-run dialog, the report sheet, and
-the launch gate. It fails safe — no run is ever abandoned — and it fails **silently**, which is the
-part that matters: the app's stated contract is that ⌘Q during a run *asks first*, and what it
-actually does is nothing at all.
-
-This is the true cause of **check 6.1** from increment 5, which observed the symptom and had a
-guessed cause sitting beside it in `AppModel` for two increments.
-
-### What increment 9 already did, and why it is not enough
-
-The gate's own Quit button calls `dismissAttachedSheets()` before `terminateAction()`, and a test
-asserts the **order** because swapping the two lines restores the defect. That is deliberately local:
-it is safe there because the gate is window-modal at launch, so no run can exist.
-
-### Why the general fix is not the same edit
-
-**`AttachedSheets.endAll()` cannot simply move into `terminateAction`'s default.** Ending the sheet
-under the **pre-run dialog** dismisses a prompt the user never answered, and the prompt is the last
-thing standing between a ⌘Q and a drive. The quit path must therefore decide *whether* the sheet may
-go before it ends it, and the decision belongs in `QuitPolicy` where the truth table is tested —
-not in an AppKit poke.
-
-### Know this before building it
-
-- **`isSheet` is not the test for "may I terminate now".** The probe measured `isSheet` still `true`
-  immediately after `endSheet(_:)` returned, and terminating right then worked. The blocker is the
-  live sheet *session*, closed synchronously by `endSheet(_:)`.
-- **`endSheet(_:)` is not enough for a SwiftUI sheet, and this increment must not be built on it.**
-  Measured in the shipped app 2026-08-31: it leaves the sheet attached and the termination still
-  refused. Each sheet has to be taken down by **its own presentation state going false** — so this
-  increment is not one AppKit call in `terminateAction`, it is a rule per sheet (the pre-run prompt,
-  the report, the gate) plus a decision about which of them a quit is allowed to discard. The gate's
-  is `AppModel.helperGateIsPresented`; the pre-run prompt is the hard one, because dismissing it
-  discards a question the user never answered.
-- **No delay is needed and none should be used.** A version that terminates "a run-loop turn later"
-  rests on a dismissal animation nobody has measured. Same turn works; it was measured.
-- **The quit path emits no log lines at all**, which is why the chunk 13 failure could not be
-  diagnosed from the archive and needed a probe. Whatever this increment does, `applicationShouldTerminate`
-  and `QuitPolicy.disposition` should say so on the log (NFR-OBS-1).
-- The probe that established all of this is in the session scratchpad, not the repo. **Rebuild it
-  rather than trusting this paragraph** if the behaviour is ever in doubt; three earlier versions of
-  it measured *nothing* (a SwiftUI `Window` scene launched from a CLI binary never materialises a
-  window, and every mode reported `sheets = 0`) and were only caught because the probe asserted the
-  sheet was attached before trusting its own verdict.
-
-### The human checks it owes
-
-⌘Q under the pre-run dialog during a run, ⌘Q under the report sheet, ⌘Q under the gate, and the
-existing chunk 6 quit boundary re-run unchanged.
-
----
-
 ## Settled — do not re-open
 
 | Decision | Date |
@@ -125,7 +73,9 @@ existing chunk 6 quit boundary re-run unchanged.
 | The app-side rate properties were **renamed** to match — `sustained*` describes what Core still computes, not what the wire carries | 2026-09-03 |
 | Protocol **v14**, not folded into the uncommitted v13 — v13 stays as written, so the record is chronological | 2026-09-02 |
 | The gate re-checks on app activation while gated; **no third button** on `requiresApproval` | 2026-08-27 |
-| ⌘Q under a sheet is fixed **app-wide as increment 12**, not folded into increment 9 | 2026-08-27 |
+| ~~⌘Q under a sheet is fixed **app-wide as increment 12**, not folded into increment 9~~ **built, increment 12** | 2026-08-27 |
+| **Which modals a ⌘Q may discard**: the run report and the launch gate, yes; the pre-run prompt, the failure alert and the quit confirmation are **refused visibly** (the menu item greys). More than one flagged is refused | 2026-09-04 |
+| The launch gate's own Quit **button** shares the mechanism but never the policy — it must not be able to refuse | 2026-09-04 |
 | `versionMismatch` re-registers by **unregister-then-register**; no other state unregisters | 2026-09-01 |
 | The gate shows a **busy state** — remedies disabled, spinner + label, **Quit stays live** | 2026-09-01 |
 | A spinner, **not a wait cursor**: macOS has no hourglass, and a cursor cannot be rendered | 2026-09-01 |

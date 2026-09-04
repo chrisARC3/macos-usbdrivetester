@@ -246,7 +246,8 @@ Apple and both were found only because someone pressed the button.
 - **`NSApp.terminate(_:)` is a silent no-op while a sheet is attached** (measured 2026-08-27, AppKit
   probe). It is refused **before** `applicationShouldTerminate` is consulted, so `QuitPolicy` is not
   asked and nothing is logged. Ending the sheet first — in the *same* run-loop turn — is sufficient
-  and needs no delay:
+  **for a sheet AppKit owns**, and needs no delay. It is not sufficient for one SwiftUI owns; see the
+  bullet below, which is the case this app is actually in:
 
   | sheet attached | `applicationShouldTerminate` | outcome |
   |---|---|---|
@@ -274,12 +275,38 @@ Apple and both were found only because someone pressed the button.
   logging in the shipped app, not a probe**, which is why the quit path is now instrumented.
 - **This is what check 6.1 saw in increment 5** — "⌘Q during the pre-run dialog never reached
   `QuitPolicy`" — and `AppModel` carried a *guessed* cause beside it ("⌘Q reaches a different path")
-  for two increments before it was measured. **⌘Q is therefore dead under every sheet in this app**:
-  the pre-run dialog, the report sheet, and the launch gate. It fails safe and it fails silently.
-  Increment 9's gate fixes only its own Quit button; the app-wide fix is a separate increment by
-  decision of 2026-08-27, because ending a sheet in general dismisses prompts nobody answered.
+  for two increments before it was measured. **⌘Q was therefore dead under every window-modal
+  surface in this app.** There are **five**, not the three the increment plan named: a SwiftUI
+  `.alert` on macOS is presented as a window-modal sheet like any other, so the quit confirmation and
+  the run-failure/Full-Disk-Access alert blocked it exactly as the pre-run dialog, the report sheet
+  and the launch gate did. It failed safe and it failed silently.
+- **An app-declared menu command DOES run while a sheet is attached** (measured 2026-08-21 for ⇧⌘R,
+  chunk 11.11; and 2026-09-04 for a declared ⌘Q, increment 12 chunk 0). This is the fact the fix
+  rests on, and it is not the same as AppKit's terminate: SwiftUI cannot present a second sheet on
+  one window, so it **queues** the command's effect rather than swallowing the command. Without it
+  there would be no path in which a quit rule could be consulted at all.
+- **Fixed app-wide in increment 12 (2026-09-04).** Increment 9 fixed only the launch gate's own Quit
+  button, locally. The app now replaces AppKit's Quit item with one of its own — the only route that
+  is entered under a sheet — and that command asks `QuitPolicy.disposition(underModals:)`, a truth
+  table with one answer per surface (user decision, 2026-09-04):
 
-*Full account: `progress/step-09.md`, increments 3 and 4; the sheet measurement is increment 9's.*
+  | surface | ⌘Q does |
+  |---|---|
+  | nothing on screen | request the termination, unchanged |
+  | run report | discard it, then quit |
+  | launch gate | discard it, then quit |
+  | pre-run prompt | **refuse**, and grey the menu item |
+  | failure alert | **refuse**, and grey the menu item |
+  | quit confirmation | **refuse**, and grey the menu item |
+  | more than one flagged | **refuse** — the model cannot see SwiftUI's queue, so it does not know which is visible |
+
+  Blunt "end every sheet then quit" stayed rejected for the reason 2026-08-27 gave: under the pre-run
+  dialog it dismisses a prompt nobody answered. **The refusals are now visible rather than silent**,
+  which was the half of the defect that mattered — the menu item greys instead of staying black and
+  doing nothing. The modal table does **not** replace the run-boundary vote; they compose.
+
+*Full account: `progress/step-09.md`, increments 3 and 4; the sheet measurement is increment 9's, and
+the app-wide fix is Step 11 increment 12.*
 
 ### Metrics and reporting
 

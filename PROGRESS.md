@@ -18,18 +18,19 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–11 done; **increment 12 is next**
+## Step 11 — IN PROGRESS. Increments 1–11 done; **increment 12 is built and owes its walk**
 
-> **Cold start? Read *Where increment 12 starts* below** — it is the only status block in this file
-> that is current, re-derived 2026-09-04. Then `progress/step-11-increment-plans.md`, which holds
-> increment 12's full scope and nothing else.
+> **Cold start? Read *Current state — increment 12 built, its walk owed* below** — it is the only
+> status block in this file that is current, re-derived 2026-09-04. Then increment 12's own section,
+> and checklist **chunk 16**, which is what is actually owed.
 
-> ⚠️ **Increment 12 is planned, approved and unwritten.** Its full scope, the decisions behind it
-> and what must not be re-opened are in
+> ⚠️ **Increment 12's behaviour is built; its human walk is not.** The decisions behind it and
+> what must not be re-opened are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
 > **Read it before starting it** — the decisions were argued through at length and
-> re-deriving them will not reach the same answers. Increments 9, 10 and 11's sections have been
-> deleted from that file, as its header instructs, now that those increments have landed.
+> re-deriving them will not reach the same answers. **All four sections — 9, 10, 11 and 12 — have
+> been deleted from that file**, as its header instructs, now that those increments have landed.
+> What is left there is the settled-decision table, and **no increment is planned in it right now**.
 >
 > ⚠️ **This block said "increments 1–10 done; increment 11 is next" and "increments 11 and 12 are
 > unwritten" until 2026-09-03, with increment 11 committed at `05b7ea7` and its docs commit at
@@ -138,8 +139,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **8 ✅** | FR-RPT-4's "stopped by user"; FR-CTRL-5 **built and then withdrawn** — the control was redundant with Stop-then-Start, so the requirement is met by composition; the Run Report becomes a **sheet on the main window**. Two user decisions arrived mid-increment that this row did not predict: the refusal lines under the run buttons deleted, and the negotiated **USB link speed moved to before the run** | **code done 2026-08-22/23** — `0f65be4` + `916a630`. **Gated 2026-08-24** — three clean builds, all three Step 10 hardware gates at 0 failures, and the docs pass. **Chunk 12 passed in full 2026-08-25** — all eight items, `e0f4415`. **Item 7.5 and the chunk 8 item 3 recheck closed 2026-09-01** |
 | **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 passed in full 2026-08-27/09-01**, and found five defects; `8b0db53`, `bd8281d`, `2ed5984` |
 | **10 ✅** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check is an injected operation in `DevicePreparation`, **before the unmount**, with a two-button alert. The **readiness banner** is gone entirely, and `DeviceListView` no longer holds an XPC connection at all — which the plan did not predict. **`Covering` was deleted from three surfaces, not one** | **done 2026-09-02 `6b809cc`** — see below. Built in three chunks, suite green between each. App target only; v12 stands |
-| **11 ⬜** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which exists nowhere today. Deliberately **not** called "Progress speed" | **planned and approved, unwritten.** **Protocol v12 → v13**: hash moves, 13 gate clients, two gate scripts, hardware gates re-run |
-| **12 ⬜** | **⌘Q works under every sheet.** `NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit refuses it *before* `applicationShouldTerminate`, so `QuitPolicy` never votes. ⌘Q is therefore dead under the pre-run dialog, the report sheet and the launch gate. **Unplanned**: produced by walking chunk 13, and it is the true cause of increment 5's check 6.1 | **planned and approved, unwritten.** App target only. Increment 9 fixed only the gate's own Quit button, by user decision |
+| **11 ✅** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which existed nowhere. **FR-METR-1 was then amended mid-increment**: the displayed rates divide by *phase* time, not running time, so Read and Write no longer share a denominator and "Read is about twice Write" stopped being a counting identity. **Protocol v13 → v14**, not folded into v13 | **done 2026-09-03 `05b7ea7`**, docs `c0d2596`. **Chunk 15 written and walked the same day, `d155eef`** — five items, all passed; two of its original seven were deleted before either could be walked. ⚠️ **This row said "planned and approved, unwritten" until 2026-09-04**, five days after the increment landed and one day after the status block above was corrected for exactly this — found by increment 12's stale-claim sweep, which is what the `grep -rn` check in that block exists to do |
+| **12 🟨** | **⌘Q works under every modal.** `NSApp.terminate(_:)` is a silent no-op while a sheet is attached, so ⌘Q ran **no code of this app's at all** under any of its window-modal surfaces — **five of them, not the three the plan named**, because a SwiftUI `.alert` on macOS is presented as a sheet. The app now declares its **own** Quit command (the only route that is entered under a sheet) and asks a per-surface truth table. **Unplanned**: produced by walking chunk 13, and it is the true cause of increment 5's check 6.1 | **built 2026-09-04, walk owed.** App target only; **helper hash unmoved**, so increment 11's three hardware gates stand. Chunks 0–3: `7860f54`, `a0d8881`, `7106dd3`, + this one. **Chunk 16 is owed**, and 6.1 and 11.7 need re-walking at changed expectations |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -148,7 +149,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 
 ### Where increment 8 starts
 
-> **A dated snapshot, not the current state.** For that, read *Where increment 12 starts* below.
+> **A dated snapshot, not the current state.** For that, read *Current state — increment 12 built,
+> its walk owed* below.
 
 Re-derived on 2026-08-20 rather than quoted. **No tree hash is named on purpose** — it would be
 stale by the next commit, which is the failure mode this project keeps paying for. `git log
@@ -176,7 +178,8 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 
 ### Where increment 11 starts
 
-> **A dated snapshot, not the current state.** For that, read *Where increment 12 starts* below.
+> **A dated snapshot, not the current state.** For that, read *Current state — increment 12 built,
+> its walk owed* below.
 
 Re-derived 2026-09-02. **No tree hash is named on purpose** — it would be stale by the next commit,
 which is the failure mode this project keeps paying for.
@@ -218,6 +221,27 @@ dated snapshots of earlier moments and are not current. No tree hash is named, o
 **Increment 12 is app-side only.** It touches no file in the helper hash set, so every gate result
 in this block stands until it does — and if a change makes the hash move, the three hardware gates
 lapse with it. Check the hash before assuming they hold.
+
+### Current state — increment 12 built, its walk owed
+
+**Re-derived 2026-09-04 after chunk 3, and this is the block a cold start should read.** Every
+*"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
+
+**A separate block rather than an edit to the one above**, deliberately: that one is titled *where
+increment 12 starts* and it is true of that moment. Editing a snapshot with later news is the defect
+this file's own ⚠️ describes, and increment 11's block was caught doing it on 2026-09-03.
+
+| | |
+|---|---|
+| **Working tree** | clean, on `main`. Chunks 0–2 pushed; this chunk is not |
+| **Verified** | **1121 tests, 0 failures, 136 suites in 49.5 s** (floor `scripts/.test-floor` = 1121). Zero Swift source warnings. The three-clean-builds and gate-client figures are increment 11's and have **not** been re-measured — that is increment 12's close, not this chunk |
+| **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
+| **Protocol** | **v14** |
+| **Human checklist** | **16 chunks. Chunk 16 is OWED** (nine items, ⌘Q under every modal), and **6.1** and **11.7** are owed a **re-walk** at changed expectations — 6.1 now asks for the menu item to be greyed, 11.7 now expects ⌘Q to discard the report and quit. 13.4 gained a line and does not need re-walking. Chunks 1–15 are walked and passed |
+| **Owed** | **chunk 16, the two re-walks, and increment 12's close** (three clean builds with DerivedData wiped, helper hash re-derived) |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug, built **2026-09-03 12:52** — **older than increment 12 and therefore not walkable.** Chunk 16 and the two re-walks need a reinstall first. The daemon does **not** need kickstarting: the helper hash has not moved |
+| **Fixture** | unchanged from the block above. ⚠️ The 1 TB T5's `fill.bin` is still deleted; restore it before the retention gate is run again |
+| **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
 ### What increment 8 owes
 
@@ -1179,10 +1203,13 @@ Three defects, all reported at the keyboard:
 
 **Defect 1's cause is bigger than the gate, and was measured rather than reasoned.**
 `NSApp.terminate(_:)` is a silent no-op while a sheet is attached: AppKit refuses it *before*
-`applicationShouldTerminate`, so `QuitPolicy` is never asked. **⌘Q is dead under every sheet in this
-app** — pre-run dialog, report sheet, gate. That is the true cause of increment 5's check 6.1, which
-had a *guessed* cause sitting beside it in `AppModel` for two increments. Fixed locally for the gate
-by user decision (*"fix the gate only and proceed"*); **planned as increment 12** for the rest.
+`applicationShouldTerminate`, so `QuitPolicy` is never asked. **⌘Q was dead under every window-modal
+surface in this app** — and there are **five**, not the three named here at the time: a SwiftUI
+`.alert` is presented as a sheet, so the quit confirmation and the failure alert blocked it too.
+That is the true cause of increment 5's check 6.1, which had a *guessed* cause sitting beside it in
+`AppModel` for two increments. Fixed locally for the gate by user decision (*"fix the gate only and
+proceed"*); **built app-wide as increment 12 on 2026-09-04**, which is where the count of five was
+established.
 
 Three earlier versions of the probe measured **nothing** — a SwiftUI `Window` scene launched from a
 CLI binary never materialises a window, so every mode reported `sheets = 0` — and were caught only
@@ -1783,6 +1810,84 @@ the 15/15 above is.
 harness path in about a minute. It is not evidence — the script says so loudly, and it cannot see a
 write that landed outside the margin — but it establishes whether the reporting path works before
 88 minutes are spent on a run that may not be able to report.
+
+
+### Increment 12 🟨 — ⌘Q under every modal. Built 2026-09-04, walk owed. `7860f54` + `a0d8881` + `7106dd3` + this commit
+
+**The full account of each chunk is in its commit message; this is the summary.** App target only,
+**helper hash unmoved** at `e6888aa5…13f627` — checked after every chunk, because if it moved,
+increment 11's three hardware gates would lapse with it.
+
+#### What the defect actually was, which is not what the plan said
+
+`NSApp.terminate(_:)` is a silent no-op while a sheet is attached — AppKit refuses it *before*
+`applicationShouldTerminate`, so `QuitPolicy` never voted. The plan's fix was *"a rule per sheet"*,
+and the load-bearing fact underneath that was never written down: **⌘Q under a sheet runs no code of
+this app's at all**, so there is no quit path to put a rule in. What *does* run under a sheet is an
+**app-declared menu command** — measured for ⇧⌘R on 2026-08-21 and for a declared ⌘Q in chunk 0. So
+the increment is a `CommandGroup(replacing: .appTermination)` first, and a rule second.
+
+**Two of the plan's statements were wrong and are corrected at their sites:**
+
+| Plan said | Actually |
+|---|---|
+| three sheets: the pre-run dialog, the report, the gate | **five window-modal surfaces** — a SwiftUI `.alert` on macOS is presented as a sheet, so the quit confirmation and the failure/FDA alert block ⌘Q identically. Found by grepping for every modal rather than trusting the list |
+| *"no delay is needed and none should be used"* | one `scheduleOnNextTurn` hop **is** required. That bullet was the AppKit probe's measurement; a sheet SwiftUI owns comes down only when its presentation state reads `false`, measured in the shipped app 2026-08-31. The hop is not a wait for an animation |
+
+#### Which modals a quit may discard — user decision, 2026-09-04
+
+The report and the launch gate: discarded, and the app goes. The pre-run prompt, the failure alert
+and the quit confirmation: **refused visibly**, with the menu item greyed. More than one flagged:
+refused, because the model cannot see SwiftUI's presentation queue and so does not know which one is
+on screen.
+
+**The failure alert is the only modal a user did not open**, so a ⌘Q at that instant is now refused
+rather than obeyed. That was flagged at the time and chosen anyway; chunk 16 item 4 asks a person
+whether it reads well at the keyboard.
+
+**It answers a question checklist 11.7 left open on 2026-08-21** — *"whether the report ought to
+block quitting … deliberately left open until this has been seen"*. It has been seen; it ought not.
+
+#### The four chunks
+
+| | | |
+|---|---|---|
+| **0** | `7860f54` | The app's own Quit command, behaviour-neutral. A pre-flight: the whole design rests on a *declared* ⌘Q firing under a sheet, and that was measured for ⇧⌘R only. **Walked at the keyboard, five surfaces, all five fired.** 1093 → 1097 |
+| **1** | `a0d8881` | `AppModal` + `QuitPolicy.disposition(underModals:)` — the truth table, pure and exhaustive. 1097 → 1112; mutation 3/3 caught |
+| **2** | `7106dd3` | The wiring: `presentedModals`, `mayQuitFromMenu`, `dismissThenTerminate(_:)`, `dismissForQuit(_:)`, and the log instruments. 1112 → 1121; mutation **6/6 caught** |
+| **3** | this commit | Docs and the stale-claim sweep. No behaviour change |
+
+**1121 tests, 0 failures, 136 suites in 49.5 s**, floor ratcheted at every chunk. Two of the new
+tests walk **all 32 combinations** of the five surfaces rather than the ones someone thought of —
+which is the mistake this increment exists to correct: three sheets were added over three increments
+and each silently killed ⌘Q, because nothing had to have an opinion about the new one.
+
+#### A design flaw caught before it was written
+
+Chunk 1 was first specified with the precedence order alone deciding everything, on the claim that
+*"a `dismiss` answer implies exactly one modal flagged"*. It does not: `topmost` of
+`{helperGate, runReport}` returns `.helperGate`, which is discardable, with two flagged. The table
+now takes the whole `Set` and refuses outright when more than one is present, so the property is
+**structural** rather than argued, and `everyAmbiguousSetIsRefused` walks all 32 subsets to say so.
+Precedence's only remaining job is choosing which sentence a refusal gives.
+
+#### The gate's own Quit button shares the mechanism and not the decision
+
+`quitFromGate()` is one line into `dismissThenTerminate(.helperGate)` and deliberately does **not**
+consult the table. That button *is* the decision, taken by a user looking at a screen they cannot get
+past; routing it through the policy would make it refuse whenever a second modal happened to be
+flagged. Mutation **M6** is exactly that tidiness, and it is caught.
+
+#### What is owed
+
+**Checklist chunk 16** — nine items, ⌘Q under every modal — plus **re-walks of 6.1 and 11.7** at
+changed expectations, and increment 12's close (three clean builds, DerivedData wiped, hash
+re-derived). **The installed app is older than the increment**, so a reinstall comes first.
+
+**Carried into the walk as an open observation:** the wind-down's own terminate in `beginRelease()`
+fires while the confirmation alert may still be dismissing, and `QuitSequence` logs nothing at all,
+so that path has no observability. Chunk 6.3 passed empirically; it has never been looked at with a
+log.
 
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five

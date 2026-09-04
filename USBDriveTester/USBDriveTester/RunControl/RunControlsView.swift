@@ -134,22 +134,31 @@ struct RunControlsView: View {
         // `Toggle` in it, which an alert cannot hold. `item:` rather than `isPresented:` so the
         // prompt and its presentation are one value — two would be a state pair that can disagree.
         //
-        // ## The sheet is modal to the window, and that GATES QUITTING (user decision 2026-08-18)
+        // ## The sheet GATES QUITTING (user decision 2026-08-18, re-decided 2026-09-04)
         //
-        // Observed on hardware: while this sheet is up, **neither ⌘Q nor File ▸ Quit does
-        // anything**. The sheet intercepts them before `applicationShouldTerminate` is reached, so
-        // `QuitPolicy.disposition` — which would answer `.quitImmediately`, there being no run
-        // active — is never consulted at all. The user must answer or Cancel first.
+        // Observed on hardware: while this sheet was up, **neither ⌘Q nor File ▸ Quit did
+        // anything**. `NSApp.terminate(_:)` is refused before `applicationShouldTerminate` is
+        // consulted while a sheet is attached, so `QuitPolicy` — which would have answered
+        // `.quitImmediately`, there being no run active — was never asked at all.
         //
-        // **This is wanted, and is not to be "fixed".** The sheet is the last thing standing
-        // between a selected drive and a write; making it dismissable by a keystroke that means
-        // something else would be the wrong direction. Cancel is one click away, and nothing is
-        // claimed while the sheet is up, so nothing can be stranded by refusing the quit.
+        // **The refusal is wanted and was kept. Its silence was not, and is gone.** The sheet is
+        // the last thing standing between a selected drive and a write; making it dismissable by a
+        // keystroke that means something else would be the wrong direction, and 2026-09-04
+        // re-affirmed that against the alternative. Cancel is one click away, and nothing is
+        // claimed while the sheet is up, so nothing is stranded by refusing.
         //
-        // Worth knowing that no test can see this: `AppModelQuitTests` exercises the policy, and
-        // the policy is not the thing deciding. It is the same blind spot that hid the paused
-        // panel — presentation-layer behaviour that the model tests cannot reach — and it is why
-        // the human checklist covers it.
+        // What increment 12 changed is *how* the refusal happens and how it reads. The app now
+        // declares its own Quit command — AppKit's item runs no code of this app's under a sheet,
+        // so there was no path a rule could live in — and that command asks
+        // `QuitPolicy.disposition(underModals:)`, which answers `.refuse` for this surface by name.
+        // The item **greys out** rather than staying black and doing nothing, which was the half of
+        // the old behaviour that read as a broken app.
+        //
+        // The refusal is covered now, where it used to be beyond reach:
+        // `everyModalThePolicyRefusesIsLeftExactlyWhereItWas` walks every refused surface, and
+        // `theMenuItemIsOfferedExactlyWhereThePolicyDoesNotRefuse` walks all 32 combinations. What
+        // no test can still see is the `.disabled` modifier that *shows* it — nothing automated
+        // compiles `USBDriveTesterApp.swift` — so the greying itself stays on the human checklist.
         //
         // ## WHAT THIS DOES **NOT** MEAN, measured 2026-08-21
         //
@@ -159,6 +168,10 @@ struct RunControlsView: View {
         // window it queued the report and presented it the instant this dialog was cancelled. ⌘Q is
         // AppKit's terminate and takes a different path from an app-declared command; only that
         // path is intercepted. `AppModel.reportMayBeRaisedFromMenu` is where the consequence lives.
+        //
+        // **That measurement is what made increment 12 possible**, and it is worth seeing why: if a
+        // sheet really did swallow menu commands there would have been no route by which any quit
+        // rule could be consulted, and the defect would have had no fix short of not using sheets.
         // **The dialog's state is `AppModel.pendingPrompt`, not this view's** (2026-08-21). It was
         // `@State` here until chunk 11.11 pressed ⇧⌘R with this sheet open: the menu item lives in
         // the scene's `commands` builder, which has no environment and could not see a view's
