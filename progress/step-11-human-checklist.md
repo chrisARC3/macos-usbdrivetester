@@ -651,9 +651,26 @@ need a real run; 8–10 do not.
    > by accident. If ⌘Q does **nothing** here, the fix has regressed; if it quits but leaves the
    > report's sheet on screen for an instant first, say so, because the ordering is the fix.
 
-8. **Ask for a run that cannot start** — the easiest is to pull the drive after selecting it, or
-   otherwise make preparation fail. The failure is reported **and no report sheet appears**. A sheet
-   reading "No run has finished yet" straight after pressing Start would be worse than none.
+8. **Ask for a run that cannot start.** Select a drive, press **Start**, and **while the pre-run
+   dialog is up, unplug that drive.** Then press Proceed. Preparation aborts and the failure is
+   reported — **and no report sheet appears.** A sheet reading "No run has finished yet" straight
+   after pressing Start would be worse than none.
+
+   > ⚠️ **The induction was rewritten on 2026-09-04, at the keyboard, because the old one no longer
+   > works.** It read *"the easiest is to pull the drive after selecting it"*. It is not: pulling a
+   > drive that is merely selected makes `DeviceDiscovery` drop it from the list and **move the
+   > selection to the next drive**, so Start then runs a perfectly good test on a *different* drive.
+   > Walked that way on 2026-09-04 and it wrote to the drive below the one that had been chosen.
+   >
+   > **The dialog is the timing window, and it is unlimited.** `RunController` captures the device
+   > in `PendingStart` at the **press**, so the prompt, the run, the report and the metrics panel all
+   > name the drive that was chosen — and preparation goes ahead against that captured drive even
+   > once discovery has moved on. Pulling it while the dialog waits therefore aborts preparation
+   > reliably, and nothing is unmounted, because nothing is unmounted until the dialog is answered.
+   >
+   > **This is not a defect in the app** — it is FR-DEV-7 keeping the list current, and the capture
+   > is what stops the prompt naming one drive while the run writes another. It is a defect in this
+   > item, which had gone stale without anything noticing.
 
 9. **Open the diagnostics window (⇧⌘D), leave it in front, and finish a run.** The **main window
    comes forward** with the report on it. A sheet on a window behind another one is a dialog nobody
@@ -1313,17 +1330,21 @@ including window class names.
    > This route did not exist before increment 12. Increment 9 fixed only the button on the sheet.
 
 4. **⌘Q under the failure alert is refused, and the item is greyed.** *(a run is asked for and must
-   fail; nothing is written)* Induce it exactly the way **7.8** does — **pull the drive after
-   selecting it**, so *preparation* fails. Do **not** pull a drive during a run: this item needs a
-   run that cannot start, not one interrupted. The 125.8 MB UDisk thumb is the cheapest fixture.
+   fail; nothing is written)* Induce it the way **7.8** does: select a drive, press **Start**, and
+   **while the pre-run dialog is up, unplug that drive**, then press Proceed. Preparation aborts
+   against the drive captured at the press and the failure alert appears. The 125.8 MB UDisk thumb
+   is the cheapest fixture. Do **not** pull a drive during a run — this item needs a run that cannot
+   *start*, not one interrupted.
 
    With the failure alert up, open the app menu: **Quit USBDriveTester is greyed**. ⌘Q does nothing.
    Dismiss the alert; ⌘Q quits.
 
-   > ⚠️ **This item said "press Start, answer the prompt, then pull the drive" when it was written on
-   > 2026-09-04, and that is a paraphrase of 7.8 that changed what it asks for** — it puts the walker
-   > in the middle of a write for no reason. Corrected before it was ever walked. The lesson is this
-   > file's own, recorded at chunk 14: restating an item is as capable of breaking it as editing one.
+   > ⚠️ **This induction was got wrong twice on the day it was written, and both are recorded.**
+   > First it read *"press Start, answer the prompt, then pull the drive"* — a paraphrase of 7.8 that
+   > changed what it asks for, putting the walker in the middle of a write for no reason. Corrected
+   > to 7.8's own wording, and then **7.8's wording turned out not to work either**: pulling a merely
+   > selected drive moves the selection to the next one and Start runs a good test on that. Found at
+   > the keyboard on the first walk of this item. See 7.8, which is corrected too.
 
    > **This is the one behaviour change nobody asked for**, and it is here because of that. A failure
    > alert is the only modal in this app the user did not open, so a ⌘Q at that instant is a
