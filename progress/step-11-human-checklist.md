@@ -88,15 +88,29 @@ divided by running time*; asked again on 2026-09-02, it led to FR-METR-1 being a
 and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel now reads Write
 **above** Read. The answer given here was correct for the build it was given about.
 
-> **CHUNK 16 IS OWED, and two items elsewhere are owed a RE-WALK, as of 2026-09-04.** Increment 12
-> added chunk 16 — nine items, ⌘Q under every modal — and changed what two already-passed items must
-> now show: **6.1** (the refusal under the pre-run dialog is unchanged, but the item now asks for the
-> menu to be *greyed*, where before it asked only that nothing happen) and **11.7** (⌘Q under the
-> report now **discards it and quits**, which reverses that item's expectation for the second time —
-> it is the answer to the question 11.7 left open "until this has been seen"). **13.4** gained a
-> line and does not need re-walking on its own. Nothing else in this file is affected.
+> **CHUNK 16 PASSED IN FULL — ALL NINE ITEMS, 2026-09-04**, the day it was written. **6.1 and 11.7
+> are still owed a re-walk** at expectations increment 12 changed: 6.1 now asks for the menu item to
+> be *greyed* where it used to ask only that nothing happen, and 11.7 now expects ⌘Q to **discard the
+> report and quit**, reversing that item for the second time. **13.4** gained a line and does not
+> need re-walking on its own.
 >
-> **This block was rewritten in the same commit as the chunk**, which is what the ⚠️ four paragraphs
+> **The walk found one defect in the product and three in this file**, which is a ratio worth
+> noticing in a chunk written the same morning:
+>
+> * **`Cancel and Quit` did not quit** — since increment 8, thirteen days. Found by 16.5, fixed by
+>   `8f6be8e`. **6.3 has been re-walked and passes**, in the hardest form of the state.
+> * **16.4's induction did not work, and neither did 7.8's**, which it was copied from: pulling a
+>   selected drive now moves the selection and Start runs a good test on the next drive. Both
+>   corrected to pull it while the pre-run dialog waits.
+> * **16.7 was unwalkable** — it asked for a reading off a log line that carried no inventory.
+> * **16.8 was unusable** — 112 false errors in six hours, all from the test host. The fix is in the
+>   app: the backstop no longer fires when the termination is stubbed.
+>
+> **It also settled a belief this app had acted on for three increments without measuring it**: a
+> SwiftUI `.alert` on macOS *is* a window-modal sheet — `1 sheet(s) [_NSAlertPanel]` — so the count
+> of **five** surfaces is right and the increment plan's "three sheets" was wrong.
+>
+> **This block was rewritten in the same commit as the walk**, which is what the ⚠️ four paragraphs
 > below demands and what it has caught this file failing three times.
 >
 > **Everything else was walked and passed.** Chunk 15 was written and walked on 2026-09-03 — five
@@ -1320,7 +1334,7 @@ live item 4 below it, which is exactly the collision this record is about.)*
    the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
-### Chunk 16 — ⌘Q under every modal (increment 12) *(item 4 needs a run; the rest are dry)*
+### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** *(item 4 needs a run; the rest are dry)*
 
 **Read this first.** The app no longer uses AppKit's Quit item. It declares its own, so that a
 keystroke arriving under a sheet reaches code at all — AppKit refuses `NSApp.terminate(_:)` *before*

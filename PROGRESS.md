@@ -234,12 +234,12 @@ this file's own ⚠️ describes, and increment 11's block was caught doing it o
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. Chunks 0–2 pushed; this chunk is not |
-| **Verified** | **1121 tests, 0 failures, 136 suites in 49.5 s** (floor `scripts/.test-floor` = 1121). Zero Swift source warnings. The three-clean-builds and gate-client figures are increment 11's and have **not** been re-measured — that is increment 12's close, not this chunk |
+| **Verified** | **1123 tests, 0 failures, 136 suites** (floor `scripts/.test-floor` = 1123). Zero Swift source warnings. The three-clean-builds and gate-client figures are increment 11's and have **not** been re-measured — that is increment 12's close, not this chunk |
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
 | **Protocol** | **v14** |
-| **Human checklist** | **16 chunks. Chunk 16 is OWED** (nine items, ⌘Q under every modal), and **6.1** and **11.7** are owed a **re-walk** at changed expectations — 6.1 now asks for the menu item to be greyed, 11.7 now expects ⌘Q to discard the report and quit. 13.4 gained a line and does not need re-walking. Chunks 1–15 are walked and passed |
-| **Owed** | **chunk 16, the two re-walks, and increment 12's close** (three clean builds with DerivedData wiped, helper hash re-derived) |
-| **Installed app** | `/Applications/USBDriveTester.app`, Debug, **built 2026-09-04 08:47 — chunk 0's build**, installed to walk chunk 0's pre-flight. It has `quitRequestedFromMenu` and **none of chunks 1–2**: `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib` reads `mayQuitFromMenu` 0, `dismissThenTerminate` 0, `AppModal` 0 against 4 / 7 / 61 on a current build. **Not walkable for chunk 16.** ⚠️ **Kickstart the daemon after reinstalling** — `install-app.sh` replaces the helper binary underneath the running daemon, and BUILD-PLAN's rule is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly this increment's case |
+| **Human checklist** | **16 chunks. Chunk 16 PASSED IN FULL 2026-09-04**, all nine items, the day it was written — it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1 and 11.7 are still owed a re-walk** at changed expectations. **6.3 has been re-walked and passes** against the fix |
+| **Owed** | **the 6.1 and 11.7 re-walks, and increment 12's close** (three clean builds with DerivedData wiped, helper hash re-derived) |
+| **Installed app** | ⚠️ **Reinstall before the 6.1 and 11.7 re-walks** — the build in `/Applications` predates `863d59f`. Historical note: `/Applications/USBDriveTester.app`, Debug, **built 2026-09-04 08:47 — chunk 0's build**, installed to walk chunk 0's pre-flight. It has `quitRequestedFromMenu` and **none of chunks 1–2**: `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib` reads `mayQuitFromMenu` 0, `dismissThenTerminate` 0, `AppModal` 0 against 4 / 7 / 61 on a current build. **Not walkable for chunk 16.** ⚠️ **Kickstart the daemon after reinstalling** — `install-app.sh` replaces the helper binary underneath the running daemon, and BUILD-PLAN's rule is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly this increment's case |
 | **Fixture** | unchanged from the block above. ⚠️ The 1 TB T5's `fill.bin` is still deleted; restore it before the retention gate is run again |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
@@ -1878,16 +1878,47 @@ consult the table. That button *is* the decision, taken by a user looking at a s
 past; routing it through the policy would make it refuse whenever a second modal happened to be
 flagged. Mutation **M6** is exactly that tidiness, and it is caught.
 
+#### Chunk 16 — WALKED AND PASSED IN FULL, all nine items, 2026-09-04
+
+Written and walked the same day. **It found one defect in the product and three in the checklist**,
+and it settled a belief the app had acted on for three increments without measuring.
+
+**The open observation carried into the walk was the defect.** It was recorded as *"the wind-down's
+own terminate fires while the confirmation alert may still be dismissing, and `QuitSequence` logs
+nothing, so that path has no observability"* — and 16.5 found that **`Cancel and Quit` did not
+quit**. `RunController` raises the report sheet before it releases the drive, so the wind-down asked
+AppKit to terminate with a sheet attached and was refused before `applicationShouldTerminate`. Every
+other route was fixed by increment 12; this one was never routed through the fix. **Since increment
+8 (2026-08-22), thirteen days.** Chunk 6.3 passed on 2026-08-18, four days before the report became
+a sheet, and was never re-walked. Fixed in `8f6be8e`; 6.3 re-walked and passes, in the hardest form
+of the state — the confirmation left up until the run finished under it, so the report was raised
+behind it.
+
+**A SwiftUI `.alert` IS a window-modal sheet**, measured by 16.7 at the keyboard:
+`state=confirming; 2 window(s), 1 sheet(s) [_NSAlertPanel]; key=_NSAlertPanel`. So the **five**
+surfaces this increment claims are right and the increment plan's *"three sheets"* was wrong. The
+class name differs from a `.sheet`'s `SheetPresentationWindow`, which is why the inventory prints
+names rather than a bare count. CONSTRAINTS §1 carries both.
+
+**Three defects in the checklist itself, all found on first walk:**
+
+| Item | What was wrong | Fix |
+|---|---|---|
+| **16.4**, and **7.8** it was copied from | The induction no longer works: pulling a *selected* drive moves the selection, and Start runs a good test on the next drive. 7.8 has said it since increment 5 | Pull it while the pre-run dialog waits — the device is captured in `PendingStart` at the press |
+| **16.7** | Unwalkable. It asked for a reading off a log line that carried no inventory — that was on the `error` branch only, and this is the `notice` branch | Inventory on both branches, plus `state=` |
+| **16.8** | Unusable. **112 false errors in six hours**, 17 per run of `test.sh`: the suite is hosted inside the app, stubs `terminateAction`, and so trips a backstop whose premise is that the termination is real | `terminationIsInjected`. The report belongs with the real termination, not with its callers |
+
+**16.5 failed once and did not reproduce.** The second ⌘Q under the confirmation was not greyed, and
+the model read `confirming=false`. With 16.7's measurement in hand the failing log can be read: it
+showed `0 sheet(s)`, and an alert on screen reads `1 sheet(s)`, so the dialog really had gone and
+the model was right. **Something dismissed it, and that is not explained.** Recorded at the item
+rather than deleted.
+
 #### What is owed
 
-**Checklist chunk 16** — nine items, ⌘Q under every modal — plus **re-walks of 6.1 and 11.7** at
-changed expectations, and increment 12's close (three clean builds, DerivedData wiped, hash
-re-derived). **The installed app is older than the increment**, so a reinstall comes first.
-
-**Carried into the walk as an open observation:** the wind-down's own terminate in `beginRelease()`
-fires while the confirmation alert may still be dismissing, and `QuitSequence` logs nothing at all,
-so that path has no observability. Chunk 6.3 passed empirically; it has never been looked at with a
-log.
+**Re-walks of 6.1 and 11.7** at expectations increment 12 changed, and increment 12's close (three
+clean builds, DerivedData wiped, hash re-derived). **A reinstall comes first** — `/Applications`
+predates `863d59f`.
 
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
