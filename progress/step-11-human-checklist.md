@@ -1466,9 +1466,29 @@ including window class names.
    > predicted the wrong name while being right about the substance, so expect either. Both set
    > `isSheet`; the names are how a reader tells one kind from the other.
 
-8. **Nothing anywhere prints `sheet(s) attached and the model accounts for none of them`.** That
-   error means a window-modal surface exists that nothing in the app has an opinion about — the exact
-   shape of this defect each of the three times it was introduced. Scan the whole chunk's log for it.
+8. **Scan the whole chunk's log for the three errors this path can emit.** Expect no output:
+
+       log show --last 6h --predicate 'subsystem == "com.arc3solutions.USBDriveTester"' --style compact \
+         | grep -E "accounts for none of them|nothing will retry it|refusing to discard"
+
+   * `accounts for none of them` — AppKit has a sheet attached that the model flags none of: a sixth
+     window-modal surface nobody taught the app about, which is the exact shape this defect took all
+     three times it was introduced.
+   * `nothing will retry it` — a termination was asked for, refused, and nothing is going to try
+     again. Under `state=terminating` that is the *Cancel and Quit* defect of 6.3 returning.
+   * `refusing to discard` — a caller took down a modal the policy refuses, i.e. ignored the table.
+
+   > ⚠️ **This item was unusable on its first walk, 2026-09-04, and the fix is in the app rather than
+   > here.** It returned **112** hits over six hours, every one of them false. The unit suite runs
+   > hosted *inside* the app bundle — same process name — and stubs `terminateAction` with a counter,
+   > so the backstop's premise (*still here a turn later means AppKit refused it*) was false and it
+   > fired **17 times per run of `test.sh`**. A real error would have been indistinguishable from the
+   > noise. `AppModel.terminationIsInjected` now silences the backstop whenever the termination has
+   > been replaced, which is the honest place for it: the report belongs to the real termination, not
+   > to its callers.
+   >
+   > If this returns hits again, **check the PIDs first**: several PIDs each with the same small
+   > number of lines, at `key=none` and `0 sheet(s)`, is a test run and not the app.
 
 9. **Out of scope, so it is not a finding.** The Dock icon's ▸ *Quit* calls `NSApp.terminate(_:)`
    directly and cannot be intercepted by any app-declared command, so under a modal it does what it

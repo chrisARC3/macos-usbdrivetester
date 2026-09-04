@@ -531,7 +531,29 @@ final class AppModel {
     /// Injected for two consumers that must not really terminate: the unit tests, and
     /// `tools/ui-probe`, which renders the winding-down banner — a state no render could otherwise
     /// reach, since getting there through the UI means quitting.
-    var terminateAction: () -> Void = { NSApp.terminate(nil) }
+    var terminateAction: () -> Void = { NSApp.terminate(nil) } {
+        didSet { terminationIsInjected = true }
+    }
+
+    /// Whether ``terminateAction`` has been replaced by something that does not terminate.
+    ///
+    /// **This exists to keep the `error` channel meaning something** (found walking checklist 16.8,
+    /// 2026-09-04). ``reportARefusedTermination(after:)`` rests on one premise — *if the app is
+    /// still here a turn after `terminateAction()`, the termination was refused* — and that premise
+    /// is **false the moment the action is injected**. The unit suite replaces it with a counter and
+    /// makes `scheduleOnNextTurn` synchronous, so every quit test reported a refusal that had not
+    /// happened: **17 errors per run of `test.sh`, 112 in six hours**, all of them from the test
+    /// host, which shares the app's process name because the bundle hosts it.
+    ///
+    /// That made 16.8 — *scan the log for the errors this path can emit* — unusable: a real one
+    /// would have been indistinguishable from the noise around it. An error channel that cries wolf
+    /// on every test run is not an instrument.
+    ///
+    /// **The backstop therefore belongs with the real termination, not with its callers**, which is
+    /// what this records. `didSet` does not fire for the property's own default, so the shipping app
+    /// leaves it `false` and reports refusals exactly as before; `tools/ui-probe` sets it too, and
+    /// should, for the same reason the tests do.
+    private var terminationIsInjected = false
 
     /// Detaches any sheet attached to one of the app's windows, so that a termination is not
     /// silently refused. See the `.quit` case of `performHelperGateAction(_:)` for the measurement.
@@ -859,6 +881,10 @@ final class AppModel {
     /// as *"the app's own guard answered it"*. It is the opposite: the app has decided to go and
     /// did not.
     private func reportARefusedTermination(after context: String) {
+        // See ``terminationIsInjected``: with a stubbed termination "still running" is the expected
+        // outcome, not a refusal, and reporting it drowns the real thing.
+        guard !terminationIsInjected else { return }
+
         scheduleOnNextTurn { [weak self] in
             guard let self else { return }
 
@@ -881,8 +907,8 @@ final class AppModel {
 
             case .idle, .terminating:
                 quitLog.error("""
-                              quit command: still running after \(context, privacy: .public) with \
-                              nothing left to try — the termination was refused, state=\
+                              quit command: still running after \(context, privacy: .public) — \
+                              the termination was refused and nothing will retry it, state=\
                               \(String(describing: self.quitState), privacy: .public); \
                               \(inventory, privacy: .public)
                               """)
