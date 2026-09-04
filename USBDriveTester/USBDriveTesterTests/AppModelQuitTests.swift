@@ -224,6 +224,79 @@ struct AppModelQuitTests {
                 "the quit is requested by the guard, not entered here")
     }
 
+    // MARK: - The app's own Quit menu item (increment 12, chunk 0)
+
+    /// **Chunk 0 is a pre-flight and must change no behaviour**, so this pins the two halves of
+    /// "does exactly what AppKit's item did": it terminates, once.
+    ///
+    /// `scheduleOnNextTurn` is made synchronous deliberately. The backstop that runs there exists
+    /// to *report* a refused termination, and a backstop that terminated a second time would be
+    /// the double-fire `QuitSequence` was built to rule out — so the count is asserted with that
+    /// closure having actually run rather than with it still pending.
+    @Test func theMenuQuitRequestsATerminationExactlyOnce() {
+        let bench = Bench()
+        bench.model.scheduleOnNextTurn = { $0() }
+
+        bench.model.quitRequestedFromMenu()
+
+        #expect(bench.terminations == 1)
+    }
+
+    /// **And it ends no sheet**, which is the half that says the pre-flight is not the fix.
+    ///
+    /// Ending a sheet from the general quit path is what chunks 1–2 are for, and it is gated on a
+    /// per-surface decision the user took on 2026-09-04: the report may be discarded, the pre-run
+    /// prompt and the failure alert may not. Doing it here — before that decision has a type to
+    /// live in — would dismiss prompts nobody answered, which is the exact reason this was scoped
+    /// out of increment 9.
+    @Test func theMenuQuitEndsNoSheetYet() {
+        let bench = Bench()
+        var sheetsEnded = 0
+        bench.model.dismissAttachedSheets = { sheetsEnded += 1 }
+
+        bench.model.quitRequestedFromMenu()
+
+        #expect(sheetsEnded == 0)
+    }
+
+    /// **The menu item takes no vote of its own**, with a run in flight — the state a second copy
+    /// of the rule would be most tempting in, and most damaging in.
+    ///
+    /// The vote belongs to `applicationShouldTerminate` asking ``AppModel/quitRequested()``. Were
+    /// it duplicated here, the two would eventually disagree and the run guard would have two
+    /// answers — the `helperHoldsDevice` shape this project has already deleted once.
+    @Test func theMenuQuitTakesNoVoteOfItsOwn() {
+        let bench = Bench()
+        bench.startARun()
+
+        bench.model.quitRequestedFromMenu()
+
+        #expect(bench.model.quitState == .idle,
+                "the confirmation is entered by the delegate's vote, not by the menu item")
+        #expect(bench.model.mayContinueRun, "and the run is untouched by the press")
+    }
+
+    /// **…and the guard it declines to duplicate is still met**, because the request goes out as an
+    /// ordinary `NSApp.terminate(_:)`.
+    ///
+    /// The two halves above and here are separate facts and it is their conjunction that carries
+    /// the property: the menu item decides nothing, *and* what it asks for is refused during a run.
+    /// `terminateAction` is stubbed, so this drives the delegate directly — which is the same thing
+    /// AppKit does with the real one, minus the process exiting.
+    @Test func theMenuQuitStillMeetsTheRunGuardByTheOrdinaryRoute() {
+        let bench = Bench()
+        bench.startARun()
+        let delegate = AppLifecycleDelegate()
+        delegate.model = bench.model
+
+        bench.model.quitRequestedFromMenu()
+        let reply = delegate.applicationShouldTerminate(NSApplication.shared)
+
+        #expect(reply == .terminateCancel)
+        #expect(bench.model.quitState == .confirming)
+        #expect(bench.model.quitConfirmationIsPresented)
+    }
+
     // MARK: - Closing the MAIN window quits (user decision 2026-08-06)
 
     /// The termination the guard requests after the window has closed. It goes through

@@ -166,6 +166,18 @@ struct USBDriveTesterApp: App {
         .defaultSize(width: WindowMetrics.defaultContentWidth,
                      height: WindowMetrics.defaultContentHeight)
         .commands {
+            // **The app declares its own Quit** (increment 12, chunk 0). `NSApp.terminate(_:)` is
+            // refused before `applicationShouldTerminate` while a sheet is attached, so AppKit's
+            // own item runs none of this app's code under any of its five window-modal surfaces —
+            // and a rule about which of them a quit may discard needs a path that is entered at
+            // all. See `AppModel.quitRequestedFromMenu()`, which is where that is written out.
+            //
+            // **A trigger, never a decision** — the rule this file's header records. Today the
+            // model method only logs and terminates, which is what AppKit's item did; chunks 1–2
+            // put the decision in a pure type this file does not contain.
+            CommandGroup(replacing: .appTermination) {
+                QuitCommand(model: model)
+            }
             CommandGroup(after: .windowList) {
                 // Handed the model rather than reading it from the environment: a `Scene`'s
                 // `commands` builder has no environment, which is also why each of these is a
@@ -184,6 +196,28 @@ struct USBDriveTesterApp: App {
                 .environment(model)
         }
         .defaultSize(width: 660, height: 720)
+    }
+}
+
+/// The app's **Quit USBDriveTester** item (⌘Q), replacing AppKit's.
+///
+/// **The title must match what AppKit generated**, which is `Quit ` plus `CFBundleName` — the
+/// target name, `USBDriveTester`. A replacement that reads differently would be the one visible
+/// sign that the standard item is gone, on a menu where nothing else changed.
+///
+/// **Not disabled by anything yet.** AppKit's item was always enabled and chunk 0 changes no
+/// behaviour; the states where a quit is refused get their `.disabled` in chunk 2, which is what
+/// turns a refusal from silent into visible.
+///
+/// Handed the model rather than reading it from the environment, for the reason the two commands
+/// below give: a `Scene`'s `commands` builder has no environment.
+private struct QuitCommand: View {
+
+    let model: AppModel
+
+    var body: some View {
+        Button("Quit USBDriveTester") { model.quitRequestedFromMenu() }
+            .keyboardShortcut("q")
     }
 }
 

@@ -645,6 +645,60 @@ final class AppModel {
         }
     }
 
+    /// The app's own **Quit** menu item was chosen — ⌘Q, or Apple menu ▸ Quit (increment 12).
+    ///
+    /// ## Why this app declares its own Quit at all
+    ///
+    /// `NSApp.terminate(_:)` is a **silent no-op while a sheet is attached**: AppKit refuses it
+    /// *before* `applicationShouldTerminate` is consulted (measured 2026-08-27, the table is in
+    /// CONSTRAINTS §1). So under any of this app's window-modal surfaces, ⌘Q runs **no code of this
+    /// app's at all** — which means there is no quit path to put a rule in, because the quit path
+    /// is never entered. That is the fact the increment plan's *"a rule per sheet"* rests on and
+    /// does not state.
+    ///
+    /// What *does* reach the app under a sheet is an **app-declared menu command**. Measured at the
+    /// keyboard on 2026-08-21 (chunk 11.11): ⇧⌘R ran with the pre-run dialog up, and SwiftUI queued
+    /// the report behind it rather than swallowing the command. Replacing AppKit's Quit item with
+    /// one of the app's own is therefore the only route by which any rule can be consulted.
+    ///
+    /// ## What this does TODAY, which is nothing but log
+    ///
+    /// **Increment 12 chunk 0 is a pre-flight, and this is deliberately behaviour-neutral.** The
+    /// one thing the whole design rests on — that a *declared* **⌘Q** fires while a sheet is
+    /// attached — is measured for ⇧⌘R and **not** for this, and a design committed to before its
+    /// premise is measured is what this project's pre-flights exist to prevent. So this ends no
+    /// sheet, takes no decision, and hands the request straight to ``terminateAction``, exactly as
+    /// AppKit's own item did. Two tests pin that: one that it terminates once, one that it ends
+    /// nothing.
+    ///
+    /// It also takes no vote. The vote stays where it was — `applicationShouldTerminate` asks
+    /// ``quitRequested()`` — so the during-a-run confirmation is reached by this route on the same
+    /// terms as every other, rather than by a second copy of the rule living here.
+    ///
+    /// ## The log lines are the instrument, not scaffolding (NFR-OBS-1)
+    ///
+    /// This path emitted nothing at all until 2026-08-27, which is why chunk 13's dead Quit button
+    /// could not be diagnosed from the archive and needed an AppKit probe to explain. Two lines,
+    /// and **the second one's absence is the measurement**: if the app is still running a turn
+    /// after `terminateAction()`, AppKit refused the termination; if it is not, the line never
+    /// appears and `AppLifecycleDelegate`'s `terminate requested` does instead.
+    func quitRequestedFromMenu() {
+        quitLog.notice("""
+                       quit command: prompt=\(self.pendingPrompt != nil, privacy: .public) \
+                       report=\(self.reportIsPresented, privacy: .public) \
+                       gate=\(self.helperGateIsPresented, privacy: .public) \
+                       confirming=\(self.quitConfirmationIsPresented, privacy: .public) \
+                       failure=\(self.runFailure != nil, privacy: .public); \
+                       \(AttachedSheets.inventory(), privacy: .public)
+                       """)
+
+        terminateAction()
+
+        scheduleOnNextTurn {
+            quitLog.notice("quit command: still running a turn later — the termination was refused")
+        }
+    }
+
     /// The app has been asked to terminate. Returns what the caller should do about it.
     func quitRequested() -> QuitDisposition {
         let disposition = QuitPolicy.disposition(runIsActive: runIsActive, quitState: quitState)
@@ -772,6 +826,36 @@ enum AttachedSheets {
                        ending sheets: \(windows.count) window(s), \(sheets.count) sheet(s), \
                        \(parentless) with no parent; \(remaining) still flagged afterwards
                        """)
+    }
+
+    /// How many sheets are attached to the app's windows right now.
+    ///
+    /// **AppKit's answer, not the model's.** The two are supposed to agree — the model knows which
+    /// modal it raised — and the interesting case is the one where they do not, because a modal
+    /// nothing in the model accounts for is a modal that silently kills ⌘Q. That is the whole
+    /// history of this defect: five window-modal surfaces, and nothing anywhere counted them.
+    static var attachedCount: Int { NSApp.windows.filter(\.isSheet).count }
+
+    /// What is attached right now, as one line for the log.
+    ///
+    /// Separate from ``endAll()`` on purpose: the quit path has to be able to *report* what it
+    /// found on a press that ends nothing, and a description produced only while ending sheets
+    /// cannot be read from a path that ends none.
+    ///
+    /// **The window class names are the point rather than decoration.** A SwiftUI `.alert` on
+    /// macOS is presented as a window-modal sheet like any other — which is why this defect covers
+    /// **five** surfaces and not the three the increment plan named — and the class name is what
+    /// tells one kind from another in a log read at the keyboard.
+    static func inventory() -> String {
+        let windows = NSApp.windows
+        let sheets = windows.filter(\.isSheet)
+        let described = sheets.map { sheet in
+            "\(type(of: sheet))\(sheet.sheetParent == nil ? " (no parent)" : "")"
+        }
+        let key = NSApp.keyWindow.map { "\(type(of: $0))" } ?? "none"
+        return "\(windows.count) window(s), \(sheets.count) sheet(s)"
+            + (described.isEmpty ? "" : " [\(described.joined(separator: ", "))]")
+            + "; key=\(key)"
     }
 }
 
