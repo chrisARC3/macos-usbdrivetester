@@ -314,6 +314,11 @@ deliberately not bound to the persisted preference.
    > since it was written — now logs every step. `theWindDownDiscardsTheReportBeforeItTerminates`
    > is the regression test.
    >
+   > ✅ **RE-WALKED AND PASSED 2026-09-04** against the fix, in the hardest form of the state: the
+   > confirmation was left up until the run finished underneath it, so the report was raised behind
+   > it, and *Cancel and Quit* still took both down and quit. That is the defect's own scenario plus
+   > the modal that caused it.
+   >
    > **The lesson is about this file, not about the app.** An item that passes is not a fact about
    > the build that comes after it. Increment 8 changed the presentation of the very thing this
    > item quits out of, and nothing re-ran it, because "chunks 1–7 passed in full" reads like a
@@ -1379,7 +1384,15 @@ including window class names.
 
    > A quit is already being asked about; a second question behind the first is not an answer to it.
    >
-   > ⚠️ **OPEN DEFECT, found on the first walk of this item, 2026-09-04. This step FAILS today.**
+   > ✅ **RE-WALKED AND PASSED 2026-09-04**, on a single press followed by *waiting*: the
+   > confirmation stayed on screen, a second ⌘Q did nothing, and the menu item was greyed. **The
+   > failure below did not reproduce and is not explained.** The log from the failing walk shows
+   > `1 window(s), 0 sheet(s)` on the second press, and it is now known that an alert on screen
+   > reads `2 window(s), 1 sheet(s) [_NSAlertPanel]` — so the dialog really was **gone** by then,
+   > and the model was right to say `confirming=false`. Something dismissed it. Left recorded rather
+   > than deleted: an unexplained dismissal of the quit confirmation is worth watching for.
+   >
+   > ⚠️ **What the failing walk saw, 2026-09-04, kept for whoever meets it again.**
    > The second ⌘Q was **not** greyed: it logged a full press reading `confirming=false` and was
    > answered `askFirst` all over again, so the app re-asked a question that was already on screen.
    > Between the two presses — with nothing touched — the model went from `.confirming` back to
@@ -1405,6 +1418,17 @@ including window class names.
    >
    > If this is fiddly to induce, say so and skip it — the property has cover over all 32
    > combinations in `AppModelQuitTests`. What is uncovered is only the greying.
+   >
+   > ✅ **REACHED AND PASSED 2026-09-04, and it is not fiddly at all** — it happens by *doing
+   > nothing*. Press ⌘Q during a short run, then simply wait: the run finishes underneath the
+   > confirmation and raises the report behind it. Quit stayed greyed, and *Cancel and Quit* then
+   > took both surfaces down and quit.
+   >
+   > **What this item cannot distinguish, and does not claim to**: Quit is greyed with the
+   > confirmation alone, so the greying alone does not prove the *ambiguity guard* fired rather than
+   > the single-modal refusal. The guard's own property is covered over all 32 subsets by
+   > `everyAmbiguousSetIsRefused`. What a person adds here is that the state is reachable by
+   > accident, which is the reason the guard exists.
 
 7. **What a SwiftUI `.alert` really is — read one log line.** During a run, press ⌘Q **once** to
    raise the confirmation. About a third of a second later this appears:
@@ -1430,6 +1454,17 @@ including window class names.
    > ⚠️ **This item was unwalkable when it was written**, because the line it names carried no
    > inventory: it was on the `error` branch of `reportARefusedTermination` only, and this line is
    > the `notice` branch. Found on the first walk, 2026-09-04, fixed the same day.
+   >
+   > ✅ **WALKED AND PASSED 2026-09-04, and the reading is recorded** — this item has done its job
+   > and is now a regression check rather than an open question:
+   >
+   >     state=confirming; 2 window(s), 1 sheet(s) [_NSAlertPanel]; key=_NSAlertPanel
+   >
+   > **A SwiftUI `.alert` IS a window-modal sheet.** The five-surface count stands, and ⌘Q really
+   > was dead under the quit confirmation and the failure alert as well as under the three
+   > `.sheet`s. **The class name is `_NSAlertPanel`, not `SheetPresentationWindow`** — this item
+   > predicted the wrong name while being right about the substance, so expect either. Both set
+   > `isSheet`; the names are how a reader tells one kind from the other.
 
 8. **Nothing anywhere prints `sheet(s) attached and the model accounts for none of them`.** That
    error means a window-modal surface exists that nothing in the app has an opinion about — the exact

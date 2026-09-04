@@ -280,6 +280,12 @@ Apple and both were found only because someone pressed the button.
   `.alert` on macOS is presented as a window-modal sheet like any other, so the quit confirmation and
   the run-failure/Full-Disk-Access alert blocked it exactly as the pre-run dialog, the report sheet
   and the launch gate did. It failed safe and it failed silently.
+- **A SwiftUI `.alert` on macOS really is a window-modal sheet — measured 2026-09-04**, at the
+  keyboard, with the quit confirmation on screen: `2 window(s), 1 sheet(s) [_NSAlertPanel];
+  key=_NSAlertPanel`. It was believed rather than measured for three increments. **The class name
+  differs from a `.sheet`'s** — a `.sheet` reports `SheetPresentationWindow`, an `.alert` reports
+  `_NSAlertPanel` — but both set `isSheet`, both block `NSApp.terminate(_:)`, and both are counted
+  by `AttachedSheets`. That is why the inventory prints class names rather than only a count.
 - **An app-declared menu command DOES run while a sheet is attached** (measured 2026-08-21 for ⇧⌘R,
   chunk 11.11; and 2026-09-04 for a declared ⌘Q, increment 12 chunk 0). This is the fact the fix
   rests on, and it is not the same as AppKit's terminate: SwiftUI cannot present a second sheet on
