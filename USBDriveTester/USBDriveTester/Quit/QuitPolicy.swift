@@ -203,3 +203,166 @@ nonisolated enum QuitPolicy {
         }
     }
 }
+
+// MARK: - Quitting from under a modal (Step 11 increment 12)
+
+/// A window-modal surface this app can have on screen.
+///
+/// ## Why the app has to name these at all
+///
+/// `NSApp.terminate(_:)` is refused **before** `applicationShouldTerminate` while a sheet is
+/// attached (measured 2026-08-27, CONSTRAINTS §1), so ⌘Q under one of these runs no code of this
+/// app's whatever. The app therefore declares its own Quit command to get a say at all — see
+/// ``AppModel/quitRequestedFromMenu()``, where that is written out. Once it has a say, the
+/// question it must answer is *which* modal is in the way, because the answer differs per
+/// surface: a report is a document somebody has finished reading, and the pre-run prompt is the
+/// last thing between a selected drive and a write.
+///
+/// ## FIVE, where the increment plan named three
+///
+/// A SwiftUI `.alert` on macOS is presented as a window-modal sheet like any other, so the quit
+/// confirmation and the run-failure/Full-Disk-Access alert block ⌘Q exactly as the three
+/// `.sheet`s do. Found by grepping for every modal in the app rather than by trusting the plan's
+/// list — *a plan naming one surface is not evidence there is only one*, which is what the
+/// `Covering` deletion paid for.
+///
+/// ## The case order IS the precedence
+///
+/// ``topmost(of:)`` consults `allCases` in order, so reordering these cases changes which modal a
+/// quit is answered against. The consequences are pinned **by name** in `QuitPolicyTests` rather
+/// than by a test that reads this order back — a test that agrees with any change is not a check.
+nonisolated enum AppModal: Hashable, CaseIterable {
+
+    /// "A test run is in progress" — the confirmation ⌘Q raises during a run. It outranks
+    /// everything: the user is already being asked about quitting, and a second question behind
+    /// the first is not an answer to it.
+    case quitConfirmation
+
+    /// The launch-time helper gate (increment 9). The app cannot be used at all until it clears.
+    case helperGate
+
+    /// FR-WARN-1/2/3's pre-run dialog.
+    case preRunPrompt
+
+    /// A failure that interrupts — a drive that could not be prepared, or the Full Disk Access
+    /// alert (increment 10).
+    case runFailure
+
+    /// The end-of-run report, a sheet on the main window since increment 8.
+    case runReport
+
+    /// What the log calls this. Not user-facing: the sentences a user is owed are
+    /// ``QuitPolicy/disposition(underModals:)``'s refusal reasons.
+    var loggingName: String {
+        switch self {
+        case .quitConfirmation: return "quit confirmation"
+        case .helperGate:       return "helper gate"
+        case .preRunPrompt:     return "pre-run prompt"
+        case .runFailure:       return "failure alert"
+        case .runReport:        return "run report"
+        }
+    }
+
+    /// Which of the presented modals a quit is answered against.
+    ///
+    /// **More than one can be flagged at once**, and this is reachable rather than hypothetical: a
+    /// run finishing while the quit confirmation is up sets `reportIsPresented` underneath it.
+    /// SwiftUI cannot show two sheets on one window and **queues** the second (measured at the
+    /// keyboard 2026-08-21, chunk 11.11) — and nothing in the model can see that queue, so the
+    /// model's idea of which one is *visible* may simply be wrong.
+    ///
+    /// That is why this only chooses the sentence. Which modal may be *discarded* is
+    /// ``QuitPolicy/disposition(underModals:)``'s, and it refuses outright whenever more than one
+    /// is flagged — see the note there.
+    static func topmost(of presented: Set<AppModal>) -> AppModal? {
+        allCases.first { presented.contains($0) }
+    }
+}
+
+/// What a quit request should do about whatever modal is on screen.
+nonisolated enum ModalQuitDisposition: Equatable {
+
+    /// Nothing is in the way. Ask for the termination exactly as any other route would, and let
+    /// `applicationShouldTerminate` take the vote.
+    case requestTermination
+
+    /// Take **this** modal down first — through its own presentation state, not with
+    /// `endSheet(_:)` — and then ask for the termination.
+    ///
+    /// **It carries which one on purpose.** A bare case would let a caller take down whichever
+    /// modal it happened to think was up, and dismissing the wrong one leaves the visible one
+    /// attached with the termination still refused, silently: the original defect, rebuilt by the
+    /// code meant to fix it.
+    case dismiss(AppModal)
+
+    /// This modal must be answered first, and here is why in a sentence.
+    ///
+    /// **The refusal is kept, and only its silence is removed.** The sentence reaches the log
+    /// (NFR-OBS-1) and the menu item greys out; there is nowhere on a disabled menu item to show
+    /// prose, and pretending otherwise would be the "correct value nobody can observe" defect in
+    /// a new place. What the user sees is that Quit is *unavailable*, rather than that it is
+    /// available and does nothing — which is the half of this defect that mattered.
+    case refuse(reason: String)
+}
+
+extension QuitPolicy {
+
+    /// The third truth table: what ⌘Q does about the modals that are up.
+    ///
+    /// **It does not duplicate ``disposition(runIsActive:quitState:)``, and must not.** This one
+    /// answers *"is anything in the way, and may it be discarded"*; that one answers *"would
+    /// quitting abandon a run"*. They compose — a report dismissed while the run is still
+    /// `finishing` still meets `.askFirst` a moment later — and collapsing them would be one flag
+    /// stating two facts, which is the misdiagnosis this project has already paid for.
+    ///
+    /// ## Which modals a quit may discard (user decision, 2026-09-04)
+    ///
+    /// | modal | answer | why |
+    /// |---|---|---|
+    /// | none | request the termination | unchanged from before this increment |
+    /// | launch gate | dismiss | increment 9 decided it for the gate's own Quit button; this generalises it |
+    /// | run report | dismiss | a document somebody has finished reading. Chunk 11.7 left this open *"until this has been seen"*; it has been |
+    /// | pre-run prompt | refuse | **2026-08-18 stands** — it is the last thing between a selected drive and a write, and a keystroke meaning "leave" must not answer it |
+    /// | failure alert | refuse | it interrupts on purpose, and one keystroke clears it |
+    /// | quit confirmation | refuse | a quit is already being asked about. `disposition(runIsActive:quitState:)` answers `.waitForBoundary` there, and dismissing this to re-terminate would ask the same question again |
+    ///
+    /// ## Why an EXHAUSTIVE switch and not a lookup
+    ///
+    /// A sixth modal added later is then a **compile error** here rather than a sixth silently
+    /// dead ⌘Q. That is the failure mode that produced this increment: three sheets were added
+    /// over three increments and each one quietly killed the keystroke, because nothing anywhere
+    /// had to have an opinion about them.
+    ///
+    /// ## Why more than one flagged is refused outright
+    ///
+    /// The model cannot see SwiftUI's presentation queue, so with two flagged it does not know
+    /// which is actually on screen — and taking down the one that is *not* leaves the termination
+    /// refused with nothing to show for it. Refusing is the honest answer and it is logged. The
+    /// consequence is structural rather than argued: ``ModalQuitDisposition/dismiss(_:)`` is
+    /// produced **only** when exactly one modal is flagged, and `everyAmbiguousSetIsRefused` walks
+    /// all 32 subsets to say so.
+    static func disposition(underModals presented: Set<AppModal>) -> ModalQuitDisposition {
+        guard let topmost = AppModal.topmost(of: presented) else {
+            return .requestTermination
+        }
+
+        guard presented.count == 1 else {
+            return .refuse(reason: "More than one dialog is open. Answer them before quitting.")
+        }
+
+        switch topmost {
+        case .helperGate, .runReport:
+            return .dismiss(topmost)
+
+        case .preRunPrompt:
+            return .refuse(reason: "Cancel the pre-run confirmation first. It is the last check "
+                                 + "before the drive is written to.")
+
+        case .runFailure:
+            return .refuse(reason: "Dismiss the failure message first.")
+
+        case .quitConfirmation:
+            return .refuse(reason: "A quit is already being confirmed. Answer that dialog.")
+        }
+    }
+}
