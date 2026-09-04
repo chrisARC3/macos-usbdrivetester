@@ -952,3 +952,19 @@ Every defect this project has produced came from trusting a substitute for the r
   rate drifted between sessions and the other two followed it correctly through the identity.
   **Give a human a band and a relationship to check, never a number to match**; the relationship is
   the test, and on this project the absolute figures are explicitly not.
+- **A long gate that dies at its first assertion has spent its whole cost and produced nothing —
+  exercise the reporting path cheaply before spending the run.** `retention-cycle-check.sh`'s full
+  pass did all 88 minutes of work on 2026-09-03 and then exited 1 at line 366, because the file
+  `tee` had been writing the client's output to was gone by the time `sed` read it. The evidence
+  survived in the artefacts and every assertion could be checked by hand from them — and that was
+  **not** recorded as the gate passing, for the same reason a mutation that does not compile is not
+  a result. `--quick` at the same start block runs the identical acquire → digest → cycle → digest →
+  release → assert path in about a minute; it is not evidence, but it establishes that the gate can
+  report before the long run is committed to.
+- **A `df` reading is not evidence about what is on the media, and this project has now been fooled
+  by the same one twice.** `retention-cycle-check.sh` warns when the scratch volume is under 25%
+  used, because a cycle over unwritten space reads zeros, writes zeros and verifies zeros while
+  reporting a clean pass. Both times the volume read 1% used and both times the residual
+  `/dev/urandom` pattern was intact, because **an unlink clears the allocation table, not the
+  media**. The CONTENT check — three chunks from inside the tested range, required to be mutually
+  distinct — is the authority, and it is the only reason either run proved anything.

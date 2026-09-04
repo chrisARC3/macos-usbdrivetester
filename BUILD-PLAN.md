@@ -17,9 +17,9 @@ test target fixed to the designated scratch device with disk images removed as a
 > v14.** Increment **12 is planned, approved and unwritten** — its full scope is in
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which must be read
 > before starting it. **The human checklist is complete** — chunk 15 was added and walked on
-> 2026-09-03, five items, all passed; everything else was already walked and passed. **Two hardware
-> gate scripts are still owed**, `xpc-concurrency-check.sh` and `retention-cycle-check.sh`; they are
-> not checklist items and are described below.
+> 2026-09-03, five items, all passed; everything else was already walked and passed. **Nothing else
+> is owed either**: the last two hardware gates, `xpc-concurrency-check.sh` and
+> `retention-cycle-check.sh`, were run and passed the same day.
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -425,9 +425,13 @@ simulation-first still applies wherever the plan calls for it.
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) holds their scope and
 > the decisions behind them. **Read it before starting either.**
 >
-> **Two of Step 10's three hardware gates are owed** — `xpc-concurrency-check.sh` and
-> `retention-cycle-check.sh`, because the helper binary moved at increment 8's gate, not because
-> anything failed. `metrics-check.sh` was re-run and passes. The 4 TB T5 EVO fixture **is attached
+> **All three of Step 10's hardware gates now pass at the current helper hash `e6888aa5…`, as of
+> 2026-09-03.** `metrics-check.sh` **128/0** at increment 11's gate; `xpc-concurrency-check.sh`
+> **0 failures**, its increment 8 finding unchanged (same connection serialized, second connection
+> concurrent at 5.0 ms worst); `retention-cycle-check.sh` **15/15** over the **whole device** —
+> 932 window fingerprints before and after, byte-identical, after a cycle that wrote 1,072,693,248
+> bytes at block 1482268672. The two that had been owed since increment 8 were owed because the
+> helper binary moved, never because anything failed. The 4 TB T5 EVO fixture **is attached
 > as of 2026-09-03** (`disk6`, `PSSD T5 EVO`), along with the 125.8 MB thumb drive (`disk4`) and the
 > 1 TB scratch T5 (`disk7`) — chunk 15 was walked on the first two. The 1 TB T5's `/dev/urandom`
 > fill file must be kept.

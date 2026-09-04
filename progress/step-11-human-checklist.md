@@ -85,10 +85,10 @@ and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel
 > day — five items, all passed, **no defect in the product and one in this file** (its item 4,
 > deleted mid-walk; see below). Every other chunk was already walked and passed.
 >
-> **Two hardware gate scripts are still owed and they are not checklist items** —
-> `xpc-concurrency-check.sh` and `retention-cycle-check.sh`, from increment 8, because the helper
-> binary moved rather than because anything failed. They live in `BUILD-PLAN.md`; this file does
-> not track them, and "nothing is owed" above means nothing on *this* list.
+> **The two hardware gate scripts that had been owed since increment 8 were run and passed the
+> same day** — `xpc-concurrency-check.sh` 0 failures, `retention-cycle-check.sh` 15/15 over the
+> whole device. They are not checklist items and live in `BUILD-PLAN.md`; "nothing is owed" above
+> means nothing on *this* list, and as of 2026-09-03 nothing is owed on that one either.
 >
 > ⚠️ **This line said "NOTHING IS OWED" until chunk 15 was written, on 2026-09-03** — which is the
 > third time round this loop. A new chunk makes the summary false the moment it is added, and

@@ -1611,6 +1611,11 @@ being checked. Corrected in `ui-probe`. The clean case is on the report render i
 `xpc-concurrency-check.sh` and `retention-cycle-check.sh` from increment 8. The helper hash moved
 again here, so both remain owed on the same terms.
 
+> **Both were run on 2026-09-03, at this increment's hash `e6888aa5…`, and both passed** — see
+> *The last two hardware gates* below. **Nothing is owed for Step 11 any more**: not a checklist
+> chunk, not a gate script. Increment 10's mutation round was folded into increment 11's at the
+> user's direction and is recorded in this increment's table.
+
 #### Chunk 15 walked — 2026-09-03, after the commit. Five items, all passed
 
 Against the build installed at 12:52 and daemon PID 71058, up since 13:08:46 — the same daemon that
@@ -1691,6 +1696,63 @@ not.**
 **Item 3 cannot be walked on a slow drive**, and that is arithmetic rather than a fault: at 17/5/3
 MB/s every figure is rounded to a whole MB/s before display, which puts the prediction anywhere in
 `[2.912, 3.377]` against an observed bucket of `[2.5, 3.5)`. Recorded at the item.
+
+
+#### The last two hardware gates — run and passed 2026-09-03, at hash `e6888aa5…`
+
+Owed since increment 8, and owed the whole time because the **helper binary moved**, never because
+anything failed. Both were run against the daemon installed at 12:52 and kickstarted at 13:08:46.
+
+**`xpc-concurrency-check.sh` — 0 failures. The increment 8 finding is unchanged.**
+
+| | |
+|---|---|
+| same connection | **serialized** — 25 pings, 0 answered during the call, 25 after |
+| second connection | **concurrent** — 24 pings, all 24 answered during, worst 5.0 ms |
+
+Read-only; it changed mount state and restored it (1 volume before, 1 after). The digest held the
+daemon for 2865.6 ms, a wide enough window to test, and 49 pings were issued underneath it. **This
+is the measurement Step 9's design rests on** — a poll on the run's own connection cannot be
+answered mid-call, which is why the GUI polls `runProgress` on a second, non-owning connection.
+
+**`retention-cycle-check.sh` — 15 checks, 0 failures, over the WHOLE DEVICE.**
+
+    The cycle wrote 1072693248 bytes at block 1482268672 and the whole device
+    is byte-identical afterwards.
+
+932 window fingerprints before, 932 after, `COVER_START=0`, `COVER_BLOCKS=1953525168` — the full
+gate, not `--quick`. 256 chunks (255 full + 1 short, exercising FR-TEST-5), 0 failed ranges, cache
+bypass verified, fastest read 491,438,414 B/s, buffers 2 × the I/O size (NFR-PERF-1).
+
+**The fill-file alarm fired again and was again a false alarm.** `df` reported `disk7` 1% used and
+the script warned that a random placement would land on unwritten space. It did not: the three
+sampled chunks returned three distinct fingerprints, so the residual `/dev/urandom` pattern is
+intact — the same finding as 2026-08-25, and for the same reason. **An unlink clears the allocation
+table, not the media.** The `fill.bin` fixture is still worth restoring, because a drive that
+decides to discard those blocks would put the next run straight back to zeros with no warning.
+
+##### The first full attempt produced complete evidence and no verdict
+
+The first run of the full gate did all 88 minutes of work — acquire, both fingerprint passes, the
+cycle, release, mount restore — and then **exited 1 at its very first assertion**, because
+`/tmp/usbdrivetester-cycle/client-output.txt` did not exist when `sed` read it. `tee` holds that
+file open for the whole run and its stdout still reached the log, so the mechanism is consistent
+with the file being **unlinked mid-run** while tee went on writing to a detached inode. **What
+unlinked it is not established**, and is not guessed at here: `tee` to that exact path succeeds
+foreground, background, and in a reproduction of the script's exact pipeline shape, and a
+`--quick` re-run over the same placement printed its full 15/15 verdict a minute later.
+
+Every assertion was recoverable from the artefacts — the two digest files were byte-identical with
+matching SHA-256, the three probe digests were distinct, the cycle reported 256/256 and 0 failed
+ranges — **and that hand-evaluation was not treated as the gate passing.** A gate that did not
+print its verdict has not passed; that is this project's own standard, recorded in `CONSTRAINTS.md`
+for mutations that do not compile. The full gate was re-run at the same start block, which is what
+the 15/15 above is.
+
+**Cheap protection for the next long gate:** `--quick` at the same placement exercises the whole
+harness path in about a minute. It is not evidence — the script says so loudly, and it cannot see a
+write that landed outside the margin — but it establishes whether the reporting path works before
+88 minutes are spent on a run that may not be able to report.
 
 
 ### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
