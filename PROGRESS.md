@@ -56,7 +56,7 @@ their reasoning.
 | | |
 |---|---|
 | **Working tree** | clean, on `main`, level with `origin/main` |
-| **Verified** | **1146 tests, 0 failures, 140 suites** (floor `scripts/.test-floor` = 1146), run green 2026-09-05 at chunk 1. Chunk 1 added **19 tests in 4 suites**. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
+| **Verified** | **1158 tests, 0 failures, 142 suites** (floor `scripts/.test-floor` = 1158), run green 2026-09-05 at chunk 2. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
 | **Helper** | source hash **`a951e527c52384fc24de5eaaa613fe5872d463130f8dccb5a2f2fadcc20966c6`** — **moved 2026-09-05 by Step 12 chunk 1**, from `e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`, which it had been since increment 11. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. It will move again at chunks 2, 3 and 4 |
 | **Protocol** | **v14.** Chunk 3 takes it to v15 |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
@@ -95,12 +95,50 @@ The approved shape is eight chunks. The full account of each is in its commit me
 |---|---|---|
 | **0** | The carried-forward settle measurement. Instrument only — `tools/run-control-probe` and `scripts/run-control-check.sh` grew `--repeat-1mib N`; no product code | **done 2026-09-05**, `a6e3bb0` (+ `0356ecb`, a pointer fix). Helper hash **unmoved**. See the section above |
 | **1** | **Route (a), the `ENXIO` discriminator.** Core only, no wire change | **done 2026-09-05.** See below |
-| **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | not started |
+| **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | **done 2026-09-05.** See below. Helper hash **unmoved** — app target only |
 | **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | not started |
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | not started |
 | **5** | The report: the fifth `RunReportOutcome`, `HonestFraming`, presentation, Markdown | not started |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | not started |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
+
+### Chunk 2 — the removal callback names the disk, and route (b)'s question is a pure type
+
+`VolumeChangeWatcher` registered `DARegisterDiskDisappearedCallback` **with the appearance
+handler** and threw the `DADisk` away, because "something changed, re-read the mount table" was all
+anything needed. It now has its own handler and reports *which* disk, with a whole/slice flag.
+`DeviceUnderTest.wasLost(whenDiskDisappeared:)` is the pure predicate; the NFR-OBS-1 log line is
+live today.
+
+**Four DiskArbitration facts were measured rather than assumed** — first against a raw `DASession`
+driven by `hdiutil` ram disks, then through the app's own watcher via
+`scripts/device-probe.sh --watch`, which logged `a disk disappeared: disk13 (whole disk)` and
+`disk13s1 (slice)`. They are in `CONSTRAINTS.md`, with the boundary stated: a ram disk detaching
+cleanly is not a USB drive being pulled, and chunk 7's gate is what closes that.
+
+The load-bearing one: **an unmounted whole disk does fire the callback.** A claimed device is
+unmounted before the run, so "nothing left to report" would have sunk route (b) entirely.
+
+**The prefix trap is the predicate's whole difficulty.** `disk7` and `disk70` share a prefix and
+are different drives; a `hasPrefix` check — the obvious way to write "is this a slice of mine" —
+ends a healthy run when an unrelated drive is unplugged. Matching is on the *parsed unit number*,
+and the mutation that swaps it for `hasPrefix` is killed by five cases (`disk70`, `disk71`,
+`disk700`, `disk79`, `disk130`).
+
+**Matching on a BSD name does not break the 2026-08-06 identity rule**, and the reason is lifetime:
+the question is asked only while a run holds an exclusive claim, about an event delivered during
+that same claim. A BSD name cannot be reassigned while the device holding it is still enumerated.
+The serial is carried anyway and is what the log line leads with.
+
+**A layering defect that only the narrow build could find.** The predicate was first written into
+`Discovery`, where it read `ReportedDevice` from `Report`. The app target compiled it and the whole
+suite passed; `scripts/device-probe.sh` — which compiles `Discovery/*.swift` and one `Shared` file
+and nothing else — failed instantly. The *event* type now sits with the watcher and the *question*
+sits in `RunControl`. Recorded as a lesson: a layering rule nothing compiles against is a comment.
+
+**Deliberately not built:** the predicate has **no production caller yet.** Chunk 4 is what acts on
+the answer — ending the run, releasing a claim on an already-absent device, and doing it **once**,
+which matters because one unplug produces one event per slice plus one for the whole disk.
 
 ### Chunk 1 — a lost device is no longer a drive with two million bad blocks
 
@@ -142,8 +180,9 @@ refusal, so no FR-DEV-8 discovery re-run and no device-loss verdict in the repor
 
 - **Step 12 inherits the worst one, and chunk 1 fixed the engine's half of it:** a drive that drops
   off the bus was reported as a drive with ~2 million bad blocks. The **engine** no longer does
-  this. The **app** still cannot tell device loss from a refusal until chunk 3 puts it on the wire,
-  and nothing detects a drive unplugged while **paused** until chunk 2. See
+  this, and chunk 2 built the detection route that covers a **paused** run. The **app** still
+  cannot tell device loss from a refusal until chunk 3 puts it on the wire, and **nothing acts on
+  route (b) yet** — chunk 4 is what turns the removal callback into a terminated run. See
   [CONSTRAINTS.md](CONSTRAINTS.md), "Device loss".
 - **Every first-run report between Step 10 and 2026-08-11 was unattributable** — model, serial and
   capacity were missing. Fixed in `e61c4f0`. The run data in any such exported file is sound; its

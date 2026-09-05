@@ -446,6 +446,31 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
 
 *Full accounts: `progress/step-09.md`, `progress/step-10.md`; increment 3, commit `4c84329`.*
 
+### DiskArbitration at disappearance — measured 2026-09-05 (Step 12 route (b))
+
+Driven headlessly against a real `DASession` with `hdiutil` ram disks, and then re-checked through
+the app's **own** `VolumeChangeWatcher` compiled by `scripts/device-probe.sh --watch`. Route (b)
+rests on all four of these, and every one of them was an assumption first.
+
+- **An unmounted whole disk DOES fire `DADiskDisappeared`.** This is the one that mattered: a
+  claimed device is unmounted by Step 6 before the run, and the obvious worry — that a disk with
+  no volume left has nothing to report — is not the case.
+- **`DADiskGetBSDName` and `DADiskCopyDescription` both still work inside the callback**, and the
+  description carries `DAMediaWhole`. Neither is obvious for an object describing something that no
+  longer exists. `DAMediaWhole` bridges through `[String: Any]` as an **`NSNumber`**, not a `Bool`;
+  reading it as `Bool` alone silently reports every whole disk as a slice.
+- **A partitioned drive fires once for the whole disk and once per slice** — observed as
+  `disk13` then `disk13s1`, whole first. **Anything acting on this must be idempotent**, because a
+  two-partition drive produces three events for one unplug.
+- **`DAVolumePath` is already absent by then**, even for a volume that was mounted a moment
+  earlier. A disappearance cannot be matched by its mount point, and the description-changed
+  callback on `kDADiskDescriptionVolumePathKey` has nothing to report for an already-unmounted
+  claimed device — which is what leaves `DADiskDisappeared` as the only route.
+
+⚠️ **The boundary: this was measured on a ram disk detaching cleanly, which is not the same event
+as a USB drive being pulled.** It is strong evidence about the API's behaviour and it is not the
+hardware claim. Step 12's gate is what unplugs a drive on purpose.
+
 ### Device loss (Step 12's territory — the engine's half built 2026-09-05)
 
 - **`ENXIO` on offset 0 of a working descriptor means the descriptor is dead.** `EIO` on a block
@@ -881,6 +906,12 @@ Every defect this project has produced came from trusting a substitute for the r
   is reported as broken.
 - **An empty result is not a finding** — and neither is a number that does not move. A test-count
   that fails to rise is how files written to the wrong directory get caught.
+  **The sharpest form of this is an empty result you silenced yourself.** On 2026-09-05, checking
+  whether route (b)'s log line had fired, `log show ... 2>/dev/null` returned nothing and was read
+  as "the code did not log". It had logged. `log` is a **zsh builtin**, the real command is
+  `/usr/bin/log`, and the shell had been saying `too many arguments` into the `/dev/null` the
+  command itself sent it to. Redirecting stderr on a diagnostic command converts "this did not run"
+  into "this found nothing", which are opposite results wearing the same face.
 - **SwiftUI modifiers fail silently.** `.defaultFocus`, `.selectionDisabled` on the wrong element,
   `.id()` to force a re-assert: all compiled, rendered, and did nothing.
 - **A SwiftUI `View` is a STRUCT, and a stored property on it is a SNAPSHOT.** An escaping closure
@@ -1095,6 +1126,16 @@ Every defect this project has produced came from trusting a substitute for the r
   `/dev/urandom` pattern was intact, because **an unlink clears the allocation table, not the
   media**. The CONTENT check — three chunks from inside the tested range, required to be mutually
   distinct — is the authority, and it is the only reason either run proved anything.
+- **THE NARROW BUILD IS THE ONE THAT CAN FAIL, WHICH IS THE WHOLE REASON TO KEEP IT.**
+  `scripts/device-probe.sh` runs the app's real discovery headlessly by compiling
+  `Discovery/*.swift` plus one `Shared` file and **nothing else**. On 2026-09-05 a new type was put
+  in `Discovery` that read `ReportedDevice` from `Report` — the full app target compiled it without
+  complaint, the whole suite passed, and the probe failed instantly with *"cannot find type
+  'ReportedDevice' in scope"*. The app target cannot produce that error, because it contains every
+  file; only a build with a genuine boundary in it can. **A layering rule nothing compiles against
+  is a comment.** The fix was to put the *event* type next to the watcher that produces it and the
+  *question asked of a run* in `RunControl` — and the layering fell out of the instrument rather
+  than out of an opinion, which is the stronger way round.
 - **A DECISION STATED IN FOUR PLACES DRIFTS IN THE THREE THAT ARE POINTERS, AND THE MAJORITY IS NOT
   THE AUTHORITY.** BUILD-PLAN's Step 12 said to detect device loss from `ENXIO`/`EIO` in its
   *detailed step*, and two further lines deferred to it — *"detect `ENXIO`/`EIO` per detailed step

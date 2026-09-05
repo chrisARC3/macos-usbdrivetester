@@ -430,8 +430,8 @@ simulation-first still applies wherever the plan calls for it.
 > **Status, 2026-09-05: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) IS IN PROGRESS**: chunks 0 and 1 of 8 are done, the rest are not. The suite stands at
-> **1146 tests / 140 suites / 0 failures** (floor 1146), protocol **v14** (chunk 3 takes it to
+> handling) IS IN PROGRESS**: chunks 0, 1 and 2 of 8 are done, the rest are not. The suite stands at
+> **1158 tests / 142 suites / 0 failures** (floor 1158), protocol **v14** (chunk 3 takes it to
 > v15), zero source warnings from three clean builds, **13/13** gate clients type-checking.
 > The helper's source hash is **`a951e527…`** — it **moved at chunk 1 on 2026-09-05**, from
 > `e6888aa5…`, and **all four hardware gate results lapsed with it.** See `PROGRESS.md`.
@@ -1795,7 +1795,9 @@ If the device under test disappears mid-run, immediately terminate the test clea
 ### Risks / gotchas
 - Simulate this safely first, then confirm on real hardware with the scratch device. **The hook this named did not exist when it was written** — `InMemoryBlockDevice`'s three fault hooks were all *range*-based, and `injectReadFault(blocks: 0 ..< blockCount)` simulates a drive with every block bad, which is the exact misreading this step exists to remove rather than a way to test it. Chunk 1 (2026-09-05) added `injectDeviceLoss(afterCalls:)`, which takes no range because the device leaving the bus is not a property of any range.
 - Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state).
-- **Route (a) is blind while the run is paused**, and no line of this section says so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. Worth remembering when chunk 2 is scoped: `VolumeChangeWatcher` currently discards *which* disk changed.
+- **Route (a) is blind while the run is paused**, and no line of this section said so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. **Chunk 2 (2026-09-05) built the detection**; `VolumeChangeWatcher` no longer discards which disk changed. **Nothing acts on it until chunk 4.**
+- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed.
+- **Do not match a disappearing disk by name prefix.** `disk7` and `disk70` share one and are different drives; a `hasPrefix` check ends a healthy run when an unrelated drive is unplugged. `DeviceUnderTest` compares the parsed unit number, and `DeviceUnderTestTests` pins five names that a prefix check gets wrong.
 
 ---
 
