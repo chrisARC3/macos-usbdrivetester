@@ -214,7 +214,7 @@ dated snapshots of earlier moments and are not current. No tree hash is named, o
 | **Gates** | `window-fit-check.sh` worst case **613 pt**, `content-starting`; **37** render cases, 74 renders in both appearances |
 | **Human checklist** | **complete — 15 chunks, nothing owed.** Chunk 15 was written and walked 2026-09-03 |
 | **Owed** | **nothing.** First time since increment 8 |
-| **Fixture** | all three test drives attached 2026-09-04: **`disk6`** PSSD T5 EVO 4 TB, **`disk7`** Portable SSD T5 1 TB (the scratch, serial `12345686DAA9`), **`disk4`** UDisk 125.8 MB thumb (serial `2211190533300386001515`). ⚠️ **The 1 TB T5's `fill.bin` is deleted** — the retention gate passed on the residual `/dev/urandom` pattern, which survived the unlink. Restore it before that gate is needed again |
+| **Fixture** | all three test drives attached 2026-09-04: **`disk6`** PSSD T5 EVO 4 TB, **`disk7`** Portable SSD T5 1 TB (the scratch, serial `12345686DAA9`), **`disk4`** UDisk 125.8 MB thumb (serial `2211190533300386001515`). ⚠️ **The 1 TB T5's `fill.bin` is deleted** — the retention gate passed on the residual `/dev/urandom` pattern, which survived the unlink. Restore it before that gate is needed again **[annotated 2026-09-04 18:19: `fill.bin` has since been restored — see the Current state block. The row is left as written, because it was true of the moment this snapshot was taken.]** |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, built **2026-09-03 12:52**; daemon **PID 71058 since 13:08:46**, still running 2026-09-04. Current for the helper hash above — **increment 12 is app-side and will not move it**, so a reinstall is only needed to see the app change |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
@@ -239,9 +239,9 @@ block is not a snapshot** — it is the current state, and it is the one to edit
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
 | **Protocol** | **v14** |
 | **Human checklist** | **complete — 16 chunks, nothing owed.** Chunk 16 passed in full 2026-09-04, all nine items, the day it was written; it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1, 11.7 and 6.3 re-walked and passed** at expectations increment 12 changed |
-| **Owed** | ⚠️ **Step 11's verification gate needs re-running before Step 11 can close.** It passed 2026-08-24 at increment 8; **four increments have landed since, and increment 11 took the protocol v12 → v14 and moved the helper hash.** Its items **2**, **3** and the helper-side half of **5** all rest on `scripts/run-control-check.sh`, last run 2026-08-24 **against a v12 daemon**. That check **writes to the scratch drive**, so it must not overlap the `fill.bin` restore. No increment is planned |
+| **Owed** | ⚠️ **Step 11's verification gate needs re-running before Step 11 can close.** It passed 2026-08-24 at increment 8; **four increments have landed since, and increment 11 took the protocol v12 → v14 and moved the helper hash.** Its items **2**, **3** and the helper-side half of **5** all rest on `scripts/run-control-check.sh`, last run 2026-08-24 **against a v12 daemon**. That check **writes to the scratch drive**, so it must not overlap the `fill.bin` restore — **that restore finished 2026-09-04 18:19:30, so nothing now blocks this gate on the fixture's account.** No increment is planned |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04 for the chunk 16 walk and again for the 6.1/11.7 re-walks, daemon kickstarted each time. ⚠️ **Always kickstart after `install-app.sh`** — it replaces the helper binary underneath the running daemon, and BUILD-PLAN is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly an app-only increment's case. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`** rather than by the timestamp: `strings` cannot settle it, and on 2026-09-04 chunk 16 was nearly walked against chunk 0's build |
-| **Fixture** | unchanged from the block above. ⚠️ The 1 TB T5's `fill.bin` is still deleted; restore it before the retention gate is run again |
+| **Fixture** | drives unchanged from the block above. **The 1 TB T5's `fill.bin` was restored 2026-09-04 18:19**, against the scratch device identified by **serial `12345686DAA9`** (`/dev/disk7` that day — BSD names move): 999,947,239,424 bytes of `/dev/urandom` in 57m43s at 288.8 MB/s, `dd` ending on `No space left on device` as intended. The volume reads **100% used**, so the gate's `df` early warning no longer fires the false alarm it fired on 2026-08-25 and 2026-09-03; three 1 MiB samples at 1 GiB, 476811 MiB and 953622 MiB digest distinctly, and none is the all-zero block. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
 ### What increment 8 owes
@@ -1949,7 +1949,9 @@ predates `863d59f`.
 > every build, and item 4 is checklist chunk 7.4, an app-side observation with no daemon in it.
 >
 > **`run-control-check.sh` writes to the scratch drive**, so it must not run while the 1 TB T5's
-> `fill.bin` is being restored.
+> `fill.bin` is being restored. **That restore finished 2026-09-04 18:19:30, so it no longer blocks
+> this check.** Nor is the check a threat to the fixture once it runs: its cycle writes back exactly
+> the bytes it reads, which is the property it exists to test.
 
 
 BUILD-PLAN's five items, each ticked against named evidence rather than recollection. The walk is

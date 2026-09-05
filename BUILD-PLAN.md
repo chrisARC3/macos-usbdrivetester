@@ -29,7 +29,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > owed.** It is Step 11's own gate, it last ran 2026-08-24 against a **v12** daemon, and the
 > protocol is v14. Items 2, 3 and the helper-side half of 5 in Step 11's verification gate rest on
 > it, so **Step 11 cannot close until it is re-run**. It writes to the scratch drive, so it must not
-> overlap a `fill.bin` restore.
+> overlap a `fill.bin` restore — **that restore finished 2026-09-04 18:19:30 and no longer blocks
+> it.**
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -446,14 +447,25 @@ simulation-first still applies wherever the plan calls for it.
 > 1 TB scratch T5 (`disk7`) — chunk 15 was walked on the first two. All three were still attached on
 > 2026-09-04.
 >
-> ⚠️ **The 1 TB T5's `fill.bin` is deleted, and the rule that it "must be kept" was already broken
-> when the retention gate ran on 2026-09-03.** The gate passed because the residual `/dev/urandom`
-> pattern survived the unlink — `df` read the volume at 1% used and the CONTENT check found three
-> distinct fingerprints anyway. That is luck, not design: a drive that discards those blocks puts
-> the next run back to zeros, where the CONTENT check is the only thing between that and a vacuous
-> pass. **Restore it before that gate is needed again:**
+> ✅ **The 1 TB T5's `fill.bin` was restored 2026-09-04 18:19**, with the command below, against the
+> scratch device identified by **serial `12345686DAA9`** (`/dev/disk7` that day — BSD names move
+> across a replug): 999,947,239,424 bytes of `/dev/urandom`, written in 57m43s at 288.8 MB/s, `dd`
+> ending on `No space left on device` as intended. The volume now reads **100% used**, so the gate's
+> `df` early warning no longer fires. Three 1 MiB samples, taken at 1 GiB, 476811 MiB and 953622
+> MiB, digest distinctly — and none of them is the all-zero block.
+>
+> **What would invalidate it:** unlinking the file, or erasing the volume — which is what
+> `make-unmount-fixture.sh` guards against at its own prompt. Neither `retention-cycle-check.sh` nor
+> `run-control-check.sh` will: both write back exactly the bytes they read.
 >
 >     dd if=/dev/urandom of=/Volumes/Test_Drive/fill.bin bs=4m status=progress
+>
+> **It had been deleted, and the rule that it "must be kept" was already broken when the retention
+> gate ran on 2026-09-03.** That gate passed because the residual `/dev/urandom` pattern survived
+> the unlink — `df` read the volume at 1% used and the CONTENT check found three distinct
+> fingerprints anyway. That was luck, not design: a drive that discards those blocks puts the next
+> run back to zeros, where the CONTENT check is the only thing between that and a vacuous pass.
+> **Keep the file.**
 >
 > **Complete again as of 2026-09-04**: increment 12 added chunk 16 and changed 6.1 and 11.7, and
 > all four were walked the same day. What follows was true up to 2026-09-03.
