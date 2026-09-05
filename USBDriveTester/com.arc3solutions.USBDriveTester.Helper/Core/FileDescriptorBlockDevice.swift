@@ -31,6 +31,12 @@
 //  | 64-bit offset arithmetic, through a real `pread` | That the USB bridge answers a 4 MiB `pread` whole |
 //  | `errno` mapping onto `DeviceIOError` | That `F_NOCACHE` is in force on the descriptor |
 //  | That the alignment and range guards fire before any syscall | Geometry matching `diskutil` |
+//  | That `ENXIO` maps to `deviceLost` and nothing else does | That a de-enumerated device actually returns `ENXIO` |
+//
+//  The last row is Step 12's, and its right-hand side is the one claim here that has already
+//  been observed rather than assumed: on 2026-08-06 the scratch drive left the bus mid-gate and
+//  this code saw `errno 6` on every read including offset 0. One observation is not a gate, so
+//  it stays on the right of the line until Step 12's hardware gate unplugs a drive on purpose.
 //
 //  The distinction in the alignment row is worth being exact about, because it is easy to
 //  state too strongly in either direction. A regular file accepts misaligned reads perfectly
@@ -136,10 +142,11 @@ public final class FileDescriptorBlockDevice: RawBlockDevice {
             if result < 0 {
                 let code = errno
                 if code == EINTR { continue }        // a signal, not a device failure
-                lastFailure = IOFailureDetail(operation: "read", byteOffset: offset,
+                lastFailure = IOFailureDetail(operation: Operation.read.name, byteOffset: offset,
                                               byteLength: count, bytesTransferred: transferred,
                                               errnoCode: code)
-                throw DeviceIOError.readError(atByteOffset: offset, length: count)
+                throw Self.ioError(forErrno: code, operation: .read,
+                                   atByteOffset: offset, length: count)
             }
             if result == 0 { break }                 // end of file before the request was met
             transferred += result
@@ -174,10 +181,11 @@ public final class FileDescriptorBlockDevice: RawBlockDevice {
             if result < 0 {
                 let code = errno
                 if code == EINTR { continue }
-                lastFailure = IOFailureDetail(operation: "write", byteOffset: offset,
+                lastFailure = IOFailureDetail(operation: Operation.write.name, byteOffset: offset,
                                               byteLength: count, bytesTransferred: transferred,
                                               errnoCode: code)
-                throw DeviceIOError.writeError(atByteOffset: offset, length: count)
+                throw Self.ioError(forErrno: code, operation: .write,
+                                   atByteOffset: offset, length: count)
             }
             if result == 0 { break }
             transferred += result
@@ -230,6 +238,59 @@ public final class FileDescriptorBlockDevice: RawBlockDevice {
         guard offset <= byteCount else {
             throw DeviceIOError.outOfRange(atByteOffset: offset, length: 0,
                                            deviceByteCount: byteCount)
+        }
+    }
+
+    // MARK: Classifying a failed syscall
+
+    /// Which call failed. Picks the error case for a failure that is **not** device loss —
+    /// loss is neutral about direction, the way ``DeviceIOError/shortTransfer`` is, because a
+    /// device that has left the bus has not failed a read *or* a write, it has stopped existing.
+    enum Operation {
+        case read, write
+
+        /// How the operation is named in ``IOFailureDetail``, which is a log line rather than a
+        /// decision. Derived rather than written out beside each call, so the enum and the
+        /// string cannot say different things about the same syscall.
+        var name: String {
+            switch self {
+            case .read:  return "read"
+            case .write: return "write"
+            }
+        }
+    }
+
+    /// Classify a failed `pread`/`pwrite` by its `errno`.
+    ///
+    /// **`ENXIO` alone means the device is gone.** That is a measurement, not a reading of the
+    /// manual: on 2026-08-06 the scratch drive de-enumerated part-way through
+    /// `retention-cycle-check.sh` and this descriptor returned `errno 6` — `ENXIO`, *"Device not
+    /// configured"* — for **every** read including the one at offset 0. A drive with a bad block
+    /// does not fail at offset 0 and does not fail every subsequent request; a drive that has
+    /// left the bus does both.
+    ///
+    /// `EIO` is deliberately **not** treated as loss, and the direction of that mistake is why
+    /// it is spelled out rather than left implicit: `EIO` is what a single unreadable block
+    /// returns, so treating it as loss would end a run on the first genuine bad block — turning
+    /// the one thing this tool exists to find into a reason to stop looking.
+    ///
+    /// Every other `errno` keeps the meaning it had, `EBADF` included. A closed or invalid
+    /// descriptor is *this program's* mistake rather than the device's absence, and folding it
+    /// in here would report a hardware event that did not happen.
+    ///
+    /// Pure and static so it can be tested without a device, a descriptor or an `errno` that has
+    /// to be provoked: the *mapping* is decidable here, and whether real hardware produces
+    /// `ENXIO` is the hardware claim in the table above.
+    static func ioError(forErrno code: Int32,
+                        operation: Operation,
+                        atByteOffset offset: UInt64,
+                        length count: Int) -> DeviceIOError {
+        if code == ENXIO {
+            return .deviceLost(atByteOffset: offset, length: count)
+        }
+        switch operation {
+        case .read:  return .readError(atByteOffset: offset, length: count)
+        case .write: return .writeError(atByteOffset: offset, length: count)
         }
     }
 

@@ -476,10 +476,17 @@ public extension RetentionTestEngine {
                 let failedAt = clock()
                 // Before `measure`: if this is an addressing fault it is *our* bug, the run
                 // aborts, and it is not a measurement of the device.
-                let kind = try Self.failureKind(for: error, operation: .readError)
+                let classification = try Self.classify(error, operation: .readError)
                 measure(.failedReading, endedAt: failedAt,
                         read: failedAt &- readStart, write: nil, verify: nil)
-                if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
+                switch classification {
+                case .blockFailure(let kind):
+                    if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
+                case .deviceLost:
+                    // Not recorded: an absent device has not failed a block. Nothing had been
+                    // written this chunk, so the drive is exactly as the run found it.
+                    outcome = .deviceLost(atBlock: chunk.startBlock, phase: .reading)
+                }
                 break
             }
             let readNanoseconds = clock() &- readStart
@@ -499,11 +506,18 @@ public extension RetentionTestEngine {
                                  atByteOffset: loaded.chunk.byteOffset)
             } catch let error as DeviceIOError {
                 let failedAt = clock()
-                let kind = try Self.failureKind(for: error, operation: .writeError)
+                let classification = try Self.classify(error, operation: .writeError)
                 measure(.failedWriting, endedAt: failedAt,
                         read: readNanoseconds, write: failedAt &- writeStart, verify: nil)
-                // Rule 3: no verify after a failed write.
-                if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
+                switch classification {
+                case .blockFailure(let kind):
+                    // Rule 3: no verify after a failed write.
+                    if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
+                case .deviceLost:
+                    // The one phase where the device left while this run held the chunk's only
+                    // copy of the original and had not finished putting it back.
+                    outcome = .deviceLost(atBlock: chunk.startBlock, phase: .writingBack)
+                }
                 break
             }
             let writeNanoseconds = clock() &- writeStart
@@ -516,11 +530,18 @@ public extension RetentionTestEngine {
                                 atByteOffset: loaded.chunk.byteOffset)
             } catch let error as DeviceIOError {
                 let failedAt = clock()
-                let kind = try Self.failureKind(for: error, operation: .readError)
+                let classification = try Self.classify(error, operation: .readError)
                 measure(.failedVerifying, endedAt: failedAt,
                         read: readNanoseconds, write: writeNanoseconds,
                         verify: failedAt &- verifyStart)
-                if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
+                switch classification {
+                case .blockFailure(let kind):
+                    if record(kind, from: chunk.startBlock, blocks: chunk.blockCount) { continue }
+                case .deviceLost:
+                    // The write-back had already reported success, so this chunk was whole
+                    // before the device left. Unverified is not the same as bad.
+                    outcome = .deviceLost(atBlock: chunk.startBlock, phase: .verifying)
+                }
                 break
             }
             let verifyNanoseconds = clock() &- verifyStart
@@ -595,20 +616,51 @@ public extension RetentionTestEngine {
         }
     }
 
-    /// Decide whether a device error is the **drive's** failure or **ours**.
+    /// What a device error means for the run.
+    ///
+    /// Three answers, and the third is Step 12's. `deviceLost` is **returned rather than
+    /// thrown**, unlike an addressing fault, and that is the load-bearing part: a thrown
+    /// `RunAbort` leaves `run()` with no `RunSummary` at all, discarding every failure the run
+    /// had legitimately found before the device went away. Those failures were real readings of
+    /// a real drive and the run must still report them.
+    private enum ChunkFailureClassification: Equatable {
+
+        /// The drive's failure, at the range being addressed. Recorded, and the observer decides
+        /// whether to carry on (FR-FAIL-3).
+        case blockFailure(BlockFailureKind)
+
+        /// The device is not there. **Nothing is recorded against the drive** and the run ends.
+        case deviceLost
+    }
+
+    /// Decide whether a device error is the **drive's** failure, the **device's absence**, or
+    /// **ours**.
     ///
     /// A short transfer is the device's: the transfer was legal and it did not complete.
     /// A misaligned or out-of-range request is this engine addressing a place the device does
     /// not have, which means the plan is wrong — recording that as a bad block would report a
     /// fault in somebody's hardware that is actually a fault in this code.
+    /// A lost device is none of those: it is the absence of the thing being judged, and it is
+    /// the one case where the honest number of bad blocks found is zero.
     ///
     /// - Parameter operation: `.readError` when the failing call was a read, `.writeError`
     ///   when it was a write. Used for `shortTransfer`, which is neutral about direction.
-    private static func failureKind(for error: DeviceIOError,
-                                    operation: BlockFailureKind) throws -> BlockFailureKind {
+    ///
+    /// - Note: `shortTransfer` stays a **block failure**, deliberately, and it is the one
+    ///   classification here that is not yet settled by measurement. A device that vanishes
+    ///   mid-transfer could plausibly produce a short read with no `errno` before it produces
+    ///   `ENXIO`, in which case the first chunk of a loss would be recorded as one bad range and
+    ///   the second call would end the run. That is a single spurious range rather than two
+    ///   million, so it is not the defect Step 12 exists to fix — but it is unverified, and
+    ///   Step 12's hardware gate is what can answer it.
+    private static func classify(_ error: DeviceIOError,
+                                 operation: BlockFailureKind) throws -> ChunkFailureClassification {
         switch error {
         case .readError, .writeError, .shortTransfer:
-            return operation
+            return .blockFailure(operation)
+
+        case .deviceLost:
+            return .deviceLost
 
         case .misaligned(let offset, let length, let logicalBlockSize):
             throw RunAbort.addressingFault(

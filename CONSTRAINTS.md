@@ -446,18 +446,37 @@ because FR-CTRL-8 lets the size change mid-run) and `runOutcomeCode` / `interrup
 
 *Full accounts: `progress/step-09.md`, `progress/step-10.md`; increment 3, commit `4c84329`.*
 
-### Device loss (Step 12's territory, and a live defect until then)
+### Device loss (Step 12's territory — the engine's half built 2026-09-05)
 
 - **`ENXIO` on offset 0 of a working descriptor means the descriptor is dead.** `EIO` on a block
-  means a bad block. Detect loss from those and from the DiskArbitration/IOKit removal callback.
+  means a bad block. Detect loss from `ENXIO` and from the DiskArbitration/IOKit removal callback.
+- **`ENXIO` ALONE is the errno discriminator** (user decision 2026-09-05, built in Step 12 chunk 1).
+  `EIO` is emphatically **not** included, and the direction of that mistake is why it is stated
+  rather than left implied: `EIO` is the ordinary answer from a single unreadable block, so treating
+  it as loss would end a run at the first genuine bad block — turning the one thing this tool exists
+  to find into a reason to stop looking, and breaking FR-FAIL-3 outright. Every other `errno` keeps
+  its meaning, `EBADF` included: a closed or invalid descriptor is *our* mistake, not the device's
+  absence. **BUILD-PLAN said `ENXIO`/`EIO` in three places until 2026-09-05** while its own incident
+  note said the opposite; corrected there, pinned by `DeviceLossErrnoTests`.
 - **Do not infer device loss from a failure count.** A genuinely dead drive also fails every chunk,
   so the heuristic is wrong exactly when being wrong is most expensive.
-- **Until Step 12 builds this, a drive that drops off the bus is reported as a drive with ~2 million
-  bad blocks** — a false accusation about a drive, in a file that outlives the session. Nothing is
+- **`ENXIO` from real hardware has ONE observation behind it**, the 2026-08-06 incident. That is
+  evidence, not a gate. Whether a de-enumerating drive *always* answers `ENXIO` — and whether it
+  first answers with a short transfer and `errno 0`, which still classifies as a bad block — is
+  **open, and only a hardware gate can close it**. Step 12's gate unplugs a drive on purpose.
+- **A run that is PAUSED cannot see the device leave through the errno route**, because it has
+  returned from its call and issues no syscalls: the helper sits holding the claim and the fd with
+  nothing to classify. The removal callback is the only route that can see it, which makes that
+  route load-bearing rather than a second opinion.
+- **A drive that dropped off the bus used to be reported as a drive with ~2 million bad blocks** —
+  a false accusation about a drive, in a file that outlives the session. Observed for real during a
+  hardware gate, not simulated. **The engine stopped doing this on 2026-09-05** (chunk 1): a lost
+  device now ends the run and records nothing against the drive, while failures found *before* the
+  loss are kept. ⚠️ **The defect is not fully closed.** The wire has no code for device loss until
+  chunk 3, so the app cannot yet distinguish it from a refusal and the exported report has no
+  device-loss verdict; and nothing at all detects an unplug while paused until chunk 2. Nothing is
   distributed before Step 16 (section 2), so the person misled is the one who can recognise it —
-  which lowers the stakes and changes nothing about the defect. The exported report is still the
-  artefact a drive's history is kept in, and this project has already had one report that could not
-  say which drive it was about. Observed for real during a hardware gate, not simulated.
+  which lowers the stakes and changes nothing about the remaining gap.
 
 *Full account: `progress/step-10.md`, increment 6; BUILD-PLAN Step 12's inherited notes.*
 
@@ -1076,3 +1095,16 @@ Every defect this project has produced came from trusting a substitute for the r
   `/dev/urandom` pattern was intact, because **an unlink clears the allocation table, not the
   media**. The CONTENT check — three chunks from inside the tested range, required to be mutually
   distinct — is the authority, and it is the only reason either run proved anything.
+- **A DECISION STATED IN FOUR PLACES DRIFTS IN THE THREE THAT ARE POINTERS, AND THE MAJORITY IS NOT
+  THE AUTHORITY.** BUILD-PLAN's Step 12 said to detect device loss from `ENXIO`/`EIO` in its
+  *detailed step*, and two further lines deferred to it — *"detect `ENXIO`/`EIO` per detailed step
+  1"*, *"device loss is detected, per detailed step 1, from `ENXIO`/`EIO`"*. The **incident note in
+  the same section**, written the day a drive actually de-enumerated, said the opposite and said it
+  once: `EIO` on a block is a bad block; `ENXIO` on offset 0 means the descriptor is dead. Three
+  statements of the wrong thing, one of the right, and the three were **not independent** — they
+  were one mistake quoted twice, which is exactly how a wrong reading acquires the texture of a
+  settled one. Building it as written would have ended a run at the first genuine bad block: the
+  one thing the tool exists to find, turned into a reason to stop looking.
+  **Check a decision against the observation that motivated it, not against the count of places
+  that repeat it** — and when a section contains both a rule and the incident the rule came from,
+  the incident is the authority. Corrected 2026-09-05, in the commit that built the discriminator.

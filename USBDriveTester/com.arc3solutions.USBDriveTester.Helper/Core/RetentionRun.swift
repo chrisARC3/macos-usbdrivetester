@@ -270,14 +270,48 @@ public struct LoadedChunk: Equatable {
 
 // MARK: - How the run ended
 
+/// Which of a chunk's three device calls was in flight when the device went away.
+///
+/// Named separately from ``ChunkOutcome`` because only three of that type's five cases could
+/// ever be true here, and the narrower type is the one whose illegal values cannot be written.
+///
+/// It is worth carrying rather than discarding, because the three are not equally bad for the
+/// data on the drive. A device that vanished during the **write-back** is the only one of the
+/// three where this tool had the chunk's only copy of the original in a buffer and had not yet
+/// finished putting it back. Reading and verifying are both non-destructive; that phase is not.
+/// Nothing else in ``RunSummary`` records which phase a run died in, so if this did not carry it
+/// the fact would be gone at the point it existed.
+public enum DeviceLossPhase: Equatable, CustomStringConvertible {
+
+    /// Reading the original (FR-TEST-3). Nothing had been written; the drive is untouched.
+    case reading
+
+    /// Writing the original back (FR-TEST-7). **The one phase that was mid-write** — this
+    /// chunk may hold partially written data.
+    case writingBack
+
+    /// Re-reading what was just written (FR-TEST-8). The write-back had already reported
+    /// success, so the chunk was whole before the device left.
+    case verifying
+
+    public var description: String {
+        switch self {
+        case .reading:     return "reading the original"
+        case .writingBack: return "writing the original back"
+        case .verifying:   return "verifying the write-back"
+        }
+    }
+}
+
 /// Why a run stopped.
 ///
-/// Four cases. Step 11 added the two interruptions; Step 12 adds device loss — which is a *new*
-/// way to end, not a re-reading of these.
+/// Five cases. Step 11 added the two interruptions; **Step 12 added device loss** — which is a
+/// *new* way to end, not a re-reading of these.
 ///
 /// The two interruptions carry the block the run was **about to process**, not the last one it
 /// finished. That is the block a resume starts from, and stating it as the resume point rather
 /// than as "where we got to" removes an off-by-one from the one arithmetic that must not have one.
+/// ``deviceLost`` carries a block too, and it means something different — see there.
 public enum RunOutcome: Equatable, CustomStringConvertible {
 
     /// Every chunk in the plan was processed. Says nothing about whether they all passed —
@@ -301,6 +335,27 @@ public enum RunOutcome: Equatable, CustomStringConvertible {
     /// drive would have to start again from the beginning.
     case stoppedByUser(atBlock: UInt64)
 
+    /// **Step 12, FR-DEV-8.** The device went off the bus mid-run — unplugged, de-enumerated, or
+    /// otherwise gone — and the run ended where it found out.
+    ///
+    /// ## What this outcome is *for*
+    ///
+    /// It exists so that the answer to "what happened to the drive?" is not **the same answer as
+    /// a drive with two million bad blocks**, which is what the product said on 2026-08-06 when
+    /// this actually happened. Nothing about the chunk named here is recorded against the drive:
+    /// a device that is not present has not failed a block, and the failures the run *had*
+    /// already found before the device left are carried through untouched, because those were
+    /// real.
+    ///
+    /// ## The block is not a resume point
+    ///
+    /// Unlike the two interruptions, `atBlock` is the chunk the run was **in the middle of**,
+    /// not one it had cleanly reached — there is no settling guarantee here, because nothing
+    /// settled. ``resumeBlock`` is `nil` for this case, and that is not an oversight: a run
+    /// cannot be resumed across a device that left and came back, FR-FAIL-7 forbids it, and the
+    /// drive that returns may not even be the drive that left.
+    case deviceLost(atBlock: UInt64, phase: DeviceLossPhase)
+
     public var description: String {
         switch self {
         case .completed:
@@ -311,14 +366,17 @@ public enum RunOutcome: Equatable, CustomStringConvertible {
             return "paused by the user at block \(block)"
         case .stoppedByUser(let block):
             return "stopped by the user at block \(block)"
+        case .deviceLost(let block, let phase):
+            return "ended at block \(block): the device was lost while \(phase)"
         }
     }
 
     /// The block a resume would start from, or `nil` for an outcome that cannot be resumed.
     ///
-    /// `nil` for ``stoppedByUser`` as well as for the two natural endings, and that is the point:
-    /// FR-FAIL-7 forbids resuming a run that was stopped, so the value that would let somebody do
-    /// it does not exist rather than existing and being ignored.
+    /// `nil` for ``stoppedByUser`` and ``deviceLost`` as well as for the natural ending, and that
+    /// is the point: FR-FAIL-7 forbids resuming a run that was stopped or interrupted by the
+    /// hardware disappearing, so the value that would let somebody do it does not exist rather
+    /// than existing and being ignored.
     public var resumeBlock: UInt64? {
         if case .pausedByUser(let block) = self { return block }
         return nil

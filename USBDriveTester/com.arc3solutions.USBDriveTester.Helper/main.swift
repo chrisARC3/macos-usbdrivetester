@@ -808,12 +808,33 @@ final class TesterControlImpl: NSObject, TesterControl {
     /// deliberately not into the app module, so the two enumerations cannot be one type. Written
     /// as an exhaustive `switch` so that adding a way for a run to end — Step 12's device loss —
     /// is a compile error here rather than a silent `unrecognised`.
+    ///
+    /// **The scaffold fired as designed on 2026-09-05, and this is its INTERIM answer.**
+    /// Step 12's chunk 1 taught the engine to end a run with `.deviceLost`; chunk 3 is what adds
+    /// the fifth `RunOutcomeCode` and bumps the protocol to v15. Between the two, the wire has no
+    /// code for device loss, and the choice is which existing code lies least.
+    ///
+    /// `unrecognised` is the one that cannot mislead in the dangerous direction. It is never
+    /// treated as a completion, the app's `RunSequencer` maps it to `callFailed(reason:)` — the
+    /// run ends and no further calls are issued — and, critically, **nothing is reported against
+    /// the drive**, because the failure ranges a lost device produces are now zero. The message
+    /// accompanying this reply is built from `summary.outcome.description`, so the honest sentence
+    /// travels even though the code does not: the app shows *why* the call failed.
+    ///
+    /// What it costs, stated so chunk 3 is not tempted to leave it: the app cannot tell this
+    /// apart from a refusal, so it cannot yet offer FR-DEV-8's discovery re-run, and the report
+    /// gets a call-failure rather than a device-loss verdict. Both are chunks 3–6.
+    ///
+    /// Mapping to `stoppedOnFailure` or `stoppedByUser` instead was rejected outright: the first
+    /// says the drive failed, which is the exact untruth this whole step exists to remove, and the
+    /// second says the user asked for this.
     private static func outcomeCode(_ outcome: RunOutcome) -> Int {
         switch outcome {
         case .completed:        return RunOutcomeCode.completed.rawValue
         case .stoppedOnFailure: return RunOutcomeCode.stoppedOnFailure.rawValue
         case .pausedByUser:     return RunOutcomeCode.pausedByUser.rawValue
         case .stoppedByUser:    return RunOutcomeCode.stoppedByUser.rawValue
+        case .deviceLost:       return RunOutcomeCode.unrecognised.rawValue   // INTERIM, chunk 3
         }
     }
 

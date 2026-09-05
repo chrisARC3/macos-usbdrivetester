@@ -430,10 +430,11 @@ simulation-first still applies wherever the plan calls for it.
 > **Status, 2026-09-05: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) is next and is UNSTARTED.** The suite stands at **1127 tests / 136 suites / 0 failures**
-> (floor 1127), protocol **v14**, zero source warnings from three clean builds with DerivedData
-> wiped, **13/13** gate clients type-checking. The helper's source hash is `e6888aa5…`, unmoved
-> since increment 11.
+> handling) IS IN PROGRESS**: chunks 0 and 1 of 8 are done, the rest are not. The suite stands at
+> **1146 tests / 140 suites / 0 failures** (floor 1146), protocol **v14** (chunk 3 takes it to
+> v15), zero source warnings from three clean builds, **13/13** gate clients type-checking.
+> The helper's source hash is **`a951e527…`** — it **moved at chunk 1 on 2026-09-05**, from
+> `e6888aa5…`, and **all four hardware gate results lapsed with it.** See `PROGRESS.md`.
 >
 > ⚠️ **Until 2026-09-05 this block said "Status, 2026-09-02 … increments 1–10 are done, 11 and 12
 > remain", protocol v12, helper hash `73990c90…`** — three days and two increments stale, and
@@ -447,8 +448,10 @@ simulation-first still applies wherever the plan calls for it.
 > left is the settled-decision table. **Read it before re-opening one of those decisions**, not
 > before building.
 >
-> **All three of Step 10's hardware gates now pass at the current helper hash `e6888aa5…`, as of
-> 2026-09-03.** `metrics-check.sh` **128/0** at increment 11's gate; `xpc-concurrency-check.sh`
+> **All three of Step 10's hardware gates passed at helper hash `e6888aa5…`, as of 2026-09-03.**
+> ⚠️ That was *"the current helper hash"* until 2026-09-05, when Step 12's chunk 1 moved it to
+> `a951e527…`. **The three results below are historical from that moment** — true on the day, about
+> a build that no longer exists — and they are re-run at Step 12's chunk 7. `metrics-check.sh` **128/0** at increment 11's gate; `xpc-concurrency-check.sh`
 > **0 failures**, its increment 8 finding unchanged (same connection serialized, second connection
 > concurrent at 5.0 ms worst); `retention-cycle-check.sh` **15/15** over the **whole device** —
 > 932 window fingerprints before and after, byte-identical, after a cycle that wrote 1,072,693,248
@@ -1580,7 +1583,16 @@ Implement the explicit run-control state machine with legal-transition enforceme
 > tests over `RunControlPolicy`, and an app-side checklist item with no daemon in it.
 >
 > **What invalidates the ticks below:** the next protocol bump, or any move of the helper source
-> hash (currently `e6888aa5…`). Neither is announced — grep for it.
+> hash. Neither is announced — grep for it.
+>
+> ⚠️ **BOTH HAVE NOW HAPPENED, OR ARE ABOUT TO. The helper source hash moved on 2026-09-05** —
+> `e6888aa5…` → `a951e527…`, Step 12 chunk 1 — and the protocol goes to v15 at chunk 3. **The
+> daemon-backed ticks below are therefore historical: they record a real pass on a real day
+> against a build that no longer exists.** They are not evidence about the current build and must
+> not be cited as such. This does **not** reopen Step 11, which closed on the strength of them
+> when they were current; it means the same scripts are re-run at Step 12's chunk 7. Items 1 and 4
+> are unaffected either way — unit tests over `RunControlPolicy`, and an app-side checklist item
+> with no daemon in it.
 
 **WALKED AND PASSED 2026-08-24 — all five; items 2, 3 and the helper-side half of 5 re-run against
 v14 and passed again 2026-09-05.** Each tick names its evidence so it can be checked
@@ -1719,8 +1731,9 @@ anything.
 >
 > So the outcome case this step adds is not cosmetic. **Until it exists, a drive that drops off
 > the bus is reported as a catastrophically failing drive**, in an exported file that outlives the
-> session. Detect `ENXIO`/`EIO` per detailed step 1, and make sure the failures already recorded
-> before the loss are not presented as a bad-block verdict.
+> session. Detect **`ENXIO`** per detailed step 1 — *not* `EIO`, see the correction there — and
+> make sure the failures already recorded before the loss are not presented as a bad-block
+> verdict.
 >
 > One thing that did work, and is worth keeping: the run's figures came back `-1` / sample count
 > `0` rather than `0 MB/s`, because nothing was measured. The sentinel discipline held under a
@@ -1731,7 +1744,7 @@ anything.
 > genuinely dead drive also fails every chunk, so the heuristic is wrong exactly when being wrong
 > is most expensive — and it is a judgement the tool is not entitled to make, which is the same
 > rule that stops it grading throughput (D9) and stops FR-DEV-3 guessing which drive is
-> expendable. Device loss is **detected**, per detailed step 1, from `ENXIO`/`EIO` and the
+> expendable. Device loss is **detected**, per detailed step 1, from **`ENXIO`** and the
 > DiskArbitration/IOKit removal callback. It is not inferred from a failure count.
 
 > **Inherited from Step 10 (user decision 2026-08-06) — this step owns the "terminated by device
@@ -1751,7 +1764,22 @@ anything.
 If the device under test disappears mid-run, immediately terminate the test cleanly, surface a clear error, and re-run device discovery — with no resume.
 
 ### Detailed steps
-1. **Detect loss two ways:** (a) raw I/O suddenly returns `ENXIO`/`EIO` from `pread`/`pwrite`; (b) DiskArbitration "disk disappeared" / IOKit termination callback for the device under test. Treat either as device loss.
+1. **Detect loss two ways:** (a) raw I/O suddenly returns **`ENXIO`** from `pread`/`pwrite`; (b) DiskArbitration "disk disappeared" / IOKit termination callback for the device under test. Treat either as device loss.
+
+   > **CORRECTED 2026-09-05 (Step 12, chunk 1).** This step used to say `ENXIO`/`EIO`, which
+   > **contradicted the incident note above it** — the note has said since 2026-08-06 that *"a bad
+   > block gives `EIO` on that block; `ENXIO` on offset 0 of a working descriptor means the
+   > descriptor is dead."* Two other lines in this section deferred to this one, so the wrong half
+   > was stated three times and the right half once.
+   >
+   > **`EIO` is a bad block and must never end a run.** It is the ordinary answer from a single
+   > unreadable block, so treating it as device loss would stop the run at the first genuine bad
+   > block — turning the one thing this tool exists to find into a reason to stop looking, and
+   > breaking FR-FAIL-3's log-and-continue outright. The discriminator is **`ENXIO` alone** (user
+   > decision 2026-09-05), and it is pinned by `DeviceLossErrnoTests.eioStaysABadBlockAndIsNeverDeviceLoss`.
+   >
+   > Every other `errno` keeps its existing meaning, `EBADF` included: a closed or invalid
+   > descriptor is *this program's* mistake, not the device's absence.
 2. **Terminate immediately and cleanly (NFR-REL-5):** stop issuing I/O, release the claim and close the fd, leave the helper in a consistent state (no further writes).
 3. **Surface a specific error (NFR-REL-6, NFR-USE-5):** GUI shows "The device under test was removed; the run was terminated and cannot be resumed — restart from the beginning if you reconnect it." The GUI must **not crash** and must return to a usable state.
 4. **No resume (FR-FAIL-7):** the partially-completed run is over; only restart-from-beginning is offered.
@@ -1765,8 +1793,9 @@ If the device under test disappears mid-run, immediately terminate the test clea
 - [ ] Logs after the event are sufficient to reconstruct what happened (which device, at what offset) without recording contents.
 
 ### Risks / gotchas
-- Simulate this safely first by injecting `ENXIO` via the `InMemoryBlockDevice` fault hook, then confirm on real hardware with the scratch device.
+- Simulate this safely first, then confirm on real hardware with the scratch device. **The hook this named did not exist when it was written** — `InMemoryBlockDevice`'s three fault hooks were all *range*-based, and `injectReadFault(blocks: 0 ..< blockCount)` simulates a drive with every block bad, which is the exact misreading this step exists to remove rather than a way to test it. Chunk 1 (2026-09-05) added `injectDeviceLoss(afterCalls:)`, which takes no range because the device leaving the bus is not a property of any range.
 - Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state).
+- **Route (a) is blind while the run is paused**, and no line of this section says so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. Worth remembering when chunk 2 is scoped: `VolumeChangeWatcher` currently discards *which* disk changed.
 
 ---
 

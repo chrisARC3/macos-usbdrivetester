@@ -72,8 +72,10 @@ public extension RawBlockDevice {
 /// fault injection is expected to produce.
 public enum DeviceIOError: Error, Equatable {
 
-    /// A hard read failure covering `length` bytes at `atByteOffset` (models
-    /// `EIO`/`ENXIO` from `pread`, or an injected read fault).
+    /// A hard read failure covering `length` bytes at `atByteOffset` (models `EIO` from
+    /// `pread`, or an injected read fault).
+    ///
+    /// `ENXIO` was in this list until Step 12 and is not any more — it is ``deviceLost``.
     case readError(atByteOffset: UInt64, length: Int)
 
     /// A hard write failure covering `length` bytes at `atByteOffset` (models a
@@ -89,4 +91,21 @@ public enum DeviceIOError: Error, Equatable {
 
     /// The request extended beyond `[0, deviceByteCount)`.
     case outOfRange(atByteOffset: UInt64, length: Int, deviceByteCount: UInt64)
+
+    /// **The device is gone** — de-enumerated, unplugged, or otherwise off the bus (Step 12,
+    /// FR-DEV-8). Models `ENXIO` from `pread`/`pwrite`, or an injected device loss.
+    ///
+    /// ## Why this is not a read or write error
+    ///
+    /// Every other case on this enum describes something about a *place on a device*. This one
+    /// describes the absence of the device, and the difference is the whole reason it exists:
+    /// on 2026-08-06 the scratch drive de-enumerated part-way through a gate, every subsequent
+    /// read returned `ENXIO` including the one at offset 0, and the run — doing exactly what
+    /// log-and-continue is built to do — reported the drive as having roughly two million bad
+    /// blocks. A tool whose entire output is a judgement about somebody's hardware must not
+    /// confuse "this drive is broken" with "this drive is not here".
+    ///
+    /// The offset and length are where the run was when it found out, not a claim that
+    /// anything is wrong with that range. Nothing here is recorded against the drive.
+    case deviceLost(atByteOffset: UInt64, length: Int)
 }

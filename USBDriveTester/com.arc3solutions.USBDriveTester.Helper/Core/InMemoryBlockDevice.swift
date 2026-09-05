@@ -8,6 +8,10 @@
 //  any real hardware. Parameterized block size lets the same tests run over 512-byte
 //  and 4096-byte geometries (NFR-COMPAT-5).
 //
+//  Step 12 adds a fourth hook of a different shape. The first three are faults *at a place* and
+//  take a block range; `injectDeviceLoss()` takes none, because the device leaving the bus is
+//  not a property of any range. That distinction is the one the product got wrong on 2026-08-06.
+//
 //  Not thread-safe: a run drives one device from a single task, matching the
 //  one-chunk-in-flight model (NFR-REL-4). Pure Foundation; no privilege.
 //
@@ -28,6 +32,14 @@ public final class InMemoryBlockDevice: RawBlockDevice {
     private var writeFaults: [Range<UInt64>] = []
     private var corruptionFaults: [Range<UInt64>] = []
 
+    /// Calls still to succeed before the device is lost, or `nil` if no loss is pending.
+    ///
+    /// Not a `Range`, and that is the point of it: every other fault here is a fault *at a
+    /// place*, and device loss is the absence of the place. Once it reaches zero it stays
+    /// there — there is no un-inject, because a de-enumerated device does not come back on the
+    /// same descriptor (Step 12).
+    private var callsBeforeLoss: Int?
+
     /// Create a zero-filled device of `blockCount` blocks of `logicalBlockSize` bytes.
     public init(logicalBlockSize: Int, blockCount: UInt64) {
         precondition(logicalBlockSize > 0, "logicalBlockSize must be positive")
@@ -43,6 +55,7 @@ public final class InMemoryBlockDevice: RawBlockDevice {
         let count = buffer.count
         try validate(offset: offset, count: count)
         if count == 0 { return 0 }
+        try checkDeviceLoss(offset: offset, count: count)
 
         if intersects(readFaults, offset: offset, count: count) {
             throw DeviceIOError.readError(atByteOffset: offset, length: count)
@@ -60,6 +73,7 @@ public final class InMemoryBlockDevice: RawBlockDevice {
         let count = buffer.count
         try validate(offset: offset, count: count)
         if count == 0 { return 0 }
+        try checkDeviceLoss(offset: offset, count: count)
 
         if intersects(writeFaults, offset: offset, count: count) {
             throw DeviceIOError.writeError(atByteOffset: offset, length: count)
@@ -89,6 +103,23 @@ public final class InMemoryBlockDevice: RawBlockDevice {
     /// overlapping block, so a subsequent read-verify mismatches.
     public func injectSilentCorruption(blocks: Range<UInt64>) { corruptionFaults.append(blocks) }
 
+    /// Take the device off the bus: from then on **every** read and write throws
+    /// ``DeviceIOError/deviceLost``, whatever it addresses (Step 12, FR-DEV-8).
+    ///
+    /// Deliberately not expressible as `injectReadFault(blocks: 0 ..< blockCount)`, which would
+    /// simulate a drive with every block bad — the exact misreading Step 12 exists to stop the
+    /// product making. What it models is the 2026-08-06 incident: a descriptor that answers
+    /// `ENXIO` to everything, offset 0 included.
+    ///
+    /// - Parameter afterCalls: how many further reads or writes complete first. `0` — the
+    ///   default — loses the device immediately, so even the first read of a run fails. Calls
+    ///   are counted once they have passed validation and not been lost; a call that then hits
+    ///   an injected range fault has still been counted, because the device saw it.
+    public func injectDeviceLoss(afterCalls: Int = 0) {
+        precondition(afterCalls >= 0, "afterCalls must not be negative")
+        callsBeforeLoss = afterCalls
+    }
+
     // MARK: Test helpers
 
     /// A copy of the entire backing store — for before/after comparisons (e.g. the
@@ -107,6 +138,22 @@ public final class InMemoryBlockDevice: RawBlockDevice {
         guard offset <= total, UInt64(count) <= total - offset else {
             throw DeviceIOError.outOfRange(atByteOffset: offset, length: count, deviceByteCount: total)
         }
+    }
+
+    /// Throw if the device has been lost, and otherwise count this call towards a pending loss.
+    ///
+    /// Called **after** validation and after the zero-length early return, so that this fake and
+    /// `FileDescriptorBlockDevice` disagree about nothing: there, alignment and range are checked
+    /// before any syscall and a zero-length request never reaches one, so a misaligned request to
+    /// a dead device is an addressing fault and a zero-length one quietly moves nothing. Both are
+    /// true here for the same reason and not by coincidence.
+    private func checkDeviceLoss(offset: UInt64, count: Int) throws {
+        guard let remaining = callsBeforeLoss else { return }
+        guard remaining == 0 else {
+            callsBeforeLoss = remaining - 1
+            return
+        }
+        throw DeviceIOError.deviceLost(atByteOffset: offset, length: count)
     }
 
     /// Does the byte request `[offset, offset+count)` overlap any block range in
