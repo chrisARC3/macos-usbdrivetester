@@ -25,12 +25,11 @@ test target fixed to the designated scratch device with disk images removed as a
 > was written and walked on 2026-09-04, all nine items, and 6.1, 11.7 and 6.3 were re-walked at
 > expectations increment 12 changed. **Step 10's three hardware gates are not owed** — `metrics-check.sh`,
 > `xpc-concurrency-check.sh` and `retention-cycle-check.sh` all passed 2026-09-03, and increment 12
-> **did not move the helper hash**, so those results still stand. ⚠️ **`run-control-check.sh` IS
-> owed.** It is Step 11's own gate, it last ran 2026-08-24 against a **v12** daemon, and the
-> protocol is v14. Items 2, 3 and the helper-side half of 5 in Step 11's verification gate rest on
-> it, so **Step 11 cannot close until it is re-run**. It writes to the scratch drive, so it must not
-> overlap a `fill.bin` restore — **that restore finished 2026-09-04 18:19:30 and no longer blocks
-> it.**
+> **did not move the helper hash**, so those results still stand. **`run-control-check.sh` was the
+> last thing owed, and it is no longer owed** — re-run **2026-09-05 against the v14 daemon** and
+> passed: 14 assertions, 0 failures, all four I/O sizes settled at a chunk boundary with the correct
+> resume point. That discharges items 2, 3 and the helper-side half of 5 in Step 11's verification
+> gate, so **all five now stand against v14 and Step 11 is ready to close.**
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -1548,15 +1547,19 @@ Implement the explicit run-control state machine with legal-transition enforceme
 
 ### Verification Gate (must pass before Step 12)
 
-> ⚠️ **ITEMS 2, 3 AND 5 ARE STALE AS OF 2026-09-04 AND MUST BE RE-RUN.** All three rest on
-> `scripts/run-control-check.sh`, last run 2026-08-24 against a **protocol v12** daemon. The
-> protocol is **v14** since increment 11 and the helper hash moved with it, so the daemon that
-> evidence came from no longer exists. Item 2 below already records this happening once — *"the
-> evidence this replaces was taken 2026-08-12 against a v10 daemon, two protocol bumps back"* — and
-> it is two bumps back again. Items 1 and 4 are unaffected: unit tests over `RunControlPolicy`, and
-> an app-side checklist item with no daemon in it.
+> ✅ **ITEMS 2, 3 AND 5 WERE RE-RUN 2026-09-05 AND PASSED**, against the **v14** daemon. All three
+> rest on `scripts/run-control-check.sh`, which had gone stale on 2026-09-03 when increment 11 took
+> the protocol to v14 and moved the helper hash, so the v12 daemon that evidence came from no
+> longer existed. **That has now happened twice in this one gate** — item 2 records the v10 → v12
+> lapse, and this was the v12 → v14 one — and **both were findable only because the tick named the
+> protocol it ran against, not just the date.** Items 1 and 4 were unaffected either time: unit
+> tests over `RunControlPolicy`, and an app-side checklist item with no daemon in it.
+>
+> **What invalidates the ticks below:** the next protocol bump, or any move of the helper source
+> hash (currently `e6888aa5…`). Neither is announced — grep for it.
 
-**WALKED AND PASSED 2026-08-24 — all five.** Each tick names its evidence so it can be checked
+**WALKED AND PASSED 2026-08-24 — all five; items 2, 3 and the helper-side half of 5 re-run against
+v14 and passed again 2026-09-05.** Each tick names its evidence so it can be checked
 rather than trusted. Four were discharged in the morning; item 5 needed a check built for it (the
 device-operation slot had none) and a human walk of the checklist's chunk 8, both done the same day.
 
@@ -1569,14 +1572,28 @@ anything.
   (27 tests) carries them by name: `resumeIsAcceptedFromExactlyOneState`,
   `startIsAcceptedOnlyWhenNoRunIsActive`, `startDuringARunIsRefusedWithAReasonThatNamesTheRule`.
 - [x] **Pause acknowledgment arrives only after the helper confirms no write is in flight and it is
-  at a chunk boundary (NFR-REL-10)** — `scripts/run-control-check.sh`, re-run 2026-08-24 against
-  the **v12** daemon. All four I/O sizes settled at a chunk boundary with the correct resume point:
-  300 / 147 / 73 / 38 chunks; settle 6.4 / 3.1 / 9.8 / 20.1 ms; ack 0.34–0.58 ms. **Settle tracks
-  the I/O size rather than the 1 GiB call cap**, which is the shape NFR-REL-10 predicts. The
-  evidence this replaces was taken 2026-08-12 against a **v10** daemon, two protocol bumps back.
-- [x] **Resume continues from the correct next chunk** — same gate, same run. The resume point is
-  asserted arithmetically against this call's own work rather than checked for plausibility, and
-  all four were 1 MiB-aligned, so the resumed call cannot be refused under FR-TEST-10.
+  at a chunk boundary (NFR-REL-10)** — `scripts/run-control-check.sh`, **re-run 2026-09-05 against
+  the v14 daemon** (handshake `PROTOCOL=14 EXPECTED=14`, HEAD `12118f3`, helper hash `e6888aa5…`,
+  1 TB T5 scratch drive `12345686DAA9`). All four I/O sizes settled at a chunk boundary with the
+  correct resume point: 306 / 153 / 76 / 38 chunks; settle 9.33 / 7.59 / 5.93 / 6.59 ms;
+  ack 0.55–0.60 ms. **What discharges this item is the resume arithmetic, not the latency** —
+  NFR-REL-10 requires a settle *at a chunk boundary with no write in flight* and puts no bound on
+  how long it takes, so the exact resume point is the evidence and the millisecond figures are
+  characterisation.
+  ⚠️ **The 1 MiB settle, 9.33 ms, exceeded its own one-chunk bound of ~6.5 ms** — the first of
+  twelve samples across three runs to do so, and outside the model `CONSTRAINTS.md` §1 states. That
+  is a latency question and not a pause-correctness one; it is recorded separately and does not
+  bear on this tick.
+  *Superseded evidence, kept because the pattern is the point:* 2026-08-24 against **v12**
+  (300 / 147 / 73 / 38 chunks; settle 6.4 / 3.1 / 9.8 / 20.1 ms; ack 0.34–0.58 ms), and before it
+  2026-08-12 against **v10** — each one two protocol bumps behind the run that replaced it. That
+  v12 record also carried the sentence *"settle tracks the I/O size rather than the 1 GiB call
+  cap"*; **it is withdrawn.** It was fitted to one run's four samples and neither of the other two
+  runs shows that ordering.
+- [x] **Resume continues from the correct next chunk** — same gate, same run (**2026-09-05, v14**).
+  The resume point is asserted arithmetically against this call's own work rather than checked for
+  plausibility, and all four were 1 MiB-aligned, so the resumed call cannot be refused under
+  FR-TEST-10.
   **"Metrics/ETA continue sensibly" is human**, and chunk 4 of the human checklist covers it:
   passed 2026-08-18, and that pass is **accepted as still standing** (user decision 2026-08-24)
   rather than re-walked after increments 6–8.
@@ -1587,7 +1604,8 @@ anything.
   met by composition. **Do not re-derive the control from this line** — a gate item naming a
   control is exactly how a withdrawn one comes back.
 - [x] **I/O size is selectable before start, fixed during the run; failure mode required before
-  start; second concurrent run is refused.** Discharged 2026-08-24, in two separate places:
+  start; second concurrent run is refused.** Discharged 2026-08-24, in two separate places; the
+  **helper-side half was re-run against v14 and passed again 2026-09-05**:
     * ~~**Chunk 8 items 3–7 of the human checklist are unrun.**~~ **Walked and passed 2026-08-24.**
       Items 1–2 had passed 2026-08-19; item 3 was run *before* the 2026-08-19 reversal rebuilt both
       controls to one rule, so its result was superseded and it was re-walked. No test drives a
@@ -1614,6 +1632,12 @@ anything.
       *both broke*. No mutation round: mutating the guard would mean rebuilding and **reinstalling a
       privileged daemon** to test it live, and the idle attempt already supplies the evidence a
       mutation would buy.
+
+      **Re-run 2026-09-05 against the v14 daemon and passed again**, all five assertions: the second
+      run was refused while a call was in flight, named both the operation and the disk (*"a
+      retention cycle is writing is already in progress on disk7"*), and reported **0 chunks**; the
+      identical call with nothing in flight was **accepted** and did 1 chunk; and the in-flight run
+      completed normally regardless.
 
 ### Risks / gotchas
 - Pause acknowledgment is a **two-party handshake** across XPC — never show "Paused" before the helper confirms, or you imply a safety guarantee you don't have.

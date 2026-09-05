@@ -18,10 +18,11 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. **Increments 1–12 done and gated**; the step's own verification gate is owed a re-run
+## Step 11 — IN PROGRESS. **Increments 1–12 done and gated**; the step's own verification gate re-run against v14 and PASSED 2026-09-05 — ready to close
 
-> **Cold start? Read *Current state — increment 12 done and gated* below** — it is the only status
-> block in this file that is current, re-derived 2026-09-04 at increment 12's close. Every
+> **Cold start? Read *Current state — increment 12 done, and Step 11's own gate re-run* below** — it
+> is the only status block in this file that is current, re-derived 2026-09-05 when
+> `run-control-check.sh` was re-run against the v14 daemon. Every
 > *"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
 
 > ⚠️ **Nothing is planned. Increments 1–12 are done and gated.** The decisions taken along the
@@ -222,9 +223,10 @@ dated snapshots of earlier moments and are not current. No tree hash is named, o
 in this block stands until it does — and if a change makes the hash move, the three hardware gates
 lapse with it. Check the hash before assuming they hold.
 
-### Current state — increment 12 done and gated
+### Current state — increment 12 done, and Step 11's own gate re-run
 
-**Re-derived 2026-09-04 at increment 12's close, and this is the block a cold start should read.** Every
+**Re-derived 2026-09-05, when `run-control-check.sh` was re-run against the v14 daemon, and this is
+the block a cold start should read.** Every
 *"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
 
 **A separate block rather than an edit to the one above**, deliberately: that one is titled *where
@@ -234,12 +236,12 @@ block is not a snapshot** — it is the current state, and it is the one to edit
 
 | | |
 |---|---|
-| **Working tree** | clean, on `main`. Chunks 0–2 pushed; this chunk is not |
-| **Verified** | **1123 tests, 0 failures, 136 suites** (floor `scripts/.test-floor` = 1123). **Three clean builds with DerivedData wiped before each — `build.sh Debug`, `build.sh Release`, `test.sh` — zero source warnings from all three**, and genuinely clean rather than cached: 88 per-file `SwiftCompile` tasks Debug, 2 whole-module Release, 171 for the test target. **13/13 gate clients type-check** |
+| **Working tree** | clean, on `main`, level with `origin/main` |
+| **Verified** | **1127 tests, 0 failures, 136 suites — re-run green 2026-09-05** (floor `scripts/.test-floor` = 1127). ⚠️ **This row read "1123 tests … floor = 1123" until 2026-09-05**, and had been wrong since `8c65f40` on 2026-09-04, which added the two tests that closed mutation survivors Q2 and Q3 and ratcheted the floor to 1127 with them. **The floor file and this status block disagreed for a day** and nothing noticed, because a ratchet moves a file that no status block is derived from — so check this row against `scripts/.test-floor` rather than trusting either alone. The build figures that follow are **increment 12's gate, 2026-09-04**, and were *not* re-derived on 2026-09-05: **three clean builds with DerivedData wiped before each — `build.sh Debug`, `build.sh Release`, `test.sh` — zero source warnings from all three**, and genuinely clean rather than cached: 88 per-file `SwiftCompile` tasks Debug, 2 whole-module Release, 171 for the test target. **13/13 gate clients type-check** |
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
 | **Protocol** | **v14** |
 | **Human checklist** | **complete — 16 chunks, nothing owed.** Chunk 16 passed in full 2026-09-04, all nine items, the day it was written; it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1, 11.7 and 6.3 re-walked and passed** at expectations increment 12 changed |
-| **Owed** | ⚠️ **Step 11's verification gate needs re-running before Step 11 can close.** It passed 2026-08-24 at increment 8; **four increments have landed since, and increment 11 took the protocol v12 → v14 and moved the helper hash.** Its items **2**, **3** and the helper-side half of **5** all rest on `scripts/run-control-check.sh`, last run 2026-08-24 **against a v12 daemon**. That check **writes to the scratch drive**, so it must not overlap the `fill.bin` restore — **that restore finished 2026-09-04 18:19:30, so nothing now blocks this gate on the fixture's account.** No increment is planned |
+| **Owed** | **Nothing.** Step 11's verification gate was the last thing owed and it was **re-run 2026-09-05 and PASSED** — `scripts/run-control-check.sh` against a **v14** daemon (handshake `PROTOCOL=14 EXPECTED=14`), HEAD `12118f3`, helper hash `e6888aa5…`, on the 1 TB T5 scratch drive (serial `12345686DAA9`, `/dev/disk7` that day): **14 assertions, 0 failures, 4 settled, 0 inconclusive.** That discharges items **2**, **3** and the helper-side half of **5**; items 1 and 4 never rested on the daemon, so **all five now stand against v14 and Step 11 is ready to close.** **Invalidated by** the next protocol bump or any move of the helper source hash. ⚠️ One latency figure came back outside the model the docs state — the 1 MiB settle, 9.33 ms against a one-chunk bound of ~6.5 ms. It is **not** an NFR-REL-10 failure (that requirement is a boundary guarantee, and its evidence — the exact resume arithmetic — held in all four cases) and it is being recorded separately. No increment is planned |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04 for the chunk 16 walk and again for the 6.1/11.7 re-walks, daemon kickstarted each time. ⚠️ **Always kickstart after `install-app.sh`** — it replaces the helper binary underneath the running daemon, and BUILD-PLAN is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly an app-only increment's case. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`** rather than by the timestamp: `strings` cannot settle it, and on 2026-09-04 chunk 16 was nearly walked against chunk 0's build |
 | **Fixture** | drives unchanged from the block above. **The 1 TB T5's `fill.bin` was restored 2026-09-04 18:19**, against the scratch device identified by **serial `12345686DAA9`** (`/dev/disk7` that day — BSD names move): 999,947,239,424 bytes of `/dev/urandom` in 57m43s at 288.8 MB/s, `dd` ending on `No space left on device` as intended. The volume reads **100% used**, so the gate's `df` early warning no longer fires the false alarm it fired on 2026-08-25 and 2026-09-03; three 1 MiB samples at 1 GiB, 476811 MiB and 953622 MiB digest distinctly, and none is the all-zero block. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |

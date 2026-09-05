@@ -34,9 +34,11 @@ The date alone is not enough, and this is not theoretical:
 > it had one — but the build it was true of, and therefore any way to notice that the build had
 > moved.
 
-> Step 11's verification gate items 2, 3 and 5 rest on `run-control-check.sh`, last run
-> **2026-08-24 against a protocol v12 daemon**. The protocol went to **v14** in increment 11. That
-> row named its protocol, which is exactly why the staleness was findable at all.
+> Step 11's verification gate items 2, 3 and 5 rest on `run-control-check.sh`, which as of
+> 2026-09-04 had last run **2026-08-24 against a protocol v12 daemon** — and the protocol went to
+> **v14** in increment 11. That row named its protocol, which is exactly why the staleness was
+> findable at all; it was the *second* lapse of that same shape in that same gate, the first being
+> v10 → v12. **Re-run against v14 and passed 2026-09-05.**
 
 So when you write a pass down, also write **what would invalidate it**. When you change something,
 grep for passes recorded against it. `CONSTRAINTS.md` §2 states the rule this serves: *a gate that
