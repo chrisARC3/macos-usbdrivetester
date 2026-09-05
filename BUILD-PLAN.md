@@ -1605,9 +1605,13 @@ anything.
   how long it takes, so the exact resume point is the evidence and the millisecond figures are
   characterisation.
   ⚠️ **The 1 MiB settle, 9.33 ms, exceeded its own one-chunk bound of ~6.5 ms** — the first of
-  twelve samples across three runs to do so, and outside the model `CONSTRAINTS.md` §1 states. That
-  is a latency question and not a pause-correctness one; it is recorded separately and does not
-  bear on this tick.
+  twelve samples across three runs to do so, and outside the model `CONSTRAINTS.md` §1 stated at the
+  time. That is a latency question and not a pause-correctness one; it did not bear on this tick.
+  **RESOLVED the same day**: `run-control-check.sh --repeat-1mib 8`, a second v14 run at the same
+  helper hash, measured the settle to be the remainder of the current chunk **plus a fixed ~3.5 ms**
+  — no sample below 0.65 of its bound, a one-in-4,400 event under a uniform draw. That second run
+  also re-passed this gate in full (14 assertions, 0 failures), so this item now rests on two
+  independent v14 passes. Model, tables and arithmetic in `CONSTRAINTS.md` §1.
   *Superseded evidence, kept because the pattern is the point:* 2026-08-24 against **v12**
   (300 / 147 / 73 / 38 chunks; settle 6.4 / 3.1 / 9.8 / 20.1 ms; ack 0.34–0.58 ms), and before it
   2026-08-12 against **v10** — each one two protocol bumps behind the run that replaced it. That

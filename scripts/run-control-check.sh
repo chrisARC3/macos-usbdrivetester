@@ -41,6 +41,13 @@
 #
 # Usage: ./scripts/run-control-check.sh              # resolves the scratch drive by serial
 #        ./scripts/run-control-check.sh --device 12345686DAA9
+#        ./scripts/run-control-check.sh --repeat-1mib 6    # the gate, plus the fixed-cost samples
+#
+# `--repeat-1mib N` adds N extra 1 MiB cases after the four the gate asserts on. It answers a
+# question the four-size table cannot — whether the settle has a fixed floor — and is documented
+# at the reporting section near the foot of this file. **The four gate cases run first, in order,
+# with their keys and assertions untouched**, so one invocation both re-runs the gate and takes
+# the samples.
 #
 set -euo pipefail
 
@@ -52,6 +59,35 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/device-identity.sh"
 parse_device_flag "$@" || exit 2
 set -- ${DEVICE_FLAG_REMAINING[@]+"${DEVICE_FLAG_REMAINING[@]}"}
 DISK="$(resolve_target scratch "$DEVICE_ARGUMENT")" || exit 1
+
+# `--repeat-1mib N` — the fixed-cost experiment (2026-09-05). Adds N extra 1 MiB cases AFTER the
+# four the gate asserts on, whose keys and order are untouched, so one invocation both re-runs the
+# gate and takes the samples. Default 0: with no flag this script is the same instrument it was.
+REPEAT_1MIB=0
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --repeat-1mib)
+            shift
+            if [[ $# -eq 0 ]] || ! [[ "$1" =~ ^[0-9]+$ ]]; then
+                echo "run-control-check: --repeat-1mib needs a non-negative count" >&2
+                exit 2
+            fi
+            REPEAT_1MIB="$1"
+            ;;
+        --repeat-1mib=*)
+            REPEAT_1MIB="${1#--repeat-1mib=}"
+            if ! [[ "$REPEAT_1MIB" =~ ^[0-9]+$ ]]; then
+                echo "run-control-check: --repeat-1mib needs a non-negative count" >&2
+                exit 2
+            fi
+            ;;
+        *)
+            echo "run-control-check: unrecognised argument '$1'" >&2
+            exit 2
+            ;;
+    esac
+    shift
+done
 
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Development/Xcode.app/Contents/Developer}"
 
@@ -94,21 +130,33 @@ fi
 
 DU_MEDIA_NAME="$(sed -n 's/.*Device \/ Media Name: *//p' <<< "$DU_INFO" | head -1)"
 
+# Computed before the banner rather than inside it: a command substitution that exits non-zero
+# inside a heredoc is a `set -e` trap waiting to happen, and this banner is the last thing the
+# user reads before authorising writes to a drive.
+TOTAL_PASSES=$(( 5 + REPEAT_1MIB ))
+EXPECTED_SECONDS=$(( 90 + REPEAT_1MIB * 7 ))
+REPEAT_BANNER=""
+if [[ "$REPEAT_1MIB" -gt 0 ]]; then
+    REPEAT_BANNER="
+  Then ${REPEAT_1MIB} MORE passes at 1 MiB, for the fixed-cost settle measurement. Same region,
+  same non-destructive cycle; they add samples and assert nothing the four cases do not."
+fi
+
 cat <<EOF
 
   run-control-check.sh — Step 11, increment 2 design pre-flight
 
   Device     ${DISK}  (${DU_MEDIA_NAME})
 
-  This will UNMOUNT ${DISK}'s volumes, have the helper acquire it, and run FIVE bounded
+  This will UNMOUNT ${DISK}'s volumes, have the helper acquire it, and run ${TOTAL_PASSES} bounded
   read -> write-back -> verify passes over a 1 GiB region 64 GiB into the drive — one
-  uninterrupted, then one per I/O size, each paused about two seconds in.
+  uninterrupted, then one per I/O size, each paused about two seconds in.${REPEAT_BANNER}
 
   *** THIS WRITES TO THE DEVICE. *** The cycle writes back exactly the bytes it reads from
   each offset, which is non-destructive by design and verified byte-for-byte — but it is a
   write, on a drive whose contents are expendable by prior agreement.
 
-  Expect about ninety seconds.
+  Expect about ${EXPECTED_SECONDS} seconds.
 
   Press Return to continue, or Ctrl-C to abort.
 
@@ -193,7 +241,13 @@ check pass "${DISK} fully unmounted"
 echo
 
 set +e
-"$PROBE" "$DISK" | tee "$OUTPUT"
+if [[ "$REPEAT_1MIB" -gt 0 ]]; then
+    # No wait argument: the probe's own default is the one the twelve table samples were taken
+    # with, and restating it here would be a second place for it to drift.
+    "$PROBE" "$DISK" --repeat-1mib "$REPEAT_1MIB" | tee "$OUTPUT"
+else
+    "$PROBE" "$DISK" | tee "$OUTPUT"
+fi
 PROBE_STATUS="${PIPESTATUS[0]}"
 set -e
 
@@ -358,15 +412,120 @@ for MIB in 1 2 4 8; do
     printf "  %-10s %10s %10s\n" "${MIB} MiB" \
         "$(value_of "CASE_${MIB}MIB_ACK_MS")" "$(value_of "CASE_${MIB}MIB_SETTLE_MS")"
 done
+
+# ---------------------------------------------------------------------------------------
+# The repeat samples: does the settle have a floor? (2026-09-05)
+# ---------------------------------------------------------------------------------------
+#
+# CONSTRAINTS §1 says a settle is "the remainder of the current chunk", which makes it a uniform
+# draw over one chunk's worth of covering work — so samples should scatter across the whole bound
+# and, over enough of them, come close to zero. The competing hypothesis is that same remainder
+# PLUS a fixed cost, which puts a floor under the distribution.
+#
+# **The discriminator is the MINIMUM, not the mean.** A uniform draw's minimum falls towards zero
+# as samples accumulate; a fixed cost's does not. So this reports the minimum against the
+# per-sample bound and says which shape the samples have, rather than averaging them — an average
+# is consistent with both hypotheses and would settle nothing.
+#
+# Each sample is calibrated from its OWN pre-pause window (chunks x 1 MiB in 2 s), which is what
+# makes these comparable with the twelve in the CONSTRAINTS table despite running in one session
+# after the four-size loop.
+REPEAT_SAMPLES="$(value_of 'REPEAT_1MIB_SAMPLES')"
+if [[ -n "${REPEAT_SAMPLES:-}" && "${REPEAT_SAMPLES}" -gt 0 ]]; then
+    echo
+    echo "  ---- the 1 MiB repeat samples ----"
+    echo
+    printf "  %-8s %10s %10s %12s %10s\n" "sample" "chunks" "settle(ms)" "bound(ms)" "fraction"
+
+    REPEAT_SETTLED="$(value_of 'REPEAT_1MIB_SETTLED')"
+    SAMPLES_FILE="${BUILD_DIR}/repeat-1mib.txt"
+    : > "$SAMPLES_FILE"
+
+    for N in $(seq 1 "$REPEAT_SAMPLES"); do
+        S_VERDICT="$(value_of "CASE_1MIB_R${N}_VERDICT")"
+        S_SETTLE="$(value_of "CASE_1MIB_R${N}_SETTLE_MS")"
+        S_CHUNKS="$(value_of "CASE_1MIB_R${N}_CHUNKS")"
+
+        if [[ "$S_VERDICT" != "SETTLED" ]]; then
+            printf "  %-8s %10s %10s %12s %10s\n" "$N" "${S_CHUNKS:-?}" "${S_SETTLE:-?}" "-" "${S_VERDICT:-none}"
+            continue
+        fi
+
+        # The bound is one chunk's worth of covering work, calibrated from this sample's own 2 s
+        # pre-pause window — the same arithmetic CONSTRAINTS §1 applies to all twelve table samples.
+        read -r S_BOUND S_FRACTION <<< "$(awk -v c="$S_CHUNKS" -v s="$S_SETTLE" \
+            'BEGIN { if (c > 0) { b = 2000 / c; printf "%.2f %.2f", b, s / b } else { print "0 0" } }')"
+        printf "  %-8s %10s %10s %12s %10s\n" "$N" "$S_CHUNKS" "$S_SETTLE" "$S_BOUND" "$S_FRACTION"
+        echo "$S_SETTLE $S_BOUND $S_FRACTION" >> "$SAMPLES_FILE"
+    done
+
+    # **Reported, not counted as a gate assertion.** A repeat sample that comes back inconclusive
+    # is a smaller experiment, not a broken gate — the four cases the RESULT line speaks for ran
+    # first and were asserted above. Folding these into `FAILURES` would make the script report
+    # "the design does not hold" because a characterisation sample was thin, which is precisely
+    # the conflation this project has paid for elsewhere (one flag stating two facts).
+    echo
+    REPEAT_SHORTFALL=""
+    if [[ "${REPEAT_SETTLED:-0}" == "$REPEAT_SAMPLES" ]]; then
+        echo "  OK    all ${REPEAT_SAMPLES} repeat samples settled with a correct resume point"
+    else
+        REPEAT_SHORTFALL="only ${REPEAT_SETTLED:-0} of ${REPEAT_SAMPLES} repeat samples settled."
+        echo "  WARN  ${REPEAT_SHORTFALL}"
+        echo "        The rest are INCONCLUSIVE and are excluded from the verdict below — they are"
+        echo "        not low settles, they are absent ones. The gate's own four cases are separate."
+    fi
+
+    # The verdict. A floor shows as a minimum that sits well above zero; a uniform draw's minimum
+    # walks down towards it. The threshold is stated as a fraction of the bound rather than in
+    # milliseconds, so it means the same thing whatever the drive's rate is on the day.
+    if [[ -s "$SAMPLES_FILE" ]]; then
+        awk '
+            { settle[NR] = $1; frac[NR] = $3
+              if (NR == 1 || $1 < minSettle) minSettle = $1
+              if (NR == 1 || $3 < minFrac)   minFrac   = $3
+              if ($3 > maxFrac)              maxFrac   = $3
+              sum += $3 }
+            END {
+                if (NR == 0) exit
+                printf "\n  minimum settle   %8.2f ms   (fraction of its own bound: %.2f)\n", minSettle, minFrac
+                printf "  fraction range   %8.2f  to %.2f, mean %.2f over %d samples\n", minFrac, maxFrac, sum / NR, NR
+                print  ""
+                if (minFrac > 0.5) {
+                    print "  READS AS A FLOOR: no sample fell below half its bound. Under a uniform draw"
+                    print "  the minimum of this many samples should have come much closer to zero, so the"
+                    print "  fixed-cost hypothesis is the one these samples support."
+                } else if (minFrac < 0.2) {
+                    print "  READS AS A UNIFORM DRAW: at least one sample fell near zero, which a fixed"
+                    print "  additive cost cannot produce. The model in CONSTRAINTS section 1 survives, and"
+                    print "  the 1.43 sample stands as an outlier still to be explained."
+                } else {
+                    print "  INCONCLUSIVE at this sample count: the minimum sits between the two"
+                    print "  predictions. More samples, or a smaller pre-pause wait, would separate them."
+                }
+            }
+        ' "$SAMPLES_FILE"
+    fi
+fi
 echo
 echo "  'ack' is the daemon confirming it recorded the request; 'settle' is the run's own reply"
 echo "  carrying pausedByUser. They are different facts and only the second is NFR-REL-10's"
 echo "  guarantee — which is why a pause must never be shown as 'Paused' on the strength of the"
-echo "  first. Settle latency should track the I/O SIZE, not the 1 GiB call cap."
+echo "  first. Latency is set by the CHUNK, not by the 1 GiB call cap — the settle happens at a"
+echo "  chunk boundary inside the call either way."
+echo
+echo "  This line said 'settle latency should track the I/O SIZE' until 2026-09-05. That was a"
+echo "  trend fitted to the v12 run's four samples, and v10 and v14 both contradict it (v14 is"
+echo "  inverted outright). CONSTRAINTS section 1 withdrew the claim; the sentence above is the"
+echo "  one that has held across all three runs. Do not re-derive the ordering from one run."
 
 echo
 if [[ "$FAILURES" -eq 0 && "$PROBE_STATUS" -eq 0 ]]; then
     echo "  RESULT: pre-flight PASSED — the design holds."
+    if [[ -n "${REPEAT_SHORTFALL:-}" ]]; then
+        echo "  NOTE: ${REPEAT_SHORTFALL}"
+        echo "  That is a shortfall in the EXPERIMENT, not in the gate — the four gate cases above"
+        echo "  are what the RESULT refers to. Read the sample table before quoting the verdict."
+    fi
     exit 0
 fi
 echo "  RESULT: ${FAILURES} assertion(s) failed (probe exit ${PROBE_STATUS})."

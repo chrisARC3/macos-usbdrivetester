@@ -78,64 +78,94 @@ device I/O, matching this drive's independently measured rate:
 | 4 MiB | 26.83 ms | 6.19 ms | 0.23 |
 | 8 MiB | 53.66 ms | 42.45 ms | 0.79 |
 
-**The settle lands at a chunk boundary, and is usually — not always — inside one chunk's worth of
-time.** The pause lands at a uniformly random point inside a chunk, so a single sample scatters
-across the bound, which is why 2 MiB came out *higher* than 4 MiB here. That is two draws from two
-different distributions, not noise in the mechanism. **Do not quote the bound as the typical
-value**; an earlier note in this project did, and the correction is the reason this table exists
-rather than a single figure.
+**The settle lands at a chunk boundary, and takes the rest of the current chunk plus about 3.5 ms.**
+The pause lands at a uniformly random point inside a chunk, so a single sample scatters across the
+bound, which is why 2 MiB came out *higher* than 4 MiB here. That is two draws from two different
+distributions, not noise in the mechanism. **Do not quote the bound as the typical value**; an
+earlier note in this project did, and the correction is the reason this table exists rather than a
+single figure. The fixed term is measured below and is what puts the 1 MiB column above its bound.
 
-⚠️ **This section said "bounded by one chunk" until 2026-09-05, and one sample now exceeds it.**
-All twelve samples, each as a fraction of its own bound — calibrated uniformly as
-`2000 ms ÷ chunks done in the 2 s pre-pause window`, which is what makes the three runs comparable:
+⚠️ **This section said "bounded by one chunk" until 2026-09-05. It is not bounded by one chunk, and
+as of 2026-09-05 that is measured rather than suspected.** The four-size samples, each as a fraction
+of its own bound — calibrated uniformly as `2000 ms ÷ chunks done in the 2 s pre-pause window`,
+which is what makes the runs comparable:
 
 | run | 1 MiB | 2 MiB | 4 MiB | 8 MiB |
 |---|---|---|---|---|
 | v10, 2026-08-12 | 0.87 | 0.75 | 0.23 | 0.81 |
 | v12, 2026-08-24 | 0.96 | 0.23 | 0.36 | 0.38 |
-| **v14, 2026-09-05** | **1.43** | 0.58 | 0.23 | 0.13 |
+| v14, 2026-09-05 | **1.43** | 0.58 | 0.23 | 0.13 |
+| **v14, 2026-09-05 (second run, same hash)** | **1.52** | 0.78 | 0.48 | 0.13 |
 
 *(The v10 row differs by a point or two from that run's own column above, which calibrated off the
 control run instead. Either calibration puts the same samples in the same places.)*
 
-The v14 1 MiB case settled in **9.33 ms against a bound of ~6.5 ms**, and both calibrations agree it
-is over: that run's own control gives 6.64 ms per MiB of covering work, and its 2 s window gives
-6.54. Under the uniform-draw model a fraction above 1.0 is not an unlucky sample, it is **out of
-range** — so what is wrong is the model, not the drive.
+**THE MODEL IS `settle = the remainder of the current chunk + a FIXED COST OF ABOUT 3.5 ms`, and
+the experiment that settles it has been run.** `run-control-check.sh --repeat-1mib 8`, 2026-09-05,
+v14 daemon at helper hash `e6888aa5…`, the 1 TB T5 scratch drive — the 1 MiB case alone, eight
+times, each self-calibrated from its own pre-pause window:
 
-**The hypothesis that fits all twelve: `settle = the remainder of the current chunk + a fixed
-cost`.** A few milliseconds of reply plumbing is invisible against 8 MiB's ~53 ms bound and dominant
-against 1 MiB's ~6.5 ms one, which is the shape of the table — the 1 MiB column rides high in every
-run (0.87 → 0.96 → 1.43) while the 8 MiB column scatters freely (0.81 → 0.38 → 0.13). **It is a
-hypothesis, and three samples per column cannot carry it.** What would settle it costs about forty
-seconds: repeat the 1 MiB case alone half a dozen times and see whether the samples sit above a
-floor or scatter down towards zero. **A fixed cost has a floor; a uniform draw does not.**
+| sample | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| settle (ms) | 8.92 | 6.20 | 9.45 | 4.67 | 4.39 | 5.56 | 6.15 | 8.10 |
+| fraction of bound | 1.32 | 0.93 | 1.39 | 0.69 | 0.65 | 0.83 | 0.92 | 1.21 |
+
+**Nothing came near zero. The minimum was 0.65 of its own bound**, and under a uniform draw over
+`[0, bound]` eight samples all above 0.65 is `0.35⁸` — about **one chance in 4,400**. Three of the
+eight also exceed 1.0, which a uniform draw cannot produce at all. **A fixed cost has a floor; a
+uniform draw does not**, and this is a floor.
+
+**The size of the cost, from three estimators that agree.** With `B ≈ 6.73 ms`, a shifted uniform
+`U(c, c+B)` predicts a mean of `c + B/2`, a minimum of `c + B/9` and a maximum of `c + 8B/9`. The
+observed mean 6.68, minimum 4.39 and maximum 9.45 give **c ≈ 3.3, 3.6 and 3.5 ms** respectively, and
+the observed range 5.06 ms sits against a predicted `7B/9 = 5.23`. **c ≈ 3.5 ms.**
+
+**It also fits every earlier sample, which is the check that matters.** A fixed 3.5 ms puts each
+size's fractions in `[c/B, c/B + 1]`: 1 MiB `[0.52, 1.52]`, 2 MiB `[0.26, 1.26]`, 4 MiB
+`[0.13, 1.13]`, 8 MiB `[0.065, 1.065]`. **All twenty samples in the two tables above fall inside
+their band**, the single marginal case being v12's 2 MiB at 0.23 against a 0.26 floor — three
+hundredths, inside the calibration's own precision. That is why the 1 MiB column rides high in
+every run while the 8 MiB column scatters freely: the same 3.5 ms is half of one chunk at 1 MiB and
+a fifteenth of one at 8 MiB.
+
+⚠️ **What the cost IS has been measured, not explained** — the same standing as the ~209 µs
+per-chunk term in the daemon's CPU. It is **not** simply transport latency: the daemon's
+acknowledgement of the pause request travels the same XPC in **0.36–0.53 ms**, an order of magnitude
+less. The reply that carries the settle is a 22-argument cumulative payload off a connection that
+has been blocked for the whole call, which is a plausible difference and **is not evidence.** Do not
+write down a cause for this figure without measuring one.
 
 **None of this touches NFR-REL-10**, which requires the settle to happen *at a chunk boundary with
 no write in flight* and says nothing about how long it may take. Its evidence is the resume
 arithmetic — `resumeBlock == startBlock + chunksProcessed × blocksPerChunk`, exact and 1 MiB-aligned
-in all four cases of all three runs — and the millisecond figures are characterisation beside it.
-`run-control-check.sh` **reports** the settle rather than asserting it against a threshold, on the
-stated ground that throughput is measured here and not graded; that is why nothing flagged the 1.43.
-**There was no assertion to fail, by design rather than by omission.**
+in every case of all four runs, the eight repeat samples included — and the millisecond figures are
+characterisation beside it. `run-control-check.sh` **reports** the settle rather than asserting it
+against a threshold, on the stated ground that throughput is measured here and not graded; that is
+why nothing flagged the 1.43. **There was no assertion to fail, by design rather than by omission**,
+and now that the floor is measured there is still nothing to assert: a settle of one chunk plus
+3.5 ms is the mechanism working.
 
 ⚠️ **A withdrawn claim, recorded because the mistake is repeatable.** Step 11's gate item 2 said
 *"settle tracks the I/O size rather than the 1 GiB call cap"* on the strength of the v12 run's four
-samples. Neither other run shows that ordering — v14 is inverted (9.33 / 7.59 / 5.93 / 6.59) and
-v10 is unordered. **Four samples fitted a trend that four more contradicted**, in a quantity this
-section already says scatters. The claim two paragraphs below is the one that has survived all three
-runs, and it is the one to quote.
+samples. **No other run shows that ordering** — 2026-09-05's first v14 run is inverted
+(9.33 / 7.59 / 5.93 / 6.59), its second is unordered (10.14 / 10.26 / 12.88 / 6.62), and v10 is
+unordered. **Four samples fitted a trend that twelve more contradicted**, in a quantity this section
+already says scatters. The claim two paragraphs below is the one that has survived every run, and it
+is the one to quote.
 
-The daemon acknowledged each request in **0.34–0.62 ms** across all three runs, and **that
+The daemon acknowledged each request in **0.34–0.62 ms** across all four runs, and **that
 acknowledgement is not the settle.** The helper recording a request and the run having acted on it
 are different facts; only the second is NFR-REL-10's guarantee, and nothing may display "Paused" on
-the strength of the first.
+the strength of the first. **The gap between the two is where the 3.5 ms lives**, and it is the
+reason the ack cannot stand in for the settle even as an approximation.
 
 **Latency is set by the CHUNK, not the call** — which is what makes the per-call cap irrelevant to
 it. A cap of 8 MiB would produce these same figures, because the settle happens at a chunk boundary
-*inside* the call either way. This is the claim that has held across v10, v12 and v14.
+*inside* the call either way. This is the claim that has held across v10, v12 and both v14 runs.
 
-*Full account: commits `e13d3e8` (the measurement) and `c8ca155` (the v14 re-run).*
+*Full account: commits `e13d3e8` (the measurement) and `c8ca155` (the v14 re-run). The fixed-cost
+experiment is reproducible as `scripts/run-control-check.sh --repeat-1mib 8`, which re-runs the
+whole gate and then takes the samples.*
 
 ### I/O placement (FR-TEST-10)
 

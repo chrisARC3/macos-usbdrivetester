@@ -58,9 +58,15 @@
 //  The raw instants are printed, not just the verdict, because a verdict is a conclusion and the
 //  timestamps are the evidence.
 //
-//  Usage: run-control-probe <bsdName> [preRunPauseSeconds]
+//  Usage: run-control-probe <bsdName> [preRunPauseSeconds] [--repeat-1mib N]
 //
 //  Emits `KEY=VALUE` lines for `scripts/run-control-check.sh` to assert on, and a human table.
+//
+//  `--repeat-1mib N` appends N extra 1 MiB cases *after* the four-size table, under
+//  `CASE_1MIB_R<n>_*` keys the gate's own parsing does not read. It answers a question the table
+//  cannot — whether the settle has a fixed floor — and is documented at its own site below.
+//  **The four gate cases run first, in order, and their keys are unchanged**, so a run with this
+//  flag re-validates the gate and takes the samples in one pass.
 //
 
 import Foundation
@@ -68,12 +74,38 @@ import Foundation
 // MARK: - Arguments
 
 let arguments = CommandLine.arguments
-guard arguments.count >= 2 else {
-    FileHandle.standardError.write(Data("usage: run-control-probe <bsdName> [waitSeconds]\n".utf8))
+
+/// How many extra 1 MiB samples to take after the four-size table, for the fixed-cost question
+/// (see "The repeat samples" below). `0` — the default — leaves this probe's behaviour and its
+/// emitted keys **exactly** as they were before 2026-09-05, which is what keeps the four gate
+/// cases a re-run of the same instrument rather than a new one.
+var repeatOneMiBSamples = 0
+var positional: [String] = []
+
+do {
+    var index = 1
+    while index < arguments.count {
+        let argument = arguments[index]
+        if argument == "--repeat-1mib" {
+            guard index + 1 < arguments.count, let count = Int(arguments[index + 1]), count >= 0 else {
+                FileHandle.standardError.write(Data("--repeat-1mib needs a non-negative count\n".utf8))
+                exit(2)
+            }
+            repeatOneMiBSamples = count
+            index += 2
+            continue
+        }
+        positional.append(argument)
+        index += 1
+    }
+}
+
+guard let bsdName = positional.first else {
+    FileHandle.standardError.write(
+        Data("usage: run-control-probe <bsdName> [waitSeconds] [--repeat-1mib N]\n".utf8))
     exit(2)
 }
-let bsdName = arguments[1]
-let preRunWaitSeconds = arguments.count >= 3 ? (Double(arguments[2]) ?? 2.0) : 2.0
+let preRunWaitSeconds = positional.count >= 2 ? (Double(positional[1]) ?? 2.0) : 2.0
 
 /// How much of the device one bounded call covers. The per-call cap, so the call is as long as a
 /// call can legally be — which is what gives the pause the widest window to land inside.
@@ -415,11 +447,24 @@ var settled = 0
 // to run rather than naming a particular call.
 var chunksBefore = idleAttempt.chunksProcessed
 
-for ioSizeBytes in TesterProtocol.permittedIOSizes {
+/// What one case concluded. Returned rather than counted inside, so the repeat loop below can
+/// tally its own samples without touching the four the gate asserts on.
+enum CaseVerdict { case settled, inconclusive, wrong }
+
+/// Run one bounded, paused case and emit its keys under `prefix`.
+///
+/// **Extracted 2026-09-05 so the repeat loop cannot drift from the gate loop.** The two differ
+/// only in which sizes they walk and what they name their keys; every figure — the chunk
+/// difference, the resume arithmetic, the alignment — is computed here, once. Duplicating it for
+/// the repeats is how `metrics-probe` and this probe came to disagree about what `chunksProcessed`
+/// meant, which cost twelve days and four false RESUME_POINT_WRONG reports.
+///
+/// - Parameter prefix: the `KEY=` namespace, e.g. `CASE_1MIB` or `CASE_1MIB_R3`.
+func measureCase(ioSizeBytes: Int, prefix: String) -> CaseVerdict {
     let result = performRun(ioSizeBytes: ioSizeBytes, pauseAfter: preRunWaitSeconds)
     let report = result.report
 
-    // Differenced **before any `continue`**, so a case that bails out cannot corrupt the next
+    // Differenced **before any early return**, so a case that bails out cannot corrupt the next
     // one's baseline. The `>=` guard means a counter that went backwards reads as zero work rather
     // than as a vast negative underflowing into a plausible block number.
     let chunksThisCall = report.chunksProcessed >= chunksBefore
@@ -439,7 +484,6 @@ for ioSizeBytes in TesterProtocol.permittedIOSizes {
                 ackMilliseconds,
                 settleMilliseconds))
 
-    let prefix = "CASE_\(mib)MIB"
     emit("\(prefix)_OUTCOME=\(report.outcomeCode)")
     // `_CHUNKS` is this call's work, which is what every assertion downstream means by it.
     // The running total is emitted beside it so the two are never confused again.
@@ -452,27 +496,25 @@ for ioSizeBytes in TesterProtocol.permittedIOSizes {
     // The two vacuous passes, refused rather than counted.
     if report.outcomeCode == RunOutcomeCode.completed.rawValue {
         emit("\(prefix)_VERDICT=INCONCLUSIVE_RUN_FINISHED_FIRST")
-        inconclusive += 1
-        continue
+        return .inconclusive
     }
     // This check had become **untriggerable**: against a cumulative counter it could only read
     // zero if the control run had also done nothing, and that is already guarded above. On the
     // difference it can fail again, which is the whole point of it.
     if chunksThisCall == 0 {
         emit("\(prefix)_VERDICT=INCONCLUSIVE_PAUSE_BEFORE_FIRST_CHUNK")
-        inconclusive += 1
-        continue
+        return .inconclusive
     }
     guard report.outcomeCode == RunOutcomeCode.pausedByUser.rawValue else {
         emit("\(prefix)_VERDICT=WRONG_OUTCOME")
-        continue
+        return .wrong
     }
 
     // **The arithmetic that proves the resume point is where the run actually stopped**, rather
     // than merely a plausible-looking block number. Every chunk before the settle was a full
     // `ioSizeBytes`, so the resume point must be exactly that many bytes past this call's start.
     //
-    // `chunksThisCall`, never `report.chunksProcessed` — see the note above the loop.
+    // `chunksThisCall`, never `report.chunksProcessed` — see the note above.
     let blocksPerChunk = UInt64(ioSizeBytes) / UInt64(blockSize)
     let expectedResume = startBlock + chunksThisCall * blocksPerChunk
     emit("\(prefix)_EXPECTED_RESUME_BLOCK=\(expectedResume)")
@@ -485,9 +527,17 @@ for ioSizeBytes in TesterProtocol.permittedIOSizes {
 
     if arithmeticHolds && aligned {
         emit("\(prefix)_VERDICT=SETTLED")
-        settled += 1
-    } else {
-        emit("\(prefix)_VERDICT=RESUME_POINT_WRONG")
+        return .settled
+    }
+    emit("\(prefix)_VERDICT=RESUME_POINT_WRONG")
+    return .wrong
+}
+
+for ioSizeBytes in TesterProtocol.permittedIOSizes {
+    switch measureCase(ioSizeBytes: ioSizeBytes, prefix: "CASE_\(ioSizeBytes / (1 << 20))MIB") {
+    case .settled:      settled += 1
+    case .inconclusive: inconclusive += 1
+    case .wrong:        break
     }
 }
 
@@ -495,6 +545,48 @@ emit("")
 emit("SETTLED_CASES=\(settled)")
 emit("INCONCLUSIVE_CASES=\(inconclusive)")
 emit("TOTAL_CASES=\(TesterProtocol.permittedIOSizes.count)")
+
+// MARK: - The repeat samples (2026-09-05)
+//
+// **This walks ONE size many times, which is a different question from the loop above.**
+//
+// The four-size table reports one sample per size, and CONSTRAINTS §1's model says a settle is
+// "the remainder of the current chunk", so a sample scatters uniformly across one chunk's worth of
+// time. Twelve samples across three runs fit that — except the 1 MiB column, which rode high in
+// every run (0.87 -> 0.96 -> 1.43) and on 2026-09-05 came back at 9.33 ms against a bound of
+// ~6.5 ms. A fraction above 1.0 is not an unlucky draw, it is out of range, so the model is what
+// is wrong.
+//
+// The competing hypothesis is `settle = remainder of the current chunk + a fixed cost` — a few ms
+// of reply plumbing, invisible against 8 MiB's ~53 ms bound and dominant against 1 MiB's ~6.5 ms.
+// **A fixed cost has a floor; a uniform draw does not**, so the discriminating experiment is to
+// repeat the smallest size alone and look at the bottom of the distribution, not the top. Three
+// samples per column cannot separate them; a dozen at one size can.
+//
+// **ANSWERED 2026-09-05, first time this ran: it is a floor, and the fixed cost is ~3.5 ms.**
+// Eight samples, minimum 0.65 of its own bound, three of the eight above 1.0. Under a uniform draw
+// the minimum is a one-in-4,400 event and the three above 1.0 are impossible. The flag is kept
+// because the figure is a property of this machine and this drive, not a constant — re-run it when
+// either changes, or when the reply's payload does. Full account in CONSTRAINTS section 1.
+//
+// Each sample carries its own calibration — the chunk count in its own 2 s pre-pause window — so
+// the repeats need neither the control run nor the other three sizes to be comparable with the
+// table. They run last so the four gate cases are untouched, in order, exactly as before.
+if repeatOneMiBSamples > 0 {
+    emit("")
+    emit("-- repeat samples at 1 MiB --")
+    emit("ioSize     outcome  chunks  resumeBlock    ackMs   settleMs")
+
+    var repeatSettled = 0
+    for sample in 1...repeatOneMiBSamples {
+        if measureCase(ioSizeBytes: 1 << 20, prefix: "CASE_1MIB_R\(sample)") == .settled {
+            repeatSettled += 1
+        }
+    }
+    emit("")
+    emit("REPEAT_1MIB_SAMPLES=\(repeatOneMiBSamples)")
+    emit("REPEAT_1MIB_SETTLED=\(repeatSettled)")
+}
 
 // Leave the daemon as it was found. A stale `pause` could only make a later run do less, but
 // leaving one behind would be leaving an instrument's residue in the product's state.

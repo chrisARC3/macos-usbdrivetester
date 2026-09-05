@@ -58,23 +58,33 @@ their reasoning.
 | **Verified** | **1127 tests, 0 failures, 136 suites** (floor `scripts/.test-floor` = 1127), re-run green 2026-09-05. The build figures are **increment 12's gate, 2026-09-04**, not re-derived since: three clean builds with DerivedData wiped before each — `build.sh Debug`, `build.sh Release`, `test.sh` — **zero source warnings from all three**, 88 per-file `SwiftCompile` tasks Debug, 2 whole-module Release, 171 for the test target, **13/13** gate clients type-check |
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`**, unmoved since increment 11. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. **Step 12 will move it**, and every gate result recorded against it lapses when it does |
 | **Protocol** | **v14** |
-| **Hardware gates** | **all four current.** `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at this helper hash. `run-control-check.sh` **14 assertions / 0 failures** 2026-09-05 against the v14 daemon. **Each one is invalidated by the next protocol bump or any move of the helper hash**, neither of which is announced |
+| **Hardware gates** | **all four current.** `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at this helper hash. `run-control-check.sh` **14 assertions / 0 failures**, run **twice** on 2026-09-05 against the v14 daemon at this hash — the second with `--repeat-1mib 8`, which closed the settle measurement below. **Each one is invalidated by the next protocol bump or any move of the helper hash**, neither of which is announced — **and Step 12's chunk 1 moves the hash**, so all four lapse there by design |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
 | **Owed** | **Nothing.** Step 11 closed with every gate current and its checklist complete |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
-### One open measurement, carried forward — not blocking
+### The one open measurement — CLOSED 2026-09-05, before Step 12 began
 
-`run-control-check.sh`'s **1 MiB settle came back at 9.33 ms against a one-chunk bound of ~6.5 ms**
-on 2026-09-05 — the first of twelve samples across three runs to exceed its own bound, and *out of
-range* under the uniform-draw model `CONSTRAINTS.md` §1 states rather than merely a high draw. It is
-**not** an NFR-REL-10 failure: that requirement fixes *where* the settle happens, not *when*, and
-its evidence — the resume arithmetic — was exact in all four cases. The hypothesis that fits all
-twelve samples is a **fixed additive cost** in the settle, invisible at 8 MiB and dominant at 1 MiB.
-**The experiment that would settle it costs about forty seconds**: repeat the 1 MiB case alone half
-a dozen times and see whether the samples sit above a floor or scatter towards zero. Full table and
-reasoning in `CONSTRAINTS.md` §1.
+`run-control-check.sh`'s 1 MiB settle exceeding its own one-chunk bound is **explained and no longer
+open.** The experiment CONSTRAINTS §1 called for was run on 2026-09-05 against the **v14** daemon at
+helper hash `e6888aa5…`, on the 1 TB T5 scratch drive — `--repeat-1mib 8`, the 1 MiB case alone,
+eight times, each self-calibrated from its own pre-pause window.
+
+**The settle has a floor: it is the remainder of the current chunk plus a fixed ~3.5 ms.** No sample
+fell below **0.65** of its own bound, which under a uniform draw is a one-in-4,400 event, and three
+of the eight exceeded 1.0, which a uniform draw cannot produce at all. Mean, minimum and maximum
+give the fixed term as 3.3 / 3.6 / 3.5 ms independently, and a 3.5 ms constant places **all twenty**
+samples across four runs inside their predicted bands. **What the 3.5 ms is made of is measured, not
+explained** — it is not transport latency, since the ack on the same XPC takes 0.36–0.53 ms. Full
+tables, the arithmetic and that caution are in `CONSTRAINTS.md` §1.
+
+It was never an NFR-REL-10 failure and still is not: that requirement fixes *where* the settle
+happens, not *when*, and the resume arithmetic was exact in every case of all four runs.
+
+**That run also re-passed the whole gate** — 14 assertions, 0 failures, all four I/O sizes settled,
+protocol v14 — so the Step 11 gate row above rests on a second, independent v14 pass at the same
+helper hash.
 
 ## Known loose ends carried into later steps
 
