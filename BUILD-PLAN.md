@@ -13,8 +13,7 @@ Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Di
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
 
-> **The step in progress is Step 11 (increments 1–11 done; increment 12's behaviour built, its walk
-> owed), and the protocol is v14.** ⚠️ **The repository moved on 2026-09-04** to
+> **The step in progress is Step 11 (increments 1–12 done and gated), and the protocol is v14.** ⚠️ **The repository moved on 2026-09-04** to
 > `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester` — still a **removable volume**,
 > so builds still go outside it, and any absolute path written down before that date is wrong.
 > **Increment 12 — ⌘Q under every modal — was built on 2026-09-04** in four chunks, app target only;
@@ -22,14 +21,11 @@ test target fixed to the designated scratch device with disk images removed as a
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which now holds only
 > the settled-decision table. **No increment is planned right now.**
 >
-> **The human checklist is NOT complete: chunk 16 is owed**, plus re-walks of **6.1** and **11.7**
-> at expectations increment 12 changed. Chunks 1–15 are walked and passed (chunk 15 added and walked
-> 2026-09-03, five items). **The hardware gates are not owed** — `metrics-check.sh`,
+> **The human checklist is complete — 16 chunks, nothing owed.** Chunk 16 (⌘Q under every modal)
+> was written and walked on 2026-09-04, all nine items, and 6.1, 11.7 and 6.3 were re-walked at
+> expectations increment 12 changed. **The hardware gates are not owed** — `metrics-check.sh`,
 > `xpc-concurrency-check.sh` and `retention-cycle-check.sh` all passed 2026-09-03, and increment 12
-> **did not move the helper hash**, so those results still stand. ⚠️ **The installed app is chunk
-> 0's build (2026-09-04 08:47) and carries none of chunks 1–2**, so chunk 16 needs a reinstall
-> first — **and a daemon kickstart after it**, for the reason the rule below gives: nothing
-> announces the mismatch precisely when the helper source has not moved.
+> **did not move the helper hash**, so those results still stand.
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -455,8 +451,8 @@ simulation-first still applies wherever the plan calls for it.
 >
 >     dd if=/dev/urandom of=/Volumes/Test_Drive/fill.bin bs=4m status=progress
 >
-> ⚠️ **No longer complete as of 2026-09-04: increment 12 added chunk 16 and changed 6.1 and 11.7.**
-> See the lead block. What follows was true up to 2026-09-03.
+> **Complete again as of 2026-09-04**: increment 12 added chunk 16 and changed 6.1 and 11.7, and
+> all four were walked the same day. What follows was true up to 2026-09-03.
 >
 > **The human checklist is complete. Chunk 15 was added and walked on 2026-09-03** — five items,
 > all passed, no product defect. Its item 2 was the one that mattered: nothing anywhere checked that

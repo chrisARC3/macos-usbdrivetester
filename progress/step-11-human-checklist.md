@@ -88,11 +88,11 @@ divided by running time*; asked again on 2026-09-02, it led to FR-METR-1 being a
 and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel now reads Write
 **above** Read. The answer given here was correct for the build it was given about.
 
-> **CHUNK 16 PASSED IN FULL — ALL NINE ITEMS, 2026-09-04**, the day it was written. **6.1 and 11.7
-> are still owed a re-walk** at expectations increment 12 changed: 6.1 now asks for the menu item to
-> be *greyed* where it used to ask only that nothing happen, and 11.7 now expects ⌘Q to **discard the
-> report and quit**, reversing that item for the second time. **13.4** gained a line and does not
-> need re-walking on its own.
+> **NOTHING IS OWED IN THIS FILE, as of 2026-09-04.** **Chunk 16 passed in full — all nine items**,
+> the day it was written, and the three re-walks increment 12 owed elsewhere have all passed:
+> **6.1** (the item is greyed), **11.7** (⌘Q discards the report and quits, closing the question that
+> item parked on 2026-08-21) and **6.3** (Cancel and Quit, against the fix). **13.4** gained a line
+> and did not need re-walking.
 >
 > **The walk found one defect in the product and three in this file**, which is a ratio worth
 > noticing in a chunk written the same morning:
@@ -308,6 +308,9 @@ deliberately not bound to the persisted preference.
    > see: nothing automated compiles the file the `.disabled` lives in.
    >
    > If ⌘Q quits from here, that is a serious finding — not a cosmetic one.
+   >
+   > ✅ **RE-WALKED AND PASSED 2026-09-04** against increment 12: the item is greyed, ⌘Q does
+   > nothing, and Cancel then ⌘Q quits.
 2. ⌘Q during a run **asks**, and **the run keeps going underneath the dialog**. *Continue Testing*
    resumes as if nothing happened.
 3. *Cancel and Quit* stops at a chunk boundary, releases, **and the app actually goes** — every
@@ -690,6 +693,9 @@ need a real run; 8–10 do not.
    > So the check is back to *"the app quits"* — by a different route, and for a reason rather than
    > by accident. If ⌘Q does **nothing** here, the fix has regressed; if it quits but leaves the
    > report's sheet on screen for an instant first, say so, because the ordering is the fix.
+   >
+   > ✅ **RE-WALKED AND PASSED 2026-09-04.** One keystroke takes the report down and the app with
+   > it. The question this item parked on 2026-08-21 is closed.
 
 8. **Ask for a run that cannot start.** Select a drive, press **Start**, and **while the pre-run
    dialog is up, unplug that drive.** Then press Proceed. Preparation aborts and the failure is
@@ -1504,9 +1510,14 @@ including window class names.
    > If this returns hits again, **check the PIDs first**: several PIDs each with the same small
    > number of lines, at `key=none` and `0 sheet(s)`, is a test run and not the app.
 
-9. **Out of scope, so it is not a finding.** The Dock icon's ▸ *Quit* calls `NSApp.terminate(_:)`
-   directly and cannot be intercepted by any app-declared command, so under a modal it does what it
-   always did: nothing. The report's **Export report…** panel and its error alert are `runModal()`
+9. **Out of scope, so it is not a finding — but the Dock claim was MEASURED, not assumed.** The
+   Dock icon's ▸ *Quit* calls `NSApp.terminate(_:)` directly and cannot be intercepted by any
+   app-declared command, so under a modal it does what it always did: nothing. **Walked 2026-09-04
+   with the pre-run dialog up: it did not quit.**
+
+   > Worth the thirty seconds, because if it *had* quit it would be a hole rather than a curiosity —
+   > a route past the pre-run prompt's refusal, on the one modal that stands between a selected drive
+   > and a write. This item asserted it until then, which is the habit that produced 7.8. The report's **Export report…** panel and its error alert are `runModal()`
    app-modal panels, which behave as they do in every Mac app.
 
 

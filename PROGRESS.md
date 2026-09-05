@@ -18,14 +18,14 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. Increments 1–11 done; **increment 12 is built and owes its walk**
+## Step 11 — IN PROGRESS. **Increments 1–12 done and gated**; nothing is planned
 
-> **Cold start? Read *Current state — increment 12 built, its walk owed* below** — it is the only
-> status block in this file that is current, re-derived 2026-09-04. Then increment 12's own section,
-> and checklist **chunk 16**, which is what is actually owed.
+> **Cold start? Read *Current state — increment 12 done and gated* below** — it is the only status
+> block in this file that is current, re-derived 2026-09-04 at increment 12's close. Every
+> *"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
 
-> ⚠️ **Increment 12's behaviour is built; its human walk is not.** The decisions behind it and
-> what must not be re-opened are in
+> ⚠️ **Nothing is planned. Increments 1–12 are done and gated.** The decisions taken along the
+> way, and what must not be re-opened, are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
 > **Read it before starting it** — the decisions were argued through at length and
 > re-deriving them will not reach the same answers. **All four sections — 9, 10, 11 and 12 — have
@@ -140,7 +140,7 @@ Raised during scoping and not contradicted, so they stand until they are:
 | **9 ✅** | **The launch-time helper gate.** `HelperAvailability` — a pure enum + pure diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake — and one remedy-first modal raised at launch. `HelperRegistration` moves to `AppModel`. Six scoping decisions the plan did not settle were taken first; **five render cases rather than one**, and the `⇧⌘R` clause the plan did not name | **code done 2026-08-27** — see below. **Chunk 13 passed in full 2026-08-27/09-01**, and found five defects; `8b0db53`, `bd8281d`, `2ed5984` |
 | **10 ✅** | **FDA moves to Start; two rows of clutter deleted.** The Full Disk Access check is an injected operation in `DevicePreparation`, **before the unmount**, with a two-button alert. The **readiness banner** is gone entirely, and `DeviceListView` no longer holds an XPC connection at all — which the plan did not predict. **`Covering` was deleted from three surfaces, not one** | **done 2026-09-02 `6b809cc`** — see below. Built in three chunks, suite green between each. App target only; v12 stands |
 | **11 ✅** | **`R-W-R-C speed`.** Bytes whose chunk outcome is `.completed`, per second — the figure the user actually wanted, which existed nowhere. **FR-METR-1 was then amended mid-increment**: the displayed rates divide by *phase* time, not running time, so Read and Write no longer share a denominator and "Read is about twice Write" stopped being a counting identity. **Protocol v13 → v14**, not folded into v13 | **done 2026-09-03 `05b7ea7`**, docs `c0d2596`. **Chunk 15 written and walked the same day, `d155eef`** — five items, all passed; two of its original seven were deleted before either could be walked. ⚠️ **This row said "planned and approved, unwritten" until 2026-09-04**, five days after the increment landed and one day after the status block above was corrected for exactly this — found by increment 12's stale-claim sweep, which is what the `grep -rn` check in that block exists to do |
-| **12 🟨** | **⌘Q works under every modal.** `NSApp.terminate(_:)` is a silent no-op while a sheet is attached, so ⌘Q ran **no code of this app's at all** under any of its window-modal surfaces — **five of them, not the three the plan named**, because a SwiftUI `.alert` on macOS is presented as a sheet. The app now declares its **own** Quit command (the only route that is entered under a sheet) and asks a per-surface truth table. **Unplanned**: produced by walking chunk 13, and it is the true cause of increment 5's check 6.1 | **built 2026-09-04, walk owed.** App target only; **helper hash unmoved**, so increment 11's three hardware gates stand. Chunks 0–3: `7860f54`, `a0d8881`, `7106dd3`, + this one. **Chunk 16 is owed**, and 6.1 and 11.7 need re-walking at changed expectations |
+| **12 ✅** | **⌘Q works under every modal.** `NSApp.terminate(_:)` is a silent no-op while a sheet is attached, so ⌘Q ran **no code of this app's at all** under any of its window-modal surfaces — **five of them, not the three the plan named**, because a SwiftUI `.alert` on macOS is presented as a sheet. The app now declares its **own** Quit command (the only route that is entered under a sheet) and asks a per-surface truth table. **Unplanned**: produced by walking chunk 13, and it is the true cause of increment 5's check 6.1 | **done and gated 2026-09-04.** App target only; **helper hash unmoved** at `e6888aa5…`, so increment 11's three hardware gates stand untouched. **Chunk 16 passed in full** the day it was written, and 6.1, 11.7 and 6.3 re-walked and passed. It found `Cancel and Quit` had not quit since increment 8 |
 
 > **Renumbered 2026-08-19.** Increment 7 was unplanned. What the rest of these documents still call
 > *"increment 7"* — the docs pass, the Step 10 gate re-runs, FR-RPT-4 and Restart — is now increment
@@ -149,8 +149,8 @@ Raised during scoping and not contradicted, so they stand until they are:
 
 ### Where increment 8 starts
 
-> **A dated snapshot, not the current state.** For that, read *Current state — increment 12 built,
-> its walk owed* below.
+> **A dated snapshot, not the current state.** For that, read *Current state — increment 12 done
+> and gated* below.
 
 Re-derived on 2026-08-20 rather than quoted. **No tree hash is named on purpose** — it would be
 stale by the next commit, which is the failure mode this project keeps paying for. `git log
@@ -178,8 +178,8 @@ anywhere and does not reproduce; only hashes from `a36c4f77…` onward are check
 
 ### Where increment 11 starts
 
-> **A dated snapshot, not the current state.** For that, read *Current state — increment 12 built,
-> its walk owed* below.
+> **A dated snapshot, not the current state.** For that, read *Current state — increment 12 done
+> and gated* below.
 
 Re-derived 2026-09-02. **No tree hash is named on purpose** — it would be stale by the next commit,
 which is the failure mode this project keeps paying for.
@@ -222,24 +222,25 @@ dated snapshots of earlier moments and are not current. No tree hash is named, o
 in this block stands until it does — and if a change makes the hash move, the three hardware gates
 lapse with it. Check the hash before assuming they hold.
 
-### Current state — increment 12 built, its walk owed
+### Current state — increment 12 done and gated
 
-**Re-derived 2026-09-04 after chunk 3, and this is the block a cold start should read.** Every
+**Re-derived 2026-09-04 at increment 12's close, and this is the block a cold start should read.** Every
 *"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
 
 **A separate block rather than an edit to the one above**, deliberately: that one is titled *where
 increment 12 starts* and it is true of that moment. Editing a snapshot with later news is the defect
-this file's own ⚠️ describes, and increment 11's block was caught doing it on 2026-09-03.
+this file's own ⚠️ describes, and increment 11's block was caught doing it on 2026-09-03. **This
+block is not a snapshot** — it is the current state, and it is the one to edit when things change.
 
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. Chunks 0–2 pushed; this chunk is not |
-| **Verified** | **1123 tests, 0 failures, 136 suites** (floor `scripts/.test-floor` = 1123). Zero Swift source warnings. The three-clean-builds and gate-client figures are increment 11's and have **not** been re-measured — that is increment 12's close, not this chunk |
+| **Verified** | **1123 tests, 0 failures, 136 suites** (floor `scripts/.test-floor` = 1123). **Three clean builds with DerivedData wiped before each — `build.sh Debug`, `build.sh Release`, `test.sh` — zero source warnings from all three**, and genuinely clean rather than cached: 88 per-file `SwiftCompile` tasks Debug, 2 whole-module Release, 171 for the test target. **13/13 gate clients type-check** |
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
 | **Protocol** | **v14** |
-| **Human checklist** | **16 chunks. Chunk 16 PASSED IN FULL 2026-09-04**, all nine items, the day it was written — it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1 and 11.7 are still owed a re-walk** at changed expectations. **6.3 has been re-walked and passes** against the fix |
-| **Owed** | **the 6.1 and 11.7 re-walks, and increment 12's close** (three clean builds with DerivedData wiped, helper hash re-derived) |
-| **Installed app** | ⚠️ **Reinstall before the 6.1 and 11.7 re-walks** — the build in `/Applications` predates `863d59f`. Historical note: `/Applications/USBDriveTester.app`, Debug, **built 2026-09-04 08:47 — chunk 0's build**, installed to walk chunk 0's pre-flight. It has `quitRequestedFromMenu` and **none of chunks 1–2**: `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib` reads `mayQuitFromMenu` 0, `dismissThenTerminate` 0, `AppModal` 0 against 4 / 7 / 61 on a current build. **Not walkable for chunk 16.** ⚠️ **Kickstart the daemon after reinstalling** — `install-app.sh` replaces the helper binary underneath the running daemon, and BUILD-PLAN's rule is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly this increment's case |
+| **Human checklist** | **complete — 16 chunks, nothing owed.** Chunk 16 passed in full 2026-09-04, all nine items, the day it was written; it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1, 11.7 and 6.3 re-walked and passed** at expectations increment 12 changed |
+| **Owed** | **nothing.** No increment is planned |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04 for the chunk 16 walk and again for the 6.1/11.7 re-walks, daemon kickstarted each time. ⚠️ **Always kickstart after `install-app.sh`** — it replaces the helper binary underneath the running daemon, and BUILD-PLAN is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly an app-only increment's case. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`** rather than by the timestamp: `strings` cannot settle it, and on 2026-09-04 chunk 16 was nearly walked against chunk 0's build |
 | **Fixture** | unchanged from the block above. ⚠️ The 1 TB T5's `fill.bin` is still deleted; restore it before the retention gate is run again |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
