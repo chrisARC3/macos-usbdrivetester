@@ -246,6 +246,45 @@ block is not a snapshot** — it is the current state, and it is the one to edit
 | **Fixture** | drives unchanged from the block above. **The 1 TB T5's `fill.bin` was restored 2026-09-04 18:19**, against the scratch device identified by **serial `12345686DAA9`** (`/dev/disk7` that day — BSD names move): 999,947,239,424 bytes of `/dev/urandom` in 57m43s at 288.8 MB/s, `dd` ending on `No space left on device` as intended. The volume reads **100% used**, so the gate's `df` early warning no longer fires the false alarm it fired on 2026-08-25 and 2026-09-03; three 1 MiB samples at 1 GiB, 476811 MiB and 953622 MiB digest distinctly, and none is the all-zero block. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
+### Step 11's verification gate — re-run against v14 and PASSED, 2026-09-05, `c8ca155`
+
+`scripts/run-control-check.sh`, the last thing Step 11 owed. It had stood on a **v12** daemon since
+2026-08-24 while the protocol went to **v14** on 2026-09-03, so the daemon that evidence came from
+no longer existed. Re-run against HEAD `12118f3`, helper hash `e6888aa5…`, handshake
+`PROTOCOL=14 EXPECTED=14`, on the 1 TB T5 scratch drive (`12345686DAA9`).
+
+**14 assertions, 0 failures; 4 settled, 0 inconclusive.** That discharges gate items **2**, **3**
+and the helper-side half of **5** — items 1 and 4 never rested on the daemon — so **all five now
+stand against v14.** The control run completed (6,796.4 ms over 256 chunks, which is what makes a
+bounded call demonstrably longer than the 2 s pre-pause wait); every case reported `pausedByUser`;
+`resumeBlock == startBlock + chunksProcessed × blocksPerChunk` was **exact** and 1 MiB-aligned in
+all four; the concurrent-run guard refused a second run naming both the operation and the disk while
+**accepting the identical call with nothing in flight**; and the device released cleanly.
+
+| I/O size | chunks | ack | settle |
+|---|---|---|---|
+| 1 MiB | 306 | 0.600 ms | **9.326 ms** |
+| 2 MiB | 153 | 0.547 ms | 7.589 ms |
+| 4 MiB | 76 | 0.555 ms | 5.928 ms |
+| 8 MiB | 38 | 0.597 ms | 6.589 ms |
+
+**One figure is outside the model, and one sentence is withdrawn.** The 1 MiB settle exceeded its
+own one-chunk bound of ~6.5 ms — the first of twelve samples across three runs to do so, and under
+CONSTRAINTS §1's uniform-draw model that is *out of range* rather than unlucky. It is **not** an
+NFR-REL-10 failure: that requirement fixes *where* the settle happens, not *when*, and its evidence
+— the resume arithmetic — held in every case. The three-run table, the fixed-cost hypothesis and
+the forty-second experiment that would settle it are in **`CONSTRAINTS.md` §1**, which is also where
+the withdrawal lands: gate item 2's *"settle tracks the I/O size"* was fitted to the v12 run's four
+samples, and neither of the other two runs shows that ordering.
+
+**The status sweep found two defects the gate had nothing to do with**, both in the Current state
+block above. The **Working tree** row still claimed a chunk unpushed. The **Verified** row said
+1123 tests, floor 1123, while `scripts/.test-floor` had said **1127** since `8c65f40` on 2026-09-04
+added the two tests that closed mutation survivors Q2 and Q3 and ratcheted the floor with them.
+**A ratchet moves a file that no status block is derived from**, so the two disagreed for a day and
+nothing was watching the seam. Settled by running the suite rather than inferring it: **1127 tests,
+0 failures, 136 suites.**
+
 ### What increment 8 owes
 
 1. ~~**FR-RPT-4** — "Stopped by user" in the report.~~ **Done, `0f65be4`.** Deferred out of
@@ -404,6 +443,14 @@ expected settle is about **half** the bound, and a single sample scatters across
 2 MiB (10.13 ms) came out *higher* than 4 MiB (6.19 ms), which is not a defect and not noise in the
 mechanism — it is two draws from two different uniform distributions. The right statement is
 **"bounded by one chunk, typically half of one"**.
+
+> ⚠️ **Half of that statement did not survive. Annotated 2026-09-05, not rewritten** — the paragraph
+> above is what was true and argued on 2026-08-12. *"Typically half of one"* still holds. *"Bounded
+> by one chunk"* does not: the v14 re-run's 1 MiB case settled in 9.33 ms against a ~6.5 ms bound,
+> which the uniform model says is impossible rather than unlikely. See `CONSTRAINTS.md` §1 for all
+> twelve samples and the hypothesis that fits them. **The cap argument in the next paragraph is
+> untouched** — it rests on latency being set by the chunk rather than the call, which every run has
+> shown.
 
 The conclusion the cap argument rested on is unaffected and is now measured rather than asserted:
 **latency is set by the chunk, not the call.** A cap of 8 MiB would have produced these same

@@ -52,7 +52,7 @@ Consequences that are load-bearing:
 
 *Full account: `progress/step-09.md`, D1.*
 
-### Run control: a level the run reads, and a settle bounded by one chunk
+### Run control: a level the run reads, and a settle at a chunk boundary
 
 **`setRunControl` is one method carrying a level — `proceed` / `pause` / `stop` — not a
 pause/resume/stop triple carrying edges.** Resume is `proceed` sent again. An edge would have to be
@@ -66,9 +66,10 @@ where "no write is in flight" is true without qualification, which is how NFR-RE
 construction rather than by care. It is also *before* the processed-chunk counter increments, which
 is what makes the chunk's own start block the correct resume point.
 
-**Measured on hardware 2026-08-12** (`scripts/run-control-check.sh`, 1 TB T5 scratch drive, protocol
-v10), calibrated against an uninterrupted control run of 1 GiB in 6,868 ms — 469 MB/s of device I/O,
-matching this drive's independently measured rate:
+**Measured on hardware three times** — `scripts/run-control-check.sh` on the 1 TB T5 scratch drive
+(`12345686DAA9`), at protocol **v10 (2026-08-12)**, **v12 (2026-08-24)** and **v14 (2026-09-05)**.
+The v10 run, calibrated against an uninterrupted control run of 1 GiB in 6,868 ms — 469 MB/s of
+device I/O, matching this drive's independently measured rate:
 
 | I/O size | 1-chunk bound | settle | fraction of bound |
 |---|---|---|---|
@@ -77,21 +78,64 @@ matching this drive's independently measured rate:
 | 4 MiB | 26.83 ms | 6.19 ms | 0.23 |
 | 8 MiB | 53.66 ms | 42.45 ms | 0.79 |
 
-**The settle is bounded by one chunk and is typically about half of one.** The pause lands at a
-uniformly random point inside a chunk, so a single sample scatters across the bound — which is why
-2 MiB came out *higher* than 4 MiB here. That is two draws from two different distributions, not
-noise in the mechanism. **Do not quote the bound as the typical value**; an earlier note in this
-project did, and the correction is the reason this table exists rather than a single figure.
+**The settle lands at a chunk boundary, and is usually — not always — inside one chunk's worth of
+time.** The pause lands at a uniformly random point inside a chunk, so a single sample scatters
+across the bound, which is why 2 MiB came out *higher* than 4 MiB here. That is two draws from two
+different distributions, not noise in the mechanism. **Do not quote the bound as the typical
+value**; an earlier note in this project did, and the correction is the reason this table exists
+rather than a single figure.
 
-The daemon acknowledged each request in 0.46–0.62 ms, and **that acknowledgement is not the settle.**
-The helper recording a request and the run having acted on it are different facts; only the second
-is NFR-REL-10's guarantee, and nothing may display "Paused" on the strength of the first.
+⚠️ **This section said "bounded by one chunk" until 2026-09-05, and one sample now exceeds it.**
+All twelve samples, each as a fraction of its own bound — calibrated uniformly as
+`2000 ms ÷ chunks done in the 2 s pre-pause window`, which is what makes the three runs comparable:
 
-**Latency is therefore set by the CHUNK, not the call** — which is what makes the per-call cap
-irrelevant to it. A cap of 8 MiB would produce these same figures, because the settle happens at a
-chunk boundary *inside* the call either way.
+| run | 1 MiB | 2 MiB | 4 MiB | 8 MiB |
+|---|---|---|---|---|
+| v10, 2026-08-12 | 0.87 | 0.75 | 0.23 | 0.81 |
+| v12, 2026-08-24 | 0.96 | 0.23 | 0.36 | 0.38 |
+| **v14, 2026-09-05** | **1.43** | 0.58 | 0.23 | 0.13 |
 
-*Full account: commit `e13d3e8`.*
+*(The v10 row differs by a point or two from that run's own column above, which calibrated off the
+control run instead. Either calibration puts the same samples in the same places.)*
+
+The v14 1 MiB case settled in **9.33 ms against a bound of ~6.5 ms**, and both calibrations agree it
+is over: that run's own control gives 6.64 ms per MiB of covering work, and its 2 s window gives
+6.54. Under the uniform-draw model a fraction above 1.0 is not an unlucky sample, it is **out of
+range** — so what is wrong is the model, not the drive.
+
+**The hypothesis that fits all twelve: `settle = the remainder of the current chunk + a fixed
+cost`.** A few milliseconds of reply plumbing is invisible against 8 MiB's ~53 ms bound and dominant
+against 1 MiB's ~6.5 ms one, which is the shape of the table — the 1 MiB column rides high in every
+run (0.87 → 0.96 → 1.43) while the 8 MiB column scatters freely (0.81 → 0.38 → 0.13). **It is a
+hypothesis, and three samples per column cannot carry it.** What would settle it costs about forty
+seconds: repeat the 1 MiB case alone half a dozen times and see whether the samples sit above a
+floor or scatter down towards zero. **A fixed cost has a floor; a uniform draw does not.**
+
+**None of this touches NFR-REL-10**, which requires the settle to happen *at a chunk boundary with
+no write in flight* and says nothing about how long it may take. Its evidence is the resume
+arithmetic — `resumeBlock == startBlock + chunksProcessed × blocksPerChunk`, exact and 1 MiB-aligned
+in all four cases of all three runs — and the millisecond figures are characterisation beside it.
+`run-control-check.sh` **reports** the settle rather than asserting it against a threshold, on the
+stated ground that throughput is measured here and not graded; that is why nothing flagged the 1.43.
+**There was no assertion to fail, by design rather than by omission.**
+
+⚠️ **A withdrawn claim, recorded because the mistake is repeatable.** Step 11's gate item 2 said
+*"settle tracks the I/O size rather than the 1 GiB call cap"* on the strength of the v12 run's four
+samples. Neither other run shows that ordering — v14 is inverted (9.33 / 7.59 / 5.93 / 6.59) and
+v10 is unordered. **Four samples fitted a trend that four more contradicted**, in a quantity this
+section already says scatters. The claim two paragraphs below is the one that has survived all three
+runs, and it is the one to quote.
+
+The daemon acknowledged each request in **0.34–0.62 ms** across all three runs, and **that
+acknowledgement is not the settle.** The helper recording a request and the run having acted on it
+are different facts; only the second is NFR-REL-10's guarantee, and nothing may display "Paused" on
+the strength of the first.
+
+**Latency is set by the CHUNK, not the call** — which is what makes the per-call cap irrelevant to
+it. A cap of 8 MiB would produce these same figures, because the settle happens at a chunk boundary
+*inside* the call either way. This is the claim that has held across v10, v12 and v14.
+
+*Full account: commits `e13d3e8` (the measurement) and `c8ca155` (the v14 re-run).*
 
 ### I/O placement (FR-TEST-10)
 
