@@ -69,7 +69,8 @@ struct AppModelReportTests {
                                         readLatencyMinimumNanoseconds: 1_100_000,
                                         readLatencyMaximumNanoseconds: 9_900_000,
                                         readLatencyP99UpperBoundNanoseconds: 2_195_000,
-                                        message: "Cycle completed")
+                                        message: "Cycle completed",
+                                        deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
             // Force-unwrapped deliberately: `init?` returns nil only for a mode that is not
             // runnable, and a fixture that silently became nil would make every test below vacuous.
             return RunReport(reply: reply,

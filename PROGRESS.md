@@ -56,9 +56,9 @@ their reasoning.
 | | |
 |---|---|
 | **Working tree** | clean, on `main`, level with `origin/main` |
-| **Verified** | **1158 tests, 0 failures, 142 suites** (floor `scripts/.test-floor` = 1158), run green 2026-09-05 at chunk 2. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
-| **Helper** | source hash **`a951e527c52384fc24de5eaaa613fe5872d463130f8dccb5a2f2fadcc20966c6`** — **moved 2026-09-05 by Step 12 chunk 1**, from `e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`, which it had been since increment 11. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. It will move again at chunks 2, 3 and 4 |
-| **Protocol** | **v14.** Chunk 3 takes it to v15 |
+| **Verified** | **1171 tests, 0 failures, 143 suites** (floor `scripts/.test-floor` = 1171), run green 2026-09-05 at chunk 3. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
+| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunk 2 did not move it, being app-target only. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. It will move again at chunk 4 |
+| **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
@@ -96,11 +96,47 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **0** | The carried-forward settle measurement. Instrument only — `tools/run-control-probe` and `scripts/run-control-check.sh` grew `--repeat-1mib N`; no product code | **done 2026-09-05**, `a6e3bb0` (+ `0356ecb`, a pointer fix). Helper hash **unmoved**. See the section above |
 | **1** | **Route (a), the `ENXIO` discriminator.** Core only, no wire change | **done 2026-09-05.** See below |
 | **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | **done 2026-09-05.** See below. Helper hash **unmoved** — app target only |
-| **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | not started |
+| **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05.** See below. **Moves the helper hash to `42774589…`** |
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | not started |
 | **5** | The report: the fifth `RunReportOutcome`, `HonestFraming`, presentation, Markdown | not started |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | not started |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
+
+### Chunk 3 — protocol v15: the wire can say the device went away
+
+`RunOutcomeCode.deviceLost = 5`, and chunk 1's interim `unrecognised` mapping is gone. The reply
+gains **one argument**, `deviceLossPhaseCode` (23); the block the run died at travels in the
+existing `interruptedAtBlock` slot.
+
+**The one design decision worth stating.** That slot now carries two things depending on the outcome
+code, and they say *opposite* things about what may happen next: under `pausedByUser` it is a resume
+point, under `deviceLost` it is where the run died inside a chunk and FR-FAIL-7 forbids continuing
+across it. Sharing the slot is right — it is the same quantity — but one app-side optional meaning
+either would be **one field stating two facts**. `RunCycleOutcome` splits it into `resumeBlock` and
+`deviceLostAtBlock`, each `nil` unless its own code arrived, and the load-bearing test asserts the
+two are **never both non-nil** for any code and any block. The mutation that makes a lost device
+offer a resume point kills four tests.
+
+**The phase gets a field rather than being folded into the message**, because it is the one fact
+about a device loss that changes what a person should do: a drive that vanished during the
+**write-back** is the only case where this tool held the chunk's only copy of the original and had
+not finished putting it back.
+
+**v15 restores the property v14 lost.** v14 was the first bump whose reply did not change shape, so
+a v13 app and a v14 daemon decode cleanly and display wrong numbers. v15 changes the arity, so the
+mismatch is loud again — it broke **four gate clients and a dozen fixtures**, which is the compiler
+doing work the handshake had to do alone last time. That is luck rather than design; the handshake
+stays the guard that is not allowed to depend on it.
+
+**Two protocol-pinning tests fired, as designed.** `theProtocolVersionIsFourteen` became
+`…Fifteen`, and `anUnknownCodeFromANewerPeerIsNeverActionable` had been asserting that wire value
+`5` decodes to `unrecognised` — **true until `5` became `deviceLost`**. A value chosen as "unknown"
+stops being unknown the moment the protocol grows; it now uses `6`.
+
+**Interim, and chunk 5 replaces it:** `RunReportOutcome.forRun` answers `.incomplete` for device
+loss. That is the honest answer available at v15 — the run did not cover the drive, and it makes no
+claim about the drive's condition — where `stoppedOnError` would accuse the drive of the very thing
+this step exists to stop reporting and `stoppedByUser` would credit a person with an unplug.
 
 ### Chunk 2 — the removal callback names the disk, and route (b)'s question is a pure type
 
@@ -180,9 +216,9 @@ refusal, so no FR-DEV-8 discovery re-run and no device-loss verdict in the repor
 
 - **Step 12 inherits the worst one, and chunk 1 fixed the engine's half of it:** a drive that drops
   off the bus was reported as a drive with ~2 million bad blocks. The **engine** no longer does
-  this, and chunk 2 built the detection route that covers a **paused** run. The **app** still
-  cannot tell device loss from a refusal until chunk 3 puts it on the wire, and **nothing acts on
-  route (b) yet** — chunk 4 is what turns the removal callback into a terminated run. See
+  this, chunk 2 built the detection route that covers a **paused** run, and chunk 3 put the ending
+  on the wire so the app can tell it from a refusal. What remains: **nothing acts on route (b)**
+  and the report has no device-loss verdict — chunks 4 and 5. See
   [CONSTRAINTS.md](CONSTRAINTS.md), "Device loss".
 - **Every first-run report between Step 10 and 2026-08-11 was unattributable** — model, serial and
   capacity were missing. Fixed in `e61c4f0`. The run data in any such exported file is sound; its

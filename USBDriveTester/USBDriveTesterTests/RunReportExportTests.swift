@@ -43,7 +43,8 @@ struct RunReportExportTests {
                                     readLatencyMinimumNanoseconds: 1_100_000,
                                     readLatencyMaximumNanoseconds: 9_900_000,
                                     readLatencyP99UpperBoundNanoseconds: 2_195_000,
-                                    message: "")
+                                    message: "",
+                                    deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
         return RunReport(reply: reply,
                          endedBy: .completed,
                          startBlock: 0,

@@ -174,7 +174,31 @@ nonisolated struct RunCycleOutcome: Equatable {
     /// It is `nil` for ``RunOutcomeCode/stoppedByUser`` too. A stopped run cannot be continued
     /// (FR-FAIL-7), so the value that would let somebody continue it does not exist rather than
     /// existing and being ignored — which is the version a later edit turns back on.
+    ///
+    /// **From v15 it is `nil` for ``RunOutcomeCode/deviceLost`` as well**, even though that ending
+    /// *does* send a block in the same wire slot. See ``deviceLostAtBlock``: the two readings are
+    /// separated here precisely so that no caller can reach a resume point that is not one.
     let resumeBlock: UInt64?
+
+    /// Where the run was when it found out the device had gone (Step 12, FR-DEV-8, v15), or `nil`
+    /// for every other ending.
+    ///
+    /// **Not a resume point, and deliberately not the same property as one.** It shares
+    /// `resumeBlock`'s wire slot because it is the same quantity — where the run stopped — but the
+    /// two say opposite things about what may happen next. A pause settled at a chunk boundary
+    /// with nothing in flight, so its block is safe to start from; a device loss happened *inside*
+    /// a chunk, nothing settled, and FR-FAIL-7 forbids continuing across it. Exposing one optional
+    /// that means either would be one field stating two facts, which is the shape this project has
+    /// a lesson about.
+    let deviceLostAtBlock: UInt64?
+
+    /// Which phase the device left in (v15), or `nil` for every other ending.
+    ///
+    /// `nil` rather than ``DeviceLossPhaseCode/unrecognised`` when no device loss happened, so the
+    /// absence of a phase and an unreadable phase stay distinguishable: the first is normal, the
+    /// second means a helper newer than this app sent something it cannot name, and a report must
+    /// not print a guess for either.
+    let deviceLossPhase: DeviceLossPhaseCode?
 
     /// Every planned chunk was processed. **Says nothing about whether they all passed** — a run
     /// that finds bad blocks and keeps going still completes (FR-FAIL-3).
@@ -294,7 +318,8 @@ nonisolated struct RunCycleOutcome: Equatable {
          readLatencyMinimumNanoseconds: UInt64,
          readLatencyMaximumNanoseconds: UInt64,
          readLatencyP99UpperBoundNanoseconds: UInt64,
-         message: String) {
+         message: String,
+         deviceLossPhaseCode: Int) {
 
         func latency(_ nanoseconds: UInt64) -> Duration? {
             WireSentinel.latency(nanoseconds, sampleCount: readLatencySampleCount)
@@ -304,6 +329,12 @@ nonisolated struct RunCycleOutcome: Equatable {
         self.outcome = outcome
         // The code decides, not the value. See `resumeBlock`.
         self.resumeBlock = outcome == .pausedByUser ? interruptedAtBlock : nil
+        // The same wire slot, read under a different code and exposed under a different name, so
+        // that "where the run stopped" and "where a run may restart" cannot be confused (v15).
+        self.deviceLostAtBlock = outcome == .deviceLost ? interruptedAtBlock : nil
+        self.deviceLossPhase = outcome == .deviceLost
+            ? DeviceLossPhaseCode(wireValue: deviceLossPhaseCode)
+            : nil
         self.chunksProcessed = chunksProcessed
         self.failedRangeCount = failedRangeCount
         self.failureSummary = failureSummary
@@ -637,11 +668,12 @@ final class HelperConnection {
                 failureModeUsedCode, failedRangesEncoded, failedBlockCount,
                 deviceReadBytesPerSecond, writeBytesPerSecond, coverageBytesPerSecond,
                 completedBytesPerSecond, readLatencySampleCount,
-                readLatencyMinimum, readLatencyMaximum, readLatencyP99Upper, message in
+                readLatencyMinimum, readLatencyMaximum, readLatencyP99Upper, message,
+                deviceLossPhaseCode in
 
-                // Straight into a labelled initialiser, one value per line. Twenty-two positional
-                // values with eight adjacent same-typed numbers among them is exactly where a
-                // transposition hides, and this closure is not reachable by any unit test.
+                // Straight into a labelled initialiser, one value per line. Twenty-three
+                // positional values with eight adjacent same-typed numbers among them is exactly
+                // where a transposition hides, and this closure is not reachable by any unit test.
                 finish(.success(RunCycleOutcome(
                     runOutcomeCode: runOutcomeCode,
                     interruptedAtBlock: interruptedAtBlock,
@@ -663,7 +695,8 @@ final class HelperConnection {
                     readLatencyMinimumNanoseconds: readLatencyMinimum,
                     readLatencyMaximumNanoseconds: readLatencyMaximum,
                     readLatencyP99UpperBoundNanoseconds: readLatencyP99Upper,
-                    message: message)))
+                    message: message,
+                    deviceLossPhaseCode: deviceLossPhaseCode)))
             }
         }
     }

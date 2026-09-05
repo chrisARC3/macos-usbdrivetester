@@ -497,11 +497,19 @@ hardware claim. Step 12's gate is what unplugs a drive on purpose.
   a false accusation about a drive, in a file that outlives the session. Observed for real during a
   hardware gate, not simulated. **The engine stopped doing this on 2026-09-05** (chunk 1): a lost
   device now ends the run and records nothing against the drive, while failures found *before* the
-  loss are kept. ⚠️ **The defect is not fully closed.** The wire has no code for device loss until
-  chunk 3, so the app cannot yet distinguish it from a refusal and the exported report has no
-  device-loss verdict; and nothing at all detects an unplug while paused until chunk 2. Nothing is
-  distributed before Step 16 (section 2), so the person misled is the one who can recognise it —
-  which lowers the stakes and changes nothing about the remaining gap.
+  loss are kept. Chunk 2 built the detection route that covers a paused run, and **chunk 3 put the
+  ending on the wire as protocol v15**, so the app can tell device loss from a refusal.
+  ⚠️ **The defect is not fully closed:** nothing acts on route (b) yet, and the report answers
+  `incomplete` rather than naming the removal — chunks 4 and 5. Nothing is distributed before Step
+  16 (section 2), so the person misled is the one who can recognise it, which lowers the stakes and
+  changes nothing about the remaining gap.
+- **`interruptedAtBlock` carries two different things from v15, and the outcome code is the only
+  thing that says which.** Under `pausedByUser` it is a **resume point** — the run settled at a
+  chunk boundary with nothing in flight. Under `deviceLost` it is where the run died *inside* a
+  chunk, and FR-FAIL-7 forbids continuing across it. Sharing the slot is right, because it is the
+  same quantity; exposing it as one app-side optional would not be. `RunCycleOutcome` splits it
+  into `resumeBlock` and `deviceLostAtBlock`, **never both non-nil**. Block 0 is a legitimate value
+  for either, which is why no sentinel could do this job.
 
 *Full account: `progress/step-10.md`, increment 6; BUILD-PLAN Step 12's inherited notes.*
 
@@ -912,6 +920,11 @@ Every defect this project has produced came from trusting a substitute for the r
   `/usr/bin/log`, and the shell had been saying `too many arguments` into the `/dev/null` the
   command itself sent it to. Redirecting stderr on a diagnostic command converts "this did not run"
   into "this found nothing", which are opposite results wearing the same face.
+  **The same day, in the other direction: `build.sh | grep error:` came back empty and was read as
+  "it builds".** It did not — exit code 65, `** BUILD FAILED **`, two errors the grep's own pipeline
+  had scrolled past. A pipeline reports the *last* command's status, so grepping a build log throws
+  the build's exit code away. **Check the exit code, or grep for the success line; never infer a
+  pass from the absence of a word.**
 - **SwiftUI modifiers fail silently.** `.defaultFocus`, `.selectionDisabled` on the wrong element,
   `.id()` to force a re-assert: all compiled, rendered, and did nothing.
 - **A SwiftUI `View` is a STRUCT, and a stored property on it is a SNAPSHOT.** An escaping closure
@@ -1126,6 +1139,14 @@ Every defect this project has produced came from trusting a substitute for the r
   `/dev/urandom` pattern was intact, because **an unlink clears the allocation table, not the
   media**. The CONTENT check — three chunks from inside the tested range, required to be mutually
   distinct — is the authority, and it is the only reason either run proved anything.
+- **ONE FILE CAN HOLD TWO STATUS BLOCKS, AND YOU WILL EDIT THE ONE YOU ARE LOOKING AT.**
+  `BUILD-PLAN.md` has a status block at the top and another 400 lines down in "Sequence overview".
+  Step 12's chunks 1 and 2 updated the second and left the first saying *"Step 12 is next and is
+  UNSTARTED. The protocol is v14"* — for two commits, while the file's own closing paragraph warned
+  that a status block is *"the first thing a cold session believes and the last thing anyone thinks
+  to check"*. The `grep -rn` rule in `CLAUDE.md` is written per **repository**, and the habit it
+  builds is per **file**: open the file, edit the block, move on. **Grep for the claim, not for the
+  filename** — `grep -n "protocol is v" BUILD-PLAN.md` finds both in one line of effort.
 - **THE NARROW BUILD IS THE ONE THAT CAN FAIL, WHICH IS THE WHOLE REASON TO KEEP IT.**
   `scripts/device-probe.sh` runs the app's real discovery headlessly by compiling
   `Discovery/*.swift` plus one `Shared` file and **nothing else**. On 2026-09-05 a new type was put

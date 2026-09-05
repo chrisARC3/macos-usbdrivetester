@@ -371,7 +371,8 @@ import Foundation
                                              UInt64,   // 19 readLatencyMinimumNs       (v9)
                                              UInt64,   // 20 readLatencyMaximumNs       (v9)
                                              UInt64,   // 21 readLatencyP99UpperBoundNs (v9)
-                                             String)   // 22 message
+                                             String,   // 22 message
+                                             Int)      // 23 deviceLossPhaseCode        (v15)
                                             -> Void)
 
     /// Tell the helper what the run in flight should do at its next chunk boundary
@@ -694,10 +695,50 @@ nonisolated public enum RunControlCode: Int {
     public var isActionable: Bool { self != .unrecognised }
 }
 
+/// Which of a chunk's three device calls was in flight when the device went away (v15).
+///
+/// - Important: duplicated by `DeviceLossPhase` in `Core/RetentionRun.swift`, for the same reason
+///   every other wire enum here is — Core compiles into the helper and the test target but
+///   deliberately **not** into the app module. `RunControlWireTests` pins the two together.
+nonisolated public enum DeviceLossPhaseCode: Int {
+
+    /// Reading the original (FR-TEST-3). Nothing had been written; the drive is untouched.
+    case reading = 1
+
+    /// Writing the original back (FR-TEST-7). **The one phase that was mid-write** — this chunk
+    /// may hold partially written data, and it is the only one of the three where this tool held
+    /// the chunk's only copy of the original and had not finished putting it back.
+    case writingBack = 2
+
+    /// Re-reading what was just written (FR-TEST-8). The write-back had already reported success,
+    /// so the chunk was whole before the device left. **Unverified is not the same as bad.**
+    case verifying = 3
+
+    /// No device loss happened, or a phase this build does not recognise. Never treated as one of
+    /// the three: a report that cannot say which phase must not pick one.
+    case unrecognised = 0
+
+    /// Map a wire value, never trapping on one this build does not know.
+    public init(wireValue: Int) {
+        self = DeviceLossPhaseCode(rawValue: wireValue) ?? .unrecognised
+    }
+
+    /// How the phase is named in a sentence a person reads.
+    public var description: String {
+        switch self {
+        case .reading:      return "reading the original"
+        case .writingBack:  return "writing the original back"
+        case .verifying:    return "verifying the write-back"
+        case .unrecognised: return "an unknown phase"
+        }
+    }
+}
+
 /// How a run ended, as it travels over the wire (FR-RPT-4).
 ///
 /// Replaced v9's `completed` boolean in **v10**. With FR-CTRL-2/4 there are four ways for a run to
-/// end, and a boolean beside a separate "why" field would be two statements of one fact.
+/// end, and a boolean beside a separate "why" field would be two statements of one fact. **v15
+/// added a fifth**, which is not a user's doing and not the drive's.
 ///
 /// - Important: duplicated by ``RunOutcome`` in `Core/RetentionRun.swift`, which is where a run
 ///   actually ends, for the same reason the other wire enums are. `RunControlWireTests` pins them.
@@ -711,11 +752,32 @@ nonisolated public enum RunOutcomeCode: Int {
     case stoppedOnFailure = 2
 
     /// **FR-CTRL-2, NFR-REL-10.** The user paused; the helper settled at a chunk boundary with no
-    /// write in flight. The **only** code for which `interruptedAtBlock` means anything.
+    /// write in flight. The only code for which `interruptedAtBlock` is a **resume point**.
+    ///
+    /// From v15 it is no longer the only code for which that field means anything — ``deviceLost``
+    /// carries the block it died at in the same slot. The two are **not** interchangeable and the
+    /// app never conflates them: `RunCycleOutcome` exposes them as `resumeBlock` and
+    /// `deviceLostAtBlock`, each `nil` unless its own code is the one that arrived. A pause settled
+    /// cleanly at a boundary and that block is untouched; a device loss happened *inside* a chunk
+    /// and nothing settled. The code is the discriminator, never the value.
     case pausedByUser = 3
 
     /// **FR-CTRL-4.** The user stopped the run. It cannot be continued (FR-FAIL-7).
     case stoppedByUser = 4
+
+    /// **Step 12, FR-DEV-8 (v15).** The device went off the bus mid-run — unplugged,
+    /// de-enumerated, or otherwise gone.
+    ///
+    /// **Not a verdict on the drive, and that is the entire point of it.** Until v15 the helper
+    /// had no way to say this, so a drive that dropped off the bus was reported as a drive with
+    /// millions of bad blocks — observed for real on 2026-08-06, ~2,095,104 of them. Nothing is
+    /// recorded against a device that is not present; the failures found *before* it left are
+    /// carried through, because those were real.
+    ///
+    /// Carries `interruptedAtBlock` (where the run was when it found out — **not** a resume point)
+    /// and `deviceLossPhaseCode`. It cannot be resumed (FR-FAIL-7), and the drive that comes back
+    /// may not be the drive that left.
+    case deviceLost = 5
 
     /// No run happened — a refusal — or a code this build does not recognise. Never treated as a
     /// completion.
@@ -1113,6 +1175,34 @@ nonisolated public enum TesterProtocol {
     ///   daemon before any hardware gate or checklist walk stops being hygiene and becomes a
     ///   correctness requirement: `scripts/install-app.sh`, then kickstart.
     ///
+    /// - **v15 (Step 12 chunk 3, 2026-09-05) — a run can end because the DEVICE WENT AWAY.**
+    ///
+    ///   ``RunOutcomeCode/deviceLost`` is the fifth ending, and it is neither the user's doing nor
+    ///   the drive's failure. Before it existed the helper had no way to say what happened, so a
+    ///   drive that dropped off the bus was reported as a drive with **2,095,104 bad blocks** —
+    ///   not a hypothetical, it is what the reply actually said on 2026-08-06.
+    ///
+    ///   The reply gains **one argument**, `deviceLossPhaseCode` (23), a ``DeviceLossPhaseCode``
+    ///   raw value and `0` on every other ending. The block the run died at travels in the
+    ///   existing `interruptedAtBlock` slot, because it is the same quantity — *where the run
+    ///   stopped* — and the outcome code has always been the discriminator for what that means.
+    ///   The app keeps the two readings apart in `RunCycleOutcome`, where `resumeBlock` and
+    ///   `deviceLostAtBlock` are each `nil` unless their own code arrived.
+    ///
+    ///   The phase gets a field of its own rather than being folded into the message, because it
+    ///   is the one fact about a device loss that changes what a person should do: a drive that
+    ///   vanished during the **write-back** is the only case where this tool held the chunk's only
+    ///   copy of the original and had not finished putting it back.
+    ///
+    ///   ## ⚠︎ This bump restores the property v14 lost
+    ///
+    ///   The v14 entry above records that it was the first version whose reply did not change
+    ///   shape, so a v13 app and a v14 daemon **decode cleanly and display wrong numbers**. v15
+    ///   changes the arity — 22 → 23 — so a v14 app cannot decode a v15 reply at all, and the
+    ///   mismatch is loud again rather than silent. That is a return to the safer arrangement, and
+    ///   it is luck rather than design: the field was needed. The version check in
+    ///   `HelperConnection` remains the guard that is not allowed to depend on luck.
+    ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
@@ -1124,7 +1214,7 @@ nonisolated public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 14
+    public static let version = 15
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

@@ -390,7 +390,7 @@ func runCycle(ioSizeBytes: Int, startBlock: UInt64) -> CycleRun {
                                  failureModeCode: FailureModeCode.standard.rawValue) {
             outcome, resumeBlock, chunkCount, failed, summary, bypass, _, buffers, hostOverhead,
             coreFraction, modeUsed, _, failedBlocks, readRate, writeRate, coveringRate,
-            completedRate, latencySampleCount, latencyMin, latencyMax, latencyP99, text in
+            completedRate, latencySampleCount, latencyMin, latencyMax, latencyP99, text, _ in
 
             replyNanoseconds = nowNanoseconds()
             outcomeCode = outcome
@@ -719,7 +719,11 @@ func expectRefusal(_ label: String,
                                  ioSizeBytes: detailedSize,
                                  failureModeCode: failureModeCode) {
             outcome, _, chunks, _, _, _, _, _, _, _, modeUsed, ranges, failedBlocks,
-            readRate, writeRate, coveringRate, completedRate, latencySamples, _, _, _, message in
+            readRate, writeRate, coveringRate, completedRate, latencySamples, _, _, _, message,
+            // v15's device-loss phase. Not this gate's subject — it measures a healthy drive,
+            // where the field is always `unrecognised` — and asserting `0` here would be a test
+            // that agrees with any change.
+            _ in
 
             // WAS THE CALL REFUSED — and nothing else. The outcome code alone answers it.
             //

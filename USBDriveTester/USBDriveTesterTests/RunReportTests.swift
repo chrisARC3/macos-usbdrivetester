@@ -66,7 +66,8 @@ private enum Fixture {
                       readLatencySampleCount: UInt64 = 256,
                       readLatencyMinimumNanoseconds: UInt64 = 1_100_000,
                       readLatencyMaximumNanoseconds: UInt64 = 9_900_000,
-                      readLatencyP99UpperBoundNanoseconds: UInt64 = 2_195_000) -> RunCycleOutcome {
+                      readLatencyP99UpperBoundNanoseconds: UInt64 = 2_195_000,
+                      deviceLossPhaseCode: DeviceLossPhaseCode = .unrecognised) -> RunCycleOutcome {
         RunCycleOutcome(runOutcomeCode: outcome.rawValue,
                         interruptedAtBlock: interruptedAtBlock,
                         chunksProcessed: chunksProcessed,
@@ -87,7 +88,8 @@ private enum Fixture {
                         readLatencyMinimumNanoseconds: readLatencyMinimumNanoseconds,
                         readLatencyMaximumNanoseconds: readLatencyMaximumNanoseconds,
                         readLatencyP99UpperBoundNanoseconds: readLatencyP99UpperBoundNanoseconds,
-                        message: "Cycle completed")
+                        message: "Cycle completed",
+                        deviceLossPhaseCode: deviceLossPhaseCode.rawValue)
     }
 
     static func report(_ reply: RunCycleOutcome = Fixture.reply(),
@@ -122,6 +124,7 @@ private enum Fixture {
         case .completed:                    return .completed
         case .stoppedOnFailure:             return .stoppedOnFailure
         case .pausedByUser, .stoppedByUser: return .stoppedByUser
+        case .deviceLost:                   return .deviceLost
         case .unrecognised:                 return .callFailed(reason: reply.message)
         }
     }

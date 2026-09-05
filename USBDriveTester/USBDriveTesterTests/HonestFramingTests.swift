@@ -303,7 +303,8 @@ struct HonestFramingTests {
                                         readLatencyMinimumNanoseconds: 1_100_000,
                                         readLatencyMaximumNanoseconds: 9_900_000,
                                         readLatencyP99UpperBoundNanoseconds: 2_195_000,
-                                        message: "Cycle completed")
+                                        message: "Cycle completed",
+                                        deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
             return RunReport(reply: reply,
                              endedBy: ending ?? impliedEnding(outcome),
                              startBlock: 0,
@@ -321,6 +322,7 @@ struct HonestFramingTests {
             case .completed:                    return .completed
             case .stoppedOnFailure:             return .stoppedOnFailure
             case .pausedByUser, .stoppedByUser: return .stoppedByUser
+            case .deviceLost:                   return .deviceLost
             case .unrecognised:                 return .callFailed(reason: "")
             }
         }

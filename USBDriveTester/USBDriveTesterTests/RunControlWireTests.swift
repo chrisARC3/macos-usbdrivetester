@@ -59,7 +59,11 @@ struct RunControlWireTests {
             #expect(RunControlCode(wireValue: value) == .unrecognised, "value=\(value)")
             #expect(!RunControlCode(wireValue: value).isActionable, "value=\(value)")
         }
-        for value in [-1, 5, 99, Int.max] {
+        // **`5` left this list in v15**, when it became `deviceLost`. That is the failure mode
+        // this test is for, arriving from the other direction: a value chosen as "unknown" stops
+        // being unknown the moment the protocol grows, and a test that kept asserting it would be
+        // demanding the new code be ignored. `6` is the first unallocated value today.
+        for value in [-1, 6, 99, Int.max] {
             #expect(RunOutcomeCode(wireValue: value) == .unrecognised, "value=\(value)")
             #expect(!RunOutcomeCode(wireValue: value).didComplete, "value=\(value)")
         }
@@ -83,6 +87,12 @@ struct RunControlWireTests {
         #expect(RunOutcomeCode.stoppedOnFailure.rawValue == 2)
         #expect(RunOutcomeCode.pausedByUser.rawValue == 3)
         #expect(RunOutcomeCode.stoppedByUser.rawValue == 4)
+        #expect(RunOutcomeCode.deviceLost.rawValue == 5)          // v15
+
+        #expect(DeviceLossPhaseCode.reading.rawValue == 1)        // v15
+        #expect(DeviceLossPhaseCode.writingBack.rawValue == 2)
+        #expect(DeviceLossPhaseCode.verifying.rawValue == 3)
+        #expect(DeviceLossPhaseCode.unrecognised.rawValue == 0)
     }
 
     /// No two codes may share a value, on either enumeration. A collision would make two different
@@ -91,9 +101,40 @@ struct RunControlWireTests {
         let control: [RunControlCode] = [.proceed, .pause, .stop, .unrecognised]
         #expect(Set(control.map(\.rawValue)).count == control.count)
 
-        let outcomes: [RunOutcomeCode] = [.completed, .stoppedOnFailure,
-                                          .pausedByUser, .stoppedByUser, .unrecognised]
+        let outcomes: [RunOutcomeCode] = [.completed, .stoppedOnFailure, .pausedByUser,
+                                          .stoppedByUser, .deviceLost, .unrecognised]
         #expect(Set(outcomes.map(\.rawValue)).count == outcomes.count)
+
+        let phases: [DeviceLossPhaseCode] = [.reading, .writingBack, .verifying, .unrecognised]
+        #expect(Set(phases.map(\.rawValue)).count == phases.count)
+    }
+
+    /// **v15: the two phase vocabularies have the same shape.** `DeviceLossPhaseCode` mirrors
+    /// Core's `DeviceLossPhase`, and like every other pair here they cannot be one type because
+    /// Core is not in the app module. A case added to one and not the other is how they drift, and
+    /// the count is the cheapest thing that notices.
+    @Test func theTwoPhaseEnumerationsHaveTheSameShape() {
+        let wire: [DeviceLossPhaseCode] = [.reading, .writingBack, .verifying]
+        let core: [DeviceLossPhase] = [.reading, .writingBack, .verifying]
+
+        #expect(wire.count == core.count)
+        // The words a person reads must match too — the report renders one and the helper logs the
+        // other, and on 2026-08-18 this project shipped a window and an exported file disagreeing
+        // about a definition because nothing compared the two surfaces.
+        for (wireCase, coreCase) in zip(wire, core) {
+            #expect(wireCase.description == coreCase.description,
+                    "\(wireCase) vs \(coreCase)")
+        }
+    }
+
+    /// An unknown phase from a newer helper is `unrecognised`, never one of the three. A report
+    /// showing "writing the original back" because it could not read the field would be inventing
+    /// the one fact that changes what a person should do about the drive.
+    @Test func anUnknownPhaseIsNeverOneOfTheThree() {
+        for value in [-1, 4, 99, Int.max] {
+            #expect(DeviceLossPhaseCode(wireValue: value) == .unrecognised, "value=\(value)")
+        }
+        #expect(DeviceLossPhaseCode(wireValue: 0) == .unrecognised)
     }
 
     /// Every signal the engine can act on has a code, and every actionable code has a signal.
@@ -116,9 +157,18 @@ struct RunControlWireTests {
     @Test func onlyCompletedCountsAsACompletion() {
         #expect(RunOutcomeCode.completed.didComplete)
         for code in [RunOutcomeCode.stoppedOnFailure, .pausedByUser,
-                     .stoppedByUser, .unrecognised] {
+                     .stoppedByUser, .deviceLost, .unrecognised] {
             #expect(!code.didComplete, "code=\(code)")
         }
+    }
+
+    /// **A device leaving is not a user interruption**, and the distinction is the reason v15
+    /// exists rather than reusing `stoppedByUser`. Both mean the drive is only partly covered, so
+    /// the report must not read as a clean pass either way — but only one of them is somebody's
+    /// decision, and a report that credits a person with an unplug is wrong about who did what.
+    @Test func aDeviceLeavingIsNotSomethingTheUserDid() {
+        #expect(!RunOutcomeCode.deviceLost.wasInterruptedByUser)
+        #expect(!RunOutcomeCode.deviceLost.didComplete)
     }
 
     /// Both user interruptions mean the drive is only partly covered, and a report must never read
@@ -155,7 +205,8 @@ struct RunControlWireTests {
                         readLatencyMinimumNanoseconds: 1_100_000,
                         readLatencyMaximumNanoseconds: 9_900_000,
                         readLatencyP99UpperBoundNanoseconds: 2_195_000,
-                        message: "")
+                        message: "",
+                        deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
     }
 
     /// **The code decides, not the value.** Only a paused run offers a resume point, and a block

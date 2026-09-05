@@ -410,7 +410,7 @@ for command in commands {
                 helperCoreFraction, failureModeUsed, failedRangesEncoded, failedBlockCount,
                 readBytesPerSecond, writeBytesPerSecond, coveringBytesPerSecond,
                 completedBytesPerSecond, latencySamples,
-                latencyMinimum, latencyMaximum, latencyP99Upper, message in
+                latencyMinimum, latencyMaximum, latencyP99Upper, message, deviceLossPhaseCode in
 
                 // Protocol v10 replaced the reply's `completed` boolean with a `RunOutcomeCode`,
                 // because FR-CTRL-2/4 give a run four ways to end and a boolean beside a separate
@@ -418,6 +418,10 @@ for command in commands {
                 // value so the gate scripts that read it did not have to change with the wire.
                 let outcome = RunOutcomeCode(wireValue: outcomeCode)
                 print("[cycle] COMPLETED=\(outcome.didComplete ? 1 : 0)")
+                // v15. Printed rather than discarded because this is the client Step 12's
+                // hardware gate drives, and a physical unplug is read off this line — `0` on
+                // every ending that is not a device loss.
+                print("[cycle] DEVICE_LOSS_PHASE=\(deviceLossPhaseCode)")
                 print("[cycle] OUTCOME_CODE=\(outcomeCode)")
                 // Meaningful only for `pausedByUser`; the code is the discriminator, not a
                 // sentinel, because 0 is a legitimate resume point.

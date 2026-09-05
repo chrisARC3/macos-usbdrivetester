@@ -80,7 +80,8 @@ struct RunCycleOutcomeTests {
                         readLatencyMinimumNanoseconds: readLatencyMinimumNanoseconds,
                         readLatencyMaximumNanoseconds: readLatencyMaximumNanoseconds,
                         readLatencyP99UpperBoundNanoseconds: readLatencyP99UpperBoundNanoseconds,
-                        message: message)
+                        message: message,
+                        deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
     }
 
     // MARK: - Every field lands where it belongs
@@ -422,8 +423,15 @@ struct ProtocolVersionTests {
     /// in 1092** — the compiler had nothing to object to. The handshake in `HelperConnection` is
     /// the only guard at runtime, and reinstalling the daemon before any hardware work is a
     /// correctness requirement here rather than hygiene.
-    @Test func theProtocolVersionIsFourteen() {
-        #expect(TesterProtocol.version == 14)
+    ///
+    /// **v15 (Step 12 chunk 3) restored the property v14 lost.** The reply went from 22 arguments
+    /// to 23 to carry `deviceLossPhaseCode`, so a v14 app cannot decode a v15 reply at all and the
+    /// mismatch is loud again. Unlike the move to 14, this bump was **not** a one-test failure: the
+    /// arity change broke four gate clients and a dozen fixtures, which is the compiler doing the
+    /// work the handshake had to do alone last time. That is luck rather than design — the field
+    /// was needed — so the handshake stays the guard that is not allowed to depend on it.
+    @Test func theProtocolVersionIsFifteen() {
+        #expect(TesterProtocol.version == 15)
     }
 
     /// **The cap is unchanged by v10, and that is a measurement pending rather than a decision

@@ -108,6 +108,18 @@ nonisolated enum RunSequenceOutcome: Equatable {
     /// allowed to return first — that is the call boundary the quit promise is made at.
     case haltedForQuit
 
+    /// **Step 12, FR-DEV-8.** The device went off the bus mid-run and the helper ended the run
+    /// where it found out.
+    ///
+    /// Distinct from ``callFailed`` even though both end a run without covering the drive, and the
+    /// distinction is the whole reason v15 exists: a call that failed says *this app could not
+    /// talk to the helper*, and this says *the drive is not there any more*. Those lead to
+    /// different sentences and to different next steps — FR-DEV-8's discovery re-run belongs to
+    /// exactly one of them.
+    ///
+    /// Not resumable (FR-FAIL-7). The block and the phase are on `finalReply`.
+    case deviceLost
+
     /// A call could not be made or was refused. **A refused call is not a run**: no report, and
     /// `reason` is logged so its absence is explicable.
     case callFailed(reason: String)
@@ -352,6 +364,12 @@ final class RunSequencer {
 
             case .stoppedByUser:
                 finish(.stoppedByUser)
+
+            case .deviceLost:
+                // **No next call, and no resume.** The drive is gone; issuing the next range
+                // would ask the helper to address a device that is not there, and FR-FAIL-7
+                // forbids continuing across it in any case.
+                finish(.deviceLost)
 
             case .unrecognised:
                 // A refusal, or a helper newer than this app. Never treated as a completion.

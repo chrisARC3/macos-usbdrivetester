@@ -717,7 +717,14 @@ private struct RunReportHost: View {
         case .stoppedByUser:    replyCode = .stoppedByUser
         case .haltedForQuit:    replyCode = .completed
         case .callFailed:       replyCode = .unrecognised
+        case .deviceLost:       replyCode = .deviceLost
         }
+
+        // v15. A device-loss render needs a phase or the sheet would show an ending with no
+        // account of it; every other ending sends `unrecognised`, which is what the helper sends.
+        // `writingBack` is the case worth having a render of, being the one where the original was
+        // in flight — see `DeviceLossPhaseCode`.
+        let lossPhase: DeviceLossPhaseCode = ending == .deviceLost ? .writingBack : .unrecognised
 
         let reply = RunCycleOutcome(runOutcomeCode: replyCode.rawValue,
                                     interruptedAtBlock: 0,
@@ -742,7 +749,8 @@ private struct RunReportHost: View {
                                     readLatencyMinimumNanoseconds: 1_100_000,
                                     readLatencyMaximumNanoseconds: 9_900_000,
                                     readLatencyP99UpperBoundNanoseconds: 2_195_000,
-                                    message: "")
+                                    message: "",
+                                    deviceLossPhaseCode: lossPhase.rawValue)
         return RunReport(reply: reply,
                          endedBy: ending,
                          startBlock: 0,

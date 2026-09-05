@@ -78,7 +78,8 @@ private func reply(_ outcome: RunOutcomeCode = .completed,
                     readLatencyMinimumNanoseconds: 0,
                     readLatencyMaximumNanoseconds: 0,
                     readLatencyP99UpperBoundNanoseconds: 0,
-                    message: "")
+                    message: "",
+                    deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
 }
 
 private func result(_ outcome: RunSequenceOutcome = .completed,

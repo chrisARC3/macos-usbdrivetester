@@ -59,7 +59,8 @@ private func reply(_ outcome: RunOutcomeCode,
                    readLatencySampleCount: UInt64 = 0,
                    readLatencyP99Nanoseconds: UInt64 = 0,
                    bufferBytesHeld: Int = 0,
-                   message: String = "") -> RunCycleOutcome {
+                   message: String = "",
+                   deviceLossPhase: DeviceLossPhaseCode = .unrecognised) -> RunCycleOutcome {
     RunCycleOutcome(runOutcomeCode: outcome.rawValue,
                     interruptedAtBlock: interruptedAtBlock,
                     chunksProcessed: chunksProcessed,
@@ -80,7 +81,8 @@ private func reply(_ outcome: RunOutcomeCode,
                     readLatencyMinimumNanoseconds: 0,
                     readLatencyMaximumNanoseconds: 0,
                     readLatencyP99UpperBoundNanoseconds: readLatencyP99Nanoseconds,
-                    message: message)
+                    message: message,
+                    deviceLossPhaseCode: deviceLossPhase.rawValue)
 }
 
 private struct FakeTransportError: Error, LocalizedError {
@@ -420,6 +422,55 @@ struct RunSequencerControlTests {
         #expect(harness.caller.requests.count == 1)
         // FR-FAIL-7: a stopped run cannot be continued, so no resume point exists to be ignored.
         #expect(harness.result?.finalReply?.resumeBlock == nil)
+    }
+
+    // MARK: - Device loss (Step 12, protocol v15)
+
+    /// **The device went away, so no further call is issued.** The next range would ask the helper
+    /// to address a device that is not there, and FR-FAIL-7 forbids continuing across it in any
+    /// case. The request count is what makes this a check rather than a restatement: a sequencer
+    /// that treated the fifth code as "keep going" would issue a second call here.
+    @Test func aDeviceLossReplyEndsTheRunAndIssuesNoFurtherCall() {
+        let harness = Harness()
+        harness.start()
+        harness.caller.answer(reply(.deviceLost, interruptedAtBlock: 4_096,
+                                    deviceLossPhase: .writingBack))
+
+        #expect(harness.result?.outcome == .deviceLost)
+        #expect(harness.caller.requests.count == 1)
+        #expect(harness.result?.finalReply?.resumeBlock == nil)
+        #expect(harness.result?.finalReply?.deviceLostAtBlock == 4_096)
+        #expect(harness.result?.finalReply?.deviceLossPhase == .writingBack)
+    }
+
+    /// **Device loss is not a call failure**, even though both end a run without covering the
+    /// drive. A call that failed says *this app could not talk to the helper*; this says *the
+    /// drive is not there any more*. They lead to different sentences and to different next steps
+    /// — FR-DEV-8's discovery re-run belongs to exactly one of them — and before v15 the helper
+    /// had no way to say which had happened, so this outcome arrived as the other one.
+    @Test func aDeviceLossIsNotReportedAsACallFailure() {
+        let harness = Harness()
+        harness.start()
+        harness.caller.answer(reply(.deviceLost, interruptedAtBlock: 0, deviceLossPhase: .reading))
+
+        let outcome = harness.result?.outcome
+        #expect(outcome == .deviceLost)
+        if case .callFailed = outcome { Issue.record("device loss must not read as a call failure") }
+    }
+
+    /// A run that loses its device part-way keeps the figures from the calls that did happen. The
+    /// reply is cumulative over the run (protocol v11), so the last one the helper actually sent
+    /// is the session as of the moment the drive left — not zero, and not discarded.
+    @Test func aDeviceLossKeepsWhatTheRunHadAlreadyMeasured() {
+        let harness = Harness()
+        harness.start()
+        harness.caller.answer(reply(.completed, chunksProcessed: 64))
+        harness.caller.answer(reply(.deviceLost, interruptedAtBlock: 8_192,
+                                    chunksProcessed: 97, deviceLossPhase: .verifying))
+
+        #expect(harness.result?.outcome == .deviceLost)
+        #expect(harness.result?.finalReply?.chunksProcessed == 97)
+        #expect(harness.caller.requests.count == 2, "the second call was issued and then died")
     }
 
     @Test func stoppingIsRefusedWhenThereIsNoRun() {

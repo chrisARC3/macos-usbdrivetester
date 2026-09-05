@@ -646,7 +646,7 @@ final class TesterControlImpl: NSObject, TesterControl {
                            reply: @escaping (Int, UInt64, UInt64, Int, String, Int, Double, Int,
                                              Double, Double, Int, String, UInt64, Double,
                                              Double, Double, Double, UInt64, UInt64, UInt64,
-                                             UInt64, String) -> Void) {
+                                             UInt64, String, Int) -> Void) {
 
         /// Every refusal path replies with **no figures at all** — rates `-1`, latency sample
         /// count `0`, no ranges, a `failureModeUsedCode` of `0` and a `runOutcomeCode` of `0`,
@@ -680,7 +680,9 @@ final class TesterControlImpl: NSObject, TesterControl {
                   // this line, so `metrics-check.sh`'s "reported no figures" assertions — the
                   // only cover this path has anywhere — must grow to cover it too.
                   -1, -1, -1, -1, 0, 0, 0, 0,
-                  detail)
+                  detail,
+                  // v15: no run happened, so no phase. `unrecognised`, never one of the three.
+                  DeviceLossPhaseCode.unrecognised.rawValue)
         }
 
         let wireMode = FailureModeCode(wireValue: failureModeCode)
@@ -757,7 +759,11 @@ final class TesterControlImpl: NSObject, TesterControl {
             // settled on a pause from one that ran out of chunks.
             let latency = result.metrics?.readLatency
             reply(Self.outcomeCode(summary.outcome),
-                  summary.outcome.resumeBlock ?? 0,
+                  // **Not `resumeBlock`.** That is `nil` for every ending but a pause, and from
+                  // v15 a device loss has a block to report too — one that must never be resumed
+                  // from. `stoppedAtBlock` states which endings carry one; the code says what it
+                  // means.
+                  Self.stoppedAtBlock(summary.outcome),
                   // Cumulative from v11: the chunks the RUN has attempted, which is what pairs
                   // with every other figure here. `summary.chunksProcessed` is this call's and
                   // stays in the message and the log line.
@@ -794,7 +800,9 @@ final class TesterControlImpl: NSObject, TesterControl {
                   latency?.minimumNanoseconds ?? 0,
                   latency?.maximumNanoseconds ?? 0,
                   latency?.p99?.upperBoundNanoseconds ?? 0,
-                  message)
+                  message,
+                  // v15. `unrecognised` (0) on every ending that is not a device loss.
+                  Self.deviceLossPhaseCode(summary.outcome))
 
         case .failure(let refusal):
             refuse(refusal.description)
@@ -809,32 +817,53 @@ final class TesterControlImpl: NSObject, TesterControl {
     /// as an exhaustive `switch` so that adding a way for a run to end — Step 12's device loss —
     /// is a compile error here rather than a silent `unrecognised`.
     ///
-    /// **The scaffold fired as designed on 2026-09-05, and this is its INTERIM answer.**
-    /// Step 12's chunk 1 taught the engine to end a run with `.deviceLost`; chunk 3 is what adds
-    /// the fifth `RunOutcomeCode` and bumps the protocol to v15. Between the two, the wire has no
-    /// code for device loss, and the choice is which existing code lies least.
-    ///
-    /// `unrecognised` is the one that cannot mislead in the dangerous direction. It is never
-    /// treated as a completion, the app's `RunSequencer` maps it to `callFailed(reason:)` — the
-    /// run ends and no further calls are issued — and, critically, **nothing is reported against
-    /// the drive**, because the failure ranges a lost device produces are now zero. The message
-    /// accompanying this reply is built from `summary.outcome.description`, so the honest sentence
-    /// travels even though the code does not: the app shows *why* the call failed.
-    ///
-    /// What it costs, stated so chunk 3 is not tempted to leave it: the app cannot tell this
-    /// apart from a refusal, so it cannot yet offer FR-DEV-8's discovery re-run, and the report
-    /// gets a call-failure rather than a device-loss verdict. Both are chunks 3–6.
-    ///
-    /// Mapping to `stoppedOnFailure` or `stoppedByUser` instead was rejected outright: the first
-    /// says the drive failed, which is the exact untruth this whole step exists to remove, and the
-    /// second says the user asked for this.
+    /// The scaffold fired as designed on 2026-09-05. Chunk 1 mapped device loss to `unrecognised`
+    /// as an explicitly interim answer; **v15 gives it a code of its own and that interim is gone.**
     private static func outcomeCode(_ outcome: RunOutcome) -> Int {
         switch outcome {
         case .completed:        return RunOutcomeCode.completed.rawValue
         case .stoppedOnFailure: return RunOutcomeCode.stoppedOnFailure.rawValue
         case .pausedByUser:     return RunOutcomeCode.pausedByUser.rawValue
         case .stoppedByUser:    return RunOutcomeCode.stoppedByUser.rawValue
-        case .deviceLost:       return RunOutcomeCode.unrecognised.rawValue   // INTERIM, chunk 3
+        case .deviceLost:       return RunOutcomeCode.deviceLost.rawValue
+        }
+    }
+
+    /// The block the run stopped at, for the two endings that have one (FR-CTRL-2, FR-DEV-8).
+    ///
+    /// Both travel in `interruptedAtBlock`, and they mean different things: a pause settled
+    /// cleanly at a chunk boundary so its block is a **resume point**, while a device loss
+    /// happened *inside* a chunk and nothing settled. The outcome code is what tells them apart,
+    /// which is the same discipline `resumeBlock` has always used — block 0 is a legitimate
+    /// resume point, so no sentinel value could carry the distinction.
+    ///
+    /// `0` for the endings that have no such block, matching what this field has always sent.
+    private static func stoppedAtBlock(_ outcome: RunOutcome) -> UInt64 {
+        switch outcome {
+        case .completed, .stoppedOnFailure:  return 0
+        case .pausedByUser(let block):       return block
+        case .stoppedByUser(let block):      return block
+        case .deviceLost(let block, _):      return block
+        }
+    }
+
+    /// Which phase the device left in, on the wire (v15).
+    ///
+    /// Written out rather than derived from a raw value, for the reason ``outcomeCode`` is: Core's
+    /// `DeviceLossPhase` and the wire's `DeviceLossPhaseCode` cannot be one type, because Core
+    /// compiles into the helper and the test target but deliberately not into the app module.
+    ///
+    /// `unrecognised` for every ending that is not a device loss — **not** a phase. A report that
+    /// showed "reading the original" beside a run that completed cleanly would be inventing an
+    /// event, and `0` is the only value that cannot be mistaken for one of the three.
+    private static func deviceLossPhaseCode(_ outcome: RunOutcome) -> Int {
+        guard case .deviceLost(_, let phase) = outcome else {
+            return DeviceLossPhaseCode.unrecognised.rawValue
+        }
+        switch phase {
+        case .reading:     return DeviceLossPhaseCode.reading.rawValue
+        case .writingBack: return DeviceLossPhaseCode.writingBack.rawValue
+        case .verifying:   return DeviceLossPhaseCode.verifying.rawValue
         }
     }
 

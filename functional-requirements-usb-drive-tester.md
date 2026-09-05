@@ -957,3 +957,23 @@ running time to phase time, with nothing in the reply to reveal it. When the con
 one test in 1092 failed — the compiler had nothing to object to. The handshake in `HelperConnection`
 is the only guard, so reinstalling the daemon before any hardware gate or checklist walk is a
 correctness requirement here rather than hygiene.
+
+#### Protocol v15 (Step 12 chunk 3, 2026-09-05) — a run can end because the DEVICE went away
+
+`RunOutcomeCode.deviceLost` is the fifth ending, and it is neither the user's doing nor the drive's
+failure (FR-DEV-8). Before it existed the helper had no way to say what had happened, so a drive
+that dropped off the bus was reported as a drive with **2,095,104 bad blocks** — what the reply
+actually said on 2026-08-06.
+
+The cycle reply gains **one argument**, `deviceLossPhaseCode` (23), and `0` on every other ending.
+The block the run died at travels in the existing `interruptedAtBlock` slot, because it is the same
+quantity — *where the run stopped* — and the outcome code has always been the discriminator for what
+that means. The app keeps the readings apart: `resumeBlock` and `deviceLostAtBlock` are each `nil`
+unless their own code arrived, and **never both non-nil**, because one is a place a run may restart
+from and the other explicitly is not (FR-FAIL-7).
+
+**This bump restores the property v14 lost.** The arity changed, 22 → 23, so a v14 app cannot decode
+a v15 reply at all and the mismatch is loud again rather than silent — it broke four gate clients
+and a dozen fixtures, which is the compiler doing work the handshake had to do alone last time. That
+is luck rather than design: the field was needed. The handshake stays the guard that is not allowed
+to depend on it.

@@ -296,6 +296,21 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
             // job is what happened to the drive and that is the same fact either way.
             return .stoppedByUser
 
+        case .deviceLost:
+            // **INTERIM, and chunk 5 is what replaces it** with a `RunReportOutcome` of its own.
+            //
+            // `incomplete` is the honest answer available at v15: the run did not cover the drive,
+            // its own explanation already says the part not reached was not tested, and — the part
+            // that matters — it makes **no claim about the drive's condition**. Every other
+            // existing outcome would: `stoppedOnError` accuses the drive of the failure this whole
+            // step exists to stop reporting, and `stoppedByUser` credits a person with something
+            // they did not do.
+            //
+            // What it costs until chunk 5, stated so it is not left: the report says the run was
+            // incomplete without saying the device was removed, and `HonestFraming` adds no
+            // sentence of its own because `incomplete` already carries one.
+            return .incomplete
+
         case .callFailed:
             // A call could not be made or was refused. Where no call ever returned there is no
             // report at all; where an earlier one did, this says what is true — the range was not
