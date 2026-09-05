@@ -13,7 +13,9 @@ Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Di
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
 
-> **The step in progress is Step 11 (increments 1–12 done and gated), and the protocol is v14.** ⚠️ **The repository moved on 2026-09-04** to
+> **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
+> own gate re-run against v14. Step 12 (device-loss handling) is next and is UNSTARTED. The protocol
+> is v14.** ⚠️ **The repository moved on 2026-09-04** to
 > `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester` — still a **removable volume**,
 > so builds still go outside it, and any absolute path written down before that date is wrong.
 > **Increment 12 — ⌘Q under every modal — was built on 2026-09-04** in four chunks, app target only;
@@ -29,7 +31,7 @@ test target fixed to the designated scratch device with disk images removed as a
 > last thing owed, and it is no longer owed** — re-run **2026-09-05 against the v14 daemon** and
 > passed: 14 assertions, 0 failures, all four I/O sizes settled at a chunk boundary with the correct
 > resume point. That discharges items 2, 3 and the helper-side half of 5 in Step 11's verification
-> gate, so **all five now stand against v14 and Step 11 is ready to close.**
+> gate, so **all five stand against v14, and Step 11 closed on 2026-09-05.**
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -425,15 +427,25 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-02: Steps 1–10 and Step 14 are complete and committed. STEP 11 IS IN PROGRESS
-> — increments 1–10 are done, 11 and 12 remain.** The suite stands at **1088 tests / 135 suites /
-> 0 failures** (floor 1088), protocol **v12**, zero source warnings from three clean builds with
-> DerivedData wiped, **13/13** gate clients type-checking. The helper's source hash is
-> `73990c90…`, unmoved since 2026-08-24.
+> **Status, 2026-09-05: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
+> verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
+> handling) is next and is UNSTARTED.** The suite stands at **1127 tests / 136 suites / 0 failures**
+> (floor 1127), protocol **v14**, zero source warnings from three clean builds with DerivedData
+> wiped, **13/13** gate clients type-checking. The helper's source hash is `e6888aa5…`, unmoved
+> since increment 11.
 >
-> **Increments 11 and 12 are planned, approved and unwritten** —
-> [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) holds their scope and
-> the decisions behind them. **Read it before starting either.**
+> ⚠️ **Until 2026-09-05 this block said "Status, 2026-09-02 … increments 1–10 are done, 11 and 12
+> remain", protocol v12, helper hash `73990c90…`** — three days and two increments stale, and
+> **internally inconsistent the whole time**: the paragraph below it already named `e6888aa5…` as
+> the current hash, as of 2026-09-03. A block that contradicts itself two paragraphs apart is the
+> loudest signal this file can produce and nobody heard it, because each half was edited on the day
+> someone happened to be touching that half. **Edit a status block whole, or leave it alone.**
+>
+> [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) no longer holds any
+> increment — all four sections were deleted as they landed, as its own header instructs. What is
+> left is the settled-decision table. **Read it before re-opening one of those decisions**, not
+> before building.
 >
 > **All three of Step 10's hardware gates now pass at the current helper hash `e6888aa5…`, as of
 > 2026-09-03.** `metrics-check.sh` **128/0** at increment 11's gate; `xpc-concurrency-check.sh`
@@ -1336,6 +1348,16 @@ React to classified failures per the user-selected mode, and conclude every run 
 
 ## Step 11 — Run-control state machine: start / pause / resume / stop / restart
 
+> **STEP 11 IS COMPLETE (2026-09-05).** Twelve increments built and gated, the 16-chunk human
+> checklist in [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) walked
+> and passed in full, and the verification gate below re-run against the **v14** daemon on
+> 2026-09-05. **FR-CTRL-5 (Restart) was built and withdrawn** — redundant with Stop-then-Start, and
+> the requirement is met by composition; do not re-derive the control from the gate item that names
+> it. The account is in [`PROGRESS.md`](PROGRESS.md), which **still holds this step and has not been
+> archived to `progress/step-11.md`** — every other archive in `progress/` came from the one-time
+> split of 2026-08-11, so Step 11 is the first to close under the current structure and the archive
+> is a separate deliberate act, best done when Step 12 starts.
+
 > **Inherited from Step 8 (2026-08-03).** Protocol v7 has `runRetentionCycle(startBlock:blockCount:ioSizeBytes:)`,
 > **capped at `TesterProtocol.maximumBytesPerCall` (1 GiB)**, and `digestRange` under the same
 > cap. The cap is not a tuning parameter: it is what makes an uncancellable privileged operation
@@ -1545,7 +1567,7 @@ Implement the explicit run-control state machine with legal-transition enforceme
 7. **One device at a time (FR-CTRL-9):** disallow starting a new run while any run is active; the start control is disabled and explained.
 8. **`os_log`** start/stop and mode at run start (NFR-OBS-1).
 
-### Verification Gate (must pass before Step 12)
+### Verification Gate — COMPLETE (2026-09-05)
 
 > ✅ **ITEMS 2, 3 AND 5 WERE RE-RUN 2026-09-05 AND PASSED**, against the **v14** daemon. All three
 > rest on `scripts/run-control-check.sh`, which had gone stale on 2026-09-03 when increment 11 took

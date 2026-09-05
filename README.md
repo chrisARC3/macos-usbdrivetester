@@ -16,18 +16,20 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 11 of 16
+> ### Status: in development — Step 12 of 16 is next
 >
-> Steps 1–10 and Step 14 are complete and committed; **Step 11 (run control: start / pause
-> / resume / stop) is in progress**, with 10 of its 12 increments landed. The engine, the
-> privilege plumbing, the safety guards, metrics, reporting and the pre-run warnings all exist
-> and are exercised on real hardware. Device-loss handling, sleep prevention, logging
+> Steps 1–11 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
+> resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
+> human checklist walked in full, and its verification gate re-run against the current XPC
+> protocol. **Step 12 — device-loss handling — is next and is not yet started.** The engine, the
+> privilege plumbing, the safety guards, metrics, reporting, run control and the pre-run warnings
+> all exist and are exercised on real hardware. Device-loss handling, sleep prevention, logging
 > consolidation and notarization do not yet.
 >
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1093 tests / 135 suites / 0 failures**, zero source warnings from
+> Current verified state: **1127 tests / 136 suites / 0 failures**, zero source warnings from
 > three clean builds, XPC protocol v14. See [`PROGRESS.md`](PROGRESS.md) for the step in
 > flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the sequence and its gates.
 

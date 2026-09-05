@@ -8,8 +8,8 @@ split, because a log a cold start is told not to read is a log that is not doing
 | **PROGRESS.md** (this file) | the step in progress |
 | **[CONSTRAINTS.md](CONSTRAINTS.md)** | **read this in full** — what binds future work: measured behaviour, settled decisions, lessons |
 | **[BUILD-PLAN.md](BUILD-PLAN.md)** | the plan, the per-step gates, the process gotchas, the test hardware |
-| **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** | **increments 10–12: planned, approved, unwritten.** Read before building any of them |
-| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Complete: every chunk walked and passed, chunk 15 on 2026-09-03** |
+| [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md) | **the settled decisions from increments 9–12 — nothing is planned in it.** All four increment sections were deleted as they landed, as its own header instructs. **Read it before re-opening any of those decisions**, not before building |
+| [`progress/step-11-human-checklist.md`](progress/step-11-human-checklist.md) | the keyboard checks — what no test can reach. **Complete: all 16 chunks walked and passed, chunk 16 on 2026-09-04** |
 | `progress/step-NN.md` | archived history, for *"why was it done that way?"* |
 
 **The full account of an increment goes in its commit message**, with this file carrying a summary
@@ -18,14 +18,22 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. **Increments 1–12 done and gated**; the step's own verification gate re-run against v14 and PASSED 2026-09-05 — ready to close
+## Step 11 — **COMPLETE (2026-09-05)**. Twelve increments built and gated, the 16-chunk human checklist walked in full, and the step's own verification gate re-run against the v14 daemon and passed
 
-> **Cold start? Read *Current state — increment 12 done, and Step 11's own gate re-run* below** — it
-> is the only status block in this file that is current, re-derived 2026-09-05 when
-> `run-control-check.sh` was re-run against the v14 daemon. Every
-> *"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
+> **Cold start? Read *Current state — Step 11 closed* below** — it is the only status block in this
+> file that is current, re-derived 2026-09-05 at the step's close. Every *"Where increment N
+> starts"* block above it is a dated snapshot of an earlier moment.
+>
+> ⚠️ **This file still holds Step 11 although Step 11 is closed**, and its own contract at the top
+> says it carries the step in progress. **Step 11 is the first step to close under the current
+> structure** — every other archive in `progress/` was written in the one-time split of 2026-08-11,
+> not at a step's close — so archiving this to `progress/step-11.md` is a deliberate act that has
+> not been performed. Do it when Step 12 starts, not before: an empty PROGRESS.md is worse than a
+> stale-labelled one.
 
-> ⚠️ **Nothing is planned. Increments 1–12 are done and gated.** The decisions taken along the
+> ⚠️ **Nothing is planned, and Step 11 is closed. Increments 1–12 are done and gated.** The next
+> work is **Step 12 — device-loss handling**, which is unstarted; its inherited notes are in
+> `BUILD-PLAN.md`. The decisions taken along the
 > way, and what must not be re-opened, are in
 > **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)**.
 > **Read it before starting it** — the decisions were argued through at length and
@@ -223,11 +231,10 @@ dated snapshots of earlier moments and are not current. No tree hash is named, o
 in this block stands until it does — and if a change makes the hash move, the three hardware gates
 lapse with it. Check the hash before assuming they hold.
 
-### Current state — increment 12 done, and Step 11's own gate re-run
+### Current state — Step 11 closed
 
-**Re-derived 2026-09-05, when `run-control-check.sh` was re-run against the v14 daemon, and this is
-the block a cold start should read.** Every
-*"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
+**Re-derived 2026-09-05, at the step's close, and this is the block a cold start should read.**
+Every *"Where increment N starts"* block above it is a dated snapshot of an earlier moment.
 
 **A separate block rather than an edit to the one above**, deliberately: that one is titled *where
 increment 12 starts* and it is true of that moment. Editing a snapshot with later news is the defect
@@ -241,7 +248,7 @@ block is not a snapshot** — it is the current state, and it is the one to edit
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
 | **Protocol** | **v14** |
 | **Human checklist** | **complete — 16 chunks, nothing owed.** Chunk 16 passed in full 2026-09-04, all nine items, the day it was written; it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1, 11.7 and 6.3 re-walked and passed** at expectations increment 12 changed |
-| **Owed** | **Nothing.** Step 11's verification gate was the last thing owed and it was **re-run 2026-09-05 and PASSED** — `scripts/run-control-check.sh` against a **v14** daemon (handshake `PROTOCOL=14 EXPECTED=14`), HEAD `12118f3`, helper hash `e6888aa5…`, on the 1 TB T5 scratch drive (serial `12345686DAA9`, `/dev/disk7` that day): **14 assertions, 0 failures, 4 settled, 0 inconclusive.** That discharges items **2**, **3** and the helper-side half of **5**; items 1 and 4 never rested on the daemon, so **all five now stand against v14 and Step 11 is ready to close.** **Invalidated by** the next protocol bump or any move of the helper source hash. ⚠️ One latency figure came back outside the model the docs state — the 1 MiB settle, 9.33 ms against a one-chunk bound of ~6.5 ms. It is **not** an NFR-REL-10 failure (that requirement is a boundary guarantee, and its evidence — the exact resume arithmetic — held in all four cases) and it is being recorded separately. No increment is planned |
+| **Owed** | **Nothing, and Step 11 closed 2026-09-05 on the strength of it.** Its verification gate was the last thing owed and it was **re-run 2026-09-05 and PASSED** — `scripts/run-control-check.sh` against a **v14** daemon (handshake `PROTOCOL=14 EXPECTED=14`), HEAD `12118f3`, helper hash `e6888aa5…`, on the 1 TB T5 scratch drive (serial `12345686DAA9`, `/dev/disk7` that day): **14 assertions, 0 failures, 4 settled, 0 inconclusive.** That discharges items **2**, **3** and the helper-side half of **5**; items 1 and 4 never rested on the daemon, so **all five stand against v14 and the step is closed.** **Invalidated by** the next protocol bump or any move of the helper source hash. ⚠️ One latency figure came back outside the model the docs state — the 1 MiB settle, 9.33 ms against a one-chunk bound of ~6.5 ms. It is **not** an NFR-REL-10 failure (that requirement is a boundary guarantee, and its evidence — the exact resume arithmetic — held in all four cases) and it is being recorded separately. No increment is planned |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04 for the chunk 16 walk and again for the 6.1/11.7 re-walks, daemon kickstarted each time. ⚠️ **Always kickstart after `install-app.sh`** — it replaces the helper binary underneath the running daemon, and BUILD-PLAN is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly an app-only increment's case. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`** rather than by the timestamp: `strings` cannot settle it, and on 2026-09-04 chunk 16 was nearly walked against chunk 0's build |
 | **Fixture** | drives unchanged from the block above. **The 1 TB T5's `fill.bin` was restored 2026-09-04 18:19**, against the scratch device identified by **serial `12345686DAA9`** (`/dev/disk7` that day — BSD names move): 999,947,239,424 bytes of `/dev/urandom` in 57m43s at 288.8 MB/s, `dd` ending on `No space left on device` as intended. The volume reads **100% used**, so the gate's `df` early warning no longer fires the false alarm it fired on 2026-08-25 and 2026-09-03; three 1 MiB samples at 1 GiB, 476811 MiB and 953622 MiB digest distinctly, and none is the all-zero block. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |

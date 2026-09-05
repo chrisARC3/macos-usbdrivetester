@@ -1,5 +1,12 @@
 # Step 11 — the human checklist
 
+> **STEP 11 CLOSED 2026-09-05.** Every chunk here was walked and passed, and the step's own
+> verification gate was re-run against the v14 daemon the same day. **This file is now a record
+> rather than a worklist.** ⚠️ **Its passes do not transfer.** If later work re-opens anything Step
+> 11 built, re-walk the chunks that work touches rather than trusting these dates — checklist 6.3
+> passed on 2026-08-18 and was silently broken four days later by a change in another step, and
+> nobody noticed for thirteen days.
+
 > **The absolute paths in this file were rewritten on 2026-09-04.** This repository lives on a
 > **removable volume** and moved from `/Volumes/1TB_Samsung/…` to `/Volumes/1TB_UGreen/…`, which
 > silently turned two pasteable commands — checks **12.2** and **13.7** — into paths that do not
@@ -130,7 +137,7 @@ and Write no longer share a denominator or a ratio. On the 4 TB T5 EVO the panel
 > and cannot close until it is re-run.** Nothing on *this* list is affected.
 >
 > ✅ **Discharged 2026-09-05** — `run-control-check.sh` was re-run against the **v14** daemon and
-> passed, so those three now stand and Step 11 is ready to close. The warning above is kept rather
+> passed, so those three now stand; **Step 11 closed the same day.** The warning above is kept rather
 > than deleted: the miscount is the lesson, not the state it happened to describe.
 >
 > ⚠️ **This line said "NOTHING IS OWED" until chunk 15 was written, on 2026-09-03** — which was the
