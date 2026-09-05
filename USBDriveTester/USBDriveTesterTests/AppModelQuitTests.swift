@@ -404,6 +404,103 @@ struct AppModelQuitTests {
         #expect(bench.terminations == 1)
     }
 
+    /// **The alert's binding may clear a confirmation and nothing else** — from every other state
+    /// a `false` write is ignored.
+    ///
+    /// The single-case version of this (`dismissingTheAlertDoesNotUndoAConfirmedQuit`) covers
+    /// `.windingDown`. This walks all four, and it exists because of what checklist 16.5 found on
+    /// 2026-09-04: the confirmation went from `.confirming` to `.idle` with the dialog still on
+    /// screen, and this setter is one of only two things that can do that. The cause was never
+    /// established. What this pins is the blast radius — a stray write cannot reach in from any
+    /// other state, so at worst it cancels a confirmation the user has not answered yet.
+    @Test func theAlertBindingClearsAConfirmationAndNoOtherState() {
+        let idle = Bench()
+        idle.model.quitConfirmationIsPresented = false
+        #expect(idle.model.quitState == .idle, "idle stays idle")
+
+        let confirming = Bench()
+        confirming.startARun()
+        _ = confirming.model.quitRequested()
+        confirming.model.quitConfirmationIsPresented = false
+        #expect(confirming.model.quitState == .idle, "the one case it may act on")
+
+        let winding = Bench()
+        winding.startARun()
+        _ = winding.model.quitRequested()
+        winding.model.cancelAndQuit()
+        winding.model.quitConfirmationIsPresented = false
+        #expect(winding.model.quitState == .windingDown, "a confirmed quit is not undone")
+
+        let terminating = Bench()
+        terminating.model.scheduleOnNextTurn = { $0() }
+        terminating.startARun()
+        _ = terminating.model.quitRequested()
+        terminating.model.cancelAndQuit()
+        terminating.endTheRun()
+        #expect(terminating.model.quitState == .terminating, "the app is on its way out…")
+        terminating.model.quitConfirmationIsPresented = false
+        #expect(terminating.model.quitState == .terminating, "…and stays that way")
+    }
+
+    /// **A write that re-affirms the confirmation must change nothing.**
+    ///
+    /// Added 2026-09-04 because mutation **Q2** survived all 1,125 tests: widening the setter's
+    /// `!newValue` guard let a `true` write, arriving while the confirmation is *already* up, fall
+    /// through and **clear it**. SwiftUI re-affirming `isPresented` on a re-evaluation would then
+    /// silently cancel a pending quit — which is a candidate mechanism for exactly what 16.5 saw at
+    /// the keyboard, and it was uncovered.
+    ///
+    /// `theAlertBindingCannotRaiseAConfirmation` did not catch it: that one writes `true` from
+    /// `.idle`, where the second guard stops it anyway. The gap was the `.confirming` case.
+    @Test func theAlertBindingIgnoresAWriteThatReAffirmsTheConfirmation() {
+        let bench = Bench()
+        bench.startARun()
+        _ = bench.model.quitRequested()
+        #expect(bench.model.quitState == .confirming)
+
+        bench.model.quitConfirmationIsPresented = true
+
+        #expect(bench.model.quitState == .confirming, "re-affirming must not cancel it")
+        #expect(bench.model.quitConfirmationIsPresented)
+    }
+
+    /// **"Continue Testing" cannot undo a quit that has already been confirmed.**
+    ///
+    /// Added 2026-09-04 because mutation **Q3** survived all 1,125 tests: dropping the
+    /// `quitState == .confirming` guard from ``AppModel/continueTesting()`` let it drag a
+    /// `.windingDown` app back to `.idle`. Reachable — SwiftUI's ordering between a button's action
+    /// and the binding write is explicitly not depended on elsewhere in this file — and the
+    /// consequence is a run that was told to stop, with an app that has decided to stay.
+    @Test func continueTestingCannotUndoAConfirmedQuit() {
+        let bench = Bench()
+        bench.startARun()
+        _ = bench.model.quitRequested()
+        bench.model.cancelAndQuit()
+        #expect(bench.model.quitState == .windingDown)
+
+        bench.model.continueTesting()
+
+        #expect(bench.model.quitState == .windingDown, "the app is already on its way out")
+        #expect(!bench.model.mayIssueNewWork)
+    }
+
+    /// **The binding can never RAISE a confirmation**, only clear one.
+    ///
+    /// The mirror of the defect above, and the worse of the two: a stray `true` write would put the
+    /// app into `.confirming` with **no dialog on screen**, and from increment 12 that greys ⌘Q —
+    /// so the app would become unquittable by keystroke, with nothing visible to answer. The vote
+    /// belongs to `applicationShouldTerminate` asking ``AppModel/quitRequested()``, and a view
+    /// modifier is not allowed a second way in.
+    @Test func theAlertBindingCannotRaiseAConfirmation() {
+        let bench = Bench()
+        bench.startARun()
+
+        bench.model.quitConfirmationIsPresented = true
+
+        #expect(bench.model.quitState == .idle)
+        #expect(bench.model.mayQuitFromMenu, "and ⌘Q is still offered")
+    }
+
     // MARK: - ⌘Q from under a modal (increment 12, chunk 2)
 
     /// Every combination of the five surfaces, and what the model says is on screen for each.

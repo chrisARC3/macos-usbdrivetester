@@ -1412,6 +1412,39 @@ including window class names.
    > and the model was right to say `confirming=false`. Something dismissed it. Left recorded rather
    > than deleted: an unexplained dismissal of the quit confirmation is worth watching for.
    >
+   > **INVESTIGATED 2026-09-04. Not reproduced, cause not established — but it is now diagnosable
+   > in one log line, and two real gaps were found looking for it.**
+   >
+   > *Ruled out:* a second main window binding the same state. The main scene is a `Window`, not a
+   > `WindowGroup` (`USBDriveTesterApp.swift`, and line 31 says why), so the `openWindow(id: .main)`
+   > in `ContentView`'s `.onChange` only brings the existing one forward. Also ruled out: the
+   > wind-down, which never ran — `QuitSequence` is not built until `.windingDown`.
+   >
+   > *That leaves exactly two movers*, and until now **neither said anything on the log**:
+   >
+   > * **`continueTesting()`** — the *Continue Testing* button, which is `role: .cancel`, so
+   >   **Return and Escape both trigger it**. That is deliberate (`ContentView`: *"the right way
+   >   round for a dialog that can end one"*), so a stray keypress reaching the alert produces
+   >   exactly what was seen — and would be **the safety design working**, not a defect.
+   > * **the `quitConfirmationIsPresented` setter** — SwiftUI writing `false` on its own. That
+   >   *would* be a defect: a quit the user asked for, silently cancelled.
+   >
+   > **`quitState` now logs every transition with the mover that caused it and the sheet inventory
+   > at that instant.** If this happens again the log says which of the two it was, and whether the
+   > alert was still attached when the state moved:
+   >
+   >     quit state: confirming → idle, by Continue Testing; 2 window(s), 1 sheet(s) [_NSAlertPanel]
+   >     quit state: confirming → idle, by SwiftUI dismissing the alert; 1 window(s), 0 sheet(s)
+   >
+   > The first is benign. **The second, with a sheet still attached, is the defect** — report it.
+   > An ignored write logs too (`quit alert: SwiftUI wrote isPresented=false … — ignored`); one of
+   > those follows every normal dismissal, and a *burst* of them would be its own finding.
+   >
+   > *Two gaps found while looking, both now closed*: a `true` write arriving while the confirmation
+   > was already up could have cleared it (mutation Q2), and *Continue Testing* could undo a
+   > confirmed quit (Q3). Both survived all 1,125 tests until then. Q2 is a **candidate mechanism
+   > for this very item** — it was guarded in the shipped code, but nothing pinned the guard.
+   >
    > ⚠️ **What the failing walk saw, 2026-09-04, kept for whoever meets it again.**
    > The second ⌘Q was **not** greyed: it logged a full press reading `confirming=false` and was
    > answered `askFirst` all over again, so the app re-asked a question that was already on screen.

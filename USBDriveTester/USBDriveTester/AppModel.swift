@@ -523,6 +523,46 @@ final class AppModel {
     /// states are one value rather than a handful of booleans.
     private(set) var quitState: QuitState = .idle
 
+    /// Move the quit state, and say who moved it. **The only writer of ``quitState``.**
+    ///
+    /// Same discipline as ``setHelperAvailability(_:)``, for a sharper reason. `quitState` is the
+    /// most consequential value in this app — it decides whether a run may issue its next call,
+    /// whether Start is refused, whether the confirmation is on screen, and whether the app is on
+    /// its way out — and until 2026-09-04 **nothing logged a single one of its transitions**.
+    ///
+    /// ## What that cost, and why this exists
+    ///
+    /// Walking checklist 16.5 found the confirmation going from `.confirming` back to `.idle` with
+    /// the dialog still on screen: a second ⌘Q was therefore offered rather than greyed, and
+    /// re-asked a question already being asked. It did not reproduce, and the log could not say what
+    /// had moved the state, because only two things can and **neither said anything**:
+    ///
+    ///   * ``continueTesting()`` — the *Continue Testing* button. It is `role: .cancel`, so **Return
+    ///     and Escape both trigger it** (deliberately: an accidental key keeps the run rather than
+    ///     ending it). A stray keypress reaching the alert produces exactly what was seen, and that
+    ///     would be the safety design working rather than a defect.
+    ///   * the ``quitConfirmationIsPresented`` setter — SwiftUI writing `false` into the binding on
+    ///     its own. That *would* be a defect: a quit the user asked for, silently cancelled.
+    ///
+    /// The two were indistinguishable from outside and indistinguishable on the log. They are not
+    /// any more, and that is the whole of what this method buys.
+    ///
+    /// **The inventory rides along on purpose.** Whether AppKit still had the alert attached at the
+    /// instant the state moved is what separates those two causes: a setter write with
+    /// `1 sheet(s) [_NSAlertPanel]` still up is SwiftUI cancelling a quit under a visible dialog;
+    /// one with `0 sheet(s)` is a dialog that had already gone.
+    private func moveQuitState(to next: QuitState, by mover: String) {
+        let previous = quitState
+        guard previous != next else { return }
+        quitState = next
+
+        quitLog.notice("""
+                       quit state: \(String(describing: previous), privacy: .public) → \
+                       \(String(describing: next), privacy: .public), by \
+                       \(mover, privacy: .public); \(AttachedSheets.inventory(), privacy: .public)
+                       """)
+    }
+
     /// Live for the length of one wind-down. Held so its callbacks and its deadline survive.
     private var quitSequence: QuitSequence?
 
@@ -658,7 +698,19 @@ final class AppModel {
             // dismissal that arrives after "Cancel and Quit" has already moved the app on must not
             // drag it back to idle — SwiftUI's ordering between the button's action and the
             // binding write is not something to depend on.
-            if !newValue, quitState == .confirming { quitState = .idle }
+            guard !newValue else { return }
+            guard quitState == .confirming else {
+                // **An ignored write, logged rather than dropped.** A normal dismissal produces one
+                // of these: the button's action moves the state first, and SwiftUI's binding write
+                // lands afterwards on a state that has already moved on. What would be interesting
+                // is a burst of them, or one arriving with no button pressed at all.
+                quitLog.notice("""
+                               quit alert: SwiftUI wrote isPresented=false with state=\
+                               \(String(describing: self.quitState), privacy: .public) — ignored
+                               """)
+                return
+            }
+            moveQuitState(to: .idle, by: "SwiftUI dismissing the alert")
         }
     }
 
@@ -919,7 +971,7 @@ final class AppModel {
     /// The app has been asked to terminate. Returns what the caller should do about it.
     func quitRequested() -> QuitDisposition {
         let disposition = QuitPolicy.disposition(runIsActive: runIsActive, quitState: quitState)
-        if disposition == .askFirst { quitState = .confirming }
+        if disposition == .askFirst { moveQuitState(to: .confirming, by: "a termination request") }
         return disposition
     }
 
@@ -927,7 +979,9 @@ final class AppModel {
     func mainWindowCloseRequested() -> WindowCloseDisposition {
         let disposition = QuitPolicy.closeDisposition(runIsActive: runIsActive,
                                                       quitState: quitState)
-        if disposition == .askFirst { quitState = .confirming }
+        if disposition == .askFirst {
+            moveQuitState(to: .confirming, by: "the main window's close button")
+        }
         return disposition
     }
 
@@ -948,7 +1002,7 @@ final class AppModel {
 
     /// "Continue Testing" — the run goes on and the app stays.
     func continueTesting() {
-        if quitState == .confirming { quitState = .idle }
+        if quitState == .confirming { moveQuitState(to: .idle, by: "Continue Testing") }
     }
 
     /// "Cancel and Quit" — issue nothing further, then quit at the call boundary.
@@ -961,7 +1015,7 @@ final class AppModel {
     /// in flight and no reply coming, so there is no boundary to wait for.
     func cancelAndQuit() {
         guard quitState == .confirming || quitState == .idle else { return }
-        quitState = .windingDown
+        moveQuitState(to: .windingDown, by: "Cancel and Quit")
 
         if let runControl, runControl.isRunActive {
             // Refused while the drive is still being *prepared*, and that is fine rather than a
@@ -1053,7 +1107,7 @@ final class AppModel {
             guard let self else { return }
             // Recorded *before* terminating: the second `applicationShouldTerminate` this triggers
             // has to be able to tell the app's own quit from a user pressing ⌘Q again.
-            self.quitState = .terminating
+            self.moveQuitState(to: .terminating, by: "the wind-down")
 
             // **The same shape as ⌘Q's dismiss arm, and for the same reason.** Take the modals down
             // through SwiftUI, then ask for the termination on the following turn once SwiftUI has
