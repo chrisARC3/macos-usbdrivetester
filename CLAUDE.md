@@ -9,10 +9,10 @@ drift.
 
 | Read | For |
 |---|---|
-| `PROGRESS.md` — the **Current state** block first | Where the work actually is. It is the only block in that file that is current; every *"Where increment N starts"* block is a dated snapshot |
+| `PROGRESS.md` — the **Current state** block first | Where the work actually is. It holds **one step only**; when a step closes it is archived to `progress/step-NN.md` and the file is re-cut for the next one. If it ever regrows *"Where increment N starts"* blocks, those are dated snapshots and only **Current state** is current |
 | `BUILD-PLAN.md` | The steps, their verification gates, and the build/test/install recipes |
 | `CONSTRAINTS.md` | Measured platform facts, working practice (§2) and the lessons (§3). **Read before designing anything** — most of it was paid for |
-| `progress/step-11-human-checklist.md` | What only a person at a keyboard can check, and why each item exists |
+| `progress/step-NN-human-checklist.md` | What only a person at a keyboard can check, and why each item exists. Step 11's is the worked example — 16 chunks — and **its passes do not transfer to later work**. A step that changes behaviour a person must verify needs its own |
 
 ---
 

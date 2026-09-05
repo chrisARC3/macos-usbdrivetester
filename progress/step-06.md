@@ -23,7 +23,7 @@ be fixed before the Global DoD can pass — both tracked at the end of this sect
 
 The mount/unmount control was specified by the user during scoping and changed the
 baselined functional spec. Recorded in
-[functional-requirements](functional-requirements-usb-drive-tester.md#amendments-to-the-baseline):
+[functional-requirements](../functional-requirements-usb-drive-tester.md#amendments-to-the-baseline):
 
 - **FR-SAFE-5 revised, C → M.** One control acting on *all* volumes of the selected
   device, label and action always in agreement: `Unmount All` when any volume is

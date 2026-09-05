@@ -527,7 +527,8 @@ simulation-first still applies wherever the plan calls for it.
 > below, which are dated rationale and deliberately not rewritten — undercounted by one. See
 > [CONSTRAINTS.md](CONSTRAINTS.md) section 2, which supersedes it.
 >
-> **Read [PROGRESS.md](PROGRESS.md) first** — it holds what Step 11 inherits. For *why* something was
+> **Read [PROGRESS.md](PROGRESS.md) first** — it holds the step in progress and what that step
+> inherits (Step 12, as of 2026-09-05). For *why* something was
 > done the way it was, `progress/step-NN.md` has the archived history of that step; this table is the
 > map, not the tracker.
 
@@ -1353,10 +1354,11 @@ React to classified failures per the user-selected mode, and conclude every run 
 > and passed in full, and the verification gate below re-run against the **v14** daemon on
 > 2026-09-05. **FR-CTRL-5 (Restart) was built and withdrawn** — redundant with Stop-then-Start, and
 > the requirement is met by composition; do not re-derive the control from the gate item that names
-> it. The account is in [`PROGRESS.md`](PROGRESS.md), which **still holds this step and has not been
-> archived to `progress/step-11.md`** — every other archive in `progress/` came from the one-time
-> split of 2026-08-11, so Step 11 is the first to close under the current structure and the archive
-> is a separate deliberate act, best done when Step 12 starts.
+> it. **The full account is archived in [`progress/step-11.md`](progress/step-11.md)** (2026-09-05,
+> when Step 12 was picked up), following the template `progress/step-14.md` set when Step 14 closed.
+> Its two companion files stay outside the archive because they are still consulted: the
+> increment-plans file holds settled decisions that bind Step 12, and the human checklist is the
+> record of what only a person could check.
 
 > **Inherited from Step 8 (2026-08-03).** Protocol v7 has `runRetentionCycle(startBlock:blockCount:ioSizeBytes:)`,
 > **capped at `TesterProtocol.maximumBytesPerCall` (1 GiB)**, and `digestRange` under the same
