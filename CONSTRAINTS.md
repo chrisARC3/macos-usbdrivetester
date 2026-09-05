@@ -163,9 +163,10 @@ reason the ack cannot stand in for the settle even as an approximation.
 it. A cap of 8 MiB would produce these same figures, because the settle happens at a chunk boundary
 *inside* the call either way. This is the claim that has held across v10, v12 and both v14 runs.
 
-*Full account: commits `e13d3e8` (the measurement) and `c8ca155` (the v14 re-run). The fixed-cost
-experiment is reproducible as `scripts/run-control-check.sh --repeat-1mib 8`, which re-runs the
-whole gate and then takes the samples.*
+*Full account: commits `e13d3e8` (the measurement), `c8ca155` (the v14 re-run) and `a6e3bb0` (the
+fixed-cost finding). The experiment is reproducible as
+`scripts/run-control-check.sh --repeat-1mib 8`, which re-runs the whole gate and then takes the
+samples.*
 
 ### I/O placement (FR-TEST-10)
 
