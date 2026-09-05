@@ -23,9 +23,13 @@ test target fixed to the designated scratch device with disk images removed as a
 >
 > **The human checklist is complete — 16 chunks, nothing owed.** Chunk 16 (⌘Q under every modal)
 > was written and walked on 2026-09-04, all nine items, and 6.1, 11.7 and 6.3 were re-walked at
-> expectations increment 12 changed. **The hardware gates are not owed** — `metrics-check.sh`,
+> expectations increment 12 changed. **Step 10's three hardware gates are not owed** — `metrics-check.sh`,
 > `xpc-concurrency-check.sh` and `retention-cycle-check.sh` all passed 2026-09-03, and increment 12
-> **did not move the helper hash**, so those results still stand.
+> **did not move the helper hash**, so those results still stand. ⚠️ **`run-control-check.sh` IS
+> owed.** It is Step 11's own gate, it last ran 2026-08-24 against a **v12** daemon, and the
+> protocol is v14. Items 2, 3 and the helper-side half of 5 in Step 11's verification gate rest on
+> it, so **Step 11 cannot close until it is re-run**. It writes to the scratch drive, so it must not
+> overlap a `fill.bin` restore.
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -1531,6 +1535,14 @@ Implement the explicit run-control state machine with legal-transition enforceme
 8. **`os_log`** start/stop and mode at run start (NFR-OBS-1).
 
 ### Verification Gate (must pass before Step 12)
+
+> ⚠️ **ITEMS 2, 3 AND 5 ARE STALE AS OF 2026-09-04 AND MUST BE RE-RUN.** All three rest on
+> `scripts/run-control-check.sh`, last run 2026-08-24 against a **protocol v12** daemon. The
+> protocol is **v14** since increment 11 and the helper hash moved with it, so the daemon that
+> evidence came from no longer exists. Item 2 below already records this happening once — *"the
+> evidence this replaces was taken 2026-08-12 against a v10 daemon, two protocol bumps back"* — and
+> it is two bumps back again. Items 1 and 4 are unaffected: unit tests over `RunControlPolicy`, and
+> an app-side checklist item with no daemon in it.
 
 **WALKED AND PASSED 2026-08-24 — all five.** Each tick names its evidence so it can be checked
 rather than trusted. Four were discharged in the morning; item 5 needed a check built for it (the

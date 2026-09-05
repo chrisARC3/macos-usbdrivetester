@@ -18,7 +18,7 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 11 — IN PROGRESS. **Increments 1–12 done and gated**; nothing is planned
+## Step 11 — IN PROGRESS. **Increments 1–12 done and gated**; the step's own verification gate is owed a re-run
 
 > **Cold start? Read *Current state — increment 12 done and gated* below** — it is the only status
 > block in this file that is current, re-derived 2026-09-04 at increment 12's close. Every
@@ -239,7 +239,7 @@ block is not a snapshot** — it is the current state, and it is the one to edit
 | **Helper** | source hash **`e6888aa5af72b433cd5b33cf18b98a0bab5d330e1fb058277e23aae82813f627`** — **re-derived after every chunk of increment 12 and unchanged**, so increment 11's three hardware gate results still stand |
 | **Protocol** | **v14** |
 | **Human checklist** | **complete — 16 chunks, nothing owed.** Chunk 16 passed in full 2026-09-04, all nine items, the day it was written; it found **one defect in the product** (*Cancel and Quit* did not quit, since increment 8) **and three in itself**. **6.1, 11.7 and 6.3 re-walked and passed** at expectations increment 12 changed |
-| **Owed** | **nothing.** No increment is planned |
+| **Owed** | ⚠️ **Step 11's verification gate needs re-running before Step 11 can close.** It passed 2026-08-24 at increment 8; **four increments have landed since, and increment 11 took the protocol v12 → v14 and moved the helper hash.** Its items **2**, **3** and the helper-side half of **5** all rest on `scripts/run-control-check.sh`, last run 2026-08-24 **against a v12 daemon**. That check **writes to the scratch drive**, so it must not overlap the `fill.bin` restore. No increment is planned |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04 for the chunk 16 walk and again for the 6.1/11.7 re-walks, daemon kickstarted each time. ⚠️ **Always kickstart after `install-app.sh`** — it replaces the helper binary underneath the running daemon, and BUILD-PLAN is explicit that *nothing announces the mismatch when the helper source has not moved*, which is exactly an app-only increment's case. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`** rather than by the timestamp: `strings` cannot settle it, and on 2026-09-04 chunk 16 was nearly walked against chunk 0's build |
 | **Fixture** | unchanged from the block above. ⚠️ The 1 TB T5's `fill.bin` is still deleted; restore it before the retention gate is run again |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
@@ -1670,9 +1670,20 @@ being checked. Corrected in `ui-probe`. The clean case is on the report render i
 again here, so both remain owed on the same terms.
 
 > **Both were run on 2026-09-03, at this increment's hash `e6888aa5…`, and both passed** — see
-> *The last two hardware gates* below. **Nothing is owed for Step 11 any more**: not a checklist
-> chunk, not a gate script. Increment 10's mutation round was folded into increment 11's at the
-> user's direction and is recorded in this increment's table.
+> *The last two hardware gates* below. Increment 10's mutation round was folded into increment 11's
+> at the user's direction and is recorded in this increment's table.
+>
+> ⚠️ **This said "nothing is owed for Step 11 any more: not a checklist chunk, not a gate script",
+> and that was wrong on the day it was written** (2026-09-03), corrected 2026-09-04. It counted
+> Step 10's three gates and forgot Step 11's own — **`run-control-check.sh`**, which had last run
+> on 2026-08-24 against a **v12** daemon. This very increment took the protocol to **v14**, so the
+> sentence was made false by the commit it was written to describe. Step 11's verification gate
+> rests on that script for items 2, 3 and the helper-side half of 5, so **Step 11 has not been able
+> to close since increment 11 landed** and nobody noticed for a day.
+>
+> The pattern is this file's own and it is now on its fourth outing: a status claim written from
+> the increment in front of you, counting the things that increment touched and silently omitting
+> the ones it did not.
 
 #### Chunk 15 walked — 2026-09-03, after the commit. Five items, all passed
 
@@ -1922,7 +1933,24 @@ clean builds, DerivedData wiped, hash re-derived). **A reinstall comes first** �
 predates `863d59f`.
 
 
-### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five
+### Step 11's verification gate — WALKED AND PASSED 2026-08-24, all five. ⚠️ **THREE ITEMS ARE NOW STALE**
+
+> ⚠️ **Re-run items 2, 3 and 5 before Step 11 closes (noted 2026-09-04).** All three rest on
+> `scripts/run-control-check.sh`, which last ran on 2026-08-24 **against a protocol v12 daemon**.
+> The protocol is **v14** since increment 11, and the helper hash moved with it — so the daemon that
+> evidence was taken from no longer exists.
+>
+> **This is the same staleness the gate itself corrected once already**, and it wrote the rule down
+> at item 2: *"The evidence this replaces was taken 2026-08-12 against a v10 daemon, two protocol
+> bumps back"*, and *"a gate that has not been re-run cannot report anything."* Two protocol bumps
+> back is exactly where it is again.
+>
+> Items **1** and **4** are unaffected: item 1 is unit tests over `RunControlPolicy`, which run on
+> every build, and item 4 is checklist chunk 7.4, an app-side observation with no daemon in it.
+>
+> **`run-control-check.sh` writes to the scratch drive**, so it must not run while the 1 TB T5's
+> `fill.bin` is being restored.
+
 
 BUILD-PLAN's five items, each ticked against named evidence rather than recollection. The walk is
 recorded at the gate itself.
