@@ -21,10 +21,18 @@ could drift; the commit is the immutable, greppable one.
 
 ## Step 12 — Device-loss handling (hot-unplug / de-enumeration mid-run). **IN PROGRESS**
 
-> **Cold start? Step 12 began 2026-09-05.** Chunk 0 (a measurement, no product change) and
-> **chunk 1 (the `ENXIO` discriminator)** are done; chunks 2–7 are not. Step 11 closed 2026-09-05
-> and its account was archived to [`progress/step-11.md`](progress/step-11.md) the same day.
-> Nothing below is a snapshot; all of it is current as of **2026-09-05**.
+> **Cold start? Step 12 began 2026-09-05.** Chunks 0–5 of 8 are done; chunks 6 and 7 are not.
+> Step 11 closed 2026-09-05 and its account was archived to
+> [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
+> is current as of **2026-09-06**.
+>
+> ⚠️ **This block said *"chunk 1 … is done; chunks 2–7 are not"* until 2026-09-06** — three chunks
+> and a protocol bump stale, in the file whose entire job is to say where the work is, and it read
+> as current because it carried a date. That is the **seventh** time this repository has shipped a
+> status block disagreeing with the body under it, and **the first one outside `BUILD-PLAN.md`**,
+> which is where the habit of looking had been built. The block below it was edited every chunk;
+> this one was never the block anyone was looking at. **Grep for the claim, not the filename** —
+> `grep -rn "chunks 0–" *.md` finds every instance of this claim in one line of effort.
 
 > **Read before designing anything here**, in this order:
 >
@@ -51,18 +59,18 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-06, at Step 12 chunk 4
+### Current state — 2026-09-06, at Step 12 chunk 5
 
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
-| **Verified** | **1220 tests, 0 failures, 145 suites** (floor `scripts/.test-floor` = 1220), run green 2026-09-06 at chunk 4. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
-| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunks 2 and 4 did not move it, being app-target only — **and this row predicted that chunk 4 would**, which was wrong: chunk 4 is the state machine and the wind-down, entirely inside the app. The four gates below lapsed at chunk 1 and have not compounded since. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Chunks 5 and 6 are app-target too; the next thing that can move it is chunk 7 |
+| **Verified** | **1262 tests, 0 failures, 149 suites** (floor `scripts/.test-floor` = 1262), run green 2026-09-06 at chunk 5. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
+| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunks 2, 4 and 5 did not move it, being app-target only — **and this row predicted that chunk 4 would**, which was wrong: chunk 4 is the state machine and the wind-down, entirely inside the app, and chunk 5 is the report. Re-derived at chunk 5 and unchanged. The four gates below lapsed at chunk 1 and have not compounded since. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Chunk 6 is app-target too; the next thing that can move it is chunk 7 |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
-| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Nothing else — Step 11 closed with its checklist complete, and chunks 0–4 closed green |
+| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **two declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4) and the identity of the device-loss SF Symbol (chunk 5). Nothing else — Step 11 closed with its checklist complete, and chunks 0–5 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
 ### The one open measurement — CLOSED 2026-09-05, before Step 12 began
@@ -98,9 +106,91 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | **done 2026-09-05.** See below. Helper hash **unmoved** — app target only |
 | **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05.** See below. **Moves the helper hash to `42774589…`** |
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06.** See below. Helper hash **unmoved** — app target only |
-| **5** | The report: the fifth `RunReportOutcome`, `HonestFraming`, presentation, Markdown | not started |
+| **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06.** See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | not started |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
+
+### Chunk 5 — the report says which route accounted for the loss, and refuses to over-warn
+
+`RunReportOutcome.deviceLost` is the **sixth** outcome, not a shade of `incomplete` — the approved
+chunk scope said *"fifth"*, which was a miscount of the enum rather than a decision, and the
+presentation doc comment that already read *"six outcomes, six distinguishable symbols"* is the
+authority. Chunk 3's interim is gone: `incomplete` asserts that **nothing accounts for the ending**,
+and now something does.
+
+**The centrepiece is `DeviceLossAccount`, and the reason it has four cases rather than one hedged
+sentence is the paused run.** Route (a) can say *where* and *in which phase*; route (b) knows only
+*that*, and route (b) has two ways of knowing it. Collapsing those would put *"a chunk may hold
+partly written data"* into the report of a run that was demonstrably **paused with nothing in
+flight** — a false alarm in a document somebody keeps, which is how a reader learns to discount the
+warnings that are real. So the four cases are named:
+
+| account | how it arises | `aWriteBackMayBeUnfinished` |
+|---|---|---|
+| `theHelperSaidWhere(block:phase:)` | route (a)'s reply landed | `true` only for `writingBack` and `unrecognised` |
+| `nothingWasInFlight` | route (b), run paused — no reply *could* arrive | **`false`** |
+| `theHelperNeverAnswered` | route (b), the deadline expired | `true` |
+| `noRouteSaidAnything` | neither said when | `true` |
+
+The verdict table is pinned row by row by `theWriteBackTableIsPinned`, and `unrecognised` reads as
+**unsafe** for the same reason `CacheBypassOutcome.unrecognised` does: a helper newer than this app
+naming a phase this build cannot map is not evidence of anything good.
+
+**`removalCallbackSaid` is a required parameter of `RunReport.init` with no default**, and that is
+the whole trick. `nil` is a perfectly safe value, which is exactly the trap — a caller that forgot
+it would compile, produce a report, export a file, and simply decline to say whether a chunk was
+mid-write. Ten call sites had to be updated one file at a time, which is the compiler doing the
+remembering. `deviceLossAccountAgreesWithTheOutcome` closes the other half: an account exists
+**exactly** when the outcome is `deviceLost`.
+
+**Two defects were found by instruments rather than by reasoning.**
+
+- A test caught the report printing `4194304` in a sentence and `4,194,304` in the table row
+  immediately below it — one document, two spellings of one number. `HonestFraming.claim(about:)`
+  now formats through the same `MetricsFormatting.blockOffset` the row uses.
+- Reading the render caught the callout passing `.plain` with `emphasised: true`, which made the
+  whole paragraph semibold and flattened the hierarchy the Markdown export had: the urgent clause
+  read exactly like the rest of it. It now passes `.markdown` through `LocalizedStringKey` with no
+  blanket emphasis, and the on-screen bolding matches the exported file clause for clause. **This is
+  the only callout in the report that carries Markdown**, and the reason is in a comment beside it.
+
+**The mutation round: 11 mutations, 9 killed outright, one predicted survivor, one finding.**
+
+- **Predicted and confirmed:** changing `eject.circle.fill` to any other unique symbol survives. The
+  presentation tests pin **distinguishability, not identity**, deliberately — chunk 7's checklist
+  gets the eyeball check.
+- **The finding:** deleting `deviceLossEnding = nil` from `driveIsBack()` survived all 1261 tests,
+  **and `theEndingDoesNotSurviveIntoTheNextRun` existed to prevent exactly that**. The test drove a
+  second run to a *clean* finish — and `DeviceLossAccount.forRun` reads the removal callback's
+  ending only when the run ended `deviceLost`, so on any other ending a leftover value is never
+  consulted and the green tick meant nothing about the line it was named after. It is now
+  `aCleanRunAfterALostOneGetsNoAccount`, which is what it actually pins, and
+  `aLeftoverEndingIsNotBelievedByTheNextLostRun` drives a **second losing run** through route (b)'s
+  shape. Under the mutation the first run's `nothingWasInFlight` accounts for the second run's loss
+  and `aWriteBackMayBeUnfinished` flips `true` → **`false`** — a false all-clear about half-written
+  data, the one direction this type must never be wrong in. Killed on both assertions.
+  **What today's wire makes of that is written into the test rather than left implied:** a real
+  `deviceLost` reply always carries a block and a phase, and route (b) always writes the field
+  before ending the run, so the two halves cannot currently meet in production. The clear is kept
+  and pinned because the field's lifetime is the only thing holding them apart.
+
+**The round also produced an instrument failure worth more than the mutations.** A background job
+running m1–m6 was still alive while a foreground runner started at m3, so **two mutation runners
+mutated and restored one working tree at the same time for four mutations.** The results looked
+plausible — m5 reported three failures in two device-loss tests — and were nonsense; re-run alone,
+m5 fails **29** assertions. Nothing in the output said the tree was shared. See `CONSTRAINTS.md` §3.
+
+**Markdown placement is a requirement, not a preference.** The account sits *below* FR-TEST-9's
+cache-bypass statement — the file header already forbids anything coming between the outcome line
+and whether the check behind it can be trusted — and *above* everything else, because it is the only
+part of the document a reader cannot reconstruct once the drive is gone.
+
+**Renders read, not assumed.** `tools/ui-probe` grew `report-device-lost`,
+`report-device-lost-paused` and `report-device-lost-silent`; all three were captured and read. Three
+genuinely different accounts under one headline, and the paused one is calm.
+
+**Chunk 6 still owes the user-facing half**: `releaseCannotBeConfirmed` and `DeviceLossEnding` reach
+the report but not yet the error surface.
 
 ### Chunk 4 — the two routes meet, and only one run ends
 
@@ -181,8 +271,8 @@ stays the guard that is not allowed to depend on it.
 `5` decodes to `unrecognised` — **true until `5` became `deviceLost`**. A value chosen as "unknown"
 stops being unknown the moment the protocol grows; it now uses `6`.
 
-**Interim, and chunk 5 replaces it:** `RunReportOutcome.forRun` answers `.incomplete` for device
-loss. That is the honest answer available at v15 — the run did not cover the drive, and it makes no
+**Interim, and chunk 5 replaced it — 2026-09-06.** At v15 `RunReportOutcome.forRun` answered
+`.incomplete` for device loss. That is the honest answer available at v15 — the run did not cover the drive, and it makes no
 claim about the drive's condition — where `stoppedOnError` would accuse the drive of the very thing
 this step exists to stop reporting and `stoppedByUser` would credit a person with an unplug.
 

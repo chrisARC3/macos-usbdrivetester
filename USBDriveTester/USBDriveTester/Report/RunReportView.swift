@@ -190,6 +190,37 @@ struct RunReportView: View {
                               + "fault-detection half that is in doubt.")
                     }
 
+                    // What the run was doing when the drive left (Step 12, FR-DEV-8). Below the
+                    // FR-TEST-9 statement, above everything else, and emphasised — see
+                    // `RunReportMarkdown.deviceLossSection` for why this position rather than a
+                    // higher or lower one. The sentence is `HonestFraming`'s, shared with the
+                    // exported file; only the block row is rendered differently here.
+                    if let account = report.deviceLoss {
+                        // **`markdown`, not `plain`, and this is the one callout that passes it.**
+                        //
+                        // `callout` renders through `LocalizedStringKey`, so it *can* carry
+                        // emphasis; the caveats below pass `plain` and lose theirs, which costs
+                        // nothing because their emphasis decorates a sentence that is uniformly
+                        // routine. This one is not: "**may hold partly written data**" and "**it
+                        // cannot be ruled out**" are the clauses a reader must not skim past, and
+                        // they are why the sentence is here at all.
+                        //
+                        // `emphasised:` is left off deliberately rather than combined with it.
+                        // Semibold across the whole paragraph would flatten exactly the hierarchy
+                        // the emphasis exists to create — the urgent clause would read like the
+                        // sentence around it — and it would make the window and the export
+                        // emphasise different things from one source string.
+                        callout(HonestFraming.claim(about: account).markdown)
+                        if let block = account.blockDescription {
+                            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 4) {
+                                labelled("Drive left at", block)
+                                if let phase = account.namedPhase {
+                                    labelled("While", phase.description)
+                                }
+                            }
+                        }
+                    }
+
                     section("Drive") { driveRows(report) }
                     if let caveat = report.device.identificationCaveat {
                         callout(caveat, emphasised: true)

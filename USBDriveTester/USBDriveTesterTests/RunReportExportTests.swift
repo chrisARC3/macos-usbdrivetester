@@ -47,6 +47,7 @@ struct RunReportExportTests {
                                     deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
         return RunReport(reply: reply,
                          endedBy: .completed,
+                         removalCallbackSaid: nil,
                          startBlock: 0,
                          blockCount: 2_097_152,
                          ioSizesUsed: [4 << 20],

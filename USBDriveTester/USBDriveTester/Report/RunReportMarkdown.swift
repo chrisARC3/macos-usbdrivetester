@@ -63,6 +63,8 @@ nonisolated enum RunReportMarkdown {
             lines.append("")
         }
 
+        lines.append(contentsOf: deviceLossSection(report))
+
         lines.append(contentsOf: driveSection(report))
         lines.append(contentsOf: runSection(report, timeZone: timeZone))
         lines.append(contentsOf: failureSection(report))
@@ -70,6 +72,40 @@ nonisolated enum RunReportMarkdown {
         lines.append(contentsOf: whatThisDoesNotProve(report))
 
         return lines.joined(separator: "\n") + "\n"
+    }
+
+    // MARK: - The drive that left (Step 12, FR-DEV-8)
+
+    /// What the run was doing when the drive went, or nothing at all when it did not go.
+    ///
+    /// ## Where this sits, and why not higher
+    ///
+    /// **Below the FR-TEST-9 statement**, which this file's header states as a requirement rather
+    /// than a preference: nothing may come between the outcome line and whether the check behind it
+    /// can be trusted. Above everything else, because it is the only part of the document a reader
+    /// cannot reconstruct from the tables — the drive is gone, and nothing they can do afterwards
+    /// will tell them which chunk was in flight when it went.
+    ///
+    /// The sentence itself is `HonestFraming`'s, shared verbatim with the report sheet.
+    private static func deviceLossSection(_ report: RunReport) -> [String] {
+        guard let account = report.deviceLoss else { return [] }
+
+        var lines = ["> \(HonestFraming.claim(about: account).markdown)", ""]
+
+        // The block as a row of its own as well as inside the sentence, because a reader comparing
+        // two reports scans for figures rather than re-reading prose. Absent — not zero, and not an
+        // em-dash standing in for one — where no route could say.
+        if let block = account.block {
+            lines.append("| | |")
+            lines.append("|---|---|")
+            lines.append(row("Drive left at", "block \(grouped(block))"))
+            if let phase = account.namedPhase {
+                lines.append(row("While", phase.description))
+            }
+            lines.append("")
+        }
+
+        return lines
     }
 
     // MARK: - The drive

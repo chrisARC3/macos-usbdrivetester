@@ -57,9 +57,11 @@ private let preparedGeometry = PreparedDeviceGeometry(logicalBlockSize: 512,
 /// One cycle reply, with everything the controller does not read defaulted.
 private func reply(_ outcome: RunOutcomeCode = .completed,
                    chunksProcessed: UInt64 = 4,
-                   mode: FailureModeCode = .logAndContinue) -> RunCycleOutcome {
+                   mode: FailureModeCode = .logAndContinue,
+                   interruptedAtBlock: UInt64 = 0,
+                   lossPhase: DeviceLossPhaseCode = .unrecognised) -> RunCycleOutcome {
     RunCycleOutcome(runOutcomeCode: outcome.rawValue,
-                    interruptedAtBlock: 0,
+                    interruptedAtBlock: interruptedAtBlock,
                     chunksProcessed: chunksProcessed,
                     failedRangeCount: 0,
                     failureSummary: "",
@@ -79,7 +81,7 @@ private func reply(_ outcome: RunOutcomeCode = .completed,
                     readLatencyMaximumNanoseconds: 0,
                     readLatencyP99UpperBoundNanoseconds: 0,
                     message: "",
-                    deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
+                    deviceLossPhaseCode: lossPhase.rawValue)
 }
 
 private func result(_ outcome: RunSequenceOutcome = .completed,
@@ -1448,5 +1450,169 @@ struct RunControllerDeviceLossTests {
         #expect(!bench.controller.controls.pause.isEnabled)
         #expect(!bench.controller.controls.stop.isEnabled)
         #expect(bench.controller.controls.start.isEnabled, "a new run may be started")
+    }
+}
+
+// MARK: - The report a lost drive produces (Step 12, chunk 5)
+
+/// **Which route accounted for the loss has to reach the report**, and only the controller knows.
+///
+/// The reply carries route (a)'s block and phase; nothing on the wire carries route (b)'s, because
+/// route (b) is a callback from DiskArbitration that the helper never saw. So the controller holds
+/// the wind-down's ending and hands it to `RunReport.init`, and these are the tests that the
+/// handover happens at all — and happens **before** the report is built, which is the part that is
+/// easy to get wrong and impossible to see afterwards.
+@MainActor
+struct RunControllerDeviceLossReportTests {
+
+    static let wholeDisk = Bench.unplugged("disk8")
+
+    /// Route (a): the helper's reply resolved it, so the report carries the block and the phase and
+    /// the removal callback's ending is not consulted.
+    @Test func theHelpersOwnAccountReachesTheReport() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        bench.emit(.runEnded(result(.deviceLost,
+                                    finalReply: reply(.deviceLost,
+                                                      interruptedAtBlock: 1_048_576,
+                                                      lossPhase: .writingBack))))
+
+        let report = try! #require(bench.reports.first ?? nil)
+        #expect(report.outcome == .deviceLost)
+        #expect(report.deviceLoss == .theHelperSaidWhere(block: 1_048_576, phase: .writingBack))
+    }
+
+    /// **Route (b) from a paused run** — the case with no reply to carry anything, and the one that
+    /// would be warned about wrongly if the ending never reached the report.
+    ///
+    /// The run is paused, so the wind-down ends it immediately with `nothingWasInFlight`, and the
+    /// last reply the helper sent is the *pause*. A report built without the ending would fall
+    /// through to the conservative answer and tell somebody a chunk might be half-written on a run
+    /// that had nothing outstanding at all.
+    @Test func aPausedRunsReportSaysNothingWasInFlight() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+
+        let report = try! #require(bench.reports.first ?? nil)
+        #expect(report.outcome == .deviceLost)
+        #expect(report.deviceLoss == .nothingWasInFlight)
+        #expect(report.deviceLoss?.aWriteBackMayBeUnfinished == false,
+                "a paused run was warned about a write-back it could not have had")
+    }
+
+    /// **Route (b) after the deadline** — a call was in flight and never answered, so the report
+    /// says a write-back cannot be ruled out, and says it without inventing a block.
+    @Test func anUnansweredCallsReportSaysTheHelperNeverAnswered() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+        bench.sequencer?.deviceLossReply = reply(.completed, chunksProcessed: 3)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        bench.expireWindDownDeadline()
+
+        let report = try! #require(bench.reports.first ?? nil)
+        #expect(report.outcome == .deviceLost)
+        #expect(report.deviceLoss == .theHelperNeverAnswered)
+        #expect(report.deviceLoss?.block == nil, "a block was reported that nothing measured")
+        #expect(report.deviceLoss?.aWriteBackMayBeUnfinished == true)
+    }
+
+    /// **The ordering trap, pinned.** `deviceLost()` runs the whole ending synchronously, report
+    /// included, so recording the wind-down's ending *after* that call would build the report
+    /// without it — and the report would still exist, still export, and simply decline to say
+    /// whether a chunk was mid-write. Nothing downstream would look wrong.
+    ///
+    /// Moving the assignment below the call is the mutation this kills.
+    @Test func theEndingIsRecordedBeforeTheReportIsBuilt() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+
+        let report = try! #require(bench.reports.first ?? nil)
+        #expect(report.deviceLoss != nil, "the report was built before the ending was recorded")
+        #expect(report.deviceLossAccountAgreesWithTheOutcome)
+    }
+
+    /// A run that keeps its drive gets no account, whichever way it ends.
+    @Test func aRunThatKeptItsDriveHasNoAccount() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        bench.emit(.runEnded(result(.completed, finalReply: reply(.completed))))
+
+        let report = try! #require(bench.reports.first ?? nil)
+        #expect(report.outcome == .completedClean)
+        #expect(report.deviceLoss == nil)
+    }
+
+    /// A run that ends cleanly gets no device-loss account, even directly after one that did.
+    ///
+    /// **This does not pin the clearing in `driveIsBack()`, and this test's original name said it
+    /// did** — found by a mutation that survived. `DeviceLossAccount.forRun` consults the removal
+    /// callback's ending only when the run ended `deviceLost`; a second run that ends any other
+    /// way never reads the field at all, so deleting the clear changes nothing here and the green
+    /// tick meant nothing about it.
+    ///
+    /// What it does pin is worth keeping and is a different claim: an account is not *invented*
+    /// for a run that kept its drive, whatever is left lying about from the run before.
+    /// ``aLeftoverEndingIsNotBelievedByTheNextLostRun`` is the one that pins the clear.
+    @Test func aCleanRunAfterALostOneGetsNoAccount() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        #expect(bench.controller.state == .finished)
+
+        #expect(bench.driveTo(.running), "a second run could not be started")
+        bench.emit(.runEnded(result(.completed, finalReply: reply(.completed))))
+
+        let second = try! #require(bench.reports.last ?? nil)
+        #expect(second.outcome == .completedClean)
+        #expect(second.deviceLoss == nil, "the previous run's device-loss ending was reused")
+        #expect(second.deviceLossAccountAgreesWithTheOutcome)
+    }
+
+    /// **The one shape in which a leftover ending would be believed**, and therefore the test that
+    /// makes clearing it in `driveIsBack()` worth anything.
+    ///
+    /// `DeviceLossAccount.forRun` falls through to the removal callback's word only when the run
+    /// ended `deviceLost` *and* the reply carried no block — which is exactly route (b)'s shape,
+    /// the one the real sequencer emits whenever `deviceLost()` ends a run on the removal callback
+    /// alone. Here the second run ends that way with nothing having set the field for it.
+    ///
+    /// With the first run's `nothingWasInFlight` still in place, the second report would say a
+    /// write-back **could not** have been left half-finished — on a run where nothing measured
+    /// anything. `aWriteBackMayBeUnfinished` flips from `true` to `false`, which is the one
+    /// direction this type must never be wrong in, and it flips inside a document somebody keeps.
+    ///
+    /// **What today's wire makes of that is stated rather than left implied**: a real
+    /// `deviceLost` reply always carries a block and a phase (`RunCycleOutcome` derives both from
+    /// the outcome code), and route (b) always writes the field before ending the run, so the two
+    /// halves cannot currently meet in production. The clear is kept, and pinned, because what it
+    /// prevents is a false all-clear rather than a wrong detail — and because the field's
+    /// lifetime is the only thing holding the two apart.
+    @Test func aLeftoverEndingIsNotBelievedByTheNextLostRun() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        #expect((bench.reports.first ?? nil)?.deviceLoss == .nothingWasInFlight,
+                "the first run did not produce the account this test needs it to leave behind")
+
+        #expect(bench.driveTo(.running), "a second run could not be started")
+        bench.emit(.runEnded(result(.deviceLost, finalReply: reply(.pausedByUser))))
+
+        let second = try! #require(bench.reports.last ?? nil)
+        #expect(second.outcome == .deviceLost)
+        #expect(second.deviceLoss == .noRouteSaidAnything,
+                "the first run's ending was reused to account for the second run's loss")
+        #expect(second.deviceLoss?.aWriteBackMayBeUnfinished == true,
+                "a run nothing measured was told nothing was left half-written")
     }
 }

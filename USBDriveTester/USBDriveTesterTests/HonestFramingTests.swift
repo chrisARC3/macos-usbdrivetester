@@ -105,12 +105,36 @@ struct HonestFramingTests {
                 "a run that stopped on an error was told a user had stopped it")
     }
 
-    /// Both conditional sentences say the thing the report exists to keep saying. Asserted on the
-    /// wording rather than on which claim was chosen, so rewording either one cannot quietly drop
-    /// the distinction that makes it worth printing.
+    /// The third one, and the trap it avoids: the sentence for a drive that left must not be either
+    /// of the other two, because both of those name a cause — a failure, or a person — and this
+    /// ending has neither. It must also not blame the drive: **whether the disconnection was the
+    /// drive's fault is a question this tool cannot answer**, and a claim in a persisted file is
+    /// exactly where a guess about it would do damage.
+    @Test func aRunWhoseDriveLeftGetsItsOwnUntestedSentenceAndBlamesNobody() {
+        let claim = HonestFraming.claim(addedBy: .deviceLost)
+        #expect(claim == HonestFraming.rangeBeyondTheDisconnectionWasNotTested)
+        #expect(claim != HonestFraming.rangeBeyondTheFailureWasNotTested)
+        #expect(claim != HonestFraming.rangeBeyondTheStopWasNotTested)
+
+        let plain = claim?.plain.lowercased() ?? ""
+        #expect(plain.contains("no longer attached"))
+        for accusation in ["failed", "faulty", "fault", "error", "bad"] {
+            #expect(!plain.contains(accusation),
+                    "the untested-remainder sentence accuses the drive of \(accusation)")
+        }
+    }
+
+    /// All three conditional sentences say the thing the report exists to keep saying. Asserted on
+    /// the wording rather than on which claim was chosen, so rewording any one of them cannot
+    /// quietly drop the distinction that makes it worth printing.
+    ///
+    /// The count is pinned, and it earned that: `deviceLost` arriving in Step 12 chunk 5 failed
+    /// this line rather than slipping in as a fourth outcome with no sentence, or with one that had
+    /// dropped the clause. A `compactMap` over `allCases` that is never counted cannot tell those
+    /// two apart from a correct addition.
     @Test func everyConditionalClaimSaysUntestedIsNotPassed() {
         let conditionals = RunReportOutcome.allCases.compactMap(HonestFraming.claim(addedBy:))
-        #expect(conditionals.count == 2)
+        #expect(conditionals.count == 3)
         for claim in conditionals {
             #expect(claim.plain.lowercased().contains("not tested"))
             #expect(claim.plain.lowercased().contains("untested is not the same as passed"))
@@ -234,6 +258,121 @@ struct HonestFramingTests {
     /// unbalanced `**` reaches a report as literal asterisks. Walking `allCases` through
     /// `HonestFraming.claim(addedBy:)` means a third conditional claim is covered on the day it is
     /// written.
+
+    // MARK: - What a vanished drive was left holding (Step 12, FR-DEV-8)
+
+    /// **Every account, every case, and no two the same.**
+    ///
+    /// A collision is the failure that matters here: two genuinely different situations — a paused
+    /// run with nothing outstanding, and a call that was never answered — rendering the same
+    /// sentence would make the account decorative. It would still be present, still be true of one
+    /// of them, and tell a reader nothing.
+    @Test func everyDeviceLossAccountReadsDifferentlyFromEveryOther() {
+        let sentences = Self.everyAccount.map { HonestFraming.claim(about: $0).markdown }
+
+        #expect(Set(sentences).count == Self.everyAccount.count,
+                "two device-loss accounts render the same sentence")
+        for sentence in sentences {
+            #expect(sentence.count > 60, "an account rendered a stub")
+        }
+    }
+
+    /// **The load-bearing one: the words agree with the verdict.**
+    ///
+    /// `DeviceLossAccount.aWriteBackMayBeUnfinished` is what a caller reasons about; the sentence
+    /// is what a person reads. If those two ever disagree, the one that is wrong is the one nobody
+    /// can check — a report that computes "this may be unfinished" and then prints a reassuring
+    /// paragraph is worse than one that prints nothing.
+    ///
+    /// Tested in **both** directions on purpose. Only asserting that the risky cases warn would
+    /// pass a `HonestFraming` that warned on all six, which is precisely the over-claim this
+    /// four-case split exists to avoid.
+    @Test func theSentenceAgreesWithTheWriteBackVerdict() {
+        for account in Self.everyAccount {
+            let text = HonestFraming.claim(about: account).plain.lowercased()
+            let warns = text.contains("may hold partly written data")
+                     || text.contains("cannot be ruled out")
+
+            #expect(warns == account.aWriteBackMayBeUnfinished,
+                    "\(account) computes \(account.aWriteBackMayBeUnfinished) and says: \(text)")
+        }
+    }
+
+    /// The one case with a real hazard in it says so, names the block, and bounds the damage.
+    ///
+    /// The bound matters as much as the warning. A drive that left during a write-back has **one**
+    /// chunk at risk — every earlier one was written back and verified, and no later one was
+    /// started — and a sentence that warned without saying so would leave a reader thinking the
+    /// whole drive was suspect.
+    @Test func theWriteBackCaseNamesTheBlockAndBoundsTheDamage() {
+        let claim = HonestFraming.claim(about: .theHelperSaidWhere(block: 4_194_304,
+                                                                   phase: .writingBack))
+        let text = claim.plain
+
+        #expect(text.contains("4,194,304"), "the block a reader needs was not printed")
+        #expect(text.lowercased().contains("may hold partly written data"))
+        #expect(text.lowercased().contains("no other chunk is affected"))
+    }
+
+    /// A paused run is the one route-(b) case allowed to reassure, and it must actually do so —
+    /// this is the sentence that would be lost if the two route-(b) ways were collapsed into one.
+    @Test func aPausedRunIsToldNothingWasLeftHalfWritten() {
+        let text = HonestFraming.claim(about: .nothingWasInFlight).plain.lowercased()
+
+        #expect(text.contains("paused"))
+        #expect(text.contains("nothing was left half-written"))
+        #expect(!text.contains("cannot be ruled out"), "a paused run was warned about a write-back")
+    }
+
+    /// Reading and verifying are the two phases that end with the drive intact, and each says why
+    /// rather than merely declining to warn. "Unverified is not the same as bad" is the clause that
+    /// stops a verify-phase loss reading as a failed comparison.
+    @Test func theSafePhasesSayWhyTheyAreSafe() {
+        let reading = HonestFraming.claim(about: .theHelperSaidWhere(block: 8, phase: .reading))
+        #expect(reading.plain.lowercased().contains("nothing had been written"))
+
+        let verifying = HonestFraming.claim(about: .theHelperSaidWhere(block: 8, phase: .verifying))
+        #expect(verifying.plain.lowercased().contains("the write-back had already completed"))
+        #expect(verifying.plain.lowercased().contains("unverified is not the same as bad"))
+    }
+
+    /// A phase this build cannot name is reported as unknown and treated as unsafe — and the
+    /// sentence says which of the two it is doing, because "a step this version does not
+    /// recognise" is actionable (update the app) where a bare warning is not.
+    @Test func anUnrecognisedPhaseIsNamedAsUnknownRatherThanGuessed() {
+        let text = HonestFraming.claim(about: .theHelperSaidWhere(block: 64,
+                                                                   phase: .unrecognised)).plain
+        #expect(text.lowercased().contains("does not recognise"))
+        #expect(text.lowercased().contains("cannot be ruled out"))
+        #expect(text.contains("64"), "the block was known and was not printed")
+
+        // It must not name one of the three phases it cannot distinguish between.
+        for phase in ["reading", "writing", "verify"] {
+            #expect(!text.lowercased().contains(phase),
+                    "an unrecognised phase was rendered as \(phase)")
+        }
+    }
+
+    /// The contradiction case says the least, and says that it is saying the least.
+    @Test func theAccountThatKnowsNothingSaysSo() {
+        let text = HonestFraming.claim(about: .noRouteSaidAnything).plain.lowercased()
+
+        #expect(text.contains("neither"))
+        #expect(text.contains("cannot say what the run was doing"))
+        #expect(text.contains("cannot be ruled out"))
+    }
+
+    /// Every device-loss sentence, from every route.
+    static let everyAccount: [DeviceLossAccount] = [
+        .theHelperSaidWhere(block: 4096, phase: .reading),
+        .theHelperSaidWhere(block: 4096, phase: .writingBack),
+        .theHelperSaidWhere(block: 4096, phase: .verifying),
+        .theHelperSaidWhere(block: 4096, phase: .unrecognised),
+        .nothingWasInFlight,
+        .theHelperNeverAnswered,
+        .noRouteSaidAnything,
+    ]
+
     private func allClaims() -> [HonestFramingClaim] {
         HonestFraming.claims
             + [HonestFraming.summary]
@@ -249,6 +388,7 @@ struct HonestFramingTests {
     private func conditionalClaims() -> [HonestFramingClaim] {
         RunReportOutcome.allCases.compactMap(HonestFraming.claim(addedBy:))
             + HonestFraming.rangeCaveats(rangeIsWholeDrive: false, coveredTheRange: false)
+            + Self.everyAccount.map(HonestFraming.claim(about:))
     }
 
     private enum Fixture {
@@ -307,6 +447,10 @@ struct HonestFramingTests {
                                         deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
             return RunReport(reply: reply,
                              endedBy: ending ?? impliedEnding(outcome),
+                             // This fixture's device-loss reply carries a phase, so route (a) is
+                             // what accounted for it. The route-(b) accounts are `HonestFraming`'s
+                             // own tests, which build them directly.
+                             removalCallbackSaid: nil,
                              startBlock: 0,
                              blockCount: 2_097_152,
                              ioSizesUsed: [4 << 20],

@@ -1196,3 +1196,30 @@ Every defect this project has produced came from trusting a substitute for the r
   were rewritten to claim only what is true, and two tests were added to pin the property that is.
   **When a mutation survives, suspect the comment before you suspect the test** — an unkillable line
   is often a line doing a smaller and more specific job than its documentation admits.
+- **TWO MUTATION RUNNERS ON ONE WORKING TREE PRODUCE PLAUSIBLE NONSENSE, AND NOTHING SAYS SO.**
+  Chunk 5's round was launched as a background job; a context break later, a foreground runner was
+  started from the same script on the belief that the job had died. It had not. **For four
+  mutations, two runners mutated, built, tested and restored the same seven files against each
+  other.** The output never looked broken — it looked like results: m5 (reverting the device-loss
+  report outcome) reported *three* failing assertions in two tests, which is a small, specific,
+  believable number. Re-run alone it fails **29**, and the three it had reported were another
+  mutation's. The tell was a *missing* one — the background job's own m5 line printed
+  `killed_by=` with **no test total at all**, which the zero-total rule already classifies as
+  INCONCLUSIVE. Two rules follow, and only the second is new:
+  **a mutation round owns the working tree, so run exactly one at a time and confirm the previous
+  runner is dead before starting another** — `ps` for the build, not the absence of new output; and
+  **a result is only a result if the run that produced it was the only writer**, which is a
+  property of the environment that no assertion inside the suite can see. Everything from the first
+  overlapping mutation onward was discarded and re-run.
+- **A TEST CAN BE NAMED FOR A LINE IT CANNOT REACH, AND THEN THE GREEN TICK IS ABOUT NOTHING.**
+  Chunk 5's `theEndingDoesNotSurviveIntoTheNextRun` was written to pin `deviceLossEnding = nil` in
+  `driveIsBack()`. Deleting that line survived all 1261 tests. The test drove the second run to a
+  **clean** finish — and the consumer reads the field only when a run ended `deviceLost`, so on any
+  other ending a stale value is never consulted. The name asserted the coverage; the body could not
+  deliver it, and for as long as it was green nobody had reason to look. This is the neighbour of
+  the overclaiming-doc-comment lesson above and the more dangerous one: a comment that overclaims is
+  read by a person, but **a test name that overclaims is read by a person as a passing test**.
+  The fix was both halves — rename to what it does pin (`aCleanRunAfterALostOneGetsNoAccount`), and
+  write the one that reaches the line. **When a mutation survives, check whether the test named for
+  it ever executes the branch it names** — and if the branch is defensive, say so in the test rather
+  than deleting either.

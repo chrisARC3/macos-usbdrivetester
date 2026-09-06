@@ -75,6 +75,8 @@ struct AppModelReportTests {
             // runnable, and a fixture that silently became nil would make every test below vacuous.
             return RunReport(reply: reply,
                              endedBy: .completed,
+                             // A completed run; the removal callback had nothing to say about it.
+                             removalCallbackSaid: nil,
                              startBlock: 0,
                              blockCount: 2_097_152,
                              ioSizesUsed: [4 << 20],

@@ -111,6 +111,100 @@ nonisolated enum HonestFraming {
         "**The rest of the drive was not tested** — the run was stopped before it got there. "
       + "Untested is not the same as passed.")
 
+    /// The same point again for a run whose **drive left** (FR-DEV-8, Step 12 chunk 5).
+    ///
+    /// A third sentence rather than a reworded second, on the rule the second was written under:
+    /// *the reason the range went untested is different.* This one also has to avoid a trap the
+    /// other two do not — it must not read as a complaint about the drive. "The drive was no
+    /// longer there" is what happened; whether that is the drive's fault is a question this tool
+    /// cannot answer and does not raise here.
+    static let rangeBeyondTheDisconnectionWasNotTested = HonestFramingClaim(
+        "**The rest of the drive was not tested** — it was no longer attached when the run ended. "
+      + "Untested is not the same as passed.")
+
+    // MARK: - What a vanished drive was left holding (Step 12, FR-DEV-8)
+
+    /// The one sentence a person actually needs after a drive leaves mid-run: **was a chunk
+    /// part-way through being written back?**
+    ///
+    /// ## Why the wording differs per case rather than being one hedged sentence
+    ///
+    /// Because the four answers are genuinely different claims, and a single sentence covering all
+    /// of them would have to be the most conservative — warning about a partly written chunk on a
+    /// run that was paused with provably nothing outstanding. A false alarm about somebody's drive,
+    /// in a file that outlives the session, is not the safe side of this trade: it teaches a reader
+    /// to discount the document, which costs them the warning that *is* real when it comes.
+    ///
+    /// ## Why this is here and not in the two renderers
+    ///
+    /// The file's governing rule. Four cases × two surfaces is eight literals to keep in step, and
+    /// the 7.2 defect this file was written for was two.
+    ///
+    /// - Returns: one claim, always. Unlike ``claim(addedBy:)`` there is no "adds nothing" answer —
+    ///   a report that names a vanished drive and then says nothing about what it was doing at the
+    ///   time has left out the only part a reader cannot reconstruct.
+    static func claim(about account: DeviceLossAccount) -> HonestFramingClaim {
+        // **Digit-grouped, and by the same formatter the row beside it uses.** A sentence saying
+        // `block 4194304` above a table row saying `block 4,194,304` is one document giving two
+        // spellings of one number, which is a small version of the defect this whole file exists
+        // for — and the reader has to compare them by eye to notice they are the same reading.
+        func blockName(_ block: UInt64) -> String { MetricsFormatting.blockOffset(block) }
+
+        switch account {
+        case .theHelperSaidWhere(let block, .reading):
+            return HonestFramingClaim(
+                "The drive left while this tool was **reading** block \(blockName(block)). Nothing had "
+              + "been written to that chunk, so it holds what it held before the run "
+              + "reached it.")
+
+        case .theHelperSaidWhere(let block, .writingBack):
+            // The one case with a real hazard in it, and it is stated without being dressed up.
+            return HonestFramingClaim(
+                "The drive left while this tool was **writing block \(blockName(block)) back**. That "
+              + "is the one point in the cycle where the original had been read and not yet "
+              + "fully written back, so **that chunk may hold partly written data**. No other "
+              + "chunk is affected: every earlier one was written back and verified, and no "
+              + "later one was started.")
+
+        case .theHelperSaidWhere(let block, .verifying):
+            return HonestFramingClaim(
+                "The drive left while this tool was **re-reading block \(blockName(block)) to verify "
+              + "it**. The write-back had already completed, so the chunk was whole when the "
+              + "drive went — it is unverified, and **unverified is not the same as bad**.")
+
+        case .theHelperSaidWhere(let block, .unrecognised):
+            // A helper newer than this app. Print the block, refuse to name the phase, and take
+            // the conservative reading — `DeviceLossAccount.aWriteBackMayBeUnfinished` agrees.
+            return HonestFramingClaim(
+                "The drive left at block \(blockName(block)), during a step this version of the app "
+              + "does not recognise — usually a sign that the privileged helper is newer than "
+              + "the app. **It cannot be ruled out that a write-back was interrupted**, so that "
+              + "chunk may hold partly written data.")
+
+        case .nothingWasInFlight:
+            return HonestFramingClaim(
+                "The run was **paused** when the drive left, so no chunk was part-way through "
+              + "anything and nothing was left half-written. Every chunk the run had reached was "
+              + "written back and verified before it stopped.")
+
+        case .theHelperNeverAnswered:
+            return HonestFramingClaim(
+                "A chunk was in progress when the drive left, and the privileged helper never "
+              + "reported which step it had reached. **It cannot be ruled out that a write-back "
+              + "was interrupted**, so one chunk may hold partly written data — this report "
+              + "cannot say which one.")
+
+        case .noRouteSaidAnything:
+            // The contradiction case. It says less than the others because it knows less, and
+            // saying so is the point — see `DeviceLossAccount.noRouteSaidAnything`.
+            return HonestFramingClaim(
+                "The run ended because the drive was gone, and **neither the privileged helper "
+              + "nor the system's removal notification said when**. This report cannot say what "
+              + "the run was doing at the time, so **it cannot be ruled out that a write-back was "
+              + "interrupted**.")
+        }
+    }
+
     // MARK: - What the run's range does and does not cover
 
     /// The requested range was smaller than the drive — a bounded diagnostic run.
@@ -179,12 +273,18 @@ nonisolated enum HonestFraming {
     ///   `completedWithFailures` covered the whole range, so there is no untested remainder to
     ///   speak of; `incomplete` already says in its own explanation that the part not reached was
     ///   not tested, and a report that cannot say *why* the run ended must not imply it knows.
+    ///
+    ///   ``RunReportOutcome/deviceLost`` gets a sentence of its own, and this is the narrow one:
+    ///   what went **untested**. What the drive was left holding is a different question with a
+    ///   different answer per detection route, and it is ``claim(about:)`` that answers it.
     static func claim(addedBy outcome: RunReportOutcome) -> HonestFramingClaim? {
         switch outcome {
         case .stoppedOnError:
             return rangeBeyondTheFailureWasNotTested
         case .stoppedByUser:
             return rangeBeyondTheStopWasNotTested
+        case .deviceLost:
+            return rangeBeyondTheDisconnectionWasNotTested
         case .completedClean, .completedWithFailures, .incomplete:
             return nil
         }

@@ -94,12 +94,14 @@ private enum Fixture {
 
     static func report(_ reply: RunCycleOutcome = Fixture.reply(),
                        endedBy: RunSequenceOutcome? = nil,
+                       removalCallbackSaid: DeviceLossEnding? = nil,
                        device: ReportedDevice = Fixture.device(),
                        ioSizesUsed: [Int] = [4 << 20],
                        blockCount: UInt64 = 2_097_152,
                        linkSpeed: String? = "10 Gb/s (USB 3.1 Gen 2)") -> RunReport {
         RunReport(reply: reply,
                   endedBy: endedBy ?? ranTo(reply),
+                  removalCallbackSaid: removalCallbackSaid,
                   startBlock: 0,
                   blockCount: blockCount,
                   ioSizesUsed: ioSizesUsed,
@@ -153,6 +155,7 @@ struct ReportExistenceTests {
                                     completedBytesPerSecond: -1,
                                     readLatencySampleCount: 0)
         #expect(RunReport(reply: refused, endedBy: .callFailed(reason: "refused"),
+                          removalCallbackSaid: nil,
                           startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
                           startedAt: Fixture.started, finishedAt: Fixture.finished) == nil)
@@ -168,6 +171,7 @@ struct ReportExistenceTests {
                                     failedBlockCount: 2,
                                     failureModeUsedCode: 1)
         #expect(RunReport(reply: stopped, endedBy: .stoppedOnFailure,
+                          removalCallbackSaid: nil,
                           startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
                           startedAt: Fixture.started, finishedAt: Fixture.finished) != nil)
@@ -176,6 +180,7 @@ struct ReportExistenceTests {
     @Test func aReplyFromANewerHelperWithAnUnknownModeProducesNoReport() {
         let strange = Fixture.reply(failureModeUsedCode: 99)
         #expect(RunReport(reply: strange, endedBy: .completed,
+                          removalCallbackSaid: nil,
                           startBlock: 0, blockCount: 2_097_152,
                           ioSizesUsed: [4 << 20], device: Fixture.device(),
                           startedAt: Fixture.started, finishedAt: Fixture.finished) == nil)
@@ -399,6 +404,171 @@ struct StoppedByUserOutcomeTests {
             let text = (outcome.headline + " " + outcome.explanation).lowercased()
             #expect(!text.contains("healthy"), "\(outcome) called the drive healthy")
         }
+    }
+}
+
+// MARK: - FR-DEV-8: the drive left, and what the report may say about it
+
+/// **Step 12, chunk 5.** The outcome that replaced chunks 3 and 4's interim `.incomplete`.
+///
+/// The distinction being defended throughout: a device loss is an event that happened to the
+/// **drive's presence**, not a finding about the **data on it**. Every assertion here is either
+/// "the report says what happened" or "the report does not accuse anybody of anything", and the
+/// second kind is the reason this outcome exists rather than being folded into one of the four
+/// that already existed.
+struct DeviceLostOutcomeTests {
+
+    /// The replacement itself. `.incomplete` was honest while the app could not say why a run
+    /// ended; it asserts that *nothing accounts for* the ending, which stopped being true at
+    /// chunk 3.
+    @Test func aLostDeviceIsItsOwnOutcomeAndNoLongerIncomplete() {
+        let outcome = RunReportOutcome.forRun(endedBy: .deviceLost,
+                                              replyDidComplete: false,
+                                              foundFailures: false)
+
+        #expect(outcome == .deviceLost)
+        #expect(outcome != .incomplete)
+    }
+
+    /// **Unconditional, unlike `stoppedOnFailure` beside it.**
+    ///
+    /// A stop-on-error with no failed range is a reply contradicting itself, and `forRun` refuses
+    /// to report it. A device loss with no failed range is not a contradiction at all — most of
+    /// them will have none — and a device loss *with* failures is an ordinary sequence: the run
+    /// logged bad blocks and then the drive went. Both must land on `deviceLost`, and a guard
+    /// copied from the case above would send the first to `incomplete`.
+    @Test func aLostDeviceKeepsItsOutcomeWithOrWithoutFailures() {
+        for foundFailures in [false, true] {
+            for replyDidComplete in [false, true] {
+                #expect(RunReportOutcome.forRun(endedBy: .deviceLost,
+                                                replyDidComplete: replyDidComplete,
+                                                foundFailures: foundFailures) == .deviceLost,
+                        "failures=\(foundFailures) complete=\(replyDidComplete)")
+            }
+        }
+    }
+
+    /// It did not cover the range, and it did not find failures **on its own**.
+    ///
+    /// The second half is the one that matters: `foundFailures` is what a renderer would key on to
+    /// decide whether to accuse the drive, and a device loss must not. The failed-range table is
+    /// the authority on what a cut-short run found, exactly as it is for `stoppedByUser`.
+    @Test func aLostDeviceCoversNothingAndAccusesNothing() {
+        #expect(RunReportOutcome.deviceLost.didCoverTheRequestedRange == false)
+        #expect(RunReportOutcome.deviceLost.foundFailures == false)
+    }
+
+    /// The headline states the observation and stops there.
+    ///
+    /// **It must not say "disconnected"** in a way that asserts a hand on a cable: both detection
+    /// routes observe the same narrower fact — the device stopped being addressable — and which of
+    /// unplug or de-enumeration produced it is the thing this tool cannot determine. The
+    /// explanation is where that ambiguity is spelled out, which is why it is tested for there.
+    @Test func theHeadlineSaysWhatWasObservedAndTheExplanationSaysWhatIsUnknown() {
+        let headline = RunReportOutcome.deviceLost.headline.lowercased()
+        #expect(headline.contains("disappeared"))
+        #expect(headline.contains("not tested"))
+
+        let explanation = RunReportOutcome.deviceLost.explanation.lowercased()
+        #expect(explanation.contains("unplugged"))
+        #expect(explanation.contains("dropped off the usb bus"))
+        #expect(explanation.contains("cannot tell"), "the report claimed to know which of the two")
+        #expect(explanation.contains("cannot be continued"), "FR-FAIL-7 went unsaid")
+        #expect(explanation.contains("not tested"))
+    }
+
+    /// The wording no other outcome may borrow, and the one this whole step exists to prevent.
+    ///
+    /// On 2026-08-06 a de-enumeration was written up as **2,095,104 bad blocks**. The failure being
+    /// tested for is not that phrasing coming back — it is the softer version, an outcome that
+    /// mentions the drive failing when what failed was its presence.
+    @Test func theLostDeviceOutcomeNeverBlamesTheDrive() {
+        let text = (RunReportOutcome.deviceLost.headline + " "
+                  + RunReportOutcome.deviceLost.explanation).lowercased()
+
+        for accusation in ["bad block", "unreadable", "faulty", "the drive failed", "defective"] {
+            #expect(!text.contains(accusation), "the outcome accused the drive: \(accusation)")
+        }
+    }
+
+    // MARK: The account reaches the report
+
+    /// Route (a): the reply carried the block and the phase, so the report does too.
+    @Test func theHelpersOwnAccountReachesTheReport() {
+        let report = Fixture.report(Fixture.reply(outcome: .deviceLost,
+                                                  interruptedAtBlock: 4_194_304,
+                                                  chunksProcessed: 12,
+                                                  deviceLossPhaseCode: .writingBack),
+                                    removalCallbackSaid: nil)
+
+        #expect(report.outcome == .deviceLost)
+        #expect(report.deviceLoss == .theHelperSaidWhere(block: 4_194_304, phase: .writingBack))
+        #expect(report.deviceLoss?.aWriteBackMayBeUnfinished == true)
+    }
+
+    /// Route (b): the reply is the *previous* call's, so it carries no loss detail at all, and the
+    /// removal callback is the only thing that can account for the ending.
+    ///
+    /// **This is the case the extra `RunReport.init` parameter exists for.** Without it the report
+    /// would fall through to the conservative answer and warn about a part-written chunk on a run
+    /// that was demonstrably paused with nothing outstanding.
+    @Test func theRemovalCallbacksAccountReachesTheReportWhenTheReplyCannot() {
+        let pausedReply = Fixture.reply(outcome: .pausedByUser, chunksProcessed: 12)
+
+        let paused = Fixture.report(pausedReply, endedBy: .deviceLost,
+                                    removalCallbackSaid: .nothingWasInFlight)
+        #expect(paused.deviceLoss == .nothingWasInFlight)
+        #expect(paused.deviceLoss?.aWriteBackMayBeUnfinished == false)
+
+        let silent = Fixture.report(pausedReply, endedBy: .deviceLost,
+                                    removalCallbackSaid: .theHelperNeverAnswered)
+        #expect(silent.deviceLoss == .theHelperNeverAnswered)
+        #expect(silent.deviceLoss?.aWriteBackMayBeUnfinished == true)
+    }
+
+    /// **The two halves of one fact cannot drift apart.**
+    ///
+    /// The renderers key on both — the outcome for the headline, the account for what may be said
+    /// about the chunk in flight — so a report with one and not the other would print a headline
+    /// about a vanished drive with no account of it, or an account under a headline that never
+    /// mentions one. Walked over every outcome, so this holds for the five that must have no
+    /// account as firmly as for the one that must.
+    @Test func anAccountExistsExactlyWhenTheOutcomeSaysTheDriveWentAway() {
+        let replies: [RunReportOutcome: RunCycleOutcome] = [
+            .completedClean: Fixture.reply(),
+            .completedWithFailures: Fixture.reply(failedRangeCount: 1,
+                                                  failedRangesEncoded: "200:2:3",
+                                                  failedBlockCount: 2),
+            .stoppedOnError: Fixture.reply(outcome: .stoppedOnFailure, failedRangeCount: 1,
+                                           failedRangesEncoded: "200:2:3", failedBlockCount: 2),
+            .stoppedByUser: Fixture.reply(outcome: .stoppedByUser),
+            .incomplete: Fixture.reply(outcome: .stoppedOnFailure),
+            .deviceLost: Fixture.reply(outcome: .deviceLost, interruptedAtBlock: 64,
+                                       deviceLossPhaseCode: .reading),
+        ]
+
+        for outcome in RunReportOutcome.allCases {
+            let reply = try! #require(replies[outcome])
+            let report = Fixture.report(reply)
+            #expect(report.outcome == outcome, "the fixture for \(outcome) built a different one")
+            #expect(report.deviceLossAccountAgreesWithTheOutcome,
+                    "\(outcome): outcome and account disagree")
+        }
+    }
+
+    /// FR-TEST-9's clause reaches this outcome like every other non-clean one.
+    ///
+    /// Worth its own test rather than trusting the `switch`: an unverified read cannot invent a
+    /// mismatch but it can hide one, and a run cut short by a vanishing drive may have found real
+    /// failures before it went. "There may be more" is as true here as for a run a person stopped.
+    @Test func anUnverifiedLostDeviceStillSaysThereMayBeMore() {
+        let report = Fixture.report(Fixture.reply(outcome: .deviceLost,
+                                                  cacheBypassCode: 3,
+                                                  deviceLossPhaseCode: .reading))
+
+        #expect(report.verifyResultIsQualified)
+        #expect(report.headline.contains("NOT VERIFIED"))
+        #expect(report.headline.contains("there may be more"))
     }
 }
 
@@ -1108,5 +1278,126 @@ struct ReportMarkdownShapeTests {
             #expect(document.hasSuffix("\n"))
             #expect(document.hasPrefix("# USB drive test report"))
         }
+    }
+}
+
+// MARK: - FR-DEV-8 in the exported document
+
+/// **Step 12, chunk 5.** What the `.md` file says about a drive that left.
+///
+/// The exported file is the surface that matters most for this outcome, because it is the one that
+/// outlives the drive being reattached. A person reading it a week later has no other way to find
+/// out what the run was doing when the device went.
+struct DeviceLostMarkdownTests {
+
+    /// The account is in the document, and it is `HonestFraming`'s sentence verbatim.
+    ///
+    /// Compared against the shared claim rather than against a literal, which is this file's
+    /// governing rule: a literal here would be a second copy of the sentence and the thing that
+    /// lets the window and the export drift apart.
+    @Test func theAccountIsInTheDocumentInTheSharedWording() {
+        let account = DeviceLossAccount.theHelperSaidWhere(block: 4_194_304, phase: .writingBack)
+        let document = Fixture.markdown(Fixture.report(
+            Fixture.reply(outcome: .deviceLost, interruptedAtBlock: 4_194_304,
+                          chunksProcessed: 12, deviceLossPhaseCode: .writingBack)))
+
+        #expect(document.contains(HonestFraming.claim(about: account).markdown))
+    }
+
+    /// **The block is spelled the same way in the sentence and in the row.**
+    ///
+    /// It was not, when this was written: the sentence interpolated the raw `UInt64` while the row
+    /// used the grouped formatter, so one document offered `block 4194304` and `block 4,194,304`
+    /// as separate readings a paragraph apart. A reader comparing two reports would have had to
+    /// work out that those are the same number.
+    @Test func theBlockIsSpelledTheSameWayInTheSentenceAndTheRow() {
+        let document = Fixture.markdown(Fixture.report(
+            Fixture.reply(outcome: .deviceLost, interruptedAtBlock: 4_194_304,
+                          chunksProcessed: 12, deviceLossPhaseCode: .writingBack)))
+
+        #expect(document.contains("4,194,304"))
+        #expect(!document.contains("4194304"), "the block appears ungrouped somewhere")
+    }
+
+    /// Where a route could say, the block and the phase get rows of their own — a reader comparing
+    /// reports scans for figures rather than re-reading prose.
+    @Test func aKnownBlockAndPhaseGetTheirOwnRows() {
+        let document = Fixture.markdown(Fixture.report(
+            Fixture.reply(outcome: .deviceLost, interruptedAtBlock: 512,
+                          chunksProcessed: 4, deviceLossPhaseCode: .verifying)))
+
+        #expect(document.contains("| Drive left at | block 512 |"))
+        #expect(document.contains("| While | \(DeviceLossPhaseCode.verifying.description) |"))
+    }
+
+    /// **Where no route could say, there is no row — not a zero and not an em-dash.**
+    ///
+    /// This file's standing rule about a measurement that was not taken, applied to the one figure
+    /// where a placeholder would be actively misleading: `block 0` is a real reading, and a reader
+    /// has no way to tell an invented one from a genuine loss at the start of the drive.
+    @Test func anUnknownBlockGetsNoRowAtAll() {
+        let document = Fixture.markdown(Fixture.report(
+            Fixture.reply(outcome: .pausedByUser, chunksProcessed: 12),
+            endedBy: .deviceLost,
+            removalCallbackSaid: .nothingWasInFlight))
+
+        #expect(document.contains(HonestFraming.claim(about: .nothingWasInFlight).markdown))
+        #expect(!document.contains("Drive left at"), "a block was printed that nothing measured")
+        #expect(!document.contains("| While |"))
+    }
+
+    /// **The account sits below FR-TEST-9's statement and above the drive**, which is the placement
+    /// argued for in both renderers.
+    ///
+    /// Below, because nothing may come between the outcome line and whether the check behind it can
+    /// be trusted — this file's header states that as a requirement. Above everything else, because
+    /// it is the only part of the document a reader cannot reconstruct once the drive is gone.
+    @Test func theAccountSitsBelowTheCacheVerdictAndAboveTheDrive() {
+        let report = Fixture.report(Fixture.reply(outcome: .deviceLost, interruptedAtBlock: 64,
+                                                  chunksProcessed: 2,
+                                                  deviceLossPhaseCode: .reading))
+        let document = Fixture.markdown(report)
+
+        let bypass = document.range(of: "Cache bypass")
+        let account = document.range(of: HonestFraming.claim(about: .theHelperSaidWhere(
+            block: 64, phase: .reading)).markdown)
+        let drive = document.range(of: "## Drive")
+
+        #expect(bypass != nil && account != nil && drive != nil)
+        if let bypass, let account, let drive {
+            #expect(bypass.lowerBound < account.lowerBound, "the account preceded the cache verdict")
+            #expect(account.lowerBound < drive.lowerBound, "the account fell below the drive table")
+        }
+    }
+
+    /// No account, no section. Every other outcome's document is unchanged by chunk 5.
+    @Test func aRunThatKeptItsDriveGetsNoAccountAtAll() {
+        for reply in [Fixture.reply(),
+                      Fixture.reply(outcome: .stoppedByUser),
+                      Fixture.reply(outcome: .stoppedOnFailure, failedRangeCount: 1,
+                                    failedRangesEncoded: "8:2:3", failedBlockCount: 2)] {
+            let document = Fixture.markdown(Fixture.report(reply))
+            #expect(!document.contains("Drive left at"))
+            #expect(!document.contains("The drive left while"))
+            #expect(!document.lowercased().contains("partly written"))
+        }
+    }
+
+    /// A device-loss document is a whole document: every heading, and the failed-range table that
+    /// says what the run found before the drive went.
+    @Test func aDeviceLossDocumentIsStillAWholeReport() {
+        let document = Fixture.markdown(Fixture.report(
+            Fixture.reply(outcome: .deviceLost, interruptedAtBlock: 200, chunksProcessed: 3,
+                          failedRangeCount: 1, failedRangesEncoded: "200:2:3", failedBlockCount: 2,
+                          deviceLossPhaseCode: .writingBack)))
+
+        for heading in ["# USB drive test report", "## Outcome", "## Drive", "## Run",
+                        "## Failed block ranges", "## Measurements",
+                        "## What this test does and does not prove"] {
+            #expect(document.contains(heading), "missing \(heading)")
+        }
+        #expect(document.contains(HonestFraming.rangeBeyondTheDisconnectionWasNotTested.markdown))
+        #expect(document.count > 1_500)
+        #expect(document.hasSuffix("\n"))
     }
 }

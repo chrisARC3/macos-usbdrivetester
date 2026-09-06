@@ -54,6 +54,8 @@ private enum Fixture {
         case .incomplete:
             // The contradiction case: the helper says it stopped on a failure and reports none.
             wireOutcome = .stoppedOnFailure; ending = .stoppedOnFailure; failedBlocks = 0
+        case .deviceLost:
+            wireOutcome = .deviceLost;       ending = .deviceLost;       failedBlocks = 0
         }
         let reply = RunCycleOutcome(runOutcomeCode: wireOutcome.rawValue,
                                     interruptedAtBlock: 0,
@@ -79,6 +81,10 @@ private enum Fixture {
                                     deviceLossPhaseCode: DeviceLossPhaseCode.unrecognised.rawValue)
         return RunReport(reply: reply,
                          endedBy: ending,
+                         // The presentation keys on the outcome alone — a device loss looks the
+                         // same in the header whichever route saw it — so this fixture leaves the
+                         // account to route (a) and the reply's phase decides it.
+                         removalCallbackSaid: nil,
                          startBlock: 0,
                          blockCount: 2_097_152,
                          ioSizesUsed: [4 << 20],

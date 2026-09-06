@@ -315,6 +315,16 @@ final class RunController {
     /// attached. See ``releaseTheDrive()``.
     private var releaseCannotBeConfirmed = false
 
+    /// How the removal callback's wind-down ended the run, for the **report** — `nil` on every run
+    /// route (b) did not end, including a device loss that route (a)'s reply resolved first.
+    ///
+    /// Separate from ``releaseCannotBeConfirmed``, which answers a different question about the
+    /// same event: that one is about the *connection* (can the release be waited for), this one is
+    /// about the *drive* (was a chunk part-way written when it left). They happen to agree today —
+    /// only `theHelperNeverAnswered` sets both — and collapsing them into one flag would be one
+    /// field stating two facts, which is the shape this project has a lesson about.
+    private var deviceLossEnding: DeviceLossEnding?
+
     init(preconditions: @escaping () -> RunPreconditions,
          selectedDevice: @escaping () -> DiscoveredDevice?,
          prepare: @escaping (DiscoveredDevice,
@@ -650,13 +660,18 @@ final class RunController {
 
     /// The wind-down decided the run is over. **The only caller of the sequencer's `deviceLost`.**
     private func endTheRunBecauseTheDriveIsGone(_ ending: DeviceLossEnding) {
-        // Set before the sequencer is told, because `deviceLost()` finishes synchronously and the
-        // release goes out inside that same call — the same ordering trap `stop()` documents.
+        // Both set before the sequencer is told, because `deviceLost()` finishes synchronously:
+        // the release goes out inside that same call — the same ordering trap `stop()` documents —
+        // and so does `makeReport`. A line after the call would record the ending for a report that
+        // had already been built without it, which would still export and still be plausible, and
+        // would simply decline to say whether a chunk was mid-write.
         releaseCannotBeConfirmed = (ending == .theHelperNeverAnswered)
+        deviceLossEnding = ending
 
         guard sequencer?.deviceLost() == true else {
             // The run had already ended by some other route in the same turn. Nothing is owed.
             releaseCannotBeConfirmed = false
+            deviceLossEnding = nil
             return
         }
     }
@@ -760,6 +775,10 @@ final class RunController {
         deviceUnderTest = nil
         windDown = nil
 
+        // The report that needed it has already been built and handed out — `makeReport` runs
+        // inside `sequencerReported`, which is upstream of every path to here.
+        deviceLossEnding = nil
+
         report(.deviceReleased)
         settledIfAtRest()
     }
@@ -793,6 +812,7 @@ final class RunController {
         guard let reply = result.finalReply, let pending else { return nil }
         return RunReport(reply: reply,
                          endedBy: result.outcome,
+                         removalCallbackSaid: deviceLossEnding,
                          startBlock: result.startBlock,
                          blockCount: result.blockCount,
                          ioSizesUsed: result.ioSizesUsed,

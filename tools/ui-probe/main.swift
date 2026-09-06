@@ -679,6 +679,11 @@ private struct RunReportHost: View {
 
     static func report(didComplete: Bool = true,
                        endedBy: RunSequenceOutcome? = nil,
+                       // Which of route (b)'s two ways ended the run, for the renders that need a
+                       // device loss the helper's own reply never accounted for. `nil` is route
+                       // (a) — the common case, and the only one with a block and a phase.
+                       removalCallbackSaid: DeviceLossEnding? = nil,
+                       lossPhase: DeviceLossPhaseCode = .writingBack,
                        rangeCount: Int = 0,
                        encoded: String = "",
                        blocks: UInt64 = 0,
@@ -723,14 +728,21 @@ private struct RunReportHost: View {
         case .deviceLost:       replyCode = .deviceLost
         }
 
-        // v15. A device-loss render needs a phase or the sheet would show an ending with no
-        // account of it; every other ending sends `unrecognised`, which is what the helper sends.
-        // `writingBack` is the case worth having a render of, being the one where the original was
-        // in flight — see `DeviceLossPhaseCode`.
-        let lossPhase: DeviceLossPhaseCode = ending == .deviceLost ? .writingBack : .unrecognised
+        // v15. Route (a) sends a phase; every other ending sends `unrecognised`, which is what
+        // the helper sends. **A device loss route (b) ended sends nothing either** — there was no
+        // reply — which is why `removalCallbackSaid` suppresses it here rather than only being
+        // passed through: a fixture that sent a phase *and* a removal-callback ending would render
+        // a combination the product cannot produce.
+        let routeASpoke = ending == .deviceLost && removalCallbackSaid == nil
+        let phaseSent: DeviceLossPhaseCode = routeASpoke ? lossPhase : .unrecognised
 
-        let reply = RunCycleOutcome(runOutcomeCode: replyCode.rawValue,
-                                    interruptedAtBlock: 0,
+        // Where route (a) spoke, the reply carries the block the run died at — and a realistic
+        // one, because this figure is rendered inside a sentence and `block 0` reads as a
+        // placeholder rather than as a reading.
+        let replyCodeSent = routeASpoke ? replyCode : (ending == .deviceLost ? .completed : replyCode)
+
+        let reply = RunCycleOutcome(runOutcomeCode: replyCodeSent.rawValue,
+                                    interruptedAtBlock: routeASpoke ? 1_048_576 : 0,
                                     chunksProcessed: didComplete ? 256 : 2,
                                     failedRangeCount: rangeCount,
                                     failureSummary: "",
@@ -753,9 +765,10 @@ private struct RunReportHost: View {
                                     readLatencyMaximumNanoseconds: 9_900_000,
                                     readLatencyP99UpperBoundNanoseconds: 2_195_000,
                                     message: "",
-                                    deviceLossPhaseCode: lossPhase.rawValue)
+                                    deviceLossPhaseCode: phaseSent.rawValue)
         return RunReport(reply: reply,
                          endedBy: ending,
+                         removalCallbackSaid: removalCallbackSaid,
                          startBlock: 0,
                          blockCount: 2_097_152,
                          ioSizesUsed: [4 << 20],
@@ -1053,6 +1066,31 @@ func makeRootView(_ name: String) -> NSView {
         return NSHostingView(rootView: RunReportHost(
             report: RunReportHost.report(didComplete: false, endedBy: .stoppedByUser,
                                          rangeCount: 1, encoded: "200:2:3", blocks: 2)))
+    case "report-device-lost":
+        // Step 12, FR-DEV-8, route (a): the helper's reply named the block and the phase, and the
+        // phase is `writingBack` — the one case with a real hazard in it, and therefore the one
+        // whose wording most needs looking at rather than reading in a test.
+        //
+        // **With a failed range**, for `report-stopped-by-user`'s reason: a drive can log bad
+        // blocks and then leave, `foundFailures` is false for this outcome too, and the table is
+        // the only thing that says so.
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(didComplete: false, endedBy: .deviceLost,
+                                         rangeCount: 1, encoded: "200:2:3", blocks: 2)))
+    case "report-device-lost-paused":
+        // Route (b), way 1. The run was paused, so nothing was in flight and nothing was left
+        // half-written — the one device-loss render that is allowed to be reassuring, and the
+        // reason the account is three cases rather than one hedged sentence.
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(didComplete: false, endedBy: .deviceLost,
+                                         removalCallbackSaid: .nothingWasInFlight)))
+    case "report-device-lost-silent":
+        // Route (b), way 3. A call was in flight and the helper never answered it, so there is no
+        // block, no phase, and no ruling a write-back out. The render to compare against the two
+        // above: the same headline, three different accounts under it.
+        return NSHostingView(rootView: RunReportHost(
+            report: RunReportHost.report(didComplete: false, endedBy: .deviceLost,
+                                         removalCallbackSaid: .theHelperNeverAnswered)))
     case "report-qualified":
         // FR-TEST-9's verdict is not `bypassed`. The one render that has to show the
         // qualification **in the headline** — where a reader skimming for the verdict meets it —

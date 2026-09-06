@@ -1017,3 +1017,36 @@ and block uninstall over a drive that is not attached, which serves nobody.
 engine classifies `ENXIO` it ends the run at that chunk rather than finishing the slice — and only
 a person pulling a real drive out of a real port can say what the interval actually is. That is
 Step 12's chunk 7.
+
+### 2026-09-06 — the report names WHICH detector accounted for the loss (no requirement change)
+
+**Not an amendment**, and neither FR-DEV-8 nor the FR-RPT requirements change. Recorded because
+Step 12 chunk 5 puts a distinction into a persisted document that the requirements do not ask for,
+and the reasoning belongs on the record beside the entry above.
+
+FR-DEV-8 asks for a terminated run and an honest error. A report that said only *"the drive
+disappeared"* would satisfy it. The reason chunk 5 says more is that **the two detectors leave the
+run knowing different amounts, and the difference decides what a person should do next**:
+
+| what accounted for the loss | what the report can say | a write-back may be unfinished |
+|---|---|---|
+| route (a)'s reply | the block, and the phase | only if the phase was **write-back**, or one this build cannot name |
+| route (b), run **paused** | nothing was in flight | **no** |
+| route (b), deadline expired | the helper never answered | yes |
+| neither | nothing said when | yes |
+
+**The paused row is the one that justifies the other three.** A single hedged sentence covering all
+four would tell somebody whose run was paused — with provably no I/O outstanding — that a chunk of
+their drive may hold partly written data. That is a false alarm in a document they keep, and a
+reader who finds one has been taught to discount the ones that are real. The rule this follows is
+the one FR-TEST-9's cache-bypass statement already follows: **say what was established, say what was
+not, and never let the second borrow the language of the first.**
+
+**An unrecognised phase reads as unsafe.** A helper newer than this app can name a phase this build
+cannot map; that is not evidence the write-back completed, and it is reported as *cannot be ruled
+out* rather than as a phase name the app would be guessing at.
+
+**Where it sits in the exported Markdown is a requirement in itself.** The account goes below
+FR-TEST-9's cache-bypass statement — nothing may come between the outcome line and whether the check
+behind it can be trusted — and above everything else, because it is the only part of the document a
+reader cannot reconstruct once the drive is no longer attached.

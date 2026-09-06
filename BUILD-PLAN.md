@@ -14,9 +14,9 @@ test target fixed to the designated scratch device with disk images removed as a
 "Test hardware")
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
-> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–4 of 8 are
-> done** (chunk 4, 2026-09-06). **The protocol is v15** (chunk 3, 2026-09-05) **and the helper
-> source hash is `42774589…` — chunk 4 did not move it, being app target only.**
+> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–5 of 8 are
+> done** (chunk 5, 2026-09-06). **The protocol is v15** (chunk 3, 2026-09-05) **and the helper
+> source hash is `42774589…` — neither chunk 4 nor chunk 5 moved it, both being app target only.**
 > ⚠️ **All four hardware gate results lapsed at chunk 1** and are re-run at chunk 7; the ticks
 > further down this file that name `e6888aa5…` or v14 are historical from that moment.
 >
@@ -441,11 +441,11 @@ simulation-first still applies wherever the plan calls for it.
 > **Status, 2026-09-06: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) IS IN PROGRESS**: chunks 0–4 of 8 are done, the rest are not. The suite stands at
-> **1220 tests / 145 suites / 0 failures** (floor 1220), protocol **v15** (chunk 3, 2026-09-05),
+> handling) IS IN PROGRESS**: chunks 0–5 of 8 are done, the rest are not. The suite stands at
+> **1262 tests / 149 suites / 0 failures** (floor 1262), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15.
 > The helper's source hash is **`42774589…`** — it moved at chunk 1 and again at chunk 3, **not**
-> at chunk 4, which is app target only; and **all four hardware gate results lapsed at chunk 1.**
+> at chunks 4 or 5, both app target only; and **all four hardware gate results lapsed at chunk 1.**
 > See `PROGRESS.md`.
 >
 > ⚠️ **Until 2026-09-05 this block said "Status, 2026-09-02 … increments 1–10 are done, 11 and 12
@@ -1811,6 +1811,7 @@ If the device under test disappears mid-run, immediately terminate the test clea
 - **Route (a) is blind while the run is paused**, and no line of this section said so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. **Chunk 2 (2026-09-05) built the detection**; `VolumeChangeWatcher` no longer discards which disk changed. **Chunk 4 (2026-09-06) wired it to `DeviceLossWindDown`**, whose way 1 — nothing in flight — is the paused case, and which ends the run at once there rather than waiting for a reply that provably cannot come.
 - **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed. **Chunk 4 (2026-09-06) made it so, at three levels**: the event table refuses `deviceLost` from `finishing`, `RunController` builds one wind-down per run, and `DeviceLossWindDown.begin` is idempotent in itself. The middle one is not redundant — a mutation building one per callback armed three deadlines and **survived the whole suite**, because the test bench held only the latest; `threeCallbacksFromOneUnplugArmOneDeadline` is what closed it.
 - **Do not match a disappearing disk by name prefix.** `disk7` and `disk70` share one and are different drives; a `hasPrefix` check ends a healthy run when an unrelated drive is unplugged. `DeviceUnderTest` compares the parsed unit number, and `DeviceUnderTestTests` pins five names that a prefix check gets wrong.
+- **The gate item above about reconstructing "which device, at what offset" is now partly answered by the report rather than only by the log. Chunk 5 (2026-09-06)** gives `RunReportOutcome` its sixth case and attaches a `DeviceLossAccount` — four named cases, because the two detectors leave the run knowing different amounts. **The one to check by eye at chunk 7 is the paused case**: a run paused with nothing in flight must NOT be told a chunk may hold partly written data, and that is the only case where `aWriteBackMayBeUnfinished` is `false` without route (a) having said which phase it was in. A single hedged sentence covering all four would put a false alarm into a document somebody keeps.
 
 ---
 

@@ -61,7 +61,7 @@ nonisolated struct RunReportPresentation: Equatable {
     /// The rule: an unverified result is shown as a question regardless of what it concluded,
     /// because FR-TEST-9's qualification is about whether the conclusion can be relied on at all.
     ///
-    /// Below that, the five outcomes get five distinguishable symbols. `checkmark.circle` and
+    /// Below that, the six outcomes get six distinguishable symbols. `checkmark.circle` and
     /// `stop.circle` are both circles and that is deliberate — they are the two "the run did what
     /// it was told" cases — but they are **not** distinguished by tint alone: their headlines are
     /// entirely different sentences, which is what the test pins.
@@ -93,6 +93,17 @@ nonisolated struct RunReportPresentation: Equatable {
         case .incomplete:
             return RunReportPresentation(symbolName: "exclamationmark.circle.fill",
                                          tint: .cautionary)
+        case .deviceLost:
+            // `eject.circle.fill` — a drive leaving, and the only symbol here that is not a
+            // punctuation mark or a hand. That matters more than the metaphor: the greyscale test
+            // asks whether six symbols are six shapes, and five of the other cases are variations
+            // on a mark inside a circle. This one has a distinct silhouette at 16pt.
+            //
+            // Cautionary rather than affirmative, on the tint's own definition — the run was cut
+            // short. It is emphatically **not** the drive being graded: NFR-USE-8's tint says how
+            // much of the drive this document covers, and the answer here is "less than all of
+            // it", the same answer `stoppedByUser` gets for a reason nobody would call a fault.
+            return RunReportPresentation(symbolName: "eject.circle.fill", tint: .cautionary)
         }
     }
 }

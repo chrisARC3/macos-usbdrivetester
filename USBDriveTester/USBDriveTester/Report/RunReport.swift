@@ -157,6 +157,24 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
     /// The run ended before covering its range, and recorded no failure that would explain it.
     case incomplete
 
+    /// **The drive under test left the machine part-way through** (Step 12, FR-DEV-8).
+    ///
+    /// Its own outcome rather than a shade of ``incomplete``, and the difference is what the
+    /// report is allowed to say. `incomplete` names an ending nothing accounts for — *"no failure
+    /// was recorded that would explain it"* — which was the honest answer while the app had no way
+    /// to know (chunks 3 and 4 carried it as an interim). It is the wrong answer now that it does:
+    /// the ending IS accounted for, by an event that happened to the drive rather than to the data
+    /// on it.
+    ///
+    /// It is equally not ``stoppedOnError``, which would accuse the drive of the bad blocks this
+    /// step exists to stop reporting — on 2026-08-06 a de-enumeration was written up as
+    /// **2,095,104 bad blocks** — and not ``stoppedByUser``, which would credit a person with
+    /// something they may not have done.
+    ///
+    /// **This outcome makes no claim about the drive's condition**, and ``DeviceLossAccount`` is
+    /// what says how much can be claimed about the moment it left.
+    case deviceLost
+
     /// Did the run cover everything it set out to?
     var didCoverTheRequestedRange: Bool {
         self == .completedClean || self == .completedWithFailures
@@ -167,9 +185,10 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
     /// Distinct from ``didCoverTheRequestedRange``: a run can complete with failures, and a run can
     /// stop with them.
     ///
-    /// - Important: it is `false` for ``stoppedByUser``, and that is a statement about the *outcome*
-    ///   rather than about the run. A user can stop a run that has already logged bad blocks, so
-    ///   this case implies nothing either way — which is why the wording above changed in increment
+    /// - Important: it is `false` for ``stoppedByUser`` **and for ``deviceLost``**, and that is a
+    ///   statement about the *outcome* rather than about the run. A user can stop a run that has
+    ///   already logged bad blocks, and so can a drive that leaves; neither case implies anything
+    ///   either way — which is why the wording above changed in increment
     ///   8 from "whether anything failed". **``RunReport/failedRanges`` and
     ///   ``RunReport/failedBlockCount`` are the authority on what a stopped run found**, and the
     ///   report renders them for every outcome. Reading this property as "the run was clean" is the
@@ -198,6 +217,12 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
             return "Stopped by the user — the rest of the drive was not tested"
         case .incomplete:
             return "Incomplete — the run ended before covering the requested range"
+        case .deviceLost:
+            // States what was observed, not what caused it. "Disconnected" would assert a hand on
+            // a cable; the two routes that detect this both observe the same narrower fact — the
+            // device stopped being addressable — and the explanation below is where the
+            // unplug-or-fault ambiguity belongs, because it is the part a reader must not skim.
+            return "Ended — the drive disappeared from the USB bus, and the rest was not tested"
         }
     }
 
@@ -227,6 +252,16 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
         case .incomplete:
             return "The run did not cover the requested range, and no failure was recorded that "
                  + "would account for it. The part that was not reached has not been tested."
+        case .deviceLost:
+            return "The drive stopped being addressable part-way through the run — it was "
+                 + "unplugged, or it dropped off the USB bus on its own. **This tool cannot tell "
+                 + "those two apart**, and if nobody touched it, a drive that de-enumerates under "
+                 + "load is a symptom worth taking seriously in its own right — one this test did "
+                 + "not measure and cannot grade. **The range beyond the point it stopped was not "
+                 + "tested**, and an interrupted run cannot be continued, so covering the rest "
+                 + "means a new run from the beginning. Nothing here is a finding about the "
+                 + "blocks that were never reached; any that did fail before the drive went are "
+                 + "listed below."
         }
     }
 
@@ -297,19 +332,19 @@ nonisolated enum RunReportOutcome: Equatable, CaseIterable {
             return .stoppedByUser
 
         case .deviceLost:
-            // **INTERIM, and chunk 5 is what replaces it** with a `RunReportOutcome` of its own.
+            // **Unconditional, and the absence of a `foundFailures` guard here is deliberate.**
             //
-            // `incomplete` is the honest answer available at v15: the run did not cover the drive,
-            // its own explanation already says the part not reached was not tested, and — the part
-            // that matters — it makes **no claim about the drive's condition**. Every other
-            // existing outcome would: `stoppedOnError` accuses the drive of the failure this whole
-            // step exists to stop reporting, and `stoppedByUser` credits a person with something
-            // they did not do.
+            // `stoppedOnFailure` above refuses to report a stop-on-error with no failed range,
+            // because that reply contradicts itself. This does not: a device loss and a list of
+            // bad blocks are independent facts, and a run that logged failures and *then* lost its
+            // drive is an ordinary sequence rather than a contradiction. The failed ranges are
+            // rendered for every outcome, so they are reported either way — what changes is only
+            // that the headline names the ending that actually happened.
             //
-            // What it costs until chunk 5, stated so it is not left: the report says the run was
-            // incomplete without saying the device was removed, and `HonestFraming` adds no
-            // sentence of its own because `incomplete` already carries one.
-            return .incomplete
+            // Carried `.incomplete` as an interim through chunks 3 and 4. That was honest while
+            // the app could not say why the run ended; it is wrong now that it can, because
+            // `incomplete` asserts that nothing accounts for the ending.
+            return .deviceLost
 
         case .callFailed:
             // A call could not be made or was refused. Where no call ever returned there is no
@@ -374,6 +409,16 @@ nonisolated struct RunReport: Equatable {
     // MARK: What happened
 
     let outcome: RunReportOutcome
+
+    /// What is known about the moment the drive left, or `nil` where it did not (Step 12, FR-DEV-8).
+    ///
+    /// **Not derivable from ``outcome``**, which says only *that* the drive went. Which of the two
+    /// detection routes saw it — and, for the removal callback, whether anything was in flight —
+    /// decides how much this document may claim about a chunk being part-way written. See
+    /// ``DeviceLossAccount``.
+    ///
+    /// The two must agree, and ``deviceLossAccountAgreesWithTheOutcome`` is what a test asks.
+    let deviceLoss: DeviceLossAccount?
 
     /// The failed ranges the helper retained (FR-RPT-1).
     ///
@@ -444,6 +489,19 @@ nonisolated struct RunReport: Equatable {
 
     /// Could the failure list not be read at all?
     var failureListIsUnavailable: Bool { failedRanges == nil }
+
+    /// An account exists exactly when the outcome is ``RunReportOutcome/deviceLost``.
+    ///
+    /// Two fields carrying halves of one fact can drift apart, and the renderers key on both — the
+    /// outcome for the headline, the account for what may be said about the chunk in flight. A
+    /// report with one and not the other would print a headline about a vanished drive with no
+    /// account of it, or an account under a headline that never mentions one. Asserted rather than
+    /// prevented by construction because ``init(reply:endedBy:removalCallbackSaid:startBlock:blockCount:ioSizesUsed:device:startedAt:finishedAt:usbLinkSpeedDescription:)``
+    /// derives both from the same `endedBy`, and this is the check that the derivation stays that
+    /// way.
+    var deviceLossAccountAgreesWithTheOutcome: Bool {
+        (outcome == .deviceLost) == (deviceLoss != nil)
+    }
 
     /// How many retained ranges the helper's cap dropped, or `nil` when the list is unavailable.
     ///
@@ -542,11 +600,17 @@ nonisolated struct RunReport: Equatable {
         switch outcome {
         case .completedClean:
             return outcome.headline + " — but this result is NOT VERIFIED (see below)"
-        case .completedWithFailures, .stoppedOnError, .stoppedByUser, .incomplete:
+        case .completedWithFailures, .stoppedOnError, .stoppedByUser, .incomplete, .deviceLost:
             // "There may be more" is true even where the count shown is zero — an unverified read
             // cannot invent a mismatch but it can hide one, so every non-clean outcome takes the
-            // same clause. `stoppedByUser` joined them in increment 8, and this `switch` being
-            // exhaustive is what required an answer rather than letting it fall through.
+            // same clause. `stoppedByUser` joined them in increment 8 and `deviceLost` in Step
+            // 12 chunk 5, and this `switch` being exhaustive is what required an answer each time
+            // rather than letting it fall through.
+            //
+            // It applies to a device loss for a reason worth stating: the run may have found real
+            // failures before the drive went, and an unverified read cannot invent a mismatch but
+            // it can hide one. "There may be more" is as true of a run cut short by a vanishing
+            // drive as of one cut short by a person.
             return outcome.headline
                  + " — and fault detection was NOT VERIFIED, so there may be more (see below)"
         }
@@ -620,6 +684,16 @@ extension RunReport {
     ///     (protocol v11), so its figures are the run's and not the last call's.
     ///   - endedBy: how the **run** ended, from `RunSequenceResult.outcome`. Not derivable from
     ///     `reply`, which knows only how one call ended.
+    ///   - removalCallbackSaid: how DiskArbitration's removal callback ended the run, or `nil`
+    ///     where it was not what ended it — which is every run that did not lose its device, and
+    ///     also a device loss that route (a)'s reply resolved first.
+    ///
+    ///     **Required, with no default, for the reason `endedBy` is.** `nil` is a perfectly safe
+    ///     value and that is exactly the trap: a caller that forgot it would still compile, still
+    ///     produce a report, and still export a file — one that says a drive vanished and then
+    ///     declines to say whether a chunk was mid-write, which is the single most useful sentence
+    ///     in it. Only the run's coordinator knows this, so every other caller is made to say `nil`
+    ///     on purpose rather than by omission.
     ///   - startBlock: the range the run was asked for. Held by the app, which issued the call.
     ///   - blockCount: likewise.
     ///   - ioSizesUsed: the sizes the run used, in order.
@@ -628,6 +702,7 @@ extension RunReport {
     ///   - usbLinkSpeedDescription: from `deviceProfile`, for context only.
     init?(reply: RunCycleOutcome,
           endedBy ending: RunSequenceOutcome,
+          removalCallbackSaid: DeviceLossEnding?,
           startBlock: UInt64,
           blockCount: UInt64,
           ioSizesUsed: [Int],
@@ -642,6 +717,13 @@ extension RunReport {
         let outcome = RunReportOutcome.forRun(endedBy: ending,
                                               replyDidComplete: reply.didComplete,
                                               foundFailures: foundFailures)
+
+        // Both from `ending`, so the outcome and the account cannot disagree about whether the
+        // device was lost — `deviceLossAccountAgreesWithTheOutcome` is what pins that.
+        self.deviceLoss = DeviceLossAccount.forRun(endedBy: ending,
+                                                   lostAtBlock: reply.deviceLostAtBlock,
+                                                   phase: reply.deviceLossPhase,
+                                                   removalCallbackSaid: removalCallbackSaid)
 
         self.device = device
         self.startBlock = startBlock
