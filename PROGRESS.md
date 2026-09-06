@@ -102,11 +102,11 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | # | what | state |
 |---|---|---|
 | **0** | The carried-forward settle measurement. Instrument only — `tools/run-control-probe` and `scripts/run-control-check.sh` grew `--repeat-1mib N`; no product code | **done 2026-09-05**, `a6e3bb0` (+ `0356ecb`, a pointer fix). Helper hash **unmoved**. See the section above |
-| **1** | **Route (a), the `ENXIO` discriminator.** Core only, no wire change | **done 2026-09-05.** See below |
-| **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | **done 2026-09-05.** See below. Helper hash **unmoved** — app target only |
-| **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05.** See below. **Moves the helper hash to `42774589…`** |
-| **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06.** See below. Helper hash **unmoved** — app target only |
-| **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06.** See below. Helper hash **unmoved** — app target only |
+| **1** | **Route (a), the `ENXIO` discriminator.** Core only, no wire change | **done 2026-09-05**, `368bec6`. See below |
+| **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | **done 2026-09-05**, `9242d6c`. See below. Helper hash **unmoved** — app target only |
+| **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05**, `15f8e3e`. See below. **Moves the helper hash to `42774589…`** |
+| **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
+| **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | not started |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
 
