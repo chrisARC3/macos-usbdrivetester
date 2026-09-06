@@ -64,6 +64,23 @@ final class DeviceDiscovery {
     // prevents the deselection instead of undoing it — `TableSelectionPolicy` in `DeviceListView`,
     // setting `NSTableView.allowsEmptySelection` while a run is active.
 
+    /// A disk left the machine, and **which one** (Step 12, FR-DEV-8, route (b)).
+    ///
+    /// **Forwarded, not acted on.** This store owns the device *list*, and a disappearance is
+    /// already handled there by the anonymous `onChange` path — remembered while frozen, applied
+    /// when the run ends (FR-DEV-7). What passes through here is a different question, asked of
+    /// the run rather than of the list: *was that the drive under test?*
+    ///
+    /// It is routed through this type because this type owns the source, and the thing that
+    /// answers the question — `RunController` — does not exist until the main window appears
+    /// (see `AppModel.runControl`). A closure set from outside is what bridges the two lifetimes;
+    /// the alternative, handing the run controller to the source at `start()`, would need a
+    /// controller that is not there yet.
+    ///
+    /// Fires **several times for one unplug** — once for the whole disk and once per slice. Every
+    /// consumer must be idempotent.
+    var onDiskDisappeared: ((DisappearedDisk) -> Void)?
+
     private let source: DeviceSource
     private var isObserving = false
 
@@ -86,9 +103,11 @@ final class DeviceDiscovery {
 
         guard !isObserving else { return }
         isObserving = true
-        source.startObserving { [weak self] in
+        source.startObserving(onChange: { [weak self] in
             self?.deviceSetChanged()
-        }
+        }, onDiskDisappeared: { [weak self] disk in
+            self?.onDiskDisappeared?(disk)
+        })
     }
 
     /// Stop watching. Called when the app goes away; the store is otherwise long-lived.

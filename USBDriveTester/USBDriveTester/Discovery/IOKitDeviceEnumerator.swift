@@ -111,7 +111,15 @@ nonisolated protocol DeviceSource: AnyObject {
 
     /// Begin reporting connect/disconnect events. `onChange` is delivered on the main
     /// queue, coalesced (FR-DEV-7).
-    func startObserving(onChange: @escaping () -> Void)
+    ///
+    /// - Parameter onDiskDisappeared: a disk left the machine, and **which one** (Step 12,
+    ///   FR-DEV-8). A second channel rather than a richer `onChange`, because the two answer
+    ///   different questions and only one of them may be coalesced: `onChange` says "the list is
+    ///   stale" and is debounced 200 ms, while this names a subject a run has to act on and is
+    ///   delivered as it arrives. Fired **once per disk**, so a drive with two partitions produces
+    ///   three of these — the consumer must be idempotent (measured 2026-09-05).
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void)
 
     /// Stop reporting events and release the notification port.
     func stopObserving()
@@ -124,6 +132,12 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
     private var matchedIterator: io_iterator_t = 0
     private var terminatedIterator: io_iterator_t = 0
     private var onChange: (() -> Void)?
+
+    /// The named disappearance channel — see ``DeviceSource/startObserving(onChange:onDiskDisappeared:)``.
+    /// Passed straight through from the volume watcher: this type coalesces, and that is precisely
+    /// what must not happen to it.
+    private var onDiskDisappeared: ((DisappearedDisk) -> Void)?
+
     private var pendingChange: DispatchWorkItem?
 
     /// Mount and unmount are **not** IOKit media events, so they need their own source
@@ -351,9 +365,11 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
 
     // MARK: - Live refresh (FR-DEV-7)
 
-    func startObserving(onChange: @escaping () -> Void) {
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {
         guard notificationPort == nil else { return }
         self.onChange = onChange
+        self.onDiskDisappeared = onDiskDisappeared
 
         guard let port = IONotificationPortCreate(kIOMainPortDefault) else {
             log.error("IONotificationPortCreate failed; the device list will not live-refresh")
@@ -376,9 +392,11 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
         addNotification(kIOTerminatedNotification, port: port, context: context,
                         into: &terminatedIterator)
 
-        volumeWatcher.start { [weak self] in
+        volumeWatcher.start(onChange: { [weak self] in
             self?.deviceSetChanged()
-        }
+        }, onDiskDisappeared: { [weak self] disk in
+            self?.onDiskDisappeared?(disk)
+        })
 
         log.notice("watching for USB device connect/disconnect and volume mount/unmount")
     }
@@ -434,6 +452,7 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
         pendingChange?.cancel()
         pendingChange = nil
         onChange = nil
+        onDiskDisappeared = nil
 
         if matchedIterator != 0 {
             IOObjectRelease(matchedIterator)

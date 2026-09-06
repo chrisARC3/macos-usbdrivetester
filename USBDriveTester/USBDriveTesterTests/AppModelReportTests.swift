@@ -100,6 +100,9 @@ struct AppModelReportTests {
 
         func resume() -> Bool { true }
         func stop() -> Bool { true }
+
+        /// Nothing here exercises device loss; the run's *report* is what this file is about.
+        func deviceLost() -> Bool { true }
     }
 
     /// Records the order in which injected closures ran. A class rather than a captured array so

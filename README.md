@@ -29,7 +29,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1171 tests / 143 suites / 0 failures**, zero source warnings from
+> Current verified state: **1220 tests / 145 suites / 0 failures**, zero source warnings from
 > three clean builds, XPC protocol v15. See [`PROGRESS.md`](PROGRESS.md) for the step in
 > flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the sequence and its gates.
 

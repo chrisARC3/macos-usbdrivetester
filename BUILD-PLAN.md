@@ -14,8 +14,9 @@ test target fixed to the designated scratch device with disk images removed as a
 "Test hardware")
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
-> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–3 of 8 are
-> done. The protocol is v15** (chunk 3, 2026-09-05) **and the helper source hash is `42774589…`.**
+> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–4 of 8 are
+> done** (chunk 4, 2026-09-06). **The protocol is v15** (chunk 3, 2026-09-05) **and the helper
+> source hash is `42774589…` — chunk 4 did not move it, being app target only.**
 > ⚠️ **All four hardware gate results lapsed at chunk 1** and are re-run at chunk 7; the ticks
 > further down this file that name `e6888aa5…` or v14 are historical from that moment.
 >
@@ -437,14 +438,15 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-05: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-09-06: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) IS IN PROGRESS**: chunks 0–3 of 8 are done, the rest are not. The suite stands at
-> **1171 tests / 143 suites / 0 failures** (floor 1171), protocol **v15** (chunk 3, 2026-09-05),
+> handling) IS IN PROGRESS**: chunks 0–4 of 8 are done, the rest are not. The suite stands at
+> **1220 tests / 145 suites / 0 failures** (floor 1220), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15.
-> The helper's source hash is **`42774589…`** — it moved at chunk 1 and again at chunk 3, and
-> **all four hardware gate results lapsed at chunk 1.** See `PROGRESS.md`.
+> The helper's source hash is **`42774589…`** — it moved at chunk 1 and again at chunk 3, **not**
+> at chunk 4, which is app target only; and **all four hardware gate results lapsed at chunk 1.**
+> See `PROGRESS.md`.
 >
 > ⚠️ **Until 2026-09-05 this block said "Status, 2026-09-02 … increments 1–10 are done, 11 and 12
 > remain", protocol v12, helper hash `73990c90…`** — three days and two increments stale, and
@@ -1805,9 +1807,9 @@ If the device under test disappears mid-run, immediately terminate the test clea
 
 ### Risks / gotchas
 - Simulate this safely first, then confirm on real hardware with the scratch device. **The hook this named did not exist when it was written** — `InMemoryBlockDevice`'s three fault hooks were all *range*-based, and `injectReadFault(blocks: 0 ..< blockCount)` simulates a drive with every block bad, which is the exact misreading this step exists to remove rather than a way to test it. Chunk 1 (2026-09-05) added `injectDeviceLoss(afterCalls:)`, which takes no range because the device leaving the bus is not a property of any range.
-- Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state).
-- **Route (a) is blind while the run is paused**, and no line of this section said so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. **Chunk 2 (2026-09-05) built the detection**; `VolumeChangeWatcher` no longer discards which disk changed. **Nothing acts on it until chunk 4.**
-- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed.
+- Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state). **Chunk 4 (2026-09-06): the release is always issued, but it is only *waited for* when the owning connection is free.** If the wind-down's deadline expired, that connection is still blocked by the call that never answered — measured 2026-08-04 — so the release cannot be delivered, let alone acknowledged. The controller therefore does not wait, does **not** claim the drive was released, and logs `releaseCannotBeConfirmed`. The real recovery is that the next `acquireDevice` is refused with the helper's own reason if the claim is still held.
+- **Route (a) is blind while the run is paused**, and no line of this section said so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. **Chunk 2 (2026-09-05) built the detection**; `VolumeChangeWatcher` no longer discards which disk changed. **Chunk 4 (2026-09-06) wired it to `DeviceLossWindDown`**, whose way 1 — nothing in flight — is the paused case, and which ends the run at once there rather than waiting for a reply that provably cannot come.
+- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed. **Chunk 4 (2026-09-06) made it so, at three levels**: the event table refuses `deviceLost` from `finishing`, `RunController` builds one wind-down per run, and `DeviceLossWindDown.begin` is idempotent in itself. The middle one is not redundant — a mutation building one per callback armed three deadlines and **survived the whole suite**, because the test bench held only the latest; `threeCallbacksFromOneUnplugArmOneDeadline` is what closed it.
 - **Do not match a disappearing disk by name prefix.** `disk7` and `disk70` share one and are different drives; a `hasPrefix` check ends a healthy run when an unrelated drive is unplugged. `DeviceUnderTest` compares the parsed unit number, and `DeviceUnderTestTests` pins five names that a prefix check gets wrong.
 
 ---

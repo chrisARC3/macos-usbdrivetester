@@ -132,6 +132,22 @@ final class AppModel {
         self.warningsSuppressed = suppressionStore.warningsSuppressed
         self.ioSizeBytes = ioSizeStore.ioSizeBytes
         mainWindowCloseGuard.model = self
+
+        // **Route (b) of device-loss detection** (Step 12, FR-DEV-8): DiskArbitration names the
+        // disk that left, discovery forwards it, and the run controller decides whether it was the
+        // drive under test.
+        //
+        // Wired here rather than where `runControl` is built, and the optional chain is why:
+        // discovery starts with the app and the controller does not exist until the main window
+        // appears. Read through `self` on every event, so the closure finds whatever controller is
+        // current — a closure that had *captured* one would be the "captured what the view was
+        // built with" defect that headed every first-run report "Unidentified drive".
+        //
+        // `runControl` being nil is not a gap: no run can be in flight before the UI that starts
+        // one exists, which is the same argument `runControl`'s own documentation already rests on.
+        discovery.onDiskDisappeared = { [weak self] disk in
+            self?.runControl?.deviceDisappeared(disk)
+        }
     }
 
     /// Whether the user has asked not to see the pre-run **warning text** again (decision 5).

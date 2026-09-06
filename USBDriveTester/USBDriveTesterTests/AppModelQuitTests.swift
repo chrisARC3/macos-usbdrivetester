@@ -71,11 +71,25 @@ struct AppModelQuitTests {
             return true
         }
 
+        /// The drive left. Ends the run synchronously from either phase, as the real one does —
+        /// nothing here exercises it, but a stub that quietly did nothing would make the quit
+        /// path's behaviour after a device loss untestable without anyone noticing.
+        func deviceLost() -> Bool {
+            emit(.runEnded(Self.lost))
+            return true
+        }
+
         static let completed = RunSequenceResult(outcome: .completed,
                                                  finalReply: nil,
                                                  ioSizesUsed: [],
                                                  startBlock: 0,
                                                  blockCount: 1_024)
+
+        static let lost = RunSequenceResult(outcome: .deviceLost,
+                                            finalReply: nil,
+                                            ioSizesUsed: [],
+                                            startBlock: 0,
+                                            blockCount: 1_024)
     }
 
     /// A model whose run is stubbed end to end, and which reports quitting instead of doing it.

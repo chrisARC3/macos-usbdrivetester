@@ -231,6 +231,7 @@ private final class ProbeSequencer: RunSequencing {
                ioSizeBytes: Int, failureMode: FailureModeCode) -> Bool { true }
     func resume() -> Bool { true }
     func stop() -> Bool { true }
+    func deviceLost() -> Bool { true }
 }
 
 /// A device source that reports a fixed list, so a render does not depend on what is plugged in.
@@ -238,7 +239,8 @@ private final class FixedDeviceSource: DeviceSource {
     private let devices: [DiscoveredDevice]
     init(devices: [DiscoveredDevice]) { self.devices = devices }
     func enumerateDevices() -> [DiscoveredDevice] { devices }
-    func startObserving(onChange: @escaping () -> Void) {}
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {}
     func stopObserving() {}
 }
 
@@ -426,7 +428,8 @@ private struct QuittingContentHost: View {
 /// instead.
 private final class EmptyDeviceSource: DeviceSource {
     func enumerateDevices() -> [DiscoveredDevice] { [] }
-    func startObserving(onChange: @escaping () -> Void) {}
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {}
     func stopObserving() {}
 }
 
@@ -790,7 +793,8 @@ private final class UnmountedDeviceSource: DeviceSource {
                           // The only fixture drive whose Device Speed is unreadable. See above.
                           usbLinkSpeedCode: -1)]
     }
-    func startObserving(onChange: @escaping () -> Void) {}
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {}
     func stopObserving() {}
 }
 
@@ -864,7 +868,8 @@ private final class UnusableDeviceSource: DeviceSource {
                              usbLinkSpeedCode: 5),
         ]
     }
-    func startObserving(onChange: @escaping () -> Void) {}
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {}
     func stopObserving() {}
 }
 

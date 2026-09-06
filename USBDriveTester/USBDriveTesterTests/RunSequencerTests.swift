@@ -473,6 +473,97 @@ struct RunSequencerControlTests {
         #expect(harness.caller.requests.count == 2, "the second call was issued and then died")
     }
 
+    // MARK: - Route (b): the drive left and no reply said so (Step 12, chunk 4)
+
+    /// **The case route (b) exists for, at sequencer scope.** A paused run has returned from its
+    /// call and issues no syscalls at all, so `ENXIO` can never arrive and route (a) is
+    /// structurally blind. Without this the run would sit paused for ever, holding an exclusive
+    /// claim on a drive that is not attached.
+    @Test func aDriveLeavingWhilePausedEndsTheRun() {
+        let harness = Harness()
+        harness.start()
+        harness.caller.answer(reply(.pausedByUser, interruptedAtBlock: 6_144))
+
+        #expect(harness.sequencer.deviceLost())
+        #expect(harness.result?.outcome == .deviceLost)
+        #expect(harness.caller.requests.count == 1, "no further call may be issued")
+    }
+
+    /// **Not `stoppedByUser`**, which is what `stop()` from the same phase produces — and the
+    /// difference is the whole point of a separate command. Nobody pressed anything; the report's
+    /// outcome and FR-DEV-8's next steps both hang off which of the two this was.
+    @Test func aDriveLeavingWhilePausedIsNotAUserStop() {
+        let harness = Harness()
+        harness.start()
+        harness.caller.answer(reply(.pausedByUser, interruptedAtBlock: 6_144))
+        harness.sequencer.deviceLost()
+
+        #expect(harness.result?.outcome != .stoppedByUser)
+    }
+
+    /// With a call in flight the run ends here too — the caller is what decides whether to wait for
+    /// route (a) first, and `DeviceLossWindDown` is where that decision lives.
+    @Test func aDriveLeavingWithACallInFlightEndsTheRun() {
+        let harness = Harness()
+        harness.start()
+
+        #expect(harness.sequencer.deviceLost())
+        #expect(harness.result?.outcome == .deviceLost)
+        #expect(harness.caller.requests.count == 1)
+    }
+
+    /// **The two routes must not end one run twice.** Route (b) ends it, then the helper's reply
+    /// finally arrives carrying its own device loss — and it changes nothing, because the phase is
+    /// already `.ended`. This is the race the whole chunk is built around, run in the order that
+    /// produces the double-fire.
+    @Test func aReplyArrivingAfterRouteBHasEndedTheRunChangesNothing() {
+        let harness = Harness()
+        harness.start()
+        harness.sequencer.deviceLost()
+
+        harness.caller.answer(reply(.deviceLost, interruptedAtBlock: 4_096))
+
+        let endings = harness.events.filter { if case .runEnded = $0 { return true } else { return false } }
+        #expect(endings.count == 1, "the run ended twice")
+        #expect(harness.caller.requests.count == 1)
+    }
+
+    /// **One unplug, several callbacks** — one for the whole disk and one per slice (measured
+    /// 2026-09-05). The second and third find the run already over and cost nothing.
+    @Test func aSecondDisappearanceFindsNoRunToEnd() {
+        let harness = Harness()
+        harness.start()
+
+        #expect(harness.sequencer.deviceLost())
+        #expect(!harness.sequencer.deviceLost())
+        #expect(!harness.sequencer.deviceLost())
+
+        let endings = harness.events.filter { if case .runEnded = $0 { return true } else { return false } }
+        #expect(endings.count == 1)
+    }
+
+    /// A drive cannot be lost from a run that was never started. Answering `false` is what lets the
+    /// controller treat a disappearance arriving after everything as free.
+    @Test func aDriveLeavingWithNoRunEndsNothing() {
+        let harness = Harness()
+        #expect(!harness.sequencer.deviceLost())
+        #expect(harness.result == nil)
+    }
+
+    /// The figures the run had already gathered survive it. A drive leaving does not make the
+    /// blocks already verified un-verified, and the last reply the helper actually sent is what the
+    /// report is built from.
+    @Test func aDriveLeavingKeepsWhatTheRunHadAlreadyMeasured() {
+        let harness = Harness()
+        harness.start()
+        harness.caller.answer(reply(.completed, chunksProcessed: 12))
+
+        harness.sequencer.deviceLost()
+
+        #expect(harness.result?.outcome == .deviceLost)
+        #expect(harness.result?.finalReply?.chunksProcessed == 12)
+    }
+
     @Test func stoppingIsRefusedWhenThereIsNoRun() {
         let harness = Harness()
         #expect(harness.sequencer.stop() == false)

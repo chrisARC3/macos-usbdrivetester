@@ -286,6 +286,35 @@ final class RunSequencer {
         }
     }
 
+    /// **The drive left the machine** (Step 12, FR-DEV-8, route (b)).
+    ///
+    /// The counterpart of ``stop()`` for a fact rather than a request, and it ends the run from
+    /// **either** phase a run can be in — which is the whole difference between the two routes:
+    ///
+    ///   * **While a call is in flight**, the helper is about to find out for itself: its next
+    ///     `pread` answers `ENXIO` and the reply comes back as `RunOutcomeCode.deviceLost`
+    ///     (route (a)). Ending here first is not a race lost — `finish` moves the phase to
+    ///     `.ended`, and `callReturned` already drops a reply that arrives after that. The caller
+    ///     is what decides whether to wait for that reply, and `DeviceLossWindDown` is where that
+    ///     decision lives, because the reply carries the block and the phase and this does not.
+    ///   * **While paused**, nothing is in flight and **no reply is ever coming**. That is not a
+    ///     timing accident: a paused run has returned from its call and issues no syscalls at all,
+    ///     so `ENXIO` cannot arrive, and route (a) is structurally blind here. This is the case
+    ///     route (b) exists for.
+    ///
+    /// - Returns: whether a run was ended. `false` once the run is over, which is what makes the
+    ///   three disappearance callbacks one unplug produces cost nothing after the first.
+    @discardableResult
+    func deviceLost() -> Bool {
+        switch phase {
+        case .callInFlight, .paused:
+            finish(.deviceLost)
+            return true
+        case .notStarted, .ended:
+            return false
+        }
+    }
+
     // MARK: The loop
 
     private func issueNext() {

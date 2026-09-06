@@ -498,9 +498,13 @@ hardware claim. Step 12's gate is what unplugs a drive on purpose.
   hardware gate, not simulated. **The engine stopped doing this on 2026-09-05** (chunk 1): a lost
   device now ends the run and records nothing against the drive, while failures found *before* the
   loss are kept. Chunk 2 built the detection route that covers a paused run, and **chunk 3 put the
-  ending on the wire as protocol v15**, so the app can tell device loss from a refusal.
-  ⚠️ **The defect is not fully closed:** nothing acts on route (b) yet, and the report answers
-  `incomplete` rather than naming the removal — chunks 4 and 5. Nothing is distributed before Step
+  ending on the wire as protocol v15**, so the app can tell device loss from a refusal. **Chunk 4
+  (2026-09-06) made the app act on route (b)**: `DeviceLossWindDown` ends the run once, from either
+  route, and a paused run — the case route (a) cannot see at all — ends immediately rather than
+  sitting on a claim for a drive that has gone.
+  ⚠️ **The defect is not fully closed:** the report still answers
+  `incomplete` rather than naming the removal, and nothing has told the *person* yet — chunks 5
+  and 6. Nothing is distributed before Step
   16 (section 2), so the person misled is the one who can recognise it, which lowers the stakes and
   changes nothing about the remaining gap.
 - **`interruptedAtBlock` carries two different things from v15, and the outcome code is the only
@@ -1170,3 +1174,25 @@ Every defect this project has produced came from trusting a substitute for the r
   **Check a decision against the observation that motivated it, not against the count of places
   that repeat it** — and when a section contains both a rule and the incident the rule came from,
   the incident is the authority. Corrected 2026-09-05, in the commit that built the discriminator.
+
+- **A BENCH THAT KEEPS ONLY THE LATEST OF A THING CANNOT SEE ONE BEING BUILT TOO OFTEN.** Chunk 4's
+  test bench stored `windDown` — *the* wind-down. A mutation removing the "build one per run" guard
+  therefore built three (one unplug delivers a whole-disk callback and one per slice, measured
+  2026-09-05), armed three deadlines, left two of them running untracked, **and passed all 1219
+  tests**. Every assertion the bench could express was about the last one, which was fine. The fix
+  was the bench, not the test: keep **every** instance, and assert over the collection. The general
+  form — *a test double that collapses a sequence into its most recent value silently converts "how
+  many" into "what was the last", and how-many is exactly what an idempotence bug is about.* And
+  the second-order lesson: this survivor was invisible in the *paused* walk, because there the
+  first callback ends the run and the state guard swallows the rest. **Drive an idempotence test
+  from the state where nothing else is filtering.**
+- **A DOC COMMENT THAT OVERCLAIMS IS A DEFECT, AND THE MUTATION ROUND IS WHAT FINDS IT.** Deleting
+  `windDown?.standDown()` survived the suite. The investigation found the comment was wrong, not the
+  code: it said the call prevented a double-ending, but the sequencer's `.ended` phase already
+  refuses one and `RunController` drops its references regardless. What the call actually prevents
+  is an **error-level log line three seconds later saying the helper never answered, on a run where
+  it answered fine** — false evidence on the one path where somebody is reading the log to find out
+  what happened to their drive. Two corrections came out of one mutation: the comments in both files
+  were rewritten to claim only what is true, and two tests were added to pin the property that is.
+  **When a mutation survives, suspect the comment before you suspect the test** — an unkillable line
+  is often a line doing a smaller and more specific job than its documentation admits.

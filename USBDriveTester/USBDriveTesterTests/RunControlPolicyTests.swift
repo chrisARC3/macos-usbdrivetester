@@ -254,48 +254,56 @@ struct RunControlPolicyTests {
             (.idle,      .startAborted,     nil),
             (.idle,      .pauseSettled,     nil),
             (.idle,      .runEnded,         nil),
+            (.idle,      .deviceLost,       nil),
             (.idle,      .deviceReleased,   nil),
 
             (.starting,  .claimEstablished, .running),
             (.starting,  .startAborted,     .idle),
             (.starting,  .pauseSettled,     nil),
             (.starting,  .runEnded,         nil),
+            (.starting,  .deviceLost,       nil),
             (.starting,  .deviceReleased,   nil),
 
             (.running,   .claimEstablished, nil),
             (.running,   .startAborted,     nil),
             (.running,   .pauseSettled,     nil),
             (.running,   .runEnded,         .finishing),
+            (.running,   .deviceLost,       .finishing),
             (.running,   .deviceReleased,   nil),
 
             (.pausing,   .claimEstablished, nil),
             (.pausing,   .startAborted,     nil),
             (.pausing,   .pauseSettled,     .paused),
             (.pausing,   .runEnded,         .finishing),
+            (.pausing,   .deviceLost,       .finishing),
             (.pausing,   .deviceReleased,   nil),
 
             (.paused,    .claimEstablished, nil),
             (.paused,    .startAborted,     nil),
             (.paused,    .pauseSettled,     nil),
             (.paused,    .runEnded,         nil),
+            (.paused,    .deviceLost,       .finishing),
             (.paused,    .deviceReleased,   nil),
 
             (.stopping,  .claimEstablished, nil),
             (.stopping,  .startAborted,     nil),
             (.stopping,  .pauseSettled,     nil),
             (.stopping,  .runEnded,         .finishing),
+            (.stopping,  .deviceLost,       .finishing),
             (.stopping,  .deviceReleased,   nil),
 
             (.finishing, .claimEstablished, nil),
             (.finishing, .startAborted,     nil),
             (.finishing, .pauseSettled,     nil),
             (.finishing, .runEnded,         nil),
+            (.finishing, .deviceLost,       nil),
             (.finishing, .deviceReleased,   .finished),
 
             (.finished,  .claimEstablished, nil),
             (.finished,  .startAborted,     nil),
             (.finished,  .pauseSettled,     nil),
             (.finished,  .runEnded,         nil),
+            (.finished,  .deviceLost,       nil),
             (.finished,  .deviceReleased,   nil),
         ]
 
@@ -305,6 +313,72 @@ struct RunControlPolicyTests {
             #expect(destination(RunControlPolicy.outcome(of: event, in: state)) == want,
                     "state=\(state) event=\(event)")
         }
+    }
+
+    // MARK: - Device loss (Step 12, FR-DEV-8)
+
+    /// **The row route (b) exists for.** A paused run issues no syscalls, so `ENXIO` can never
+    /// arrive and route (a) is structurally blind — the removal callback is the only thing that can
+    /// see the drive go. And `runEnded` is *ignored* from `paused`, deliberately: a stop from a
+    /// pause finishes the sequencer synchronously and the controller moves the state first for it
+    /// to land at all, an ordering a device loss has no way to arrange because nobody pressed
+    /// anything.
+    ///
+    /// So without an event of its own, a drive pulled from a paused run would leave the app holding
+    /// an exclusive claim on a device that is not attached, for as long as it stayed open.
+    @Test func deviceLossIsTheOnlyEventThatCanEndAPausedRun() {
+        let ending = RunControlEvent.allCases.filter {
+            destination(RunControlPolicy.outcome(of: $0, in: .paused)) != nil
+        }
+        #expect(ending == [.deviceLost])
+    }
+
+    /// The guard in front of route (b) is **derived** from this table, not decided again beside it.
+    ///
+    /// Worth its own test because the two would drift silently: the guard is what stops a
+    /// disappearance being looked at, so one that answered "no" where the table said "yes" would be
+    /// indistinguishable from a removal callback that never fired at all.
+    @Test func theGuardInFrontOfRouteBAgreesWithTheTableItGuards() {
+        for state in RunControlState.allCases {
+            let table = destination(RunControlPolicy.outcome(of: .deviceLost, in: state)) != nil
+            #expect(RunControlPolicy.deviceLossWouldEndTheRun(in: state) == table, "state=\(state)")
+        }
+    }
+
+    /// Exactly the states in which a run has been issued and has not yet ended.
+    ///
+    /// Narrower than `isRunActive` at both ends, and both exclusions are decisions: `starting` has
+    /// written nothing and belongs to `DevicePreparation`'s own abort, and `finishing` is a run
+    /// whose outcome was already decided before the drive left.
+    @Test func onlyAnIssuedRunCanLoseItsDevice() {
+        let losing = Set(RunControlState.allCases.filter(RunControlPolicy.deviceLossWouldEndTheRun))
+        #expect(losing == [.running, .pausing, .paused, .stopping])
+    }
+
+    /// **A drive pulled during preparation is left to the abort path**, which is the only thing
+    /// that can keep `startAborted`'s promise: the volumes are put back before it fires. Two paths
+    /// ending one preparation is the double-fire shape, and this event cannot restore anything.
+    @Test func aDeviceLossDuringPreparationIsLeftToTheAbortPath() {
+        #expect(destination(RunControlPolicy.outcome(of: .deviceLost, in: .starting)) == nil)
+        #expect(destination(RunControlPolicy.outcome(of: .startAborted, in: .starting)) == .idle)
+    }
+
+    /// **One unplug, several callbacks.** A drive leaving produces a disappearance for the whole
+    /// disk and one for each slice — measured 2026-09-05 — so the second and third arrive after the
+    /// first has already moved the machine to `finishing`. Ignoring them there is what makes the
+    /// repeats free.
+    ///
+    /// The same row covers a drive pulled *after* a run ended cleanly: that run's outcome was
+    /// settled before the drive left, and re-deciding it here would rewrite history.
+    @Test func repeatedDisappearancesFromOneUnplugChangeNothing() {
+        #expect(destination(RunControlPolicy.outcome(of: .deviceLost, in: .finishing)) == nil)
+        #expect(destination(RunControlPolicy.outcome(of: .deviceLost, in: .finished)) == nil)
+    }
+
+    /// A drive that has nothing to do with this app leaves the machine all the time. With no run
+    /// there is no drive under test to compare it against, and the answer is silence.
+    @Test func aDisappearanceWithNoRunIsNotAnEvent() {
+        #expect(destination(RunControlPolicy.outcome(of: .deviceLost, in: .idle)) == nil)
     }
 
     /// A drive that could not be prepared goes back to `idle`, **not** to a terminal state: a

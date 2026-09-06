@@ -116,6 +116,10 @@ protocol RunSequencing {
 
     @discardableResult
     func stop() -> Bool
+
+    /// **Step 12, FR-DEV-8.** End the run because the drive has left the machine.
+    @discardableResult
+    func deviceLost() -> Bool
 }
 
 extension RunSequencer: RunSequencing {}
@@ -222,6 +226,18 @@ final class RunController {
     private let selectedDevice: () -> DiscoveredDevice?
     private let prepare: (DiscoveredDevice, @escaping (DevicePreparationOutcome) -> Void) -> Void
     private let makeSequencer: (@escaping (RunSequencerEvent) -> Void) -> RunSequencing
+
+    /// Builds the sequence that ends a run whose drive has left (Step 12, chunk 4).
+    ///
+    /// A factory for the same reason ``makeSequencer`` is one: the thing it builds is created per
+    /// loss and has to be reachable by a test, and the deadline inside it is unreachable by
+    /// clicking.
+    ///
+    /// **Optional rather than defaulted to a closure**, because a default argument expression is
+    /// evaluated outside the actor and this type is `@MainActor` — so `= { DeviceLossWindDown(...) }`
+    /// does not compile. ``newWindDown(_:)`` is where the real one is built instead; the production
+    /// caller passes nothing.
+    private let makeWindDown: ((@escaping DeviceLossWindDown.End) -> DeviceLossWindDown)?
     private let setRunControl: (RunControlCode, @escaping (Result<Void, Error>) -> Void) -> Void
     private let release: (@escaping () -> Void) -> Void
     private let ioSizeBytes: () -> Int
@@ -275,11 +291,36 @@ final class RunController {
     private var pending: PendingStart?
     private var sequencer: RunSequencing?
 
+    /// The drive this run is testing, as route (b) needs to ask about it (Step 12, chunk 2).
+    ///
+    /// Set when the claim is established and cleared when the drive is let go, so its lifetime is
+    /// exactly the claim's — which is what makes matching a disappearance on a **BSD name** sound
+    /// here and nowhere that outlives the enumeration. `DeviceUnderTest`'s header states that
+    /// argument in full; this property is the thing that keeps it true.
+    private var deviceUnderTest: DeviceUnderTest?
+
+    /// The sequence ending a run whose drive has gone, or `nil` when no loss is being handled.
+    ///
+    /// **One per loss, not one per callback.** A single unplug delivers a disappearance for the
+    /// whole disk and one for each slice, so this is what makes the second and third free.
+    private var windDown: DeviceLossWindDown?
+
+    /// Whether the release about to be issued can be *acknowledged*.
+    ///
+    /// False only after a device loss that ended on the deadline: the helper is then still inside
+    /// the blocking call that went quiet, and a second message on that connection is not delivered
+    /// until it returns (measured 2026-08-04). Waiting for that acknowledgement would be waiting
+    /// for a message that provably cannot arrive yet — and the app would sit in `finishing` for
+    /// ever, with the device list frozen and an uninstall blocked, over a drive that is not even
+    /// attached. See ``releaseTheDrive()``.
+    private var releaseCannotBeConfirmed = false
+
     init(preconditions: @escaping () -> RunPreconditions,
          selectedDevice: @escaping () -> DiscoveredDevice?,
          prepare: @escaping (DiscoveredDevice,
                              @escaping (DevicePreparationOutcome) -> Void) -> Void,
          makeSequencer: @escaping (@escaping (RunSequencerEvent) -> Void) -> RunSequencing,
+         makeWindDown: ((@escaping DeviceLossWindDown.End) -> DeviceLossWindDown)? = nil,
          setRunControl: @escaping (RunControlCode,
                                    @escaping (Result<Void, Error>) -> Void) -> Void,
          release: @escaping (@escaping () -> Void) -> Void,
@@ -293,6 +334,7 @@ final class RunController {
         self.selectedDevice = selectedDevice
         self.prepare = prepare
         self.makeSequencer = makeSequencer
+        self.makeWindDown = makeWindDown
         self.setRunControl = setRunControl
         self.release = release
         self.ioSizeBytes = ioSizeBytes
@@ -450,6 +492,20 @@ final class RunController {
             linkSpeedCode = geometry.usbLinkSpeedCode
             lastRunDevice = pending.identity
             lastRunStartedAt = pending.authorisedAt
+
+            // Route (b)'s subject, taken from the same identity the report and the dialog use, so
+            // the three cannot disagree about which drive this run is about. Set **here** and not
+            // at the press: before the claim exists there is no run for a disappearance to end,
+            // and `RunControlPolicy.deviceLossWouldEndTheRun` says so for `starting` too.
+            deviceUnderTest = DeviceUnderTest(pending.identity)
+            if deviceUnderTest == nil {
+                // Unreachable from a `DiscoveredDevice`, whose BSD name is not optional — logged
+                // rather than absorbed because if it ever happens the run is one that cannot
+                // recognise its own drive leaving, and the silence would be indistinguishable
+                // from a removal callback that never fired.
+                RunControlLog.driveCannotBeWatchedForRemoval(pending.identity)
+            }
+
             onRunBegan()
 
             report(.claimEstablished)
@@ -547,6 +603,64 @@ final class RunController {
         windDownTheRun()
     }
 
+    // MARK: - Device loss, route (b) (Step 12, FR-DEV-8)
+
+    /// **A disk left the machine.** Reported for every disk, whether or not it is ours.
+    ///
+    /// This is route (b) — DiskArbitration's removal callback, which is the *only* thing that can
+    /// see a drive leave while a run is paused, because a paused run issues no syscalls and no
+    /// `errno` will ever arrive to tell the helper (chunk 2's header states the argument in full).
+    ///
+    /// Three guards, in this order, and each one is answering a different question:
+    ///
+    ///   1. **Is there a run a disappearance would end?** From the table, not decided again here —
+    ///      `deviceLossWouldEndTheRun` derives it from the same rows the transition uses.
+    ///   2. **Do we know which drive this run is about?** Set at the claim and cleared at the
+    ///      release, which is what makes the BSD-name match in (3) sound.
+    ///   3. **Was it ours?** `DeviceUnderTest` parses unit numbers rather than comparing prefixes,
+    ///      because `disk70` and `disk7s1` both begin with `disk7` and only one of them is this
+    ///      drive.
+    ///
+    /// **Called several times for one unplug** — once for the whole disk and once per slice
+    /// (measured 2026-09-05). Everything after the guards is idempotent by construction: the first
+    /// call builds the wind-down, the rest find it already begun.
+    func deviceDisappeared(_ disk: DisappearedDisk) {
+        guard RunControlPolicy.deviceLossWouldEndTheRun(in: state) else { return }
+        guard let deviceUnderTest else { return }
+        guard deviceUnderTest.wasLost(whenDiskDisappeared: disk) else { return }
+
+        if windDown == nil {
+            RunControlLog.deviceLost(deviceUnderTest, whileIn: state)
+            windDown = newWindDown { [weak self] ending in
+                self?.endTheRunBecauseTheDriveIsGone(ending)
+            }
+        }
+
+        // **`paused` is exactly the set of states with nothing in flight.** A paused run has
+        // returned from its call; `running`, `pausing` and `stopping` all have one outstanding —
+        // `pausing` and `stopping` are requests the helper has been *told* about, not calls that
+        // have come back. So this is a reading of the machine, not a guess about it.
+        windDown?.begin(waitingForAReply: state != .paused)
+    }
+
+    /// The real wind-down, or whatever a test injected in its place.
+    private func newWindDown(_ end: @escaping DeviceLossWindDown.End) -> DeviceLossWindDown {
+        makeWindDown?(end) ?? DeviceLossWindDown(end: end)
+    }
+
+    /// The wind-down decided the run is over. **The only caller of the sequencer's `deviceLost`.**
+    private func endTheRunBecauseTheDriveIsGone(_ ending: DeviceLossEnding) {
+        // Set before the sequencer is told, because `deviceLost()` finishes synchronously and the
+        // release goes out inside that same call — the same ordering trap `stop()` documents.
+        releaseCannotBeConfirmed = (ending == .theHelperNeverAnswered)
+
+        guard sequencer?.deviceLost() == true else {
+            // The run had already ended by some other route in the same turn. Nothing is owed.
+            releaseCannotBeConfirmed = false
+            return
+        }
+    }
+
     // MARK: - What the sequencer reports
 
     private func sequencerReported(_ event: RunSequencerEvent) {
@@ -561,26 +675,93 @@ final class RunController {
         case .runEnded(let result):
             RunControlLog.runEnded(result.outcome)
 
-            report(.runEnded)
+            // **Unconditional, and that is what makes route (b) free on every ordinary run.** A
+            // wind-down that was never begun has nothing to stand down from; one that is waiting
+            // for route (a)'s reply has just had it. Making the caller remember which it was would
+            // put a branch here that only a drive being pulled ever exercises.
+            //
+            // It disarms a *log line*, not a double-ending — a mutation deleting it survived the
+            // suite, which is how that was established. `RunSequencer.deviceLost()` already
+            // refuses from `.ended`, so a late deadline could not end the run twice anyway; what
+            // it could do is claim in the log that the helper never answered, three seconds after
+            // it did. See `DeviceLossWindDown.standDown()`.
+            windDown?.standDown()
+
+            // **The sixth event, and the one place that reports it.** Both routes come through
+            // here — route (a) as the reply's own outcome, route (b) through the wind-down — so
+            // the machine's log says the same thing however the loss was found. The distinction is
+            // not cosmetic: `deviceLost` is legal from `paused` and `runEnded` is not, which is the
+            // row route (b) exists for.
+            report(result.outcome == .deviceLost ? .deviceLost : .runEnded)
             onReport(makeReport(result))
             releaseTheDrive()
         }
     }
 
     /// Give the drive back.
+    ///
+    /// Ordinarily this waits for the helper to answer. **After a device loss that ended on the
+    /// deadline it must not**, and the reason is a measured platform fact rather than caution: a
+    /// second message on a connection with a blocking call in flight is not delivered until that
+    /// call returns (2026-08-04, `scripts/xpc-concurrency-check.sh` — 24 pings issued during a
+    /// 2,827.9 ms call were all answered *after* it). The deadline expiring means precisely that
+    /// the owning connection is still blocked, so the acknowledgement being waited for cannot
+    /// arrive until the thing that already failed to answer answers.
+    ///
+    /// The release is still **issued** in that case, and lands whenever the call finally returns.
+    /// What changes is only that the machine stops waiting for it — because the alternative is
+    /// sitting in `finishing` indefinitely with the device list frozen (FR-DEV-7), an uninstall
+    /// blocked (NFR-INST-3) and ⌘Q asking about a run that is over, all on behalf of a drive that
+    /// is not attached.
+    ///
+    /// **What it must not do is claim the drive was let go.** That is the half `QuitSequence` gets
+    /// for free and this does not: there, terminating *is* the release (NFR-REL-5), so failing open
+    /// asserts nothing untrue. Here the app stays alive, the helper may genuinely still hold the
+    /// descriptor, and saying otherwise would be inventing an answer. It is recorded instead — and
+    /// the recovery is real rather than theoretical, because the next `acquireDevice` is refused
+    /// by the helper with its own reason if the claim is in fact still held.
     private func releaseTheDrive() {
+        let canBeConfirmed = !releaseCannotBeConfirmed
+        releaseCannotBeConfirmed = false
+
+        if !canBeConfirmed {
+            RunControlLog.releaseCannotBeConfirmed(deviceUnderTest)
+        }
+
         release { [weak self] in
             guard let self else { return }
-            // Reported whatever the release said. The helper releases a claim when the connection
-            // that took it goes away (NFR-REL-5), so a failed release still ends with the device
-            // released — and staying in `finishing` for ever would be strictly worse than saying
-            // so and moving on.
-            self.sequencer = nil
-
-            self.pending = nil
-            self.report(.deviceReleased)
-            self.settledIfAtRest()
+            guard canBeConfirmed else {
+                // The blocking call returned after all and the release was answered. The machine
+                // moved on when the deadline expired, so there is nothing left to do but say so:
+                // this is the line that distinguishes "the claim was dropped late" from "the
+                // claim is still held", and without it neither is visible afterwards.
+                RunControlLog.releaseAcknowledgedLate()
+                return
+            }
+            self.driveIsBack()
         }
+
+        if !canBeConfirmed { driveIsBack() }
+    }
+
+    /// The drive is no longer this app's to hold, however that was established.
+    ///
+    /// Reported whatever the release said. The helper releases a claim when the connection that
+    /// took it goes away (NFR-REL-5), so a failed release still ends with the device released —
+    /// and staying in `finishing` for ever would be strictly worse than saying so and moving on.
+    private func driveIsBack() {
+        sequencer = nil
+        pending = nil
+
+        // Cleared together, and with the claim: the drive under test is the *claim's* subject, and
+        // a stale one would make a disappearance long after the run look like this run's. The
+        // state guard would refuse it anyway; clearing is what stops that being the only thing
+        // standing between an old locator and a wrong answer.
+        deviceUnderTest = nil
+        windDown = nil
+
+        report(.deviceReleased)
+        settledIfAtRest()
     }
 
     /// The call boundary. Replaces `AppModel.cycleIsRunning` going false, and the quit's wind-down
@@ -681,6 +862,66 @@ nonisolated enum RunControlLog {
     /// which is what `scripts/run-control-check.sh` measures.
     static func pauseSettled(atBlock block: UInt64) {
         runLog.notice("run paused and settled at block \(block, privacy: .public)")
+    }
+
+    /// **The drive under test left the machine** (Step 12, FR-DEV-8, route (b)).
+    ///
+    /// Written once per unplug rather than once per callback, because it is the first line of the
+    /// account of an interrupted run and three of them would read as three losses.
+    ///
+    /// The drive is named by ``DeviceUnderTest/logIdentification`` — model and **serial**, with the
+    /// BSD name labelled as what it was at the time. A log outlives the enumeration that produced
+    /// the locator, and this project has already shipped one artefact that could not say which
+    /// drive it was about (2026-08-06).
+    ///
+    /// The state is named too, and it is the fact that matters most here: a loss discovered while
+    /// `paused` is one that **only** the removal callback could have seen, and a log that did not
+    /// distinguish it could not tell route (b) working from route (a) having covered for it.
+    static func deviceLost(_ device: DeviceUnderTest, whileIn state: RunControlState) {
+        runLog.error("""
+                     the drive under test left the machine while \
+                     \(String(describing: state), privacy: .public): \
+                     \(device.logIdentification, privacy: .public)
+                     """)
+    }
+
+    /// A run began on a drive whose disappearance could not be recognised.
+    ///
+    /// Unreachable from a `DiscoveredDevice`, whose BSD name is not optional — so this is the shape
+    /// of a wiring defect rather than a state, and it is logged for the reason
+    /// ``RunEventOutcome/ignored`` is: route (b) going quiet is otherwise indistinguishable from a
+    /// drive that was never unplugged.
+    static func driveCannotBeWatchedForRemoval(_ device: ReportedDevice) {
+        runLog.error("""
+                     the run's drive has no BSD name, so its removal cannot be recognised: \
+                     serial \(device.usbSerialNumber ?? "none", privacy: .public)
+                     """)
+    }
+
+    /// The release was issued but **cannot be acknowledged**, because the helper is still inside
+    /// the blocking call that went quiet (measured 2026-08-04). See `RunController.releaseTheDrive`.
+    ///
+    /// At error level, and deliberately: this is the one path where the app moves on without
+    /// knowing whether the claim was dropped, and the next `acquireDevice` refusing is what a
+    /// person would otherwise have to explain from nothing.
+    static func releaseCannotBeConfirmed(_ device: DeviceUnderTest?) {
+        runLog.error("""
+                     release issued but not waited for — the helper has not answered the call \
+                     it is inside, so this app cannot say the claim on \
+                     \(device?.logIdentification ?? "the drive", privacy: .public) was dropped
+                     """)
+    }
+
+    /// The release was answered after the machine had already moved on.
+    ///
+    /// The good ending of ``releaseCannotBeConfirmed(_:)``, and worth its own line: it is the
+    /// difference between a claim that was dropped late and one that is still held, and neither is
+    /// visible afterwards without it.
+    static func releaseAcknowledgedLate() {
+        runLog.notice("""
+                      the release was acknowledged after the deadline had already ended the \
+                      run; the claim was dropped
+                      """)
     }
 
     static func runEnded(_ outcome: RunSequenceOutcome) {

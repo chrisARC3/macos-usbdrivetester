@@ -107,12 +107,23 @@ nonisolated final class VolumeChangeWatcher {
 
     private var session: DASession?
     private var onChange: (() -> Void)?
+    private var onDiskDisappeared: ((DisappearedDisk) -> Void)?
 
     deinit {
         stop()
     }
 
-    func start(onChange: @escaping () -> Void) {
+    /// - Parameters:
+    ///   - onChange: something in the mount table or the disk set changed. Says nothing about
+    ///     *what*, because the device list is rebuilt wholesale.
+    ///   - onDiskDisappeared: a disk left, and **which one** (Step 12, chunk 4). Delivered
+    ///     straight from the callback, deliberately **not** through the enumerator's 200 ms
+    ///     coalescing window: that window exists to collapse a burst of events into one list
+    ///     rebuild, and collapsing is exactly what throws the subject away. A run holding an
+    ///     exclusive claim on a drive that has gone should not wait behind a debounce meant for
+    ///     a table view.
+    func start(onChange: @escaping () -> Void,
+               onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {
         guard session == nil else { return }
 
         guard let session = DASessionCreate(kCFAllocatorDefault) else {
@@ -121,6 +132,7 @@ nonisolated final class VolumeChangeWatcher {
         }
         self.session = session
         self.onChange = onChange
+        self.onDiskDisappeared = onDiskDisappeared
 
         let context = Unmanaged.passUnretained(self).toOpaque()
 
@@ -158,6 +170,7 @@ nonisolated final class VolumeChangeWatcher {
         DASessionSetDispatchQueue(session, nil)
         self.session = nil
         onChange = nil
+        onDiskDisappeared = nil
         log.notice("stopped watching for volume mount/unmount")
     }
 
@@ -181,6 +194,11 @@ nonisolated final class VolumeChangeWatcher {
     /// the device list needs, and that path is unchanged and still coalesced.
     fileprivate func diskLeft(_ disk: DisappearedDisk) {
         log.notice("a disk disappeared: \(disk.bsdName.rawValue, privacy: .public) (\(disk.isWholeDisk ? "whole disk" : "slice", privacy: .public))")
+
+        // **The named channel first, then the anonymous one.** A run whose drive has just left is
+        // the more urgent consumer, and the ordering costs nothing: the list rebuild is coalesced
+        // behind a 200 ms window either way, so it cannot be starved by going second.
+        onDiskDisappeared?(disk)
         onChange?()
     }
 }

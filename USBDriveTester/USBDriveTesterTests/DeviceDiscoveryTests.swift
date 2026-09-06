@@ -29,6 +29,7 @@ final class StubDeviceSource: DeviceSource {
     private(set) var enumerationCount = 0
     private(set) var isObserving = false
     private var onChange: (() -> Void)?
+    private var onDiskDisappeared: ((DisappearedDisk) -> Void)?
 
     init(devices: [DiscoveredDevice] = []) {
         self.devices = devices
@@ -39,14 +40,22 @@ final class StubDeviceSource: DeviceSource {
         return DiscoveredDevice.sorted(devices)
     }
 
-    func startObserving(onChange: @escaping () -> Void) {
+    func startObserving(onChange: @escaping () -> Void,
+                        onDiskDisappeared: @escaping (DisappearedDisk) -> Void) {
         self.onChange = onChange
+        self.onDiskDisappeared = onDiskDisappeared
         isObserving = true
     }
 
     func stopObserving() {
         onChange = nil
+        onDiskDisappeared = nil
         isObserving = false
+    }
+
+    /// Stand in for a disk leaving the machine (Step 12, FR-DEV-8, route (b)).
+    func simulateDisappearance(of disk: DisappearedDisk) {
+        onDiskDisappeared?(disk)
     }
 
     /// Stand in for a hot-plug notification: change the device set, then fire.

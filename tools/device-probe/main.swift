@@ -104,8 +104,15 @@ report("initial enumeration")
 
 if watching {
     print("\nWatching for device changes. Plug or unplug a USB drive. Ctrl-C to stop.")
-    enumerator.startObserving {
+    enumerator.startObserving(onChange: {
         report("device set changed")
-    }
+    }, onDiskDisappeared: { disk in
+        // Step 12, chunk 4. Printed as it arrives rather than folded into the report above,
+        // because this is the channel a run acts on and the whole point of it is that it is not
+        // coalesced. **Expect several lines per unplug** — one for the whole disk and one per
+        // slice (measured 2026-09-05); a single line would mean the slices were being missed.
+        print("[\(timestamp())] disk disappeared: \(disk.bsdName.rawValue) "
+              + "(\(disk.isWholeDisk ? "whole disk" : "slice"))")
+    })
     RunLoop.main.run()
 }

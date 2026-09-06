@@ -977,3 +977,43 @@ a v15 reply at all and the mismatch is loud again rather than silent — it brok
 and a dozen fixtures, which is the compiler doing work the handshake had to do alone last time. That
 is luck rather than design: the field was needed. The handshake stays the guard that is not allowed
 to depend on it.
+
+### 2026-09-06 — what "immediately terminate" means when two detectors disagree (no requirement change)
+
+**Not an amendment**, and FR-DEV-8's text is unchanged. Recorded because Step 12 chunk 4 implements
+the word **immediately** as a wait of up to three seconds, and that needs to be a decision on the
+record rather than a discrepancy someone finds later.
+
+**Device loss is detected twice, and the two detectors see different things.**
+
+| | sees | cannot see |
+|---|---|---|
+| **Route (a)** — the helper's `pread`/`pwrite` returns `ENXIO` | **where** the run died: the block, and which of read / write-back / verify was in progress | **anything at all while the run is paused** — a paused run issues no syscalls, so no `errno` can arrive |
+| **Route (b)** — DiskArbitration's removal callback | **that** the drive went, in every state including paused | where the run had got to |
+
+Acting on route (b) the instant it fires would satisfy "immediately" and would **discard route (a)'s
+detail on every ordinary unplug**, because the reply is normally milliseconds behind the callback.
+The phase in particular is the one fact that changes what a person should do: a drive that vanished
+during the **write-back** is the only case where this tool held the chunk's only copy of the
+original and had not finished putting it back. So the run waits — briefly — for the detector that
+can say so.
+
+**The wait is bounded and it does not fail open.** Three seconds, then the run ends on route (b)
+alone. Silence is not evidence the drive came back: treating it that way would leave a paused run
+holding an exclusive claim on a device DiskArbitration has already said is gone, which is the exact
+failure FR-DEV-8 exists to prevent. And where nothing is in flight — a paused run — there is no
+reply that *can* arrive, so the wait is skipped entirely and the termination is immediate in the
+plainest sense.
+
+**What the app must not claim.** If the deadline expires, the helper is still inside the blocking
+call it never answered, and a second message on that connection is not delivered until the call
+returns (measured 2026-08-04). The release is therefore issued but **not waited for**, and the app
+does not report that the drive was released — it records that the claim's fate is unknown. The
+recovery is real without being asserted: if the claim is still held, the next acquisition is refused
+with the helper's own reason. Wedging the run in `finishing` instead would freeze the device list
+and block uninstall over a drive that is not attached, which serves nobody.
+
+**Three seconds is not a measurement.** It was chosen to be uncontroversially generous — once the
+engine classifies `ENXIO` it ends the run at that chunk rather than finishing the slice — and only
+a person pulling a real drive out of a real port can say what the interval actually is. That is
+Step 12's chunk 7.

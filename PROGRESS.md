@@ -51,18 +51,18 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-05, at Step 11's close
+### Current state — 2026-09-06, at Step 12 chunk 4
 
 | | |
 |---|---|
-| **Working tree** | clean, on `main`, level with `origin/main` |
-| **Verified** | **1171 tests, 0 failures, 143 suites** (floor `scripts/.test-floor` = 1171), run green 2026-09-05 at chunk 3. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
-| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunk 2 did not move it, being app-target only. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. It will move again at chunk 4 |
+| **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
+| **Verified** | **1220 tests, 0 failures, 145 suites** (floor `scripts/.test-floor` = 1220), run green 2026-09-06 at chunk 4. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
+| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunks 2 and 4 did not move it, being app-target only — **and this row predicted that chunk 4 would**, which was wrong: chunk 4 is the state machine and the wind-down, entirely inside the app. The four gates below lapsed at chunk 1 and have not compounded since. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Chunks 5 and 6 are app-target too; the next thing that can move it is chunk 7 |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
-| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Nothing else — Step 11 closed with its checklist complete, and chunks 0 and 1 closed green |
+| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Nothing else — Step 11 closed with its checklist complete, and chunks 0–4 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
 ### The one open measurement — CLOSED 2026-09-05, before Step 12 began
@@ -97,10 +97,58 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **1** | **Route (a), the `ENXIO` discriminator.** Core only, no wire change | **done 2026-09-05.** See below |
 | **2** | Route (b), the DiskArbitration removal callback — `VolumeChangeWatcher` learns *which* disk went, and the "is this the device under test" predicate becomes a pure testable type | **done 2026-09-05.** See below. Helper hash **unmoved** — app target only |
 | **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05.** See below. **Moves the helper hash to `42774589…`** |
-| **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | not started |
+| **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06.** See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the fifth `RunReportOutcome`, `HonestFraming`, presentation, Markdown | not started |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | not started |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
+
+### Chunk 4 — the two routes meet, and only one run ends
+
+The sixth `RunControlEvent`, `deviceLost`, and `DeviceLossWindDown` — the type that stops routes (a)
+and (b) ending one run twice, and stops route (b) throwing away route (a)'s detail in the ordinary
+case where the reply is milliseconds behind the callback.
+
+**The deadline does not fail open, and `QuitSequence`'s own argument is why not.** `QuitSequence`
+terminates the app when its deadline expires, on the grounds that the helper releases a claim when
+the connection holding it goes away (NFR-REL-5) — **process death is itself the fallback release**.
+None of that carries over here: the app is not dying, it is finishing a run and giving a drive back
+while staying alive. Treating silence as "never mind" would leave a paused run holding an exclusive
+claim on a drive DiskArbitration has already said is gone, which is the exact failure FR-DEV-8
+exists to prevent. Silence is not evidence the drive came back, so the deadline ends the run.
+
+**What it must not do is claim the drive was released.** The 2026-08-04 concurrency measurement
+settles this: a second message on a connection with a blocking call in flight is not delivered until
+that call returns. So a deadline expiring means the owning connection is *still blocked*, and the
+`releaseDevice` that follows cannot be delivered — let alone acknowledged. The controller therefore
+issues it and does **not** wait, reaching `finished` rather than wedging in `finishing` over a drive
+that is not attached; `releaseCannotBeConfirmed` records that the claim's fate is unknown, and a late
+acknowledgement is logged rather than acted on. The recovery is real without being claimed: the next
+`acquireDevice` is refused by the helper, with its own reason, if the claim is still held. **Chunk 6
+surfaces this to a person.** Three seconds is chosen to be uncontroversially generous rather than
+tuned, and is documented as **not yet measured** — only chunk 7's physical unplug can measure it.
+
+**One call site for the sixth event.** Both routes funnel through `sequencerReported(.runEnded)`, so
+the log says the same thing either way and the `paused` row — where an ordinary `runEnded` is
+ignored — is exercised by route (b). `RunControlPolicy.deviceLossWouldEndTheRun(in:)` derives route
+(b)'s guard from the event table rather than restating it, and a test asserts the two agree.
+
+**Two mutations survived, and both were findings rather than noise.**
+
+- Deleting `windDown?.standDown()` broke nothing, because the sequencer's `.ended` phase already
+  refuses a second ending. What it actually buys is the **log**: without it, a run that route (a)
+  resolved cleanly gets an error-level line three seconds later accusing the helper of never
+  answering. That is false evidence on the one path where a person is reading the log to find out
+  what happened to their drive. The doc comments claiming it prevented a double-ending were
+  **overclaiming and were corrected**; two tests now pin the real property.
+- Building a fresh wind-down per callback also survived — because the bench held only the *latest*
+  one. One unplug delivers three callbacks, so that defect arms three deadlines and leaves two of
+  them running with nothing tracking them. The bench now keeps **every** wind-down it builds, and
+  `threeCallbacksFromOneUnplugArmOneDeadline` drives three callbacks at a run that is still
+  **running** — the paused walk could not cover it, because there the first callback ends the run
+  and the state guard absorbs the rest. Re-run: killed, on both assertions.
+
+**Known survivor, for chunk 7's checklist.** `deviceUnderTest = nil` in `driveIsBack()` is
+defence in depth that no test can reach — the state guard refuses first, every time.
 
 ### Chunk 3 — protocol v15: the wire can say the device went away
 

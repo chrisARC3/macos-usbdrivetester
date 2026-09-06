@@ -234,6 +234,21 @@ nonisolated enum RunControlEvent: Equatable, CaseIterable {
     ///   the quit path.
     case runEnded
 
+    /// **The drive under test has left the machine** (Step 12, FR-DEV-8).
+    ///
+    /// Not a variant of ``runEnded``, and the difference is one row of this table: `runEnded` is
+    /// *ignored* from ``RunControlState/paused``, because a stop from a pause finishes the
+    /// sequencer synchronously and the controller has to move the state first for it to land at
+    /// all. **A device loss has no such ordering available** — nobody pressed anything, and the
+    /// one state route (b) exists to cover is exactly `paused`. An event that could not arrive
+    /// there would leave a paused run holding a claim on a drive that is not there, for ever.
+    ///
+    /// Reported by **both** routes, so the machine's log says the same thing however the loss was
+    /// found: route (a) is the helper's reply carrying `ENXIO`-shaped device loss, route (b) is
+    /// the DiskArbitration removal callback. See `DeviceLossWindDown` for how the two are stopped
+    /// from ending one run twice.
+    case deviceLost
+
     /// The device has been released and its volumes will remount by themselves (NFR-REL-5).
     case deviceReleased
 }
@@ -517,6 +532,37 @@ nonisolated enum RunControlPolicy {
                 return notWhileIn(state, event)
             }
 
+        case .deviceLost:
+            switch state {
+            case .running, .pausing, .paused, .stopping:
+                // Wherever an issued run can be, a drive leaving ends it. `paused` is the row
+                // that `runEnded` does not have — see the event's own documentation.
+                return .to(.finishing)
+
+            case .starting:
+                // **Ignored, and this is a decision rather than an omission.** The drive is being
+                // unmounted and claimed, nothing has been written, and `DevicePreparation` owns
+                // its own abort — which puts the volumes back and lands in `idle` through
+                // `startAborted`. This event cannot keep that promise, and two paths ending one
+                // preparation is the double-fire shape `QuitSequence` exists to avoid. A drive
+                // pulled during preparation fails the unmount or the acquire and aborts by that
+                // route.
+                return notWhileIn(state, event)
+
+            case .finishing:
+                // **The idempotence row.** One unplug produces a disappearance for the whole disk
+                // and one for each slice — measured 2026-09-05 — so the second and third arrive
+                // here, after the first has already moved the machine. It is also where a drive
+                // pulled *after* a run ended cleanly lands: that run's outcome was decided before
+                // the drive left, and re-deciding it here would rewrite history.
+                return notWhileIn(state, event)
+
+            case .idle, .finished:
+                // No run, so no drive under test. The watcher reports every disk that leaves the
+                // machine, and most of them are nothing to do with this app.
+                return notWhileIn(state, event)
+            }
+
         case .deviceReleased:
             switch state {
             case .finishing:
@@ -527,6 +573,19 @@ nonisolated enum RunControlPolicy {
                 return notWhileIn(state, event)
             }
         }
+    }
+
+    /// **Would a drive leaving the machine right now end this run?** (Step 12, FR-DEV-8.)
+    ///
+    /// Derived from the table above rather than deciding again, exactly as ``controls(in:preconditions:)``
+    /// is: the guard in front of route (b) and the transition it leads to cannot disagree, because
+    /// there is only one statement of the rule. Two statements of one rule are two things that
+    /// drift, and this one would drift silently — the guard is what stops a disappearance being
+    /// *looked at*, so a guard that said "no" where the table said "yes" would look exactly like a
+    /// removal callback that never fired.
+    static func deviceLossWouldEndTheRun(in state: RunControlState) -> Bool {
+        if case .to = outcome(of: .deviceLost, in: state) { return true }
+        return false
     }
 
     /// The one wording for an event that does not apply, so every ignored row logs the same shape
