@@ -107,7 +107,7 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05**, `15f8e3e`. See below. **Moves the helper hash to `42774589…`** |
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
-| **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `PENDING`. See below. Helper hash **unmoved** — app target only |
+| **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `1de0d53`. See below. Helper hash **unmoved** — app target only |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
 
 ### Chunk 6 — the run that said nothing now says something, and the list stops showing a drive that left
