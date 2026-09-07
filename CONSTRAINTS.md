@@ -1244,3 +1244,32 @@ Every defect this project has produced came from trusting a substitute for the r
   test in the suite, not only the ones that failed** — the same rule as a zero total, for the same
   reason. All nine `try!` sites in the test target were converted in chunk 6's commit, and the three
   contaminated rows were re-run.
+
+- **A SURVIVING MUTATION CAN MEAN THE TEST DOUBLE CANNOT REACH THE LINE — NOT THAT THE TESTS FORGOT
+  IT.** Chunk 7b moved `.shortTransfer` from the block-failure arm of `RetentionTestEngine.classify`
+  into `.deviceLost`. All 1,288 tests passed. So did the reverse reading: the engine's treatment of
+  a short transfer was unpinned in **both** directions, in the one function Step 12 exists to get
+  right.
+  The reason was not an oversight in the tests. `InMemoryBlockDevice` is the only device the engine
+  tests run against, and it had four fault hooks — read error, write error, silent corruption,
+  device loss — and **none that could produce a short transfer**. Step 2 reserved that case for the
+  real device and nothing revisited it, so no test *could* have been written to cover the line
+  without first extending the fake. Meanwhile `FileDescriptorBlockDeviceTests` did pin short
+  transfers, which is what made the gap invisible: grep finds the case name in a test file and the
+  coverage looks present. **What that test pins is what *produces* a short transfer. What was
+  missing is what is *done* with one.** Two different questions about the same enum case, and only
+  a mutation round distinguishes them.
+  So when a mutation survives, the question is not only *"which test should have caught this?"* but
+  **"could any test have reached this line at all, with the fakes that exist?"** If the answer is
+  no, the fix is in the harness before it is in the tests. The tell to look for: a case the fake's
+  own header says is *"reserved for the real device"*, still reserved several steps later.
+  Two smaller things followed from writing the hook. A short transfer **delivers or persists its
+  prefix and then throws** — `FileDescriptorBlockDevice` has `transferred` bytes in the caller's
+  buffer when its guard fires — so a fake that threw with the buffer untouched would let a bug that
+  reads the untouched tail pass on the bench and fail on hardware; the fake copies the prefix for
+  that reason. And extending the fake **moved the helper source hash**, because
+  `Core/InMemoryBlockDevice.swift` is a `project.pbxproj` membership exception built into the test
+  target *as well as* the helper: `nm` finds the new hooks in the daemon binary. A hash can move for
+  a change that cannot alter a single thing the daemon does. Record it anyway — the recipe is
+  defined by path and the binary really is different — but know which kind of move it was before
+  concluding a gate result lapsed for a substantive reason.

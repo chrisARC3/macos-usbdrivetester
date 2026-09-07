@@ -15,10 +15,12 @@ test target fixed to the designated scratch device with disk images removed as a
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
-> done** (chunk 6, 2026-09-07). **The protocol is v15** (chunk 3, 2026-09-05) **and the helper
-> source hash is `42774589…` — chunks 4, 5 and 6 did not move it, all three being app target only.**
-> ⚠️ **All four hardware gate results lapsed at chunk 1** and are re-run at chunk 7; the ticks
-> further down this file that name `e6888aa5…` or v14 are historical from that moment.
+> done and chunk 7 is under way** (7a and 7b done, 2026-09-07). **The protocol is v15** (chunk 3,
+> 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
+> did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
+> member of the helper target as well as the test target.
+> ⚠️ **All four hardware gate results lapsed at chunk 1** and are re-run at chunk 7d; the ticks
+> further down this file that name `e6888aa5…`, `42774589…` or v14 are historical from that moment.
 >
 > ⚠️ **This block said "Step 12 … is UNSTARTED. The protocol is v14" until 2026-09-05, through
 > chunks 1 and 2**, because the *other* status block 400 lines below it was the one being edited
@@ -456,15 +458,16 @@ simulation-first still applies wherever the plan calls for it.
 > **Status, 2026-09-07: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, chunk 7 is not. The suite stands at
-> **1288 tests / 152 suites / 0 failures** (floor 1288), protocol **v15** (chunk 3, 2026-09-05),
+> handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
+> build figures) and 7b (the mutation round) are done; 7c, 7d and 7e are not. The suite stands at
+> **1297 tests / 153 suites / 0 failures** (floor 1297), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
 > the app build does not compile the tools, so nothing else would have found those two call sites.
-> The helper's source hash is **`42774589…`** — it moved at chunk 1 and again at chunk 3, **not**
-> at chunks 4, 5 or 6, all app target only; and **all four hardware gate results lapsed at chunk 1.**
-> See `PROGRESS.md`.
+> The helper's source hash is **`e19b0b3c…`** — it moved at chunk 1, at chunk 3 and at **chunk 7b**,
+> **not** at chunks 4, 5 or 6, all app target only; and **all four hardware gate results lapsed at
+> chunk 1**, so 7b's move costs nothing that was not already owed. See `PROGRESS.md`.
 >
 > ⚠️ **Until 2026-09-05 this block said "Status, 2026-09-02 … increments 1–10 are done, 11 and 12
 > remain", protocol v12, helper hash `73990c90…`** — three days and two increments stale, and
@@ -1615,9 +1618,9 @@ Implement the explicit run-control state machine with legal-transition enforceme
 > **What invalidates the ticks below:** the next protocol bump, or any move of the helper source
 > hash. Neither is announced — grep for it.
 >
-> ⚠️ **BOTH HAVE NOW HAPPENED, OR ARE ABOUT TO. The helper source hash moved on 2026-09-05** —
-> `e6888aa5…` → `a951e527…` → `42774589…`, Step 12 chunks 1 and 3 — **and the protocol went to v15
-> at chunk 3 the same day.** **The
+> ⚠️ **BOTH HAVE NOW HAPPENED. The helper source hash moved on 2026-09-05 and again on
+> 2026-09-07** — `e6888aa5…` → `a951e527…` → `42774589…` (Step 12 chunks 1 and 3) → `e19b0b3c…`
+> (chunk 7b) — **and the protocol went to v15 at chunk 3 on the first of those days.** **The
 > daemon-backed ticks below are therefore historical: they record a real pass on a real day
 > against a build that no longer exists.** They are not evidence about the current build and must
 > not be cited as such. This does **not** reopen Step 11, which closed on the strength of them

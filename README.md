@@ -21,9 +21,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Steps 1–11 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
 > human checklist walked in full, and its verification gate re-run against the current XPC
-> protocol. **Step 12 — device-loss handling — is IN PROGRESS: chunks 0–6 of 8 are done**, and
-> chunk 7 (the mutation-round checklist, the physical-unplug hardware gate, and all four hardware
-> gates re-run) is not. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> protocol. **Step 12 — device-loss handling — is IN PROGRESS: chunks 0–6 of 8 are done, and
+> chunk 7 is under way.** Chunk 7 is the mutation round, the human checklist, the physical-unplug
+> hardware gate and all four hardware gates re-run; **7a (the increment gate) and 7b (the mutation
+> round) are done, 7c–7e are not.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >
@@ -37,7 +38,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1288 tests / 152 suites / 0 failures**, zero source warnings from
+> Current verified state: **1297 tests / 153 suites / 0 failures**, zero source warnings from
 > three clean builds, **13/13** gate clients type-checking, XPC protocol v15. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.

@@ -646,13 +646,24 @@ public extension RetentionTestEngine {
     /// - Parameter operation: `.readError` when the failing call was a read, `.writeError`
     ///   when it was a write. Used for `shortTransfer`, which is neutral about direction.
     ///
-    /// - Note: `shortTransfer` stays a **block failure**, deliberately, and it is the one
-    ///   classification here that is not yet settled by measurement. A device that vanishes
-    ///   mid-transfer could plausibly produce a short read with no `errno` before it produces
-    ///   `ENXIO`, in which case the first chunk of a loss would be recorded as one bad range and
-    ///   the second call would end the run. That is a single spurious range rather than two
-    ///   million, so it is not the defect Step 12 exists to fix — but it is unverified, and
-    ///   Step 12's hardware gate is what can answer it.
+    /// - Note: `shortTransfer` stays a **block failure**, deliberately. The *decision* is pinned
+    ///   by `ShortTransferIsNotDeviceLossTests`; the *physics* behind it is still one hardware
+    ///   gate short, and the two should not be confused.
+    ///
+    ///   Until Step 12's mutation round, neither was pinned. Moving this case into `.deviceLost`
+    ///   passed all 1,288 tests, because `InMemoryBlockDevice` — the only device the engine tests
+    ///   run against — had no hook that could produce a short transfer, so nothing could reach
+    ///   this line with one. `FileDescriptorBlockDeviceTests` pins what *produces* a short
+    ///   transfer and never what is *done* with one. The fake now has `injectShortRead` and
+    ///   `injectShortWrite`, and the gap is closed on the decision.
+    ///
+    ///   What remains open: a device that vanishes mid-transfer could plausibly produce a short
+    ///   read with no `errno` before it produces `ENXIO`, in which case the first chunk of a loss
+    ///   is recorded as one bad range and the next call ends the run. That sequence is now a
+    ///   test — `aShortReadFollowedByTheDeviceLeavingCostsOneRangeAndStillEndsTheRun` — so its
+    ///   cost is known and bounded: a single spurious range rather than two million, which is not
+    ///   the defect Step 12 exists to fix. Whether a real drive does it is what the hardware gate
+    ///   can answer, and only it.
     private static func classify(_ error: DeviceIOError,
                                  operation: BlockFailureKind) throws -> ChunkFailureClassification {
         switch error {

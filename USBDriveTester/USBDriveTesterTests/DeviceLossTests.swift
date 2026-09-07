@@ -379,6 +379,130 @@ struct DeviceLossRunTests {
     }
 }
 
+// MARK: - What is *not* device loss
+
+/// **Found by Step 12's mutation round, not by design.** Moving `.shortTransfer` out of the
+/// block-failure arm of `RetentionTestEngine.classify` and into `.deviceLost` passed all 1,288
+/// tests. The engine's treatment of a short transfer was unpinned in either direction.
+///
+/// The reason it was unpinned is worth keeping, because it is a shape that will recur: nothing
+/// could *drive* a short transfer through the engine. `FileDescriptorBlockDeviceTests` pins that
+/// running off the end of a backing store **produces** a `.shortTransfer`, and that is a fact
+/// about the descriptor; `InMemoryBlockDevice` — the only device the engine tests run against —
+/// had no hook that could produce one, because the case was reserved for the real device in Step
+/// 2 and never revisited. **The gap was in the fake, not in the engine**, which is why the fix is
+/// two lines of hook and this file.
+///
+/// The classification itself is `RetentionTestEngine.classify`'s stated reading: the transfer was
+/// legal and it did not complete, so it is the drive's failure. What is still open — and stays
+/// open here, because no host-only test can close it — is whether a *real* de-enumerating drive
+/// produces a short read before it produces `ENXIO`. That is Step 12's hardware gate, and the
+/// `- Note:` on `classify` says so. These tests pin the decision, not the physics.
+struct ShortTransferIsNotDeviceLossTests {
+
+    /// **The load-bearing test**, in the same shape as
+    /// `atOneOffsetABadBlockIsRecordedAndALostDeviceIsNot`: the same offset on the same fixture,
+    /// three ways. A bad block and a short read must agree with each other, and both must differ
+    /// from an absent device — in the outcome *and* in what is recorded against the drive.
+    ///
+    /// Pairing it with the bad block rather than only asserting `.completed` is what makes it a
+    /// test of the *classification* rather than of the engine's willingness to continue.
+    @Test func atOneOffsetAShortReadIsRecordedTheWayABadBlockIsAndALostDeviceIsNot() throws {
+        let faultBlocks = LossFixture.startBlock(ofChunk: 0) ..< LossFixture.blocksPerChunk
+
+        let badBlock = try LossFixture.device()
+        badBlock.injectReadFault(blocks: faultBlocks)
+        let (bad, _) = try LossFixture.run(badBlock)
+
+        let short = try LossFixture.device()
+        short.injectShortRead(blocks: faultBlocks, transferring: 1_024)
+        let (cut, cutObserver) = try LossFixture.run(short)
+
+        let lost = try LossFixture.device()
+        lost.injectDeviceLoss()
+        let (gone, _) = try LossFixture.run(lost)
+
+        // A short read reads exactly like a bad block: recorded once, run carries on (FR-FAIL-3).
+        #expect(cut.outcome == bad.outcome)
+        #expect(cut.outcome == .completed)
+        #expect(cut.chunksProcessed == UInt64(LossFixture.chunkCount))
+        #expect(cut.failures.totalRangeCount == bad.failures.totalRangeCount)
+        #expect(cut.failures.totalRangeCount == 1)
+        #expect(cutObserver.failures.count == 1)
+
+        // And nothing like an absent device.
+        #expect(cut.outcome != gone.outcome)
+        #expect(cut.failures.totalRangeCount != gone.failures.totalRangeCount)
+        if case .deviceLost = cut.outcome {
+            Issue.record("a short transfer must never end a run as device loss")
+        }
+    }
+
+    /// The direction survives the classification. `classify` takes `operation:` **only** for
+    /// `shortTransfer`, which is neutral about direction — so if that parameter were ignored, or
+    /// threaded from the wrong call site, every short transfer would be recorded as a read
+    /// failure and this is the one test that would notice.
+    @Test func aShortWriteBackIsRecordedAsAWriteFailureAndNotAReadOne() throws {
+        let faultBlocks = LossFixture.startBlock(ofChunk: 2) ..< LossFixture.startBlock(ofChunk: 3)
+
+        let device = try LossFixture.device()
+        device.injectShortWrite(blocks: faultBlocks, transferring: 1_024)
+
+        let (summary, _) = try LossFixture.run(device)
+
+        #expect(summary.outcome == .completed)
+        #expect(summary.chunksProcessed == UInt64(LossFixture.chunkCount))
+
+        let ranges = summary.failures.ranges
+        #expect(ranges.count == 1)
+        #expect(ranges.first?.kind == .writeError)
+        #expect(ranges.first?.startBlock == LossFixture.startBlock(ofChunk: 2))
+    }
+
+    /// A short read that is genuinely followed by the device going — the sequence
+    /// `classify`'s `- Note:` says is plausible on real hardware. One spurious range and then the
+    /// run ends, which is the behaviour that note describes and accepts: **one** bad range, not
+    /// two million, and the loss still ends the run.
+    ///
+    /// This is what makes the open question a bounded one. If the hardware gate shows a real
+    /// drive does this, the cost is already known and already pinned here.
+    @Test func aShortReadFollowedByTheDeviceLeavingCostsOneRangeAndStillEndsTheRun() throws {
+        let device = try LossFixture.device()
+        device.injectShortRead(blocks: LossFixture.startBlock(ofChunk: 0)
+                                       ..< LossFixture.blocksPerChunk,
+                               transferring: 1_024)
+        // Chunk 0's read is the only call before the loss: it fails short, is recorded, and the
+        // run moves to chunk 1, whose read finds the device gone.
+        device.injectDeviceLoss(afterCalls: 1)
+
+        let (summary, _) = try LossFixture.run(device)
+
+        #expect(summary.outcome == .deviceLost(atBlock: LossFixture.startBlock(ofChunk: 1),
+                                               phase: .reading))
+        #expect(summary.failures.totalRangeCount == 1, "the short read, and nothing after it")
+        #expect(summary.failures.ranges.first?.startBlock == 0)
+        #expect(!summary.isComplete)
+    }
+
+    /// The pure classification, stated without an engine run, so a future reader can see the
+    /// decision rather than infer it from a summary. `classify` is private, so this asserts the
+    /// same thing through the smallest run that reaches it — and pins that the short transfer is
+    /// recorded at all, which an engine that swallowed it would not do.
+    @Test func aShortTransferIsRecordedAgainstTheDriveRatherThanSwallowed() throws {
+        let device = try LossFixture.device()
+        device.injectShortRead(blocks: LossFixture.startBlock(ofChunk: 4)
+                                       ..< LossFixture.startBlock(ofChunk: 5),
+                               transferring: 0)
+
+        let (summary, observer) = try LossFixture.run(device)
+
+        #expect(summary.failures.failedBlockCount == Int(LossFixture.blocksPerChunk))
+        #expect(observer.failures.count == 1,
+                "the observer is told, the way it is told about any failing range")
+        #expect(summary.outcome == .completed)
+    }
+}
+
 // MARK: - What the outcome says
 
 struct DeviceLossOutcomeTests {

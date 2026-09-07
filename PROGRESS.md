@@ -21,7 +21,9 @@ could drift; the commit is the immutable, greppable one.
 
 ## Step 12 — Device-loss handling (hot-unplug / de-enumeration mid-run). **IN PROGRESS**
 
-> **Cold start? Step 12 began 2026-09-05.** Chunks 0–6 of 8 are done; **chunk 7 is not**.
+> **Cold start? Step 12 began 2026-09-05.** Chunks 0–6 of 8 are done, and **chunk 7 is under
+> way**: 7a (the full increment gate) and 7b (the mutation round) are done; **7c, 7d and 7e are
+> not**.
 > Step 11 closed 2026-09-05 and its account was archived to
 > [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
 > is current as of **2026-09-07**.
@@ -59,16 +61,16 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-07, at Step 12 chunk 6
+### Current state — 2026-09-07, at Step 12 chunk 7b
 
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
-| **Verified** | **1288 tests, 0 failures, 152 suites** (floor `scripts/.test-floor` = 1288), run green 2026-09-07 at chunk 6. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29. Build figures re-derived 2026-09-07: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
-| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunks 2, 4 and 5 did not move it, being app-target only — **and this row predicted that chunk 4 would**, which was wrong: chunk 4 is the state machine and the wind-down, entirely inside the app, and chunk 5 is the report. Re-derived at chunk 5 and again at chunk 6 (2026-09-07), unchanged both times. The four gates below lapsed at chunk 1 and have not compounded since. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. **Chunk 6 was app-target too, as this row predicted** — the first prediction in this row that held. The next thing that can move it is chunk 7 |
+| **Verified** | **1297 tests, 0 failures, 153 suites** (floor `scripts/.test-floor` = 1297), run green 2026-09-07 at chunk 7b. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29; **chunk 7b added 9 in 1** — `ShortTransferIsNotDeviceLossTests` (4) plus 5 into `InMemoryBlockDeviceTests`. **13/13** gate clients type-check. The full increment gate — DerivedData wiped before *each* of `build.sh Debug`, `build.sh Release` and `test.sh` — was run at 7a and **re-run at 7b, because 7b moved the helper source hash and 7a's figures were recorded against the old one**; see the chunk 7 section |
+| **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, **moved 2026-09-07 by chunk 7b**. The trail: `e6888aa5…` → `a951e527…` (chunk 1) → `42774589…` (chunk 3) → **`e19b0b3c…`** (chunk 7b). Chunks 2, 4, 5 and 6 did not move it, being app-target only — **and this row predicted chunk 4 would**, which was wrong, then predicted chunk 6 would not, which held, then predicted chunk 7 could, which held. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. ⚠️ **What moved it at 7b is a test fake**: `Core/InMemoryBlockDevice.swift` is a membership exception in `project.pbxproj` — built into `USBDriveTesterTests` **as well as** the helper — so its two new hooks link into the daemon binary (`nm` finds `injectShortRead` and `injectShortWrite` in it) even though nothing outside the test target ever instantiates the class. The hash therefore moved for a change that **cannot** alter what the running daemon does. That is not a reason to discount it: the recipe is defined by path, the binary really is different, and the four gates below had already lapsed at chunk 1, so 7b's move costs nothing that was not owed. It is a reason not to be surprised by it |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
-| **Installed app** | `/Applications/USBDriveTester.app`, Debug. ⚠️ **Its binaries are dated 2026-09-06 08:11, not 2026-09-04 as this row said until 2026-09-07** — and either way it **predates chunk 6 entirely**, so it is not the current app and a reinstall is required before any chunk 7 gate. The *helper* source hash has not moved since chunk 3, so the installed daemon may already be protocol-correct; that cannot be established by reading the binary, and each gate script checks the live daemon's version itself. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug. ⚠️ **Its binaries are dated 2026-09-06 08:11, not 2026-09-04 as this row said until 2026-09-07** — and either way it **predates chunk 6 entirely**, so it is not the current app and a reinstall is required before any chunk 7 gate. ⚠️ **The helper source hash moved again at chunk 7b (2026-09-07)** — the row above said until then that it had not moved since chunk 3, which was the reason for supposing the installed daemon might already be protocol-correct. That supposition is withdrawn: the installed daemon predates both the hash move and chunk 6. Whether it is protocol-correct cannot be established by reading the binary anyway, and each gate script checks the live daemon's version itself — but do not start 7d assuming a reinstall is optional. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
 | **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **three declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4), the identity of the device-loss SF Symbol (chunk 5), and **`RunControllerWiring`'s `onDeviceLost:` closure** (chunk 6) — the composition root, where a decision has no cover but a person at the keyboard. **And one thing only a person can see at all: the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. Nothing else — Step 11 closed with its checklist complete, and chunks 0–6 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
@@ -108,7 +110,73 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `1de0d53`. See below. Helper hash **unmoved** — app target only |
-| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
+| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** 7c (checklist), 7d (install + the four hardware gates) and 7e (the physical unplug) are not |
+
+### Chunk 7 — the gate, the mutation round, and the gap that was in the fake
+
+Split into five: **7a** the full increment gate, **7b** the mutation round, **7c** the human
+checklist, **7d** install plus the four lapsed hardware gates, **7e** the physical unplug. 7a and
+7b are done.
+
+**7a** (`76f5ad9`) ran the gate in its full form — DerivedData wiped before *each* of `build.sh
+Debug`, `build.sh Release` and `test.sh`, rather than once before all three. It also found that
+**Release's `SwiftCompile` task count cannot detect a cached build**: WMO emits one task per module,
+so 2 is what Release reports whether it compiled seventy files or none. Counting distinct project
+sources works for both configurations — 70 of 70 in each. Recipe in `BUILD-PLAN.md`.
+
+**7b** mutated chunks 1–3's surface — the `ENXIO` discriminator, `DeviceUnderTest.wasLost`, and the
+v15 wire. **Twelve mutations, eleven killed as declared, one unexpected survivor.**
+
+The survivor, **m5**: moving `.shortTransfer` from the block-failure arm of
+`RetentionTestEngine.classify` into `.deviceLost` passed all 1,288 tests. So did the reverse
+reading — nothing pinned the engine's treatment of a short transfer **in either direction**.
+
+**The gap was in the test double, not in the tests.** `InMemoryBlockDevice` is the only device the
+engine tests run against, and it had four fault hooks — read error, write error, silent corruption,
+device loss — and **none that could produce a short transfer**, because Step 2 reserved that case
+for the real device and nothing revisited it. `FileDescriptorBlockDeviceTests` pins what *produces*
+a short transfer, which is a fact about the descriptor and says nothing about what the engine does
+with one. No test could have been written to close this without first giving the fake the
+capability, which is why a round that asks *"is this line load-bearing?"* found it and eight steps
+of test-writing did not. Written up as a `CONSTRAINTS.md` §3 lesson.
+
+The fix is `injectShortRead(blocks:transferring:)` and `injectShortWrite(blocks:transferring:)`,
+which deliver or persist their prefix and *then* throw — as the real device does, where
+`transferred` bytes are already in the caller's buffer when the guard fires. Nine tests: four in
+`ShortTransferIsNotDeviceLossTests`, whose load-bearing one runs the same offset on the same fixture
+**three ways** — bad block, short read, absent device — and asserts the first two agree and both
+differ from the third; five in `InMemoryBlockDeviceTests` on the fake's own fidelity. Re-running m5
+against them now fails all four engine tests, with twenty issues.
+
+**Two things this leaves standing.** The physics is still open: whether a real de-enumerating drive
+produces a short read before it produces `ENXIO` is what 7e can answer and nothing here can. And the
+cost if it does is now itself a test — one spurious range and the run still ends — so the open
+question is bounded rather than unbounded.
+
+⚠️ **7b moves the helper source hash**, and therefore **7a's gate figures lapsed with it**. The gate
+was re-run at 7b's end rather than carried forward: 7a's numbers were recorded against `42774589…`
+at `9d0a1e0`, and this is exactly the shape of stale claim this project has paid for eight times.
+What moved the hash is a test fake that the daemon links but never instantiates — see the Helper row
+above for why that is bookkeeping rather than a behaviour change, and why it is recorded anyway.
+
+**The re-run, 2026-09-07, at helper hash `e19b0b3c…`, protocol v15** — DerivedData wiped before each
+of the three:
+
+| | exit | `SwiftCompile` tasks | project sources named | source warnings |
+|---|---|---|---|---|
+| `build.sh Debug` | 0 | 92 | **70 of 70** | 0 |
+| `build.sh Release` | 0 | 2 (WMO — one per module) | **70 of 70** | 0 |
+| `test.sh` | 0 | 182 | — | 0 |
+
+**1297 tests / 153 suites / 0 failures**, floor 1297. **13/13** gate clients type-check. The only
+`warning:` lines in any of the three logs are `appintentsmetadataprocessor`'s "No AppIntents.framework
+dependency", a toolchain notice rather than a source warning. Every figure is identical to 7a's,
+which is the expected result and not a reason to skip the run: 7b edited existing sources and added
+no new ones to either target, so a *changed* count would have been the finding.
+
+**⚠️ What invalidates this**: any source change in 7c, 7d or 7e. 7c is a document, 7d installs and
+runs scripts, 7e is a measurement — none should touch Swift. If one does, the gate is re-run again
+before Step 12 closes.
 
 ### Chunk 6 — the run that said nothing now says something, and the list stops showing a drive that left
 

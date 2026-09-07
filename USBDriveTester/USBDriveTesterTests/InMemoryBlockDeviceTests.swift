@@ -107,6 +107,107 @@ struct InMemoryBlockDeviceTests {
         #expect(block(3, of: readBack) == block(3, of: written))
     }
 
+    // MARK: Fault injection — short transfer (Step 12, mutation round)
+
+    /// A short read **delivers its prefix** and then throws.
+    ///
+    /// The prefix is the half that matters. `FileDescriptorBlockDevice` copies `transferred`
+    /// bytes into the caller's buffer before its guard fires, so a fake that threw with the
+    /// buffer untouched would be a fake the real device does not resemble — and code that read
+    /// the tail of a partly filled buffer would pass here and fail on hardware.
+    @Test func aShortReadFillsWhatItTransferredAndThenThrows() throws {
+        let blockSize = 512
+        let device = InMemoryBlockDevice(logicalBlockSize: blockSize, blockCount: 16)
+        let pattern = [UInt8](repeating: 0x5A, count: blockSize * 4)
+        try pattern.withUnsafeBytes { _ = try device.write($0, atByteOffset: 0) }
+
+        device.injectShortRead(blocks: 0 ..< 4, transferring: blockSize * 2)
+
+        var buffer = [UInt8](repeating: 0, count: blockSize * 4)
+        #expect(throws: DeviceIOError.shortTransfer(atByteOffset: 0,
+                                                    expected: blockSize * 4,
+                                                    actual: blockSize * 2)) {
+            try buffer.withUnsafeMutableBytes { try device.read(into: $0, atByteOffset: 0) }
+        }
+
+        #expect(buffer[..<(blockSize * 2)].allSatisfy { $0 == 0x5A }, "the prefix was delivered")
+        #expect(buffer[(blockSize * 2)...].allSatisfy { $0 == 0 }, "and nothing beyond it")
+    }
+
+    /// A short write **persists its prefix** — the half-written chunk that makes an interrupted
+    /// write-back the phase with something at stake (`DeviceLossPhase.writingBack`).
+    ///
+    /// Deliberately the opposite of `writeFaultThrowsAndLeavesStoreUnchanged` above: a refused
+    /// write stores nothing, a short write stores some. Both throw, and treating them alike is
+    /// the mistake this pins against.
+    @Test func aShortWritePersistsWhatItTransferredAndThenThrows() throws {
+        let blockSize = 512
+        let device = InMemoryBlockDevice(logicalBlockSize: blockSize, blockCount: 16)
+        device.injectShortWrite(blocks: 0 ..< 4, transferring: blockSize)
+
+        let payload = [UInt8](repeating: 0xAB, count: blockSize * 4)
+        #expect(throws: DeviceIOError.shortTransfer(atByteOffset: 0,
+                                                    expected: blockSize * 4,
+                                                    actual: blockSize)) {
+            try payload.withUnsafeBytes { try device.write($0, atByteOffset: 0) }
+        }
+
+        let stored = device.snapshot()
+        #expect(stored[..<blockSize].allSatisfy { $0 == 0xAB }, "block 0 was written")
+        #expect(stored[blockSize ..< blockSize * 4].allSatisfy { $0 == 0 },
+                "blocks 1..<4 were not")
+    }
+
+    /// A request that misses the faulted range completes, and one at or past the request's own
+    /// length is not short at all — `shortTransfer(expected: n, actual: n)` would be an error
+    /// that contradicts its own name.
+    @Test func aTransferThatMovedEverythingIsNotShort() throws {
+        let blockSize = 512
+        let device = InMemoryBlockDevice(logicalBlockSize: blockSize, blockCount: 16)
+        device.injectShortRead(blocks: 8 ..< 10, transferring: blockSize * 99)
+
+        // Overlaps the fault, but `transferring:` exceeds the request: it completes.
+        var hit = [UInt8](repeating: 0, count: blockSize)
+        let hitMoved = try hit.withUnsafeMutableBytes {
+            try device.read(into: $0, atByteOffset: UInt64(8 * blockSize))
+        }
+        #expect(hitMoved == blockSize)
+
+        // Misses the fault entirely.
+        var miss = [UInt8](repeating: 0, count: blockSize)
+        let missMoved = try miss.withUnsafeMutableBytes {
+            try device.read(into: $0, atByteOffset: 0)
+        }
+        #expect(missMoved == blockSize)
+    }
+
+    /// The two hooks are independent: a short-read fault does not make writes short, which is
+    /// what lets the engine tests drive the read path and the write path separately and see
+    /// `shortTransfer` recorded under the right ``BlockFailureKind``.
+    @Test func aShortReadFaultDoesNotShortenWrites() throws {
+        let blockSize = 512
+        let device = InMemoryBlockDevice(logicalBlockSize: blockSize, blockCount: 16)
+        device.injectShortRead(blocks: 0 ..< 2, transferring: blockSize)
+
+        let payload = [UInt8](repeating: 0xC3, count: blockSize * 2)
+        let moved = try payload.withUnsafeBytes { try device.write($0, atByteOffset: 0) }
+        #expect(moved == blockSize * 2)
+    }
+
+    /// Device loss beats a short transfer, because on the descriptor it does: a `pread` that
+    /// returns `-1`/`ENXIO` never reaches the "did it move everything?" guard.
+    @Test func anAbsentDeviceIsLostRatherThanShort() throws {
+        let blockSize = 512
+        let device = InMemoryBlockDevice(logicalBlockSize: blockSize, blockCount: 16)
+        device.injectShortRead(blocks: 0 ..< 2, transferring: blockSize)
+        device.injectDeviceLoss()
+
+        var buffer = [UInt8](repeating: 0, count: blockSize * 2)
+        #expect(throws: DeviceIOError.deviceLost(atByteOffset: 0, length: blockSize * 2)) {
+            try buffer.withUnsafeMutableBytes { try device.read(into: $0, atByteOffset: 0) }
+        }
+    }
+
     // MARK: Alignment / range guards
 
     @Test func misalignedOffsetIsRejected() throws {

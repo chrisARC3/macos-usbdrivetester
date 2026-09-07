@@ -12,6 +12,14 @@
 //  take a block range; `injectDeviceLoss()` takes none, because the device leaving the bus is
 //  not a property of any range. That distinction is the one the product got wrong on 2026-08-06.
 //
+//  Step 12's mutation round added a fifth and a sixth — `injectShortRead` and `injectShortWrite`
+//  — which are faults at a place again, but ones that **partly succeed**. They exist because a
+//  mutation moving `.shortTransfer` from block-failure to device-loss in
+//  `RetentionTestEngine.classify` survived all 1,288 tests. Nothing could drive a short transfer
+//  through the engine: the only device that could produce one was `FileDescriptorBlockDevice`,
+//  and its own tests pin what *produces* a short transfer, never what the engine *does* with one.
+//  The gap was in this fake, not in the engine.
+//
 //  Not thread-safe: a run drives one device from a single task, matching the
 //  one-chunk-in-flight model (NFR-REL-4). Pure Foundation; no privilege.
 //
@@ -31,6 +39,13 @@ public final class InMemoryBlockDevice: RawBlockDevice {
     private var readFaults: [Range<UInt64>] = []
     private var writeFaults: [Range<UInt64>] = []
     private var corruptionFaults: [Range<UInt64>] = []
+
+    /// Block ranges whose reads and writes move only part of what was asked and then throw
+    /// ``DeviceIOError/shortTransfer``. Kept apart from the three above because a short transfer
+    /// is not a refusal: bytes really do move before it throws, and a test that did not see them
+    /// move would be testing a fake the real device does not resemble.
+    private var shortReadFaults: [ShortTransferFault] = []
+    private var shortWriteFaults: [ShortTransferFault] = []
 
     /// Calls still to succeed before the device is lost, or `nil` if no loss is pending.
     ///
@@ -62,6 +77,18 @@ public final class InMemoryBlockDevice: RawBlockDevice {
         }
 
         let start = Int(offset)
+
+        // A short read delivers its prefix and *then* throws, exactly as the real one does: there,
+        // `transferred` bytes are already in the caller's buffer when the guard at the bottom of
+        // the loop fires. A fake that threw without copying would let a bug that reads the
+        // untouched tail of the buffer pass here and fail on hardware.
+        if let actual = shortTransferBytes(shortReadFaults, offset: offset, count: count) {
+            storage.withUnsafeBytes { raw in
+                buffer.baseAddress!.copyMemory(from: raw.baseAddress! + start, byteCount: actual)
+            }
+            throw DeviceIOError.shortTransfer(atByteOffset: offset, expected: count, actual: actual)
+        }
+
         storage.withUnsafeBytes { raw in
             buffer.baseAddress!.copyMemory(from: raw.baseAddress! + start, byteCount: count)
         }
@@ -80,6 +107,17 @@ public final class InMemoryBlockDevice: RawBlockDevice {
         }
 
         let start = Int(offset)
+
+        // A short write *persists* its prefix and then throws — the half-written chunk that makes
+        // an interrupted write-back the phase that matters (see `DeviceLossPhase.writingBack`).
+        // No corruption is applied: `applyCorruption` models a write that reported success.
+        if let actual = shortTransferBytes(shortWriteFaults, offset: offset, count: count) {
+            storage.withUnsafeMutableBytes { raw in
+                (raw.baseAddress! + start).copyMemory(from: buffer.baseAddress!, byteCount: actual)
+            }
+            throw DeviceIOError.shortTransfer(atByteOffset: offset, expected: count, actual: actual)
+        }
+
         storage.withUnsafeMutableBytes { raw in
             (raw.baseAddress! + start).copyMemory(from: buffer.baseAddress!, byteCount: count)
         }
@@ -102,6 +140,33 @@ public final class InMemoryBlockDevice: RawBlockDevice {
     /// Make writes overlapping `blocks` succeed but silently corrupt one bit per
     /// overlapping block, so a subsequent read-verify mismatches.
     public func injectSilentCorruption(blocks: Range<UInt64>) { corruptionFaults.append(blocks) }
+
+    /// Make reads overlapping `blocks` deliver only their first `bytes` bytes and then throw
+    /// ``DeviceIOError/shortTransfer``.
+    ///
+    /// Not the same fault as ``injectReadFault(blocks:)`` and not a milder version of it. A read
+    /// fault is the device refusing; a short read is the device agreeing and running out. The
+    /// engine must record both against the drive and neither as the drive's absence — which is
+    /// the thing nothing pinned until Step 12's mutation round asked.
+    ///
+    /// - Parameters:
+    ///   - blocks: which block range fires the fault, matched the same way as the other three.
+    ///   - bytes: how much of the request completes. Clamped to the request's length, so a fault
+    ///     declared wider than the request cannot claim more bytes moved than were asked for; at
+    ///     or above that length the request simply completes, because a transfer that moved
+    ///     everything is not short. Real hardware gives back whole blocks, but nothing here
+    ///     requires that: ``DeviceIOError/shortTransfer`` does not, so neither does the fake.
+    public func injectShortRead(blocks: Range<UInt64>, transferring bytes: Int) {
+        precondition(bytes >= 0, "bytes must not be negative")
+        shortReadFaults.append(ShortTransferFault(blocks: blocks, bytes: bytes))
+    }
+
+    /// Make writes overlapping `blocks` persist only their first `bytes` bytes and then throw
+    /// ``DeviceIOError/shortTransfer``. See ``injectShortRead(blocks:transferring:)``.
+    public func injectShortWrite(blocks: Range<UInt64>, transferring bytes: Int) {
+        precondition(bytes >= 0, "bytes must not be negative")
+        shortWriteFaults.append(ShortTransferFault(blocks: blocks, bytes: bytes))
+    }
 
     /// Take the device off the bus: from then on **every** read and write throws
     /// ``DeviceIOError/deviceLost``, whatever it addresses (Step 12, FR-DEV-8).
@@ -154,6 +219,29 @@ public final class InMemoryBlockDevice: RawBlockDevice {
             return
         }
         throw DeviceIOError.deviceLost(atByteOffset: offset, length: count)
+    }
+
+    /// A request overlapping `blocks` moves `bytes` bytes and stops.
+    private struct ShortTransferFault {
+        let blocks: Range<UInt64>
+        let bytes: Int
+    }
+
+    /// How many bytes of this request complete before it throws, or `nil` if it completes.
+    ///
+    /// The first overlapping fault wins, matching ``intersects(_:offset:count:)``, which stops at
+    /// the first overlap too. Returns `nil` when the clamped count is the whole request, so
+    /// `transferring:` at or above the request length is a complete transfer rather than a
+    /// `shortTransfer(expected: n, actual: n)` — an error that would be a lie about itself.
+    private func shortTransferBytes(_ faults: [ShortTransferFault],
+                                    offset: UInt64, count: Int) -> Int? {
+        guard !faults.isEmpty else { return nil }
+        let requested = blockRange(offset: offset, count: count)
+        for fault in faults where fault.blocks.overlaps(requested) {
+            let actual = min(fault.bytes, count)
+            return actual < count ? actual : nil
+        }
+        return nil
     }
 
     /// Does the byte request `[offset, offset+count)` overlap any block range in
