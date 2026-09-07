@@ -62,10 +62,29 @@ scratch drive**.
   /usr/sbin/diskutil list
   ```
 
+* **The 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`** — two 60 MB exFAT
+  slices, role `multislice`. Needed by **4.9 only**. Contents expendable; never a retention target.
+
 * **The app installed and the daemon kickstarted** — chunk 7d. ⚠️ **The helper source hash moved at
   chunk 7b**, so the installed daemon is stale for certain. Copying files does not reload it: two
   hardware gate runs on 2026-08-18 measured stale code while returning plausible numbers. Verify the
-  reinstall took with `nm -U`, never by timestamp.
+  reinstall took with `nm -U`, never by timestamp:
+
+  ```bash
+  nm -U /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper | grep -c injectShort
+  ```
+
+  **2** means the installed helper contains chunk 7b's source; **0** means it does not, whatever
+  the timestamps say. Then, because copying files never restarts a running daemon:
+
+  ```bash
+  sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
+  ```
+
+  ⚠️ **On 2026-09-07 the running daemon was found to have started 2026-09-04 17:01:05 — before
+  Step 12's first commit.** It had served the whole of chunks 4–6 on protocol v14 while the app
+  was at v15, and the 2026-09-06 install had not restarted it. Check the daemon's age, not the
+  bundle's: `ps -o lstart= -p "$(pgrep -f USBDriveTester.Helper)"`.
 
 * **A log stream, left running throughout.** Most items here are read off a **log line**, not off
   the look of a dialog:
@@ -213,32 +232,46 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
 7. A report appears. **Its account says nothing was in flight, and it does NOT warn that a chunk may
    be half-written.** This is chunk 2 item 5's subject — check it here and record it there too.
 8. Discovery re-runs; the drive leaves the list.
-9. **⚠️ OWED, AND BLOCKED ON A DECISION: the multi-slice idempotency check.** One unplug is
-   several events — a partitioned drive fires `DADiskDisappeared` once for the whole disk **and once
-   per slice** (measured 2026-09-05; BUILD-PLAN records three notifications for a two-partition
-   drive). Chunk 4 defends against that at three levels, and the middle one is not redundant: a
-   mutation building one wind-down per callback armed three deadlines and **survived the whole
-   suite**, because the test bench held only the latest. `threeCallbacksFromOneUnplugArmOneDeadline`
-   closed it in the bench. On real hardware it is unchecked.
+9. **The multi-slice idempotency check — one unplug, one wind-down.** A partitioned drive fires
+   `DADiskDisappeared` **once for the whole disk and once per slice** (measured 2026-09-05), so one
+   removal is several events. Chunk 4 defends against that at three levels, and the middle one is
+   not redundant: a mutation building one wind-down per callback armed three deadlines and
+   **survived the whole suite**, because the test bench held only the latest.
+   `threeCallbacksFromOneUnplugArmOneDeadline` closed it in the bench; on hardware it is unchecked.
 
-   **It cannot be walked with the drives currently attached.** The only partitioned drive here is
-   the **4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`), which holds data, and starting a run on it
-   writes to it — the 1 TB scratch T5 `12345686DAA9` is the only write-gate target in this project
-   and it has **one** volume. Pausing does not avoid the write: the run has already read and written
-   back whole chunks by the time it can be paused.
+   **Fixture: the 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`, repartitioned
+   into two 60 MB exFAT slices** (`Slice_A`, `Slice_B`). User decision **2026-09-07**: the
+   designated scratch T5 has one volume, and the only other partitioned drive here is the 4 TB
+   T5 EVO, which holds data a run would write over. Declared as role `multislice` in
+   `scripts/lib/device-identity.sh`; resolve it by **serial**, never by node.
 
-   Three ways out, and the choice is the user's, not this checklist's:
+   ⚠️ **The thumb de-enumerated during its own repartition, 2026-09-07 10:44, and needs a physical
+   replug.** `diskutil partitionDisk` wrote the GPT and both slices — `disk4`, `disk4s1` and
+   `disk4s2` all appear in the StorageKit log — and the storage stack then vanished mid-format
+   while the **USB device stayed enumerated in IOKit with no `IOMedia` under it**. `diskutil` hung
+   and was killed. Before walking this item:
 
-   * **Repartition the 125.8 MB UDisk thumb** into two volumes and use it as the fixture. Smallest
-     blast radius; needs an explicit go-ahead because it erases that drive.
-   * **Repartition the 1 TB scratch T5.** Destroys `fill.bin` — 999.9 GB, restored 2026-09-04 and
-     re-verified — which several other gates depend on. Expensive.
-   * **Accept it as uncovered on hardware** and record it in *What has no automated cover* with the
-     bench test as the only evidence. Defensible: three independent defences, one of them pinned by
-     a test written specifically for the multi-callback case.
+   ```bash
+   /usr/sbin/diskutil list external
+   ```
 
-   **Record the decision and its date here before Step 12 closes**, whichever it is. An item left
-   silently unwalked is the shape this project has paid for.
+   Two 60 MB slices means the geometry survived. **If the drive comes back with one slice or none,
+   re-run the repartition** — the thumb is expendable and the command is in `progress/step-12.md`.
+
+   The check itself:
+
+   1. Select the thumb in the app **by serial**, start a run, pause it, and pull the cable.
+   2. Exactly **one** `the drive under test left the machine` line, and **one** `run ended`.
+   3. Exactly **one** report.
+
+   ⚠️ **Not a throughput or retention reading.** 125.8 MB says nothing about either, and the thumb
+   holds no `/dev/urandom` fill, so a placement could land on all-zero space and report a clean
+   pass having proved nothing. It exists to be unplugged.
+
+   **The 2026-09-07 accident is itself a confirmation of the premise**, at the StorageKit layer
+   rather than DiskArbitration's: three `Operation = Disappear` notifications — `disk4s1`,
+   `disk4s2`, `disk4` — for one drive going away, which is exactly the count BUILD-PLAN records
+   for a two-partition drive. That is the fixture doing its job before it was asked to.
 
 **Walked:** ____________  **Against build:** ____________
 

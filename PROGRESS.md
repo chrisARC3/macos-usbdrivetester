@@ -23,7 +23,9 @@ could drift; the commit is the immutable, greppable one.
 
 > **Cold start? Step 12 began 2026-09-05.** Chunks 0–6 of 8 are done, and **chunk 7 is under
 > way**: 7a (the full increment gate), 7b (the mutation round) and 7c (the human checklist) are
-> done; **7d and 7e are not**. 7e is what walks the checklist.
+> done; **7d is PART DONE and 7e is not**. The app is reinstalled and verified; **the daemon
+> kickstart and one physical replug are owed and both need the user** — see 7d below. 7e walks
+> the checklist.
 > Step 11 closed 2026-09-05 and its account was archived to
 > [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
 > is current as of **2026-09-07**.
@@ -65,7 +67,7 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-07, at Step 12 chunk 7c
+### Current state — 2026-09-07, at Step 12 chunk 7d (part done)
 
 | | |
 |---|---|
@@ -74,8 +76,8 @@ their reasoning.
 | **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, **moved 2026-09-07 by chunk 7b**. The trail: `e6888aa5…` → `a951e527…` (chunk 1) → `42774589…` (chunk 3) → **`e19b0b3c…`** (chunk 7b). Chunks 2, 4, 5 and 6 did not move it, being app-target only — **and this row predicted chunk 4 would**, which was wrong, then predicted chunk 6 would not, which held, then predicted chunk 7 could, which held. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. ⚠️ **What moved it at 7b is a test fake**: `Core/InMemoryBlockDevice.swift` is a membership exception in `project.pbxproj` — built into `USBDriveTesterTests` **as well as** the helper — so its two new hooks link into the daemon binary (`nm` finds `injectShortRead` and `injectShortWrite` in it) even though nothing outside the test target ever instantiates the class. The hash therefore moved for a change that **cannot** alter what the running daemon does. That is not a reason to discount it: the recipe is defined by path, the binary really is different, and the four gates below had already lapsed at chunk 1, so 7b's move costs nothing that was not owed. It is a reason not to be surprised by it |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
-| **Installed app** | `/Applications/USBDriveTester.app`, Debug. ⚠️ **Its binaries are dated 2026-09-06 08:11, not 2026-09-04 as this row said until 2026-09-07** — and either way it **predates chunk 6 entirely**, so it is not the current app and a reinstall is required before any chunk 7 gate. ⚠️ **The helper source hash moved again at chunk 7b (2026-09-07)** — the row above said until then that it had not moved since chunk 3, which was the reason for supposing the installed daemon might already be protocol-correct. That supposition is withdrawn: the installed daemon predates both the hash move and chunk 6. Whether it is protocol-correct cannot be established by reading the binary anyway, and each gate script checks the live daemon's version itself — but do not start 7d assuming a reinstall is optional. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
-| **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug, **reinstalled 2026-09-07 10:40 at chunk 7d** from `77edc94`. **The reinstall was verified by symbol, not by timestamp**: `nm -U` on `Contents/MacOS/com.arc3solutions.USBDriveTester.Helper` finds `injectShortRead` and `injectShortWrite`, which exist only in 7b's source, so the binary provably contains this commit's helper. Binary sha256 `ab4b6957…` (was `ef6ce121…`). ⚠️ **The RUNNING DAEMON IS OLDER STILL, and by more than anyone had noticed** — pid 97558 started **2026-09-04 17:01:05**, three minutes after `213735a`, which is **before Step 12's first commit**. It therefore predates chunk 1, the v15 bump at chunk 3 and every chunk since: it is a **protocol v14 daemon**, and the row above supposed until 2026-09-07 that it "may already be protocol-correct". It is not, and it was not for the whole of chunks 4–6. Copying files never reloaded it; the 2026-09-06 08:11 install did not either. **It must be kickstarted before any gate below can report anything**: `sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper` — needs `sudo`, so it is the user's to run |
+| **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-07: the 4 TB T5 EVO (`disk6`, serial `00000S7CLNJ0WC02266P`) and the 125.8 MB UDisk thumb (serial `2211190533300386001515`). ⚠️ **The thumb became a declared role — `multislice` — on 2026-09-07**, repartitioned into two 60 MB exFAT slices for checklist item 4.9, and it **de-enumerated during that repartition and has not come back**: a physical replug is owed before 4.9 can be walked |
 | **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **three declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4), the identity of the device-loss SF Symbol (chunk 5), and **`RunControllerWiring`'s `onDeviceLost:` closure** (chunk 6) — the composition root, where a decision has no cover but a person at the keyboard. **And one thing only a person can see at all: the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. Nothing else — Step 11 closed with its checklist complete, and chunks 0–6 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
@@ -114,7 +116,7 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `1de0d53`. See below. Helper hash **unmoved** — app target only |
-| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked, with one item blocked on a user decision. 7d (install + the four hardware gates) and 7e (the physical unplug) are not |
+| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked. **7d PART DONE 2026-09-07**: app reinstalled and verified by symbol; **the daemon kickstart (needs `sudo`) and a replug of the multi-slice thumb are owed**, and the four hardware gates cannot run until the first of those. 7e (the physical unplug) is not started |
 
 ### Chunk 7 — the gate, the mutation round, and the gap that was in the fake
 
@@ -211,6 +213,70 @@ Three things came out of writing it that are not checklist items:
   5 added the sixth case and the name went stale with nothing failing. Renamed to
   `noTwoVerifiedOutcomesShareASymbol` — the property rather than the tally — so the next case cannot
   repeat it. Test count unchanged at 1,297.
+
+**7d is part done.** The app is reinstalled and the install is *proved*; the two things left both
+need the user.
+
+**The reinstall, verified by symbol rather than by timestamp.** `install-app.sh Debug` from
+`77edc94`, then:
+
+```bash
+nm -U /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper | grep -c injectShort
+```
+
+**2.** Those symbols exist only in chunk 7b's source, so the installed helper provably contains this
+commit — a stronger claim than any file date, and it works precisely *because* 7b moved the hash.
+Binary sha256 `ab4b6957…`, was `ef6ce121…`.
+
+**⚠️ THE RUNNING DAEMON WAS TWO DAYS AND EIGHT CHUNKS STALE, AND NOBODY HAD NOTICED.** pid 97558
+started **2026-09-04 17:01:05**, three minutes after `213735a` — which is *before Step 12's first
+commit*. It predates chunk 1, the v15 bump at chunk 3, and every chunk since. The 2026-09-06 install
+did not restart it and neither did anything else, so the whole of chunks 4, 5 and 6 sat beside a
+**protocol v14 daemon**. This row said until today that the daemon "may already be protocol-correct";
+it was not, and could not have been. What found it was checking the **daemon's** start time rather
+than the **bundle's** mtime — `install-app.sh` has printed that warning at every install since
+2026-08-18 and it had simply not been acted on.
+
+**Owed, and needs `sudo` — the user's:**
+
+```bash
+sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
+```
+
+Until that runs, **none of the four hardware gates can report anything**: they check the live
+daemon's version themselves and a v14 daemon against a v15 app is the loud failure chunk 3 built.
+
+**The multi-slice fixture, and an accident that confirmed its premise.** User decision 2026-09-07:
+checklist item 4.9 gets the **125.8 MB "General UDisk" thumb**, serial `2211190533300386001515`,
+repartitioned into two 60 MB exFAT slices, rather than repartitioning the scratch T5 or accepting
+the item as hardware-uncovered. It is now a declared role, `multislice`, in
+`scripts/lib/device-identity.sh`, with the resolver wired and its refusal path checked.
+
+The repartition was:
+
+```bash
+/usr/sbin/diskutil unmount force /dev/disk4s1
+/usr/sbin/diskutil partitionDisk /dev/disk4 GPT ExFAT Slice_A 60M ExFAT Slice_B R
+```
+
+⚠️ **It did not finish.** `partitionDisk` wrote the GPT and both slices — `disk4`, `disk4s1` and
+`disk4s2` all appear in the StorageKit log — and then the storage stack **vanished mid-format while
+the USB device stayed enumerated in IOKit with no `IOMedia` under it**. `diskutil` hung and was
+killed. The thumb has not come back; **a physical replug is owed**, and the geometry recorded for
+the role is what it is *expected* to be, unconfirmed until then.
+
+Two things worth keeping from it:
+
+- **Three `Operation = Disappear` notifications for one drive going away** — `disk4s1`, `disk4s2`,
+  `disk4` — which is exactly the count BUILD-PLAN records for a two-partition drive, observed here
+  at the StorageKit layer rather than DiskArbitration's. The fixture demonstrated the premise it
+  was bought to test before it was asked to.
+- **The shape matches the carried-forward loose end**, without explaining it. The 2026-08-06
+  scratch-drive de-enumeration whose root cause is still open looked like this: storage gone, and
+  the run's descriptor answering for a device that was not there. A cheap 125.8 MB thumb dropping
+  off under a repartition is far more likely to be the drive than anything systemic, so this is
+  **one more observation of the shape and not a diagnosis** — recorded because the loose end has
+  had exactly one observation behind it until now, and now has a second of a different drive.
 
 ### Chunk 6 — the run that said nothing now says something, and the list stops showing a drive that left
 

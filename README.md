@@ -24,7 +24,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > protocol. **Step 12 — device-loss handling — is IN PROGRESS: chunks 0–6 of 8 are done, and
 > chunk 7 is under way.** Chunk 7 is the mutation round, the human checklist, the physical-unplug
 > hardware gate and all four hardware gates re-run; **7a (the increment gate) and 7b (the mutation
-> round) and 7c (the human checklist) are done, 7d–7e are not.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> round) and 7c (the human checklist) are done, 7d is part done and 7e is not.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >

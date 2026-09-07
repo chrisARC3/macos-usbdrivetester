@@ -100,6 +100,32 @@ readonly FIXTURE_MODEL="Samsung PSSD T5 EVO"
 readonly FIXTURE_BLOCKS=7814037168
 readonly FIXTURE_BLOCK_SIZE=512
 
+# Generic "UDisk" thumb, 125.8 MB, contents EXPENDABLE — THE MULTI-SLICE FIXTURE, added
+# 2026-09-07 (user decision) for Step 12 checklist item 4.9.
+#
+# WHY A THIRD EXPENDABLE DRIVE. One unplug is several events: a partitioned drive fires
+# `DADiskDisappeared` once for the whole disk and once per slice (measured 2026-09-05), so the
+# wind-down has to be idempotent. Nothing on this bench could check that on hardware — the
+# designated scratch T5 has ONE volume, and the only partitioned drive here is the 4 TB T5 EVO,
+# which holds data that a run would write over. Two 60 MB exFAT slices on a disposable thumb is
+# the smallest thing that can ask the question.
+#
+# NOT a retention-gate target and never a write-gate target in the product's sense: 125.8 MB is
+# too small to say anything about throughput, and it holds no /dev/urandom fill, so a placement
+# could land on all-zero space and report a clean pass having proved nothing. It exists to be
+# unplugged.
+#
+# ⚠️ **IT DE-ENUMERATED DURING ITS OWN REPARTITION, 2026-09-07 10:44.** `diskutil partitionDisk`
+# wrote the GPT and both slices — the log shows `disk4`, `disk4s1` and `disk4s2` all present —
+# and the storage stack then vanished mid-format while the USB device stayed enumerated in IOKit
+# with no `IOMedia` under it. `diskutil` hung and was killed. **A physical replug is needed
+# before this role can be used**, and the block count below is what the geometry is EXPECTED to
+# be, unconfirmed until then. See `progress/step-12-human-checklist.md` item 4.9.
+readonly MULTISLICE_SERIAL="2211190533300386001515"
+readonly MULTISLICE_MODEL="General UDisk"
+readonly MULTISLICE_BLOCKS=245760
+readonly MULTISLICE_BLOCK_SIZE=512
+
 # ---------------------------------------------------------------------------
 # The resolver tool
 # ---------------------------------------------------------------------------
@@ -224,6 +250,8 @@ resolve_target() {
         scratch) want_serial="$SCRATCH_SERIAL"; want_model="$SCRATCH_MODEL"; want_blocks="$SCRATCH_BLOCKS" ;;
         bulk)    want_serial="$BULK_SERIAL";    want_model="$BULK_MODEL";    want_blocks="$BULK_BLOCKS" ;;
         fixture) want_serial="$FIXTURE_SERIAL"; want_model="$FIXTURE_MODEL"; want_blocks="$FIXTURE_BLOCKS" ;;
+        multislice)
+                 want_serial="$MULTISLICE_SERIAL"; want_model="$MULTISLICE_MODEL"; want_blocks="$MULTISLICE_BLOCKS" ;;
         *)       echo "device-identity: unknown role '$role'" >&2; return 2 ;;
     esac
 
