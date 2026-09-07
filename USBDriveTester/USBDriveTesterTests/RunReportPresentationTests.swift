@@ -111,18 +111,26 @@ private enum Fixture {
 @Suite("Run report presentation — NFR-USE-8")
 struct RunReportPresentationTests {
 
-    /// **The property with actual teeth: the four verified outcomes carry four DISTINCT symbols.**
+    /// **The property with actual teeth: every verified outcome carries a DISTINCT symbol.**
     ///
     /// This is the one a real regression trips. The broader (symbol, headline) check below cannot
-    /// catch a symbol collision on its own — the four headlines are distinct by construction, so
-    /// that pair stays unique however many symbols are made identical. Written that way first, and
-    /// it would have passed the exact edit it was meant to prevent, which is this project's
-    /// oldest recurring mistake. Mutation-tested 2026-08-11: giving `.stoppedOnError` the clean
-    /// pass's checkmark fails here, and fails nothing else in the suite.
+    /// catch a symbol collision on its own — the headlines are distinct by construction, so that
+    /// pair stays unique however many symbols are made identical. Written that way first, and it
+    /// would have passed the exact edit it was meant to prevent, which is this project's oldest
+    /// recurring mistake. Mutation-tested 2026-08-11: giving `.stoppedOnError` the clean pass's
+    /// checkmark fails here, and fails nothing else in the suite.
     ///
-    /// Scoped to the verified states on purpose — the unverified four share a symbol deliberately,
+    /// Scoped to the verified states on purpose — the unverified ones share a symbol deliberately,
     /// which `everyUnverifiedResultLooksIdenticalExceptForItsWords` pins.
-    @Test func theFourVerifiedOutcomesHaveFourDistinctSymbols() {
+    ///
+    /// - Note: named for a **count** until 2026-09-07 — `theFourVerifiedOutcomesHaveFourDistinct‑
+    ///   Symbols` — while the body has always read `RunReportOutcome.allCases`. Step 12 chunk 5
+    ///   added the sixth case and the name went stale without anything failing. Renamed to say the
+    ///   property rather than the tally, so the next case cannot repeat it. **What this covers is
+    ///   still only that the six strings differ**; that `eject.circle.fill` names a symbol macOS
+    ///   can actually draw is covered by chunk 2 of `progress/step-12-human-checklist.md` and by
+    ///   nothing here.
+    @Test func noTwoVerifiedOutcomesShareASymbol() {
         let symbols = RunReportOutcome.allCases.map {
             Fixture.presentation($0, qualified: false).symbolName
         }

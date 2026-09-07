@@ -22,8 +22,8 @@ could drift; the commit is the immutable, greppable one.
 ## Step 12 — Device-loss handling (hot-unplug / de-enumeration mid-run). **IN PROGRESS**
 
 > **Cold start? Step 12 began 2026-09-05.** Chunks 0–6 of 8 are done, and **chunk 7 is under
-> way**: 7a (the full increment gate) and 7b (the mutation round) are done; **7c, 7d and 7e are
-> not**.
+> way**: 7a (the full increment gate), 7b (the mutation round) and 7c (the human checklist) are
+> done; **7d and 7e are not**. 7e is what walks the checklist.
 > Step 11 closed 2026-09-05 and its account was archived to
 > [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
 > is current as of **2026-09-07**.
@@ -47,6 +47,10 @@ could drift; the commit is the immutable, greppable one.
 >    paid for.
 > 3. **[`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md)** — the settled
 >    decisions from increments 9–12. Some bind here; `QuitSequence`'s shape especially.
+> 4. **[`progress/step-12-human-checklist.md`](progress/step-12-human-checklist.md)** — written at
+>    chunk 7c, **unwalked**. Its *"What has no automated cover"* list is the honest account of what
+>    1,297 tests do not reach in this step, and one of its items is **blocked on a user decision**
+>    (4.9, the multi-slice idempotency check — no partitioned scratch drive exists).
 
 ### What Step 12 inherits, in one paragraph
 
@@ -61,7 +65,7 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-07, at Step 12 chunk 7b
+### Current state — 2026-09-07, at Step 12 chunk 7c
 
 | | |
 |---|---|
@@ -110,7 +114,7 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `1de0d53`. See below. Helper hash **unmoved** — app target only |
-| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** 7c (checklist), 7d (install + the four hardware gates) and 7e (the physical unplug) are not |
+| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked, with one item blocked on a user decision. 7d (install + the four hardware gates) and 7e (the physical unplug) are not |
 
 ### Chunk 7 — the gate, the mutation round, and the gap that was in the fake
 
@@ -177,6 +181,36 @@ no new ones to either target, so a *changed* count would have been the finding.
 **⚠️ What invalidates this**: any source change in 7c, 7d or 7e. 7c is a document, 7d installs and
 runs scripts, 7e is a measurement — none should touch Swift. If one does, the gate is re-run again
 before Step 12 closes.
+
+**7c** wrote [`progress/step-12-human-checklist.md`](progress/step-12-human-checklist.md) — five
+chunks, **unwalked**, modelled on Step 11's sixteen. Two dry (the alert by eye; the report's
+device-loss face), three that pull a cable out of a running machine.
+
+Its *"What has no automated cover"* list has **seven** entries, and each was declared in a mutation
+round before it was written down rather than found afterwards: the `RunControllerWiring` closure
+(chunk 6's m17), the SF Symbol names, the alert in its entirety, `deviceUnderTest = nil` in
+`driveIsBack()`, which log **level** a device-loss line carries, the three-second deadline as a
+*duration*, and that a real drive returns `ENXIO` at all.
+
+Three things came out of writing it that are not checklist items:
+
+- **Chunk 4.9 is blocked on a user decision, and says so rather than quietly directing a write.**
+  The multi-slice idempotency check needs a **partitioned** drive; the only one attached is the 4 TB
+  T5 EVO, which holds data, and the 1 TB scratch T5 has one volume. Three options are written out —
+  repartition the 125.8 MB thumb, repartition the scratch T5 (destroying `fill.bin`), or accept it
+  as hardware-uncovered on the strength of `threeCallbacksFromOneUnplugArmOneDeadline`. **The
+  decision and its date go in that item before Step 12 closes.**
+- **The alert chunk cannot be walked from a build run in place.** `SMAppService` records the path of
+  the app that registered the daemon, so a DerivedData build has no helper — and the launch-time
+  gate is `.interactiveDismissDisabled()`, so the app sits behind a sheet that cannot be dismissed
+  and SwiftUI queues the second one invisibly. The chunk therefore installs a temporarily edited
+  build to `/Applications` and **ends by reverting and reinstalling**, because otherwise chunks 3–5
+  measure a binary with a debug hook in it.
+- **A stale test name, found while writing the entry that depended on it.**
+  `theFourVerifiedOutcomesHaveFourDistinctSymbols` has always read `RunReportOutcome.allCases`; chunk
+  5 added the sixth case and the name went stale with nothing failing. Renamed to
+  `noTwoVerifiedOutcomesShareASymbol` — the property rather than the tally — so the next case cannot
+  repeat it. Test count unchanged at 1,297.
 
 ### Chunk 6 — the run that said nothing now says something, and the list stops showing a drive that left
 

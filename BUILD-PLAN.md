@@ -15,7 +15,7 @@ test target fixed to the designated scratch device with disk images removed as a
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
-> done and chunk 7 is under way** (7a and 7b done, 2026-09-07). **The protocol is v15** (chunk 3,
+> done and chunk 7 is under way** (7a, 7b and 7c done, 2026-09-07). **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -459,7 +459,7 @@ simulation-first still applies wherever the plan calls for it.
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
 > handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
-> build figures) and 7b (the mutation round) are done; 7c, 7d and 7e are not. The suite stands at
+> build figures), 7b (the mutation round) and 7c (the human checklist) are done; 7d and 7e are not. The suite stands at
 > **1297 tests / 153 suites / 0 failures** (floor 1297), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
