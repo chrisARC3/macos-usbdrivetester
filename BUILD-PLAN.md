@@ -136,6 +136,21 @@ are **process**, not history.
   per-file tasks, **Release 2** (that is correct: `-O -whole-module-optimization` emits one task
   per *module*, each consuming a full `.SwiftFileList`), **test 148**. A Release count of 2 looks
   alarming and is not; a Debug count of 2 would be the real thing to worry about.
+  **Re-measured 2026-09-07 at Step 12 chunk 7: Debug 92, Release 2, test 182** — the project has
+  grown; the shape has not.
+- **But count the SOURCES, not the tasks — the task count cannot detect a cached Release.** This
+  was found by taking the note above at face value and then not believing the reading: Release
+  emits 2 tasks whether it compiled seventy files or two, so for that configuration the number is
+  the same on a clean build and a fully cached one. The metric that works for **both** batch mode
+  and WMO is *how many distinct project sources the compile tasks name*:
+
+      grep 'SwiftCompile normal' <log> | grep -oE '[A-Za-z0-9_]+\.swift' | sort -u
+
+  Intersect that with the `.swift` files actually on disk — the raw list also contains ~40 **SDK
+  module names** (`Foundation.swift`, `SwiftUI.swift`, `Darwin.swift`…) that appear as module
+  inputs on the WMO command line and are not project sources. Measured 2026-09-07:
+  **70 of 70 in Debug and 70 of 70 in Release**, plus `GeneratedAssetSymbols.swift` in each.
+  That is the claim "nothing was cached" actually rests on.
 - **Get the test count from the xcresult, not the console.**
   `xcrun xcresulttool get test-results summary --path <xcresult>` and read the **top-level**
   `totalTestCount` — not `passedTests` inside `devicesAndConfigurations`, which counts something
