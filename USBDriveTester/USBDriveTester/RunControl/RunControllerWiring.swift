@@ -93,7 +93,11 @@ extension RunController {
             onReport: { model.runProduced($0) },
             onRunBegan: { model.runBegan() },
             onRunSettled: { model.runSettled() },
-            onFailure: { model.runFailure = $0 })
+            onFailure: { model.runFailure = $0 },
+            // **FR-DEV-8's third obligation.** One call, like the two above, and for the same
+            // reason: what a lost drive does to the device list is a decision, and a decision made
+            // in this file has no cover but a person at the keyboard.
+            onDeviceLost: { model.deviceUnderTestWasLost() })
     }
 
     /// Unmount → verify → acquire → geometry → clear the level, with the real machinery behind each

@@ -46,10 +46,23 @@ has not been re-run cannot report anything.*
 
 **A status block that disagrees with the body is worse than no status block.** When one is edited,
 every other status block in the repository is edited in the same commit — `grep -rn` is the check,
-and this project has now paid for skipping it **six** times. The sixth was 2026-09-05: `BUILD-PLAN.md`
-holds **two** status blocks, 400 lines apart, and Step 12's chunks 1 and 2 updated only the lower
-one. **Grep for the claim, not for the filename.** Snapshot blocks are the exception:
-correct them by annotating with a date, never by rewriting them to match today.
+and this project has now paid for skipping it **eight** times. **Grep for the claim, not for the
+filename.** Snapshot blocks are the exception: correct them by annotating with a date, never by
+rewriting them to match today.
+
+The last three are the shape of the problem, and each was in a place the previous fix had not
+thought of:
+
+- **Sixth, 2026-09-05** — `BUILD-PLAN.md` holds **two** status blocks, 400 lines apart, and Step 12's
+  chunks 1 and 2 updated only the lower one.
+- **Seventh, 2026-09-06** — `PROGRESS.md`'s cold-start block, three chunks and a protocol bump
+  stale, in the file whose entire job is to say where the work is. **The first one outside
+  `BUILD-PLAN.md`.**
+- **Eighth, 2026-09-07** — `README.md` said *"Step 12 … is next and is not yet started"*, wrong for
+  seven chunks. Nobody thought of the README as a place where the current step is named. **It is.**
+
+**Four files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
+and `BUILD-PLAN.md` (twice). That is five blocks, and the grep has to find all five.
 
 ---
 

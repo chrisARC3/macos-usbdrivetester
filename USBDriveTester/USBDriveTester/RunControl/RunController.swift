@@ -262,6 +262,24 @@ final class RunController {
     /// status line, the device pane, the report) already say what happened.
     private let onFailure: (RunFailureMessage) -> Void
 
+    /// The drive under test left the machine and the run is over: **re-run discovery** (FR-DEV-8).
+    ///
+    /// A closure rather than a `DeviceDiscovery` reference, and the layering is the reason.
+    /// `scripts/device-probe.sh` compiles `Discovery/*.swift` plus one `Shared` file and nothing
+    /// else — a build with a genuine boundary in it, which is the only kind that can fail on a
+    /// layering violation. `RunControl` reaching into `Discovery` would compile fine in the app
+    /// target and be wrong; what goes in `AppModel` is reachable by a test besides.
+    ///
+    /// **No default, where its three neighbours have one**, and the asymmetry is deliberate.
+    /// `onRunBegan`, `onRunSettled` and `onFailure` default to doing nothing because doing nothing
+    /// is a legitimate configuration — a test that does not care about the report is not a broken
+    /// test. This is not a configuration: it is FR-DEV-8's third obligation, and a caller that
+    /// omitted it would compile, run, terminate the run correctly, show the right message, and
+    /// silently leave a departed drive sitting in the device list with nothing anywhere saying so.
+    /// The same judgement `RunReport.init`'s `removalCallbackSaid` carries, for the same reason:
+    /// the safe-looking value is the trap.
+    private let onDeviceLost: () -> Void
+
     // MARK: Private state
 
     /// A Start that has been authorised but whose drive is not yet claimed.
@@ -339,7 +357,8 @@ final class RunController {
          onReport: @escaping (RunReport?) -> Void,
          onRunBegan: @escaping () -> Void = {},
          onRunSettled: @escaping () -> Void = {},
-         onFailure: @escaping (RunFailureMessage) -> Void = { _ in }) {
+         onFailure: @escaping (RunFailureMessage) -> Void = { _ in },
+         onDeviceLost: @escaping () -> Void) {
         self.preconditions = preconditions
         self.selectedDevice = selectedDevice
         self.prepare = prepare
@@ -353,6 +372,7 @@ final class RunController {
         self.onRunBegan = onRunBegan
         self.onRunSettled = onRunSettled
         self.onFailure = onFailure
+        self.onDeviceLost = onDeviceLost
     }
 
     // MARK: - Start (FR-CTRL-1)
@@ -707,9 +727,10 @@ final class RunController {
             // the machine's log says the same thing however the loss was found. The distinction is
             // not cosmetic: `deviceLost` is legal from `paused` and `runEnded` is not, which is the
             // row route (b) exists for.
-            report(result.outcome == .deviceLost ? .deviceLost : .runEnded)
-            onReport(makeReport(result))
-            releaseTheDrive()
+            let theDriveWasLost = result.outcome == .deviceLost
+            report(theDriveWasLost ? .deviceLost : .runEnded)
+            deliverTheEndOfRun(result, theDriveWasLost: theDriveWasLost)
+            releaseTheDrive(afterDeviceLoss: theDriveWasLost)
         }
     }
 
@@ -735,7 +756,7 @@ final class RunController {
     /// descriptor, and saying otherwise would be inventing an answer. It is recorded instead — and
     /// the recovery is real rather than theoretical, because the next `acquireDevice` is refused
     /// by the helper with its own reason if the claim is in fact still held.
-    private func releaseTheDrive() {
+    private func releaseTheDrive(afterDeviceLoss: Bool) {
         let canBeConfirmed = !releaseCannotBeConfirmed
         releaseCannotBeConfirmed = false
 
@@ -753,10 +774,10 @@ final class RunController {
                 RunControlLog.releaseAcknowledgedLate()
                 return
             }
-            self.driveIsBack()
+            self.driveIsBack(afterDeviceLoss: afterDeviceLoss)
         }
 
-        if !canBeConfirmed { driveIsBack() }
+        if !canBeConfirmed { driveIsBack(afterDeviceLoss: afterDeviceLoss) }
     }
 
     /// The drive is no longer this app's to hold, however that was established.
@@ -764,7 +785,7 @@ final class RunController {
     /// Reported whatever the release said. The helper releases a claim when the connection that
     /// took it goes away (NFR-REL-5), so a failed release still ends with the device released —
     /// and staying in `finishing` for ever would be strictly worse than saying so and moving on.
-    private func driveIsBack() {
+    private func driveIsBack(afterDeviceLoss: Bool) {
         sequencer = nil
         pending = nil
 
@@ -780,6 +801,27 @@ final class RunController {
         deviceLossEnding = nil
 
         report(.deviceReleased)
+
+        // **FR-DEV-8's third obligation**, and the last of the three to be built: *re-run the
+        // initial device discovery routine*.
+        //
+        // Here rather than at the run's end, and the difference matters. FR-DEV-7 freezes the
+        // device list for the duration of a run; `DeviceDiscovery.refresh(reason:)` bypasses the
+        // freeze deliberately — its own documentation names this as the caller it kept the bypass
+        // for — but bypassing a freeze and waiting for it to lift are not the same act, and the
+        // second is the honest one. By this line the claim is given up, the state has been told,
+        // and the list is nobody's to freeze.
+        //
+        // **Passed down as a parameter rather than read from a field.** `deviceLossEnding` is the
+        // obvious candidate and is wrong twice: it is `nil` for a route (a) loss, which is most of
+        // them, and a field consulted after the run that set it is precisely the shape chunk 5's
+        // surviving mutation was about. The value is threaded from `runEnded`, where it is simply
+        // `result.outcome`, and no lifetime can go stale between there and here.
+        //
+        // Conditional, because re-enumerating after *every* run would be a behaviour change this
+        // step was not asked for — and one that would fire on the path where nothing changed.
+        if afterDeviceLoss { onDeviceLost() }
+
         settledIfAtRest()
     }
 
@@ -791,6 +833,47 @@ final class RunController {
     }
 
     // MARK: - The report
+
+    /// Hand the end of the run to the user, by **exactly one** of the two channels.
+    ///
+    /// ## Why this is a method and not two lines at the call site
+    ///
+    /// It used to be `onReport(makeReport(result))`, which is one line and has a hole in it.
+    /// `makeReport` answers `nil` when the sequence produced no reply, and `AppModel.runProduced`
+    /// reads that `nil` as *"the helper refused the call, so no run took place"* — a sentence that
+    /// is true for the case it was written for and **false for a device loss**, where a run very
+    /// much took place. Worse, it is the whole of what the user got: no report, no alert, one
+    /// misleading log line (FR-DEV-8, chunk 6).
+    ///
+    /// ## Exactly one, and that is load-bearing rather than tidy
+    ///
+    /// `AppModel.presentedModals` flags `.runReport` and `.runFailure` independently, and
+    /// `QuitPolicy.disposition(underModals:)` **refuses ⌘Q outright whenever more than one is
+    /// flagged** — it cannot know which SwiftUI actually put on screen, because the second is
+    /// queued invisibly (measured 2026-08-21). Raising both here would therefore kill ⌘Q on the
+    /// normal path of the feature this step exists to build, which is the exact defect Step 11
+    /// increment 12 was written to remove. So: a report if there is one, an alert if there is not,
+    /// never both. `RunControllerDeviceLossSurfaceTests` pins it.
+    ///
+    /// The `nil` report is still forwarded on every **other** ending, because that is what clears
+    /// `AppModel.lastRunReport` and logs the refusal — and on those endings the sentence is true.
+    private func deliverTheEndOfRun(_ result: RunSequenceResult, theDriveWasLost: Bool) {
+        if let report = makeReport(result) {
+            onReport(report)
+            return
+        }
+
+        guard theDriveWasLost else {
+            onReport(nil)
+            return
+        }
+
+        // No reply ever came back, so there is nothing to build a report from — and the drive is
+        // gone, so there never will be. This is the only path in the app that says what happened
+        // to a lost drive without a report behind it.
+        RunControlLog.deviceLostWithNoReport(deviceLossEnding)
+        onFailure(DeviceLossMessage.forRunWithNoReport(endedBy: deviceLossEnding))
+    }
 
     /// Build the end-of-run report (FR-RPT-1…5).
     ///
@@ -929,6 +1012,24 @@ nonisolated enum RunControlLog {
                      release issued but not waited for — the helper has not answered the call \
                      it is inside, so this app cannot say the claim on \
                      \(device?.logIdentification ?? "the drive", privacy: .public) was dropped
+                     """)
+    }
+
+    /// A device loss ended a run that produced **no report at all** (Step 12, chunk 6).
+    ///
+    /// `error` rather than `notice`, and the level is the point: this is the only ending in the app
+    /// where the user is told about their drive by an alert instead of by a document, and the
+    /// reason is that nothing came back to build a document from. Before chunk 6 this path logged
+    /// *"the helper refused the call, so no run took place"* and showed nothing — a false sentence
+    /// standing in for the message FR-DEV-8 requires.
+    ///
+    /// Names the ending so the log distinguishes the two ways route (b) can end a run without the
+    /// report that would otherwise carry it.
+    static func deviceLostWithNoReport(_ ending: DeviceLossEnding?) {
+        runLog.error("""
+                     device loss with no report: no reply ever came back, so there is nothing \
+                     to build one from — \
+                     \(ending?.description ?? "nothing recorded how it ended", privacy: .public)
                      """)
     }
 

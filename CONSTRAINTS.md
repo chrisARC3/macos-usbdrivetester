@@ -1223,3 +1223,24 @@ Every defect this project has produced came from trusting a substitute for the r
   write the one that reaches the line. **When a mutation survives, check whether the test named for
   it ever executes the branch it names** — and if the branch is defensive, say so in the test rather
   than deleting either.
+
+- **`try!` IN A TEST DOES NOT FAIL THE TEST — IT KILLS THE PROCESS, AND TAKES THE ROUND'S EVIDENCE
+  WITH IT.** Chunk 6's round ran three mutations that stopped the device-loss alert being raised.
+  All three landed on `theAlertNamesTheEndingThatProducedIt`, which read
+  `try! #require(bench.failures.first?.text)`. A failed `#require` under `try!` **traps**: the test
+  bundle died, xcodebuild printed *"Restarting after unexpected exit, crash, or test timeout"*, and
+  the run ended having executed **321 of 1288 tests — with a green tick on the 321**. The other 967
+  reported nothing, so *which* tests catch that mutation — the entire question a mutation round
+  asks — was unanswerable for three of seventeen rows.
+  **`scripts/test.sh`'s floor check is what caught it**, refusing the partial run with *"INCOMPLETE
+  RUN: 321 tests in 54 suites, but this repo has run 1288"*. Without that floor the round would have
+  recorded three plausible kills and nobody would have known the readings were a quarter of a suite.
+  Note what the raw log said on its own: `✔ Test run with 321 tests in 54 suites passed`, a tick,
+  four lines above `** TEST FAILED **`. A `tail -1` on the summary line reads the **retry**, not the
+  run. Three rules follow:
+  **use `try #require` in a `throws` test, never `try!`** — a failed requirement then fails that one
+  test and unwinds normally; **read a mutation log by its named failing tests and its exit code,
+  never by the last summary line**; and **a test total below the floor is INCONCLUSIVE for every
+  test in the suite, not only the ones that failed** — the same rule as a zero total, for the same
+  reason. All nine `try!` sites in the test target were converted in chunk 6's commit, and the three
+  contaminated rows were re-run.

@@ -205,6 +205,14 @@ private final class Bench {
     private(set) var failures: [RunFailureMessage] = []
     private(set) var sequencer: StubSequencer?
 
+    /// How many times FR-DEV-8's discovery re-run was asked for.
+    ///
+    /// A **count** rather than a flag, and it is the same lesson chunk 4's wind-down bench paid
+    /// for: one unplug delivers a whole-disk callback and one per slice, so "did it happen" and
+    /// "how many times" are different questions and only the second one catches an idempotence
+    /// defect. A `Bool` here would be green for one re-enumeration and green for three.
+    private(set) var discoveryReRuns = 0
+
     /// The wind-down the controller built for a device loss, and the deadline it armed.
     ///
     /// The deadline is **held rather than run**, exactly as `QuitSequenceTests` holds the quit's:
@@ -280,7 +288,11 @@ private final class Bench {
             self.steps.append("settled")
             self.settles += 1
         },
-        onFailure: { self.failures.append($0) })
+        onFailure: { self.failures.append($0) },
+        onDeviceLost: {
+            self.steps.append("discovery re-run")
+            self.discoveryReRuns += 1
+        })
 
     /// Emit an event from the run's sequencer.
     ///
@@ -1469,7 +1481,7 @@ struct RunControllerDeviceLossReportTests {
 
     /// Route (a): the helper's reply resolved it, so the report carries the block and the phase and
     /// the removal callback's ending is not consulted.
-    @Test func theHelpersOwnAccountReachesTheReport() {
+    @Test func theHelpersOwnAccountReachesTheReport() throws {
         let bench = Bench()
         #expect(bench.driveTo(.running))
 
@@ -1478,7 +1490,7 @@ struct RunControllerDeviceLossReportTests {
                                                       interruptedAtBlock: 1_048_576,
                                                       lossPhase: .writingBack))))
 
-        let report = try! #require(bench.reports.first ?? nil)
+        let report = try #require(bench.reports.first ?? nil)
         #expect(report.outcome == .deviceLost)
         #expect(report.deviceLoss == .theHelperSaidWhere(block: 1_048_576, phase: .writingBack))
     }
@@ -1490,14 +1502,14 @@ struct RunControllerDeviceLossReportTests {
     /// last reply the helper sent is the *pause*. A report built without the ending would fall
     /// through to the conservative answer and tell somebody a chunk might be half-written on a run
     /// that had nothing outstanding at all.
-    @Test func aPausedRunsReportSaysNothingWasInFlight() {
+    @Test func aPausedRunsReportSaysNothingWasInFlight() throws {
         let bench = Bench()
         #expect(bench.driveTo(.paused))
         bench.sequencer?.deviceLossReply = reply(.pausedByUser)
 
         bench.controller.deviceDisappeared(Self.wholeDisk)
 
-        let report = try! #require(bench.reports.first ?? nil)
+        let report = try #require(bench.reports.first ?? nil)
         #expect(report.outcome == .deviceLost)
         #expect(report.deviceLoss == .nothingWasInFlight)
         #expect(report.deviceLoss?.aWriteBackMayBeUnfinished == false,
@@ -1506,7 +1518,7 @@ struct RunControllerDeviceLossReportTests {
 
     /// **Route (b) after the deadline** — a call was in flight and never answered, so the report
     /// says a write-back cannot be ruled out, and says it without inventing a block.
-    @Test func anUnansweredCallsReportSaysTheHelperNeverAnswered() {
+    @Test func anUnansweredCallsReportSaysTheHelperNeverAnswered() throws {
         let bench = Bench()
         #expect(bench.driveTo(.running))
         bench.sequencer?.deviceLossReply = reply(.completed, chunksProcessed: 3)
@@ -1514,7 +1526,7 @@ struct RunControllerDeviceLossReportTests {
         bench.controller.deviceDisappeared(Self.wholeDisk)
         bench.expireWindDownDeadline()
 
-        let report = try! #require(bench.reports.first ?? nil)
+        let report = try #require(bench.reports.first ?? nil)
         #expect(report.outcome == .deviceLost)
         #expect(report.deviceLoss == .theHelperNeverAnswered)
         #expect(report.deviceLoss?.block == nil, "a block was reported that nothing measured")
@@ -1527,26 +1539,26 @@ struct RunControllerDeviceLossReportTests {
     /// whether a chunk was mid-write. Nothing downstream would look wrong.
     ///
     /// Moving the assignment below the call is the mutation this kills.
-    @Test func theEndingIsRecordedBeforeTheReportIsBuilt() {
+    @Test func theEndingIsRecordedBeforeTheReportIsBuilt() throws {
         let bench = Bench()
         #expect(bench.driveTo(.paused))
         bench.sequencer?.deviceLossReply = reply(.pausedByUser)
 
         bench.controller.deviceDisappeared(Self.wholeDisk)
 
-        let report = try! #require(bench.reports.first ?? nil)
+        let report = try #require(bench.reports.first ?? nil)
         #expect(report.deviceLoss != nil, "the report was built before the ending was recorded")
         #expect(report.deviceLossAccountAgreesWithTheOutcome)
     }
 
     /// A run that keeps its drive gets no account, whichever way it ends.
-    @Test func aRunThatKeptItsDriveHasNoAccount() {
+    @Test func aRunThatKeptItsDriveHasNoAccount() throws {
         let bench = Bench()
         #expect(bench.driveTo(.running))
 
         bench.emit(.runEnded(result(.completed, finalReply: reply(.completed))))
 
-        let report = try! #require(bench.reports.first ?? nil)
+        let report = try #require(bench.reports.first ?? nil)
         #expect(report.outcome == .completedClean)
         #expect(report.deviceLoss == nil)
     }
@@ -1562,7 +1574,7 @@ struct RunControllerDeviceLossReportTests {
     /// What it does pin is worth keeping and is a different claim: an account is not *invented*
     /// for a run that kept its drive, whatever is left lying about from the run before.
     /// ``aLeftoverEndingIsNotBelievedByTheNextLostRun`` is the one that pins the clear.
-    @Test func aCleanRunAfterALostOneGetsNoAccount() {
+    @Test func aCleanRunAfterALostOneGetsNoAccount() throws {
         let bench = Bench()
         #expect(bench.driveTo(.paused))
         bench.sequencer?.deviceLossReply = reply(.pausedByUser)
@@ -1572,7 +1584,7 @@ struct RunControllerDeviceLossReportTests {
         #expect(bench.driveTo(.running), "a second run could not be started")
         bench.emit(.runEnded(result(.completed, finalReply: reply(.completed))))
 
-        let second = try! #require(bench.reports.last ?? nil)
+        let second = try #require(bench.reports.last ?? nil)
         #expect(second.outcome == .completedClean)
         #expect(second.deviceLoss == nil, "the previous run's device-loss ending was reused")
         #expect(second.deviceLossAccountAgreesWithTheOutcome)
@@ -1597,7 +1609,7 @@ struct RunControllerDeviceLossReportTests {
     /// halves cannot currently meet in production. The clear is kept, and pinned, because what it
     /// prevents is a false all-clear rather than a wrong detail — and because the field's
     /// lifetime is the only thing holding the two apart.
-    @Test func aLeftoverEndingIsNotBelievedByTheNextLostRun() {
+    @Test func aLeftoverEndingIsNotBelievedByTheNextLostRun() throws {
         let bench = Bench()
         #expect(bench.driveTo(.paused))
         bench.sequencer?.deviceLossReply = reply(.pausedByUser)
@@ -1608,11 +1620,178 @@ struct RunControllerDeviceLossReportTests {
         #expect(bench.driveTo(.running), "a second run could not be started")
         bench.emit(.runEnded(result(.deviceLost, finalReply: reply(.pausedByUser))))
 
-        let second = try! #require(bench.reports.last ?? nil)
+        let second = try #require(bench.reports.last ?? nil)
         #expect(second.outcome == .deviceLost)
         #expect(second.deviceLoss == .noRouteSaidAnything,
                 "the first run's ending was reused to account for the second run's loss")
         #expect(second.deviceLoss?.aWriteBackMayBeUnfinished == true,
                 "a run nothing measured was told nothing was left half-written")
+    }
+}
+
+// MARK: - What a lost drive actually shows a person (Step 12, chunk 6)
+
+/// **FR-DEV-8's second and third obligations**: present a suitable error message, and re-run the
+/// initial device discovery routine.
+///
+/// Chunk 5 made the *report* the error message, which is right whenever there is a report. These
+/// are the tests for the case where there is not, and for the fact that there is never both.
+@MainActor
+struct RunControllerDeviceLossSurfaceTests {
+
+    static let wholeDisk = Bench.unplugged("disk8")
+
+    /// Drive a run to `running`, pull the drive, and let the wind-down's deadline expire with no
+    /// reply ever having arrived — the case that produced silence before chunk 6.
+    private func runLostWithNoReplyEver() -> Bench {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+        bench.sequencer?.deviceLossReply = nil
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        #expect(bench.expireWindDownDeadline())
+        return bench
+    }
+
+    /// **The silent case, closed.** No reply ever came back, so `makeReport` has nothing to build
+    /// from — and before chunk 6 that meant no report, no alert, and a log line claiming the helper
+    /// had refused the call and no run had taken place.
+    @Test func aLostDriveWithNoReplyRaisesTheAlertInsteadOfAReport() {
+        let bench = runLostWithNoReplyEver()
+
+        #expect(bench.failures.count == 1, "a lost drive with no report said nothing at all")
+        #expect(bench.reports.isEmpty,
+                "a nil report was forwarded, which AppModel logs as a refused call")
+        #expect(bench.failures.first?.title == DeviceLossMessage.title)
+    }
+
+    /// The alert says **which** ending produced it, because the two differ in the only way that
+    /// matters — whether a write-back may have been interrupted.
+    ///
+    /// - Note: `try #require` in a **throwing** test, never `try!`. This site is where chunk 6's
+    ///   mutation round found that out: `try!` on a failed requirement traps, which kills the test
+    ///   *process* rather than the test — xcodebuild then reported *"Restarting after unexpected
+    ///   exit, crash, or test timeout"* and the run finished having executed 321 of 1288 tests,
+    ///   with a green tick on the 321. Three mutations landed on this test, and each one destroyed
+    ///   the evidence from the 967 tests that never ran. `scripts/test.sh`'s floor check is what
+    ///   caught it; the eight other `try!` sites in this file were converted in the same commit.
+    @Test func theAlertNamesTheEndingThatProducedIt() throws {
+        let bench = runLostWithNoReplyEver()
+        let text = try #require(bench.failures.first?.text)
+
+        #expect(text.contains("never answered"))
+        #expect(text.contains("cannot be ruled out"))
+    }
+
+    /// **Exactly one modal, and this is the test that keeps ⌘Q alive on this path.**
+    ///
+    /// `AppModel.presentedModals` flags `.runReport` and `.runFailure` independently, and
+    /// `QuitPolicy.disposition(underModals:)` refuses a quit outright when more than one is
+    /// flagged — it cannot know which SwiftUI actually put on screen, because the second is queued
+    /// invisibly. Raising both would kill ⌘Q on the normal path of the feature Step 12 is building,
+    /// which is the exact defect increment 12 existed to remove.
+    @Test func theReportAndTheAlertAreNeverBothRaised() {
+        let withNoReply = runLostWithNoReplyEver()
+        #expect(withNoReply.reports.count + withNoReply.failures.count == 1)
+
+        let withAReply = Bench()
+        #expect(withAReply.driveTo(.running))
+        withAReply.emit(.runEnded(result(.deviceLost,
+                                         finalReply: reply(.deviceLost,
+                                                           interruptedAtBlock: 4096,
+                                                           lossPhase: .writingBack))))
+        #expect(withAReply.reports.count + withAReply.failures.count == 1)
+        #expect(withAReply.failures.isEmpty, "a run with a report was also given an alert")
+        #expect((withAReply.reports.first ?? nil)?.outcome == .deviceLost)
+
+        let whilePaused = Bench()
+        #expect(whilePaused.driveTo(.paused))
+        whilePaused.sequencer?.deviceLossReply = reply(.pausedByUser)
+        whilePaused.controller.deviceDisappeared(Self.wholeDisk)
+        #expect(whilePaused.reports.count + whilePaused.failures.count == 1)
+        #expect(whilePaused.failures.isEmpty)
+    }
+
+    /// A run that never became one still forwards the `nil` report, because that is what clears
+    /// `AppModel.lastRunReport` — and on that ending the log line it produces is true.
+    @Test func anEndingThatIsNotADeviceLossStillForwardsTheNilReport() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        bench.emit(.runEnded(result(.callFailed(reason: "no"), finalReply: nil)))
+
+        #expect(bench.reports.count == 1)
+        #expect((bench.reports.first ?? nil) == nil, "a report was built from no reply")
+        #expect(bench.failures.isEmpty, "the device-loss alert was raised for something else")
+    }
+
+    // MARK: FR-DEV-8's third obligation
+
+    /// Discovery re-runs, so the drive that left stops sitting in a list FR-DEV-7 froze.
+    @Test func discoveryIsReRunWhenTheDriveIsLost() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        bench.emit(.runEnded(result(.deviceLost, finalReply: reply(.deviceLost))))
+
+        #expect(bench.discoveryReRuns == 1)
+    }
+
+    /// And **only** then. Re-enumerating after every run would be a behaviour change nobody asked
+    /// for, on the path where nothing changed.
+    @Test func discoveryIsNotReRunWhenARunEndsNormally() {
+        for outcome in [RunSequenceOutcome.completed, .stoppedByUser, .stoppedOnFailure, .haltedForQuit] {
+            let bench = Bench()
+            #expect(bench.driveTo(.running))
+            bench.emit(.runEnded(result(outcome, finalReply: reply(.completed))))
+            #expect(bench.discoveryReRuns == 0, "outcome=\(outcome)")
+        }
+    }
+
+    /// **One unplug is several callbacks and must still be one re-enumeration.** A partitioned
+    /// drive fires a disappearance for the whole disk and one per slice (measured 2026-09-05), and
+    /// a discovery re-run per callback is a different defect from the one FR-DEV-8 asks for.
+    @Test func oneUnplugReRunsDiscoveryOnce() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        bench.controller.deviceDisappeared(Bench.unplugged("disk8s1", isWholeDisk: false))
+        bench.controller.deviceDisappeared(Bench.unplugged("disk8s2", isWholeDisk: false))
+
+        #expect(bench.discoveryReRuns == 1)
+    }
+
+    /// **The deadline path reaches it too**, and that is not free: when the release cannot be
+    /// confirmed the controller does not wait for the helper's acknowledgement, so `driveIsBack()`
+    /// is reached by the synchronous branch rather than by the release's completion. A re-run wired
+    /// to the acknowledgement would never fire on the one ending where the drive is most certainly
+    /// gone.
+    @Test func discoveryIsReRunEvenWhenTheReleaseCannotBeConfirmed() {
+        let bench = runLostWithNoReplyEver()
+        #expect(bench.discoveryReRuns == 1)
+    }
+
+    // MARK: FR-FAIL-7
+
+    /// **No resume is offered after a device loss** — only restart from the beginning.
+    ///
+    /// Structural rather than enforced: the loss ends the run, and Resume is offered from `paused`
+    /// alone. Pinned here anyway, because "it cannot happen because of how the states are shaped"
+    /// is exactly the claim that stops being true when somebody adds a state.
+    @Test func noResumeIsOfferedAfterADeviceLoss() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        #expect(RunControlPolicy.controls(in: .paused, preconditions: .ready).pause.label == "Resume",
+                "the fixture is wrong: a paused run is where Resume comes from")
+
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+
+        #expect(bench.controller.state == .finished)
+        let controls = RunControlPolicy.controls(in: bench.controller.state, preconditions: .ready)
+        #expect(controls.pause.label != "Resume", "a run whose drive left offered to resume")
+        #expect(!controls.pause.isEnabled)
     }
 }

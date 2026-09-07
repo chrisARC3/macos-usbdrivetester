@@ -128,7 +128,11 @@ struct AppModelQuitTests {
                 ioSizeBytes: { 1 << 22 },
                 failureMode: { .logAndContinue },
                 onReport: { _ in },
-                onRunSettled: { [model] in model.runSettled() })
+                onRunSettled: { [model] in model.runSettled() },
+                // These tests are about quitting, not about the device list. Stated rather than
+                // defaulted: the parameter has no default precisely so that "this bench does not
+                // exercise FR-DEV-8's re-run" is written down instead of inferred from silence.
+                onDeviceLost: {})
         }
 
         var terminations: Int { recorder.terminations }

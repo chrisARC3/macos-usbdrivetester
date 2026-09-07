@@ -16,22 +16,31 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is next
+> ### Status: in development — Step 12 of 16 is in progress
 >
 > Steps 1–11 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
 > human checklist walked in full, and its verification gate re-run against the current XPC
-> protocol. **Step 12 — device-loss handling — is next and is not yet started.** The engine, the
-> privilege plumbing, the safety guards, metrics, reporting, run control and the pre-run warnings
-> all exist and are exercised on real hardware. Device-loss handling, sleep prevention, logging
-> consolidation and notarization do not yet.
+> protocol. **Step 12 — device-loss handling — is IN PROGRESS: chunks 0–6 of 8 are done**, and
+> chunk 7 (the mutation-round checklist, the physical-unplug hardware gate, and all four hardware
+> gates re-run) is not. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
+> prevention, logging consolidation and notarization do not yet.
+>
+> ⚠️ **This block said *"Step 12 … is next and is not yet started"* until 2026-09-07** — wrong
+> since chunk 1 landed on 2026-09-05, through seven chunks and a protocol bump. That is the
+> **eighth** status block this repository has shipped disagreeing with the body under it, and the
+> second one outside `BUILD-PLAN.md`. It was missed because the check greps for the *claim* and
+> nobody thought of the README as a place where the current step is named. **It is. Add it to the
+> grep.**
 >
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1262 tests / 149 suites / 0 failures**, zero source warnings from
-> three clean builds, XPC protocol v15. See [`PROGRESS.md`](PROGRESS.md) for the step in
-> flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the sequence and its gates.
+> Current verified state: **1288 tests / 152 suites / 0 failures**, zero source warnings from
+> three clean builds, **13/13** gate clients type-checking, XPC protocol v15. See
+> [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
+> sequence and its gates.
 
 ## How the test works
 

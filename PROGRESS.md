@@ -21,10 +21,10 @@ could drift; the commit is the immutable, greppable one.
 
 ## Step 12 — Device-loss handling (hot-unplug / de-enumeration mid-run). **IN PROGRESS**
 
-> **Cold start? Step 12 began 2026-09-05.** Chunks 0–5 of 8 are done; chunks 6 and 7 are not.
+> **Cold start? Step 12 began 2026-09-05.** Chunks 0–6 of 8 are done; **chunk 7 is not**.
 > Step 11 closed 2026-09-05 and its account was archived to
 > [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
-> is current as of **2026-09-06**.
+> is current as of **2026-09-07**.
 >
 > ⚠️ **This block said *"chunk 1 … is done; chunks 2–7 are not"* until 2026-09-06** — three chunks
 > and a protocol bump stale, in the file whose entire job is to say where the work is, and it read
@@ -59,18 +59,18 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-06, at Step 12 chunk 5
+### Current state — 2026-09-07, at Step 12 chunk 6
 
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
-| **Verified** | **1262 tests, 0 failures, 149 suites** (floor `scripts/.test-floor` = 1262), run green 2026-09-06 at chunk 5. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`. Build figures re-derived the same day: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
-| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunks 2, 4 and 5 did not move it, being app-target only — **and this row predicted that chunk 4 would**, which was wrong: chunk 4 is the state machine and the wind-down, entirely inside the app, and chunk 5 is the report. Re-derived at chunk 5 and unchanged. The four gates below lapsed at chunk 1 and have not compounded since. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Chunk 6 is app-target too; the next thing that can move it is chunk 7 |
+| **Verified** | **1288 tests, 0 failures, 152 suites** (floor `scripts/.test-floor` = 1288), run green 2026-09-07 at chunk 6. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29. Build figures re-derived 2026-09-07: DerivedData wiped, then `build.sh Debug`, `build.sh Release` and `test.sh` in sequence — **zero source warnings from all three** (the only `warning:` lines in any log are `appintentsmetadataprocessor`'s "No AppIntents.framework dependency", which is a toolchain notice and not a source warning), **13/13** gate clients type-check. ⚠️ **This is not the increment gate**: that wipes DerivedData before *each* of the three and records the `SwiftCompile` task counts to prove none was cached. One wipe, three builds. The full form is chunk 7's |
+| **Helper** | source hash **`4277458911ad3b1ed1f52c5a43ab9d9e1fdc593724fb7a6ac723105f45e769f3`** — moved twice on 2026-09-05: `e6888aa5…` → `a951e527…` (chunk 1) → **`42774589…`** (chunk 3). Chunks 2, 4 and 5 did not move it, being app-target only — **and this row predicted that chunk 4 would**, which was wrong: chunk 4 is the state machine and the wind-down, entirely inside the app, and chunk 5 is the report. Re-derived at chunk 5 and again at chunk 6 (2026-09-07), unchanged both times. The four gates below lapsed at chunk 1 and have not compounded since. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. **Chunk 6 was app-target too, as this row predicted** — the first prediction in this row that held. The next thing that can move it is chunk 7 |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
 | **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, reinstalled 2026-09-04. ⚠️ **Always kickstart the daemon after `install-app.sh`** — it replaces the helper binary underneath the running one, and *nothing announces the mismatch when the helper source has not moved*. **Verify a reinstall took with `nm -U` on `Contents/MacOS/USBDriveTester.debug.dylib`**, not by timestamp: on 2026-09-04 a checklist chunk was nearly walked against a stale build |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-04: the 4 TB T5 EVO (`disk6`) and the 125.8 MB UDisk thumb (`disk4`) |
-| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **two declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4) and the identity of the device-loss SF Symbol (chunk 5). Nothing else — Step 11 closed with its checklist complete, and chunks 0–5 closed green |
+| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **three declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4), the identity of the device-loss SF Symbol (chunk 5), and **`RunControllerWiring`'s `onDeviceLost:` closure** (chunk 6) — the composition root, where a decision has no cover but a person at the keyboard. **And one thing only a person can see at all: the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. Nothing else — Step 11 closed with its checklist complete, and chunks 0–6 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
 ### The one open measurement — CLOSED 2026-09-05, before Step 12 began
@@ -107,8 +107,90 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **3** | The wire: protocol **v15**, the fifth `RunOutcomeCode`, and all 13 gate clients rebuilt | **done 2026-09-05**, `15f8e3e`. See below. **Moves the helper hash to `42774589…`** |
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
-| **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | not started |
+| **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `PENDING`. See below. Helper hash **unmoved** — app target only |
 | **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | not started |
+
+### Chunk 6 — the run that said nothing now says something, and the list stops showing a drive that left
+
+FR-DEV-8 asks for three things: end the run, present a suitable error message, and re-run discovery.
+Chunks 4 and 5 did the first and — almost — the second. **The user decision that shaped this chunk
+was "the report *is* the message":** no new modal on the ordinary path, because
+`AppModel.presentedModals` flags `.runReport` and `.runFailure` independently and
+`QuitPolicy.disposition(underModals:)` refuses ⌘Q outright when more than one is flagged. Raising
+both would have rebuilt increment 12's defect on the new feature's **normal** path.
+`theReportAndTheAlertAreNeverBothRaised` is the test that keeps it that way.
+
+**Almost, because one path produced no message at all.** `makeReport` returns `nil` when the
+sequence has no final reply, and `RunSequencer.lastReply` starts `nil`. A drive leaving during the
+very first call, with the helper never answering, therefore produced no report, no alert, and a log
+line reading *"the helper refused the call, so no run took place"* — false twice over: a run took
+place and nothing was refused. That is not the exotic case. **The first call covers a whole slice,
+up to a gibibyte, with every chunk read, written back and verified inside it** — so it is exactly
+where a write-back is most likely to be in flight when somebody pulls the cable. The one case that
+said nothing was the one where the most was at stake.
+
+`DeviceLossMessage` closes it, as a pure value rather than a string at the call site, for the reason
+`OutcomePresentation` is a type: **an `.alert` cannot be rendered by `scripts/render-ui.sh`** — it
+takes its own window and `ViewBuilder`s AppKit consumes — so everything about the dialog that is not
+a pure value is covered by a person at a keyboard and nothing else. What it *says* is decided where
+a test can read it.
+
+**The text carries no Markdown, and that is a constraint rather than a style.** `RunControlsView`
+renders it as `Text(failure.text)` — a `String`, which SwiftUI does not parse; only
+`LocalizedStringKey` does. A `**` copied across from `HonestFraming`'s prose would be shown to the
+user literally. `noMessageCarriesMarkdownTheAlertCannotRender` pins it, and it is the exact mirror of
+chunk 5's opposite defect, where the report's callout was passed `.plain` and lost emphasis it
+should have had. **Same fault line, both directions: the surface decides whether Markdown is text or
+formatting, and the string has to know which surface it is going to.**
+
+**`releaseCannotBeConfirmed` reaches a person for the first time** — derived, not carried. It is set
+from `ending == .theHelperNeverAnswered`, and that account arises from that same ending whenever
+route (a) supplied nothing, which the deadline expiring already guarantees. So `RunReport` gains no
+field; the report's sentence and the alert's third paragraph both say it, and both are asserted
+**exclusively** — `onlyTheUnansweredCallReportsOnTheClaimAsWellAsTheData` fails if any other account
+starts claiming it, which would tell a paused run whose release completed normally that exclusive
+access might still be held.
+
+**FR-DEV-8's third obligation fires from `driveIsBack`, not at run end**, because FR-DEV-7's freeze
+has lifted by then, and it is passed as a **parameter** rather than read from a field:
+`deviceLossEnding` is `nil` for a route (a) loss, and a field consulted after the run that set it is
+chunk 5's surviving mutation. `onDeviceLost` is the one closure of the four with **no default
+value** — doing nothing is a legitimate configuration for `onRunBegan`, `onRunSettled` and
+`onFailure`, but omitting this one would silently drop an obligation. Three call sites failed to
+compile, which is the compiler doing the remembering.
+
+**The bench counts rather than flags.** `discoveryReRuns` is an `Int`, because chunk 4's measurement
+says one unplug of a partitioned drive delivers a callback for the whole disk *and* one per slice;
+`oneUnplugReRunsDiscoveryOnce` is the test that would catch a rebuild per slice.
+
+**A gap was nearly written off as uncoverable and was not.** `AppModel.deviceUnderTestWasLost()`
+looked like it needed a real `IOKitDeviceEnumerator` to observe. It does not — `AppModel.init` takes
+a `DeviceSource` and `StubDeviceSource` already counts enumerations. `AppModelDeviceLossTests` (5
+tests) pins the rebuild, the departed row disappearing, the selection being re-derived, the deferred
+change being cleared, and **the freeze bypass** — discovery is deliberately still frozen when this
+runs, since nothing has told it the run ended. The gap was in the reach of the bench, not in the
+code, which is the distinction the mutation-round rule asks for before anything goes on the human
+checklist.
+
+#### The mutation round — 17 mutations, 14 killed, 3 survived, all three declared in advance
+
+Survivors, exactly as predicted: **m6**, a wording-only edit inside a clause no test pins; **m15**,
+`refresh(reason:)`'s log-only reason string, which no assertion should pin by text; and **m17**,
+`RunControllerWiring`'s `onDeviceLost:` closure — the composition root, which has no cover but a
+person at the keyboard. **m17 goes on chunk 7's checklist**, joining chunk 4's `deviceUnderTest =
+nil` and chunk 5's SF Symbol identity. No unexpected survivors.
+
+**The round found a defect in the test suite rather than in the app**, which is the third time in
+this project that an instrument was the thing at fault. Three mutations that stop the alert being
+raised all land on `theAlertNamesTheEndingThatProducedIt`, which read
+`try! #require(bench.failures.first?.text)`. **`try!` on a failed requirement traps, killing the
+test process** — xcodebuild printed *"Restarting after unexpected exit, crash, or test timeout"* and
+the run ended having executed **321 of 1288 tests, with a green tick on the 321**. The other 967
+reported nothing, so the one question a mutation round asks was unanswerable for three of seventeen
+rows. `scripts/test.sh`'s floor check refused it — *"INCOMPLETE RUN: 321 tests in 54 suites, but
+this repo has run 1288"* — which is the only reason it was noticed. All nine `try!` sites in the
+test target were converted to `try #require` in throwing tests, and the three contaminated rows were
+re-run clean. Written up as a `CONSTRAINTS.md` §3 lesson.
 
 ### Chunk 5 — the report says which route accounted for the loss, and refuses to over-warn
 

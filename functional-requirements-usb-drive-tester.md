@@ -1050,3 +1050,30 @@ out* rather than as a phase name the app would be guessing at.
 FR-TEST-9's cache-bypass statement — nothing may come between the outcome line and whether the check
 behind it can be trusted — and above everything else, because it is the only part of the document a
 reader cannot reconstruct once the drive is no longer attached.
+
+### 2026-09-07 — FR-DEV-8's error message, and the run that produced none (no requirement change)
+
+**Not an amendment.** FR-DEV-8's three obligations are unchanged: terminate the run, present a
+suitable error message, re-run discovery. Recorded because chunk 6 settles *what counts as the
+message*, and because implementing it found a path on which the requirement was **not being met at
+all**.
+
+**The report is the message.** No separate dialog is raised on the ordinary path — not because a
+dialog would be wrong, but because raising both flags two entries in `AppModel.presentedModals`, and
+the quit policy refuses ⌘Q outright while more than one is flagged. Satisfying FR-DEV-8 with a second
+modal would have broken NFR-QUIT's guarantee on the new feature's normal path. **A requirement met in
+a way that breaks another requirement is not met.**
+
+**The path that produced nothing.** A run whose device left during the very first call, with the
+helper never answering it, had no reply — therefore no report, therefore no message. FR-DEV-8's
+second obligation was silently unmet on exactly the run where it matters most: that first call
+covers a whole slice with read, write-back and verify inside it, so it is where a write-back is most
+likely to have been in flight. It is now an alert, and the alert says three things in this order —
+what happened, whether the data may be affected, and what to do — because a person who has just
+pulled a cable knows the first already.
+
+**A third fact reaches the user for the first time: whether exclusive access could be confirmed as
+given back.** It is not a new requirement; it is a consequence of NFR-REL-9's release running on a
+connection that is still blocked by the call that went quiet. Only the deadline-expired ending
+implies it, and both surfaces state it **only** for that ending — an over-claim would tell a paused
+run, whose release completed normally, that the drive might still be held.

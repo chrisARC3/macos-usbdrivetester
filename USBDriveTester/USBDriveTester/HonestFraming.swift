@@ -188,11 +188,35 @@ nonisolated enum HonestFraming {
               + "written back and verified before it stopped.")
 
         case .theHelperNeverAnswered:
+            // **Two facts, and the second one is the claim rather than the data.**
+            //
+            // Every other case here answers one question: what may have happened to the bytes.
+            // This one also answers a second, because it is the only account that implies it. The
+            // deadline expiring means the helper went quiet *inside the owning connection's
+            // blocking call*, and a second message on a connection with a call in flight is not
+            // delivered until that call returns (measured 2026-08-04). So the release that follows
+            // could not be acknowledged either, and `RunController.releaseCannotBeConfirmed` is
+            // set for exactly this ending and no other.
+            //
+            // **Derived rather than carried, and there is a test standing behind the derivation.**
+            // `RunReport` gains no field for it: `releaseCannotBeConfirmed` is set from
+            // `ending == .theHelperNeverAnswered`, and this account arises from that same ending
+            // whenever route (a) supplied nothing — which the deadline expiring already
+            // guarantees, since a reply that had arrived would have stood the wind-down down.
+            // That chain crosses three types, so it is pinned rather than assumed:
+            // `anUnansweredCallsReportSaysTheHelperNeverAnswered` drives the deadline and asserts
+            // this account comes out (Step 12 chunk 5).
+            //
+            // It is stated in the past tense on purpose. In an exported file read weeks later it
+            // is history — *the release could not be confirmed* — which stays true, where advice
+            // about what to do next would not.
             return HonestFramingClaim(
                 "A chunk was in progress when the drive left, and the privileged helper never "
               + "reported which step it had reached. **It cannot be ruled out that a write-back "
               + "was interrupted**, so one chunk may hold partly written data — this report "
-              + "cannot say which one.")
+              + "cannot say which one. The same silence means exclusive access could not be "
+              + "confirmed as given back; if it was still held, the next test to start would have "
+              + "been refused with the helper's own reason.")
 
         case .noRouteSaidAnything:
             // The contradiction case. It says less than the others because it knows less, and

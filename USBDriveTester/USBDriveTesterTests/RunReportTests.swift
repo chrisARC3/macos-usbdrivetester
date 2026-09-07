@@ -533,7 +533,7 @@ struct DeviceLostOutcomeTests {
     /// about a vanished drive with no account of it, or an account under a headline that never
     /// mentions one. Walked over every outcome, so this holds for the five that must have no
     /// account as firmly as for the one that must.
-    @Test func anAccountExistsExactlyWhenTheOutcomeSaysTheDriveWentAway() {
+    @Test func anAccountExistsExactlyWhenTheOutcomeSaysTheDriveWentAway() throws {
         let replies: [RunReportOutcome: RunCycleOutcome] = [
             .completedClean: Fixture.reply(),
             .completedWithFailures: Fixture.reply(failedRangeCount: 1,
@@ -548,7 +548,7 @@ struct DeviceLostOutcomeTests {
         ]
 
         for outcome in RunReportOutcome.allCases {
-            let reply = try! #require(replies[outcome])
+            let reply = try #require(replies[outcome])
             let report = Fixture.report(reply)
             #expect(report.outcome == outcome, "the fixture for \(outcome) built a different one")
             #expect(report.deviceLossAccountAgreesWithTheOutcome,

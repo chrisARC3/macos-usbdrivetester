@@ -165,7 +165,9 @@ struct AppModelReportTests {
                     model.runProduced(reportFromTheRun)
                 },
                 onRunBegan: { [model] in model.runBegan() },
-                onRunSettled: { [model] in model.runSettled() })
+                onRunSettled: { [model] in model.runSettled() },
+                // Not exercised here — see the note in `AppModelQuitTests`.
+                onDeviceLost: {})
         }
 
         /// Drive a run to `running`, through the same two steps the UI takes.

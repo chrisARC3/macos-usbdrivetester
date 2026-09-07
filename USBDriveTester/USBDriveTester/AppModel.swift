@@ -224,6 +224,28 @@ final class AppModel {
         lastRunReport = nil
     }
 
+    /// The drive under test left the machine and the run has come to rest: **re-run the initial
+    /// device discovery routine** (FR-DEV-8, Step 12 chunk 6).
+    ///
+    /// The requirement asks for this in the same sentence as terminating the run and showing an
+    /// error, and it is the practical half of the three: the drive that left is still in the list,
+    /// because FR-DEV-7 freezes the list for the duration of a run and the run only just ended.
+    /// Without this the user is looking at a row for a drive that is not attached, and the app's
+    /// own selection still points at it.
+    ///
+    /// **`refresh(reason:)` bypasses the freeze, and that is correct exactly here.** Its own
+    /// documentation says so and says why the GUI's Refresh button was removed in 2026-08-05 —
+    /// a button offering this during a run is the one thing FR-DEV-7 exists to prevent. A
+    /// deliberate recovery step after a run has ended is the other thing entirely. By the time
+    /// `RunController` calls this the claim is given up and the run is settling, so the freeze has
+    /// nothing left to protect.
+    ///
+    /// Reconnecting the drive repopulates the list by itself, through IOKit's arrival
+    /// notification — that path is not this one and needs nothing from here.
+    func deviceUnderTestWasLost() {
+        discovery.refresh(reason: "device loss (FR-DEV-8)")
+    }
+
     /// Whether the **View Last Run Report** menu item may raise the report (⇧⌘R).
     ///
     /// - Important: this is **not** the question of whether the report may be *shown*, and

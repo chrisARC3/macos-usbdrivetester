@@ -14,9 +14,9 @@ test target fixed to the designated scratch device with disk images removed as a
 "Test hardware")
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
-> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–5 of 8 are
-> done** (chunk 5, 2026-09-06). **The protocol is v15** (chunk 3, 2026-09-05) **and the helper
-> source hash is `42774589…` — neither chunk 4 nor chunk 5 moved it, both being app target only.**
+> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
+> done** (chunk 6, 2026-09-07). **The protocol is v15** (chunk 3, 2026-09-05) **and the helper
+> source hash is `42774589…` — chunks 4, 5 and 6 did not move it, all three being app target only.**
 > ⚠️ **All four hardware gate results lapsed at chunk 1** and are re-run at chunk 7; the ticks
 > further down this file that name `e6888aa5…` or v14 are historical from that moment.
 >
@@ -438,14 +438,17 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-06: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-09-07: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) IS IN PROGRESS**: chunks 0–5 of 8 are done, the rest are not. The suite stands at
-> **1262 tests / 149 suites / 0 failures** (floor 1262), protocol **v15** (chunk 3, 2026-09-05),
-> zero source warnings from three clean builds, **13/13** gate clients type-checking against v15.
+> handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, chunk 7 is not. The suite stands at
+> **1288 tests / 152 suites / 0 failures** (floor 1288), protocol **v15** (chunk 3, 2026-09-05),
+> zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
+> **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
+> `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
+> the app build does not compile the tools, so nothing else would have found those two call sites.
 > The helper's source hash is **`42774589…`** — it moved at chunk 1 and again at chunk 3, **not**
-> at chunks 4 or 5, both app target only; and **all four hardware gate results lapsed at chunk 1.**
+> at chunks 4, 5 or 6, all app target only; and **all four hardware gate results lapsed at chunk 1.**
 > See `PROGRESS.md`.
 >
 > ⚠️ **Until 2026-09-05 this block said "Status, 2026-09-02 … increments 1–10 are done, 11 and 12

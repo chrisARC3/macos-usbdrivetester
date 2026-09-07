@@ -192,7 +192,11 @@ private enum ProbeRun {
             release: { done in done() },
             ioSizeBytes: { model.ioSizeBytes },
             failureMode: { model.failureMode },
-            onReport: { _ in })
+            onReport: { _ in },
+            // Required rather than defaulted (Step 12 chunk 6), which is how the app build's
+            // three call sites and these two were found. A render harness re-running discovery
+            // would rebuild the device list underneath the layout being captured.
+            onDeviceLost: {})
         return model
     }
 
@@ -383,7 +387,11 @@ private struct RunStateHost: View {
             release: { done in done() },
             ioSizeBytes: { model.ioSizeBytes },
             failureMode: { model.failureMode },
-            onReport: { _ in })
+            onReport: { _ in },
+            // Required rather than defaulted (Step 12 chunk 6), which is how the app build's
+            // three call sites and these two were found. A render harness re-running discovery
+            // would rebuild the device list underneath the layout being captured.
+            onDeviceLost: {})
     }
 }
 

@@ -324,6 +324,42 @@ struct HonestFramingTests {
         #expect(!text.contains("cannot be ruled out"), "a paused run was warned about a write-back")
     }
 
+    /// **The only account that answers a second question**, and it is the claim's fate rather than
+    /// the data's.
+    ///
+    /// The deadline expiring means the helper went quiet inside the owning connection's blocking
+    /// call, and a second message on a connection with a call in flight is not delivered until that
+    /// call returns (measured 2026-08-04) — so the release could not be acknowledged either. This
+    /// is what surfaces `RunController.releaseCannotBeConfirmed` to a person: not a field on the
+    /// report, but a sentence derived from the one ending that implies it.
+    ///
+    /// Asserted **exclusively**. A version that appended the release sentence to every device-loss
+    /// claim would pass an assertion that only looked here, and would then be telling four other
+    /// runs — including a paused one whose release completed normally — that exclusive access might
+    /// still be held.
+    @Test func onlyTheUnansweredCallReportsOnTheClaimAsWellAsTheData() {
+        for account in Self.everyAccount {
+            let text = HonestFraming.claim(about: account).plain.lowercased()
+            let saysSo = text.contains("exclusive access could not be confirmed")
+
+            #expect(saysSo == (account == .theHelperNeverAnswered),
+                    "\(account) says: \(text)")
+        }
+    }
+
+    /// And it says what that means the user will *see*, which is the actionable half.
+    ///
+    /// "Exclusive access could not be confirmed" on its own reads as an unbounded problem. The
+    /// second clause bounds it: if the claim really was still held, the next Start says so in the
+    /// helper's own words rather than failing mysteriously — so there is nothing to do now.
+    @Test func theUnconfirmedReleaseSaysHowItWouldShowUp() {
+        let text = HonestFraming.claim(about: .theHelperNeverAnswered).plain.lowercased()
+
+        #expect(text.contains("the next test to start would have been refused"))
+        #expect(text.contains("could not be confirmed"),
+                "stated as a present hazard rather than as history")
+    }
+
     /// Reading and verifying are the two phases that end with the drive intact, and each says why
     /// rather than merely declining to warn. "Unverified is not the same as bad" is the clause that
     /// stops a verify-phase loss reading as a failed comparison.
