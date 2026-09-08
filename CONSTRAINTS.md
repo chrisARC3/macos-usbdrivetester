@@ -338,6 +338,21 @@ Apple and both were found only because someone pressed the button.
   the record, and the only sanctioned cleanup is `sfltool resetbtm`, which resets Background Task
   Management for **every app on the machine**.
 
+  **RESOLVED the same day, and the fix is the cheap one — measured 2026-09-08 16:22.** Unregister
+  then Register from the `/Applications` app **re-parents the record in place**: #11 kept its record
+  number, changed its URL from the DerivedData path to `file:///Applications/USBDriveTester.app/`,
+  and bumped its generation `355165071711802941` → `710330143423605884`; the daemon record went
+  `115` → `117`. **No record pointed at DerivedData afterwards.** So the neighbouring bullet's
+  finding — *a removal survives its own approval, for the **same** bundle path* — extends to a
+  **different** path as well: the registration follows the app that registers it, and
+  `sfltool resetbtm` is **not** needed for this. Two childless `/Applications` records (generations
+  6 and 12) were left behind and are harmless; duplicates accumulate and nothing prunes them.
+
+  Order matters, and `register()` alone is not enough: the same section's first bullet records that
+  **`register()` on an already-`enabled` service is a no-op**. The service was enabled the whole
+  time — wrongly parented, but enabled — so a bare Register would have reported success and changed
+  nothing. **Unregister first.**
+
 ### Quitting, and the run boundary
 
 - **`AppModel.mayIssueNewWork` is a precondition, not a hint.** It is false from the moment a quit is
