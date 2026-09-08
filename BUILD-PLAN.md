@@ -471,7 +471,9 @@ simulation-first still applies wherever the plan calls for it.
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
 > 2026-09-07 against a v15 daemon resolved from `/Applications`; **and 7e is UNDER WAY** — the
 > five-chunk checklist walk, whose **chunks 1 and 2 were walked and passed 2026-09-08** against
-> `55a5c71`, with the daemon rekickstarted at 12:14:01 (pid 84459, v15, `/Applications`). **Chunk 3
+> `55a5c71`, with the daemon rekickstarted at 12:14:01 (pid 84459, v15, `/Applications`). ⛔ **The daemon kickstarted after 7f part 2 came back out of DerivedData** (pid 88873, 16:01:04) — byte-identical
+> binary, so not a correctness fault, but the re-walk is held until it is re-registered from
+> `/Applications`. **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash

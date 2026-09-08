@@ -304,6 +304,40 @@ Apple and both were found only because someone pressed the button.
   back `enabled` without a fresh trip to Login Items. This is also why chunk 13's item 3 does not
   chain into item 4 on a Mac that has approved the app before.
 
+- **⚠️ The BTM record is keyed by bundle IDENTIFIER, and several records can claim the same one —
+  measured 2026-09-08.** `sfltool dumpbtm` after chunk 7f's install held **four** records for this
+  app:
+
+  | # | Type | URL | Generation | Embedded |
+  |---|---|---|---|---|
+  | 11 | app | `…/DerivedData/…/Debug/USBDriveTester.app/` | 355165071711802941 | **the helper** |
+  | 12 | daemon | `Contents/Library/LaunchDaemons/…Helper.plist` | 115 | parent `2.com.arc3solutions.USBDriveTester` |
+  | 6 | app | `/Applications/USBDriveTester.app/` | 6 | none |
+  | 50 | app | `/Applications/USBDriveTester.app/` | 12 | none |
+
+  All three app records carry the **same** `Identifier: 2.com.arc3solutions.USBDriveTester`, and the
+  daemon's `Parent Identifier` names that identifier — so the parent pointer **does not identify a
+  record**. What actually decides the resolution is which app record lists the helper under
+  `Embedded Item Identifiers`, and that was the DerivedData one. `launchctl kickstart` therefore
+  relaunched the daemon out of DerivedData while `/Applications` held a byte-identical copy, and
+  the only thing that said so was `xpcproxy`'s `to program:` line.
+
+  **Two `/Applications` records at the same URL, differing only in generation**, are the fingerprint
+  of the bundle having been replaced at that path. `install-app.sh` does `rm -rf "$DEST"` before
+  `ditto`, which deletes the bundle a live registration points at — the same hazard that script's
+  own header describes for DerivedData paths, arriving at the stable path it recommends. **Whether
+  the `rm -rf` is what re-parented the helper is NOT established**: what is measured is the state
+  after, plus a `/Applications` resolve at 12:14:01 and a DerivedData resolve at 16:01:04 with one
+  install in between. Recorded as a suspect, not a cause.
+
+  The practical rule this leaves: **the version handshake, the protocol number and the binary hashes
+  can all agree while the daemon is running out of a directory that gets rebuilt every chunk.**
+  Provenance comes from the resolve line or from BTM parentage; it never comes from the bytes,
+  because after an install the two bundles are byte-identical by construction. Do **not** try to
+  force the issue by deleting the DerivedData bundle — with BTM still pointing at it that strands
+  the record, and the only sanctioned cleanup is `sfltool resetbtm`, which resets Background Task
+  Management for **every app on the machine**.
+
 ### Quitting, and the run boundary
 
 - **`AppModel.mayIssueNewWork` is a precondition, not a hint.** It is false from the moment a quit is
