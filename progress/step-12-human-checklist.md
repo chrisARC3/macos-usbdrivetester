@@ -307,17 +307,33 @@ the original and has not finished putting it back.
    what it was at the time. *(A log outlives the enumeration that produced the locator. This project
    has already shipped one artefact that could not say which drive it was about — 2026-08-06.)*
 6. Log: `run ended: deviceLost`.
+
+   ⚠️ **THE NEW READING, and take it before anything else in this chunk — chunk 7f left it owed.**
+   Confirm the log contains **`a disk disappeared: disk7 (whole disk)`**, with the words *whole
+   disk*, not only the two slice lines. The whole of route (b) now rests on that event firing
+   **while the claim is held**, and that has never been measured: 2026-09-05 measured it with
+   nothing claimed, and 2026-09-08 saw only slices go. If it is absent, the fix made at 7f means a
+   real unplug is invisible to route (b) — route (a)'s `ENXIO` would still cover a *running* run,
+   and a **paused** one would be blind, which is chunk 4's whole subject. **Record the line
+   verbatim either way**, and if it is missing, stop and say so before chunk 4.
 7. A **report** appears — not the alert. On this path a reply came back, so there is a document to
    show, and the report is the message.
 8. The report's outcome is device loss, and its account names **which detector** accounted for it.
    Route (a) knows the block and the phase; route (b) knows only *that*.
 9. **The phase named is `writingBack`**, and the report says a write-back may be unfinished.
 10. **No Resume is offered.** Only start-from-the-beginning. Check the controls, not the report text.
-11. Log after the release: either `the release was acknowledged after the deadline had already ended
-    the run; the claim was dropped` (notice), or
-    `release issued but not waited for — the helper has not answered the call it is inside, so this
-    app cannot say the claim on <drive> was dropped` (error). **Record which**, with the timestamp.
-    They are different endings and the difference is not visible afterwards without the line.
+11. Log after the release. **Both of these can fire, in this order** — the item said "either/or"
+    until 2026-09-08, when the aborted walk produced both 3.5 seconds apart:
+    - `release issued but not waited for — the helper has not answered the call it is inside, so
+      this app cannot say the claim on <drive> was dropped` (**error**), at the moment the deadline
+      ends the run; then
+    - `the release was acknowledged after the deadline had already ended the run; the claim was
+      dropped` (**notice**), when the helper finally returns and the release lands.
+
+    **Record both timestamps, or record that the second never came** — that is the difference that
+    matters. The error alone means the claim's fate is genuinely unknown and the drive may still be
+    held; the pair means it was dropped and the app found out late. The gap measures how long the
+    helper stayed inside its call after the app had given up on it, which is 5.1's subject.
 12. **Discovery re-runs by itself.** The scratch drive leaves the list without anything being
     clicked. *(FR-DEV-8's third obligation, and the closure in `RunControllerWiring` that fires it
     has no cover but this item — mutation m17 in chunk 7b's round deletes the call and passes the
@@ -327,7 +343,25 @@ the original and has not finished putting it back.
     If it is refused, the helper says so in its own words; record that verbatim, because it is the
     real recovery path for item 11's error case.
 
-**Walked:** ____________  **Against build:** ____________
+**Walked:** **ATTEMPTED 2026-09-08 against `00b1ae2` — ABORTED AT ITEM 2, and it found a defect
+that had been shipped for three days.** Not a pass and not a failure of the product's device-loss
+handling, because the run never reached an unplug: the app ended its own run **ten milliseconds
+after the claim was granted**, before the cable was touched. Route (b) accepted a *slice*
+disappearance as proof the drive had gone, and the exclusive whole-disk open is what makes the
+slices disappear. Fixed at **chunk 7f**; see `CONSTRAINTS.md` §1, 2026-09-08.
+
+**This chunk must be re-walked from item 1 against the fixed build.** Nothing recorded on
+2026-09-08 counts toward it except the two readings below, which were taken from the aborted run
+and are about the machine rather than about the unplug:
+
+- **Item 11 got both endings, 3.5 s apart** — the error at 14:28:27.046, the notice at
+  14:28:30.579. That is what corrected the item's "either/or" wording above.
+- **5.1's deadline measurement, partly.** The helper was inside `runRetentionCycle` for **6.67 s**
+  (14:28:23.888 → 14:28:30.561) and could not answer a second message on that connection until it
+  returned, so the 3-second deadline **expired**. The three-second constant is not generous against
+  a real chunk; it is shorter than one. Recorded under 5.1.
+
+**Against build:** ____________  *(re-walk pending)*
 
 ---
 
@@ -423,6 +457,29 @@ yet."** This is that measurement.
    land in single-digit milliseconds**, say that too — the constant is then generous by three orders
    of magnitude as claimed, which is exactly what makes a deadline firing mean *something is wrong*
    rather than *something is slow*.
+
+**⚠️ A first reading already exists, and it changes what 5.1 is asking. Taken 2026-09-08 from the
+aborted chunk 3 walk, against `00b1ae2`:**
+
+The removal callback fired at **14:28:23.896** while the helper was inside `runRetentionCycle`. That
+call had started at **14:28:23.888** and returned at **14:28:30.561** — **6.67 seconds**. On the same
+connection a second message is not delivered until the call returns (measured 2026-08-04), so no
+reply could arrive, and the deadline **expired** at 14:28:27.045: `no reply after 3.000000s — ending
+the run on the removal callback alone`.
+
+So step 4's second branch is already refuted. **The three-second figure is not generous by three
+orders of magnitude; it is less than half the length of one 8 MiB × 128-chunk call.** A deadline
+firing therefore means *the helper is busy*, which is the ordinary case — not *something is wrong*.
+
+That makes 5.1's real question a different one: **what is route (a)'s reply latency measured from
+when the helper's call actually returns**, and is the deadline meant to bound the reply or the
+call? Record the three trials as written, and record the in-flight call's duration alongside each,
+because the second number is what the constant is actually racing.
+
+⚠️ **This reading came from a run that ended itself, not from an unplug.** The call ran to
+completion rather than being cut short by a vanishing drive, so it is an upper bound on a healthy
+chunk and not a measurement of the case 5.1 names. Both are worth having; they are not the same
+number.
 
 ### 5.2 — does a vanishing drive produce a short read before `ENXIO`?
 

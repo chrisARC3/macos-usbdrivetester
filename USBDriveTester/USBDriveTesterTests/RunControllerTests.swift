@@ -1162,13 +1162,29 @@ struct RunControllerDeviceLossTests {
         #expect(bench.windDowns == 0)
     }
 
-    /// A slice of the drive under test counts. The drive is unmounted and exclusively claimed, so
-    /// nothing can be repartitioning it — a slice of it vanishing can only mean the drive vanished.
-    @Test func aSliceOfTheDriveUnderTestCounts() {
+    /// **A slice of the drive under test does NOT count** — corrected 2026-09-08, chunk 7f, after
+    /// the app ended a healthy run ten milliseconds into it on real hardware. The exclusive
+    /// whole-disk open tears the partition scheme down, so every slice of the drive under test
+    /// disappears as a consequence of this run's own claim. A paused run must sit through that
+    /// untouched.
+    @Test func aSliceOfTheDriveUnderTestDoesNotEndTheRun() {
         let bench = Bench()
         #expect(bench.driveTo(.paused))
 
         bench.controller.deviceDisappeared(Self.slice)
+
+        #expect(bench.controller.state == .paused, "the run's own claim ended its run")
+        #expect(bench.windDowns == 0)
+    }
+
+    /// The whole-disk event still ends it, from `paused` — the case route (b) exists for, and the
+    /// one the fix above must not have cost. If this passes and the test before it passes, the
+    /// discriminator is doing exactly the job it was added for.
+    @Test func theWholeDiskDisappearingStillEndsAPausedRun() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
 
         #expect(bench.controller.state == .finished)
     }

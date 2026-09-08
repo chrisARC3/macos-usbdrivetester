@@ -471,6 +471,43 @@ rests on all four of these, and every one of them was an assumption first.
 as a USB drive being pulled.** It is strong evidence about the API's behaviour and it is not the
 hardware claim. Step 12's gate is what unplugs a drive on purpose.
 
+**That boundary was the right warning and it was still not wide enough.** There is a third event,
+and it is the one that bit — measured on hardware 2026-09-08, Step 12 chunk 7f:
+
+### ⚠️ Claiming a whole disk makes its own slices disappear — measured 2026-09-08
+
+**Opening `/dev/rdiskN` with `O_EXLOCK` tears the partition scheme down.** The slices' `IOMedia`
+nodes terminate and DiskArbitration reports each one through `DADiskDisappeared`, **while the
+claim is held and the drive is physically present and enumerated the whole time.**
+
+On the 1 TB scratch T5 (serial `12345686DAA9`, GPT: EFI + a 1 TB exFAT volume), from the app's own
+log:
+
+```
+14:28:23.876  APP     unmount succeeded on disk7s2: unmounted
+14:28:23.885  HELPER  acquired disk7: claim held, /dev/rdisk7 open exclusively (fd 4)
+14:28:23.886  HELPER  acquire GRANTED
+14:28:23.896  APP     a disk disappeared: disk7s1 (slice)      <- 10 ms after the claim
+14:28:23.896  APP     a disk disappeared: disk7s2 (slice)
+```
+
+**The whole disk did not fire** — zero `disk7` disappearances in the entire capture. So the shape
+of a self-inflicted teardown is *slices only*, and the shape of a real unplug is *whole disk plus
+slices*. `DAMediaWhole` is the discriminator, and it is the only one available inside the callback.
+
+**The consequence for anything built on route (b):** a rule of the form "a slice of my drive
+vanished, therefore my drive vanished" is false, and it is false *because of the run's own
+preconditions* rather than in spite of them. `DeviceUnderTest` shipped exactly that rule from
+2026-09-05 to 2026-09-08 with a comment arguing the opposite, and it ended a healthy run ten
+milliseconds after the claim was granted, on every drive with a partition table. The run it
+discarded went on to complete 128/128 chunks with no failed block ranges.
+
+⚠️ **Still assumed, not measured: that the whole-disk event fires while the claim is held.** Both
+measurements above were made with nothing claimed (2026-09-05) or with only slices going
+(2026-09-08). It is likely — the same channel delivered the slice events under an active claim —
+but it is an inference, and the whole of route (b) now rests on it. **Step 12 checklist chunk 3 is
+what measures it**: pull the cable mid-run and look for `a disk disappeared: diskN (whole disk)`.
+
 ### Device loss (Step 12's territory — the engine's half built 2026-09-05)
 
 - **`ENXIO` on offset 0 of a working descriptor means the descriptor is dead.** `EIO` on a block
@@ -911,6 +948,19 @@ hardware claim. Step 12's gate is what unplugs a drive on purpose.
 Every defect this project has produced came from trusting a substitute for the real thing.
 
 - **A check must be shown capable of failing.** A comment acknowledging a hole is not a check.
+- **When a comment argues that a precondition makes something safe, check whether the precondition
+  is what CAUSES the thing.** `DeviceUnderTest` accepted a slice disappearance as proof the drive
+  had gone, reasoning that *"the device under test is unmounted and exclusively claimed, so nothing
+  can be repartitioning it"*. Taking the exclusive whole-disk open is precisely what makes the
+  slices vanish. The argument was not weak — it was inverted, and it read as careful because it
+  named a real precondition and reasoned from it. **Three days, 1,297 green tests, four passing
+  hardware gates and a mutation round did not touch it.** What found it was a person pressing Start
+  once, on a drive with a partition table. See §1, 2026-09-08.
+- **Ask what a bench cannot synthesise.** Every test of route (b) built its own `DisappearedDisk`,
+  so the suite could only ever check the rule it had been told; it could not observe which events
+  a real claim produces. And the four hardware gates drive the *helper*, while route (b) lives in
+  the *app* — so the gate that looked most like coverage could not reach the code at all. **When a
+  seam is only ever fed synthetic input, the test suite's agreement with it is not evidence.**
 - **Measure, don't estimate.** An estimate stood three steps and was wrong by 11×.
 - **A pre-flight before a design is committed to is almost free** — and has killed two designs before
   they were built.

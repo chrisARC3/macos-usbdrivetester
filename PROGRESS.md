@@ -28,7 +28,10 @@ could drift; the commit is the immutable, greppable one.
 > thumb is back with both slices, and **all four hardware gates were re-run 2026-09-07 against
 > helper hash `e19b0b3c…` and passed with zero failures**. 7e walks the five-chunk checklist:
 > **chunks 1 and 2 walked and passed 2026-09-08** — the alert by eye, and the report's device-loss
-> face. **Chunks 3, 4 and 5 remain** and all three pull a cable out of a running machine.
+> face. **Chunk 3 aborted the same day having found a shipped defect**, fixed at **7f**: route (b)
+> accepted a *slice* disappearance as the drive leaving, and the run's own exclusive whole-disk
+> open is what makes the slices disappear, so the app ended healthy runs ten milliseconds in on any
+> partitioned drive. **Chunk 3 must be re-walked from the top**, then chunks 4 and 5.
 > Step 11 closed 2026-09-05 and its account was archived to
 > [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
 > is current as of **2026-09-08**.
@@ -73,18 +76,18 @@ inherited decisions — wait for the in-flight I/O to time out rather than abort
 device list from scratch, and let the rebuild re-apply FR-DEV-3's default — are in BUILD-PLAN with
 their reasoning.
 
-### Current state — 2026-09-08, at Step 12 chunk 7e (checklist chunks 1–2 walked)
+### Current state — 2026-09-08, at Step 12 chunk 7f (the false-positive device loss, fixed)
 
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
-| **Verified** | **1297 tests, 0 failures, 153 suites** (floor `scripts/.test-floor` = 1297), run green 2026-09-07 at chunk 7b. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29; **chunk 7b added 9 in 1** — `ShortTransferIsNotDeviceLossTests` (4) plus 5 into `InMemoryBlockDeviceTests`. **13/13** gate clients type-check. The full increment gate — DerivedData wiped before *each* of `build.sh Debug`, `build.sh Release` and `test.sh` — was run at 7a and **re-run at 7b, because 7b moved the helper source hash and 7a's figures were recorded against the old one**; see the chunk 7 section |
+| **Verified** | **1300 tests, 0 failures, 153 suites** (floor `scripts/.test-floor` = **1300**, ratcheted at 7f), run green **2026-09-08 at chunk 7f** — which added 4 and rewrote 3 that had asserted the defect. Before that, **1297** run green 2026-09-07 at chunk 7b. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29; **chunk 7b added 9 in 1** — `ShortTransferIsNotDeviceLossTests` (4) plus 5 into `InMemoryBlockDeviceTests`. **13/13** gate clients type-check. The full increment gate — DerivedData wiped before *each* of `build.sh Debug`, `build.sh Release` and `test.sh` — was run at 7a and **re-run at 7b, because 7b moved the helper source hash and 7a's figures were recorded against the old one**; see the chunk 7 section |
 | **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, **moved 2026-09-07 by chunk 7b**. The trail: `e6888aa5…` → `a951e527…` (chunk 1) → `42774589…` (chunk 3) → **`e19b0b3c…`** (chunk 7b). Chunks 2, 4, 5 and 6 did not move it, being app-target only — **and this row predicted chunk 4 would**, which was wrong, then predicted chunk 6 would not, which held, then predicted chunk 7 could, which held. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. ⚠️ **What moved it at 7b is a test fake**: `Core/InMemoryBlockDevice.swift` is a membership exception in `project.pbxproj` — built into `USBDriveTesterTests` **as well as** the helper — so its two new hooks link into the daemon binary (`nm` finds `injectShortRead` and `injectShortWrite` in it) even though nothing outside the test target ever instantiates the class. The hash therefore moved for a change that **cannot** alter what the running daemon does. That is not a reason to discount it: the recipe is defined by path, the binary really is different, and the four gates below had already lapsed at chunk 1, so 7b's move costs nothing that was not owed. It is a reason not to be surprised by it |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). **The installed daemon serves v15 as of 2026-09-08 12:14:01** (pid 84459, resolved from `/Applications`; the four hardware gates below were served by its predecessor pid 69701, also v15 and also from `/Applications`), confirmed by its own start line and asserted independently by three of the four gates. The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. ⚠️ Reinstall **and kickstart** before any gate (`scripts/install-app.sh`); copying files never reloads a running daemon, and **a kickstart can relaunch the DerivedData copy** — check the `to program:` resolve line, not just the version |
 | **Hardware gates** | ✅ **ALL FOUR RE-RUN AND PASSED 2026-09-07**, against helper hash **`e19b0b3c…`**, protocol **v15**, daemon pid 69701 started 15:25:16 and resolved from `/Applications`, on the 1 TB scratch T5 (serial `12345686DAA9`): `metrics-check.sh` **128 assertions / 0 failures**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15 checks / 0 failures**, `run-control-check.sh` **14 assertions / 0 failures** — **zero failures across all four**. Every figure is identical to what the same gate last reported at `e6888aa5…`, which is the expected outcome and not a reason the re-run could have been skipped. They had **ALL FOUR LAPSED 2026-09-05 at chunk 1** when the hash moved, and lapsed again at 7b; this row is now evidence about the current build. ⚠️ **They lapse again the moment the helper source hash moves** — re-derive it from the Helper row before citing any figure here |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, **reinstalled 2026-09-08 10:38 at chunk 7e** from `55a5c71` — ship code, the chunk-1 debug hook reverted. **Proved by content, not by timestamp**: in `Contents/MacOS/USBDriveTester.debug.dylib`, `Device-loss alert` → **0**, `disappeared from the USB bus` → **1**, `nothing was left half-written` → **1**, `eject.circle.fill` → **1**. Helper binary sha256 **`7590b920…`** (was `ab4b6957…`), byte-identical to the DerivedData copy, which is why provenance has to come from the resolve line and cannot come from the bytes. ⚠️ **Grep the dylib, not `Contents/MacOS/USBDriveTester`** — that is a **59 KB launcher stub** with 79 strings in it against the dylib's 5,615, so a content proof aimed at it returns 0 for everything and reads exactly like a failed install. Measured 2026-09-08, after one such false negative. ✅ **The running daemon is current**: **pid 84459**, started **2026-09-08 12:14:01**, protocol **v15**, and `xpcproxy` logged `to program: /Applications/USBDriveTester.app/…` — checked from the unified log, which needs no `sudo`: `/usr/bin/log show --last 5m --predicate 'eventMessage CONTAINS "to program: " AND eventMessage CONTAINS "USBDriveTester"'`. **Two lessons this row was bought with, both still live:** copying files never reloads a running daemon, and a kickstart can relaunch the **DerivedData** copy — on 2026-09-07 one did, and the version handshake could not tell, because the source was identical. |
 | **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-07: the 4 TB T5 EVO (`disk6`, serial `00000S7CLNJ0WC02266P`) and the 125.8 MB UDisk thumb (serial `2211190533300386001515`). **The thumb became a declared role — `multislice` — on 2026-09-07**, repartitioned for checklist item 4.9. It **de-enumerated during that repartition and was physically replugged the same day**, coming back complete: `resolve_target multislice` reports `/dev/disk4`, General UDisk, serial `2211190533300386001515`, 245760 × 512 B, slices `disk4s1` **59.8 MB** and `disk4s2` **64.0 MB**. The role's geometry is therefore **confirmed on hardware**, not merely expected. ⚠️ The slices are 59.8/64.0 MB, **not** the even 60/60 the repartition asked for — `Slice_B` took the remainder — so anything checking for *"two 60 MB slices"* should check for **two slices** |
-| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. `progress/step-12-human-checklist.md` was written at 7c and **its chunks 1 and 2 were walked and passed 2026-09-08** — the alert by eye, and the report's device-loss face. **What is still owed is its chunks 3, 4 and 5**: the unplug during write-back, the unplug while paused (including 4.7, which produces the real paused report chunk 2 could only read off a render, and 4.9, the multi-slice idempotency check on the thumb), and chunk 5's two measurements. All three write to the scratch drive. That is the hardware gate with no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **three declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4), the identity of the device-loss SF Symbol (chunk 5), and **`RunControllerWiring`'s `onDeviceLost:` closure** (chunk 6) — the composition root, where a decision has no cover but a person at the keyboard. **And one thing only a person can see at all: the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. Nothing else — Step 11 closed with its checklist complete, and chunks 0–6 closed green |
+| **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. `progress/step-12-human-checklist.md` was written at 7c and **its chunks 1 and 2 were walked and passed 2026-09-08** — the alert by eye, and the report's device-loss face. **Chunk 3 aborted on 2026-09-08** having found the 7f defect, and is owed a **re-walk from item 1** against the fixed build. **What is still owed is its chunks 3, 4 and 5**: the unplug during write-back, the unplug while paused (including 4.7, which produces the real paused report chunk 2 could only read off a render, and 4.9, the multi-slice idempotency check on the thumb), and chunk 5's two measurements. All three write to the scratch drive. That is the hardware gate with no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **three declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4), the identity of the device-loss SF Symbol (chunk 5), and **`RunControllerWiring`'s `onDeviceLost:` closure** (chunk 6) — the composition root, where a decision has no cover but a person at the keyboard. **And one thing only a person can see at all: the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. Nothing else — Step 11 closed with its checklist complete, and chunks 0–6 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
 ### The one open measurement — CLOSED 2026-09-05, before Step 12 began
@@ -122,14 +125,15 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `1de0d53`. See below. Helper hash **unmoved** — app target only |
-| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked at the time. **7d DONE 2026-09-07**: app reinstalled and verified by symbol, the daemon kickstarted (twice — see below), the thumb replugged with both slices intact, and **all four hardware gates re-run against `e19b0b3c…`/v15 with zero failures**. **7e UNDER WAY**: the five-chunk checklist walk, of which **chunks 1 and 2 passed 2026-09-08** against `55a5c71` — and both of chunk 2's unwalked items turned out to be **instrument defects, reworded rather than failed**. Chunks 3, 4 and 5 — the physical unplugs and the two never-made measurements — are **all that remains of Step 12** |
+| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked at the time. **7d DONE 2026-09-07**: app reinstalled and verified by symbol, the daemon kickstarted (twice — see below), the thumb replugged with both slices intact, and **all four hardware gates re-run against `e19b0b3c…`/v15 with zero failures**. **7e UNDER WAY**: the five-chunk checklist walk, of which **chunks 1 and 2 passed 2026-09-08** against `55a5c71` — and both of chunk 2's unwalked items turned out to be **instrument defects, reworded rather than failed**. **7f DONE 2026-09-08**: the false-positive device loss that walk found — route (b) accepted a slice disappearance as the drive leaving, and the run's own exclusive whole-disk open is what produces those slices, so any partitioned drive ended its run ten milliseconds after the claim. One guard, six tests killing the mutation, **helper hash unmoved so the four gates stand**. Chunks 3 (re-walk), 4 and 5 — the physical unplugs and the never-made measurements — are **all that remains of Step 12** |
 
 ### Chunk 7 — the gate, the mutation round, and the gap that was in the fake
 
 Split into five: **7a** the full increment gate, **7b** the mutation round, **7c** the human
-checklist, **7d** install plus the four lapsed hardware gates, **7e** walking that checklist.
-**7a, 7b, 7c and 7d are done; 7e is under way** — its chunks 1 and 2 passed 2026-09-08, and its
-chunks 3, 4 and 5 are the physical unplugs.
+checklist, **7d** install plus the four lapsed hardware gates, **7e** walking that checklist,
+**7f** the defect that walk found. **7a–7d and 7f are done; 7e is under way** — its chunks 1 and 2
+passed 2026-09-08, its chunk 3 aborted on the defect and is owed a re-walk, and chunks 4 and 5 are
+the remaining physical unplugs.
 
 **7a** (`76f5ad9`) ran the gate in its full form — DerivedData wiped before *each* of `build.sh
 Debug`, `build.sh Release` and `test.sh`, rather than once before all three. It also found that
@@ -181,7 +185,8 @@ of the three:
 | `build.sh Release` | 0 | 2 (WMO — one per module) | **70 of 70** | 0 |
 | `test.sh` | 0 | 182 | — | 0 |
 
-**1297 tests / 153 suites / 0 failures**, floor 1297. **13/13** gate clients type-check. The only
+**1297 tests / 153 suites / 0 failures**, floor 1297 — **the figures at that gate, 2026-09-07;
+7f took the suite to 1300 and the floor with it.** **13/13** gate clients type-check. The only
 `warning:` lines in any of the three logs are `appintentsmetadataprocessor`'s "No AppIntents.framework
 dependency", a toolchain notice rather than a source warning. Every figure is identical to 7a's,
 which is the expected result and not a reason to skip the run: 7b edited existing sources and added
@@ -380,6 +385,75 @@ week being in the checklist or the logging rather than the product.
 **Still owed: chunks 3, 4 and 5** — the unplug during write-back, the unplug while paused (with 4.7,
 which produces the real paused report chunk 2 could only read off a render, and 4.9, the multi-slice
 idempotency check on the thumb), and chunk 5's two measurements. All three write to the scratch T5.
+
+#### 7f — the app ended its own run, and had been doing it for three days
+
+**Chunk 3 of the walk never reached an unplug.** The run ended **ten milliseconds after the claim
+was granted**, before the cable was touched, and the alert said the drive had been disconnected. It
+had not: the T5 was enumerated throughout, and the run the app discarded went on to finish
+**128/128 chunks, 1,073,741,824 B read, written back and verified, no failed block ranges**, six
+seconds later.
+
+**What happened**, from the app's own log:
+
+```
+14:28:23.876  APP     unmount succeeded on disk7s2: unmounted        <- the app's own doing
+14:28:23.885  HELPER  acquired disk7: claim held, /dev/rdisk7 open exclusively (fd 4)
+14:28:23.886  HELPER  acquire GRANTED
+14:28:23.888  HELPER  retention cycle START: 128 chunks
+14:28:23.896  APP     a disk disappeared: disk7s1 (slice)
+14:28:23.896  APP     the drive under test left the machine while running    <- FALSE
+14:28:23.896  APP     a disk disappeared: disk7s2 (slice)
+14:28:27.045  APP     no reply after 3.000000s — ending the run on the removal callback alone
+14:28:30.561  HELPER  retention cycle END: completed; 128/128 chunks; no failed block ranges
+```
+
+**The whole disk never disappeared** — zero `disk7` events in the capture. Taking exclusive
+whole-disk access tears the partition scheme down, the slices' `IOMedia` nodes terminate, and
+DiskArbitration reports each one. **The run's own claim fired route (b).**
+
+`DeviceUnderTest.wasLost(whenDiskDisappeared:)` accepted a slice, and its header argued for it:
+
+> the device under test is unmounted and exclusively claimed, so nothing can be repartitioning it,
+> and therefore a slice of it vanishing can only mean the drive vanished
+
+The premise is not weak, it is **inverted** — the exclusive claim is the cause, not the alibi. The
+fix is one guard, `guard disk.isWholeDisk else { return false }`, placed before the identity checks
+because it asks a different question: not *which* drive, but whether the event can mean a drive left
+at all. A whole-disk disappearance is what an unplug produces; a slice-only one is what this app
+produces.
+
+**Why three days of green did not find it.** Every test of route (b) synthesises its own
+`DisappearedDisk`, so the suite could only check the rule it had been told — it could not observe
+which events a real claim produces. And the four hardware gates drive the **helper** through probe
+tools, while route (b) lives in the **app**: the coverage that looked strongest could not reach the
+code. Chunk 7b's mutation round did not touch it either, because a mutation of a rule the tests
+agree with is killed by tests that are themselves wrong. **What found it was a person pressing
+Start once, on a drive with a partition table** — which is the argument for the human checklist,
+made by the checklist, on its third chunk.
+
+**Cover added.** Four new tests and three rewritten that had asserted the defect —
+`aSliceOfTheDriveDisappearingIsNotTheDriveBeingLost`, `theRunsOwnClaimTearingDownItsSlicesEndsNothing`
+(the logged sequence, in order), `onlyAWholeDiskDisappearanceCanMeanTheDriveWasLost`,
+`theGateReadsTheFlagRatherThanTheNamesShape`, `aSliceOfTheDriveUnderTestDoesNotEndTheRun` and its
+companion `theWholeDiskDisappearingStillEndsAPausedRun`. **Deleting the guard is killed by six of
+them.** Suite **1300 / 153 / 0**, floor ratcheted 1297 → 1300.
+
+**The helper source hash did not move** — `DeviceUnderTest.swift` is in `RunControl/`, outside the
+recipe — so 7d's four hardware gate results stand.
+
+⚠️ **What this fix assumes, and chunk 3's re-walk must measure.** That the whole-disk event still
+fires **while the claim is held**. 2026-09-05 measured disappearances with nothing claimed;
+2026-09-08 saw only slices go. The inference is reasonable — the same channel delivered the slice
+events under an active claim — but the whole of route (b) now rests on it, and if it is wrong a
+*paused* run is blind, which is chunk 4's subject. A new reading was added to checklist chunk 3 and
+it is taken before anything else there.
+
+**Two readings the aborted walk produced anyway.** Item 11's two log lines are **not** either/or —
+both fired, 3.5 s apart, and the item's wording is corrected. And 5.1's deadline: the helper was
+inside `runRetentionCycle` for **6.67 s** and could not answer on that connection until it returned,
+so the 3-second deadline expired. **The constant is shorter than one 8 MiB × 128-chunk call**, not
+generous by three orders of magnitude as its own comment supposes.
 
 ### Chunk 6 — the run that said nothing now says something, and the list stops showing a drive that left
 

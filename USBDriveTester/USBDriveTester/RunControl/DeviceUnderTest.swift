@@ -34,18 +34,47 @@
 //  and it is what chunks 4–6 will put in front of a person. The locator answers "which of the
 //  things attached right now"; the serial answers "which drive".
 //
-//  ## Why a slice counts
+//  ## Why a slice does NOT count — corrected 2026-09-08, chunk 7f
 //
-//  A drive leaving produces a disappearance for the whole disk **and** one for each of its slices —
-//  measured 2026-09-05, see `CONSTRAINTS.md`. Either is accepted here, for a reason that depends on
-//  the run's own preconditions: the device under test is unmounted and exclusively claimed, so
-//  nothing can be repartitioning it, and therefore a slice of it vanishing can only mean the drive
-//  vanished. In practice the whole-disk event fires too, so this is redundancy rather than the
-//  primary route — and redundancy is the right shape when the alternative is missing the one event
-//  a paused run can be told about.
+//  This file used to accept a slice as proof, and the reasoning was **exactly inverted**:
 //
-//  **Consequence for the caller: this fires more than once per unplug.** Whatever acts on it in
-//  chunk 4 has to be idempotent, because a two-partition drive produces three of these.
+//  > the device under test is unmounted and exclusively claimed, so nothing can be repartitioning
+//  > it, and therefore a slice of it vanishing can only mean the drive vanished
+//
+//  **Taking exclusive whole-disk access is itself what makes the slices vanish.** Opening
+//  `/dev/rdiskN` with `O_EXLOCK` tears the partition scheme down, the slices' `IOMedia` nodes
+//  terminate, and DiskArbitration reports each one as disappeared. The precondition invoked for
+//  safety is the direct cause of the event. Measured on the 1 TB scratch T5 (serial `12345686DAA9`,
+//  GPT: EFI + a 1 TB exFAT volume), 2026-09-08, from the app's own log:
+//
+//      14:28:23.876  APP     unmount succeeded on disk7s2: unmounted
+//      14:28:23.885  HELPER  acquired disk7: claim held, /dev/rdisk7 open exclusively (fd 4)
+//      14:28:23.886  HELPER  acquire GRANTED
+//      14:28:23.896  APP     a disk disappeared: disk7s1 (slice)     <- 10 ms after the claim
+//      14:28:23.896  APP     the drive under test left the machine while running   <- FALSE
+//      14:28:23.896  APP     a disk disappeared: disk7s2 (slice)
+//
+//  **The whole disk never disappeared** — zero `disk7` events in the whole capture. The run it
+//  killed went on to finish: 128/128 chunks, 1,073,741,824 B read, written back and verified, no
+//  failed block ranges, six seconds after the app had told the user the drive was gone.
+//
+//  So the discriminator is the one the old code carried and did not use: **`isWholeDisk`.** A
+//  whole-disk disappearance is what an unplug produces; a slice-only disappearance is what this
+//  app's own claim produces. A real unplug still fires the whole-disk event — measured 2026-09-05,
+//  `CONSTRAINTS.md` fact 1 — so nothing is missed, including by a paused run, which is the case
+//  route (b) exists for.
+//
+//  ⚠️ **What is assumed and not yet measured**: that the whole-disk event still fires *while the
+//  claim is held*. The 2026-09-05 measurement was made against `hdiutil` ram disks with nothing
+//  claimed. It is very likely — DiskArbitration reported the slices going while the claim was held,
+//  which is the same channel — but it is an inference, and **checklist chunk 3 is what measures
+//  it**: pull the cable mid-run and look for `a disk disappeared: disk7 (whole disk)`. If it does
+//  not fire, this returns `false` for a real unplug, route (a)'s `ENXIO` still covers a *running*
+//  run, and a *paused* one would be blind — which is chunk 4's subject and why chunk 3 runs first.
+//
+//  **Consequence for the caller: one unplug now yields one accepted event, not three.** The
+//  idempotency in `DeviceLossWindDown` becomes belt-and-braces rather than load-bearing. It stays:
+//  a mutation deleting it survived the whole suite once, and nothing here makes that safer.
 //
 //  ## This has no production caller yet, on purpose
 //
@@ -106,14 +135,22 @@ nonisolated struct DeviceUnderTest: Equatable {
 
     /// **Does this disappearance mean the drive under test is gone?**
     ///
-    /// True for the drive itself and for any slice of it. False for every other disk — including
-    /// the ones whose names merely *start* with this one's, which is the trap a `hasPrefix` check
-    /// falls into: `disk70` and `disk7s1` both begin with `disk7`, and only one of them is this
-    /// drive. The unit number is parsed rather than compared as text for exactly that reason.
+    /// True only for **the whole disk** — see the header: a slice of the drive under test
+    /// disappears as a direct consequence of this run's own exclusive claim, so accepting one
+    /// ends a healthy run about ten milliseconds after it starts. False for every other disk,
+    /// including the ones whose names merely *start* with this one's, which is the trap a
+    /// `hasPrefix` check falls into: `disk70` and `disk7s1` both begin with `disk7`, and only one
+    /// of them is this drive. The unit number is parsed rather than compared as text for exactly
+    /// that reason.
     ///
     /// A name that does not parse matches only itself. That is the safe direction for a locator
     /// this code did not generate.
     func wasLost(whenDiskDisappeared disk: DisappearedDisk) -> Bool {
+        // **The whole-disk gate, and it comes first.** Every check below asks *which* drive this
+        // is about; this one asks whether the event can mean a drive left at all. Ordering it
+        // first is not an optimisation — it is what stops the run's own claim from answering yes.
+        guard disk.isWholeDisk else { return false }
+
         if disk.bsdName.rawValue == bsdName.rawValue { return true }
 
         // Both must parse before a unit number can be compared. If either does not, the exact

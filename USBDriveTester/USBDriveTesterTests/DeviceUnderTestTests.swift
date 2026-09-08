@@ -13,6 +13,14 @@
 //  the boundary stated there too, because a ram disk detaching cleanly is not the same event as a
 //  USB drive being pulled. Step 12's hardware gate is what closes that.
 //
+//  ## The second trap, found on hardware 2026-09-08 (chunk 7f)
+//
+//  A slice of the drive under test disappears because **this run claimed the drive** — the
+//  exclusive whole-disk open tears the partition scheme down. Accepting a slice therefore ends a
+//  healthy run about ten milliseconds after it starts, on any drive with a partition table. No
+//  unit test found it because every event here is synthesised, and the four hardware gates drive
+//  the helper, where route (b) does not live. It took a person starting a run.
+//
 //  ## The trap this file exists for
 //
 //  `disk7` and `disk70` share a prefix and are different drives. A `hasPrefix` check — the obvious
@@ -45,14 +53,38 @@ struct DeviceUnderTestMatchingTests {
         #expect(DeviceUnderTest.scratch(at: "disk7").wasLost(whenDiskDisappeared: gone("disk7")))
     }
 
-    /// A drive leaving fires for the whole disk **and** each slice (measured 2026-09-05). Either
-    /// is accepted: under an exclusive claim nothing can be repartitioning the drive, so a slice
-    /// of it vanishing can only mean the drive vanished.
-    @Test func aSliceOfTheDriveDisappearingIsAlsoTheDriveBeingLost() {
+    /// **The regression this file was rewritten for, 2026-09-08 (chunk 7f).**
+    ///
+    /// A slice of the drive under test disappearing is **not** the drive leaving. This used to
+    /// assert the opposite, on the reasoning that an exclusively claimed drive cannot be
+    /// repartitioned — which is true and beside the point: taking the exclusive whole-disk open
+    /// is *itself* what tears the partition scheme down and makes the slices disappear.
+    ///
+    /// On the 1 TB scratch T5 (GPT, EFI + one exFAT volume) the app killed its own run **ten
+    /// milliseconds** after the claim was granted, and the run it discarded went on to complete
+    /// 128/128 chunks with no failed block ranges. Nothing in this suite could see it: every
+    /// bench feeds synthesised events, and the four hardware gates drive the helper directly,
+    /// where route (b) does not live.
+    @Test func aSliceOfTheDriveDisappearingIsNotTheDriveBeingLost() {
         let underTest = DeviceUnderTest.scratch(at: "disk7")
         for slice in ["disk7s1", "disk7s2", "disk7s1s1"] {
-            #expect(underTest.wasLost(whenDiskDisappeared: gone(slice)), "slice=\(slice)")
+            #expect(!underTest.wasLost(whenDiskDisappeared: gone(slice)), "slice=\(slice)")
         }
+    }
+
+    /// The exact sequence the app logged at 14:28:23.896 on 2026-09-08, in order. Both events are
+    /// slices of the drive under test, arriving while it is claimed; neither may end the run.
+    @Test func theRunsOwnClaimTearingDownItsSlicesEndsNothing() {
+        let underTest = DeviceUnderTest.scratch(at: "disk7")
+        let asLogged = [gone("disk7s1", whole: false), gone("disk7s2", whole: false)]
+
+        for disk in asLogged {
+            #expect(!underTest.wasLost(whenDiskDisappeared: disk),
+                    "\(disk.bsdName.rawValue) disappeared because this run claimed disk7")
+        }
+
+        // And the event that *does* mean the drive left still does.
+        #expect(underTest.wasLost(whenDiskDisappeared: gone("disk7", whole: true)))
     }
 
     /// **The prefix trap.** Every name here starts with `disk7` as text and is a different drive.
@@ -72,7 +104,10 @@ struct DeviceUnderTestMatchingTests {
         for other in ["disk1", "disk3", "disk130"] {
             #expect(!underTest.wasLost(whenDiskDisappeared: gone(other)), "other=\(other)")
         }
-        #expect(underTest.wasLost(whenDiskDisappeared: gone("disk13s1")))
+        // The slice does not count (chunk 7f) — but the whole disk still does, which is what
+        // keeps this a test about *numbering* rather than about the wholeness gate.
+        #expect(!underTest.wasLost(whenDiskDisappeared: gone("disk13s1")))
+        #expect(underTest.wasLost(whenDiskDisappeared: gone("disk13")))
     }
 
     @Test func anUnrelatedDriveIsNotTheDriveBeingLost() {
@@ -83,16 +118,29 @@ struct DeviceUnderTestMatchingTests {
     }
 
     /// A name this code did not generate matches only itself — the safe direction for a locator.
+    ///
+    /// **Wholeness is passed explicitly here**, and the reason is worth stating. The `gone(_:)`
+    /// helper defaults it from `BSDDeviceName.isWholeDiskName`, which is `unitNumber != nil &&
+    /// suffix.isEmpty` — so it answers `false` for `nvme0`, a name it cannot parse at all. In
+    /// production the flag comes from `DAMediaWhole` and a whole `nvme0` would report `true`;
+    /// the name-shape rule is only the fallback for when the description cannot be copied.
+    ///
+    /// ⚠️ **That fallback would refuse a whole device whose name is not `diskN`** — it cannot
+    /// parse one, so it calls it a slice. Harmless for this app, which tests USB drives and those
+    /// are always `diskN`, and it fails in the safe direction: a missed disappearance ends no
+    /// healthy run. Recorded rather than fixed, because inventing a second parser for names this
+    /// project never sees would be untested code guarding nothing.
     @Test func anUnparsableNameMatchesOnlyItself() {
         let odd = DeviceUnderTest(usbSerialNumber: nil,
                                   bsdName: BSDDeviceName("nvme0"),
                                   modelDescription: "Odd")
-        #expect(odd.wasLost(whenDiskDisappeared: gone("nvme0")))
-        #expect(!odd.wasLost(whenDiskDisappeared: gone("nvme1")))
-        #expect(!odd.wasLost(whenDiskDisappeared: gone("disk7")))
+        #expect(odd.wasLost(whenDiskDisappeared: gone("nvme0", whole: true)))
+        #expect(!odd.wasLost(whenDiskDisappeared: gone("nvme1", whole: true)))
+        #expect(!odd.wasLost(whenDiskDisappeared: gone("disk7", whole: true)))
 
         // And a parsable drive is not lost when an unparsable disk goes.
-        #expect(!DeviceUnderTest.scratch(at: "disk7").wasLost(whenDiskDisappeared: gone("nvme0")))
+        #expect(!DeviceUnderTest.scratch(at: "disk7")
+            .wasLost(whenDiskDisappeared: gone("nvme0", whole: true)))
     }
 
     /// An empty name is what `describe(_:)` falls back to when `DADiskGetBSDName` returns nil.
@@ -101,14 +149,31 @@ struct DeviceUnderTestMatchingTests {
         #expect(!DeviceUnderTest.scratch(at: "disk7").wasLost(whenDiskDisappeared: gone("")))
     }
 
-    /// Whole-ness does not change the answer — it is carried for the log line and for chunk 4,
-    /// not used as a filter. A slice-only disappearance still means the drive went.
-    @Test func theAnswerDoesNotDependOnWholeness() {
+    /// **Wholeness is the filter** (corrected 2026-09-08). It used to be carried only for the log
+    /// line, and this test used to assert that it changed nothing. Both halves matter: the right
+    /// drive is not lost when only a slice goes, and the wrong drive is not lost either way.
+    @Test func onlyAWholeDiskDisappearanceCanMeanTheDriveWasLost() {
         let underTest = DeviceUnderTest.scratch(at: "disk7")
+
+        #expect(underTest.wasLost(whenDiskDisappeared: gone("disk7", whole: true)))
+        #expect(!underTest.wasLost(whenDiskDisappeared: gone("disk7", whole: false)))
+
         for whole in [true, false] {
-            #expect(underTest.wasLost(whenDiskDisappeared: gone("disk7", whole: whole)))
             #expect(!underTest.wasLost(whenDiskDisappeared: gone("disk8", whole: whole)))
         }
+    }
+
+    /// `isWholeDisk` comes from `DAMediaWhole`, with the name as fallback when the description
+    /// cannot be copied. The gate reads the flag, **not** the shape of the string — so a whole
+    /// disk reported with an odd name is still accepted, and a slice is refused even if something
+    /// upstream mislabels its name.
+    @Test func theGateReadsTheFlagRatherThanTheNamesShape() {
+        let underTest = DeviceUnderTest.scratch(at: "disk7")
+
+        // Flag says whole, name looks like a slice: accepted, because the system said whole.
+        #expect(underTest.wasLost(whenDiskDisappeared: gone("disk7s1", whole: true)))
+        // Flag says slice, name looks whole: refused, for the same reason.
+        #expect(!underTest.wasLost(whenDiskDisappeared: gone("disk7", whole: false)))
     }
 }
 

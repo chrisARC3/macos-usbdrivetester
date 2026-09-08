@@ -652,8 +652,12 @@ final class RunController {
     ///      drive.
     ///
     /// **Called several times for one unplug** — once for the whole disk and once per slice
-    /// (measured 2026-09-05). Everything after the guards is idempotent by construction: the first
-    /// call builds the wind-down, the rest find it already begun.
+    /// (measured 2026-09-05) — but since chunk 7f only the whole-disk call gets past guard (3):
+    /// a slice of the drive under test disappears because *this run claimed the drive*, and
+    /// accepting one ended a healthy run ten milliseconds in (measured 2026-09-08). Everything
+    /// after the guards is still idempotent by construction — the first call builds the wind-down,
+    /// the rest find it already begun — and stays that way: a mutation deleting that idempotency
+    /// survived the whole suite once, and one accepted event per unplug does not make it safer.
     func deviceDisappeared(_ disk: DisappearedDisk) {
         guard RunControlPolicy.deviceLossWouldEndTheRun(in: state) else { return }
         guard let deviceUnderTest else { return }
