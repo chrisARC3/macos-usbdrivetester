@@ -273,6 +273,28 @@ the 990 EVO Plus holding this repository (`013117100578`) are both 1,953,525,168
 right way round and must stay that way — a block count cannot discriminate these two, and the drive
 it would confuse the scratch device with is the one carrying the source tree.
 
+**⚠️ Do not pair a serial to a drive by ADJACENCY in a text dump — measured 2026-09-08, a near
+miss.** Establishing which BSD name held `12345686DAA9` before a write walk, an `awk` over
+`ioreg -rd1 -c IOUSBHostDevice` that paired each `"USB Product Name"` with the next
+`"USB Serial Number"` reported **`Portable SSD T5 → 00000S7CLNJ0WC02266P`**. That is the wrong
+serial: the T5 is `12345686DAA9`. Within one IORegistry entry the two keys appear in **either
+order**, and devices publishing one key but not the other slide the pairing along — the same run
+silently dropped two of the six drives, including the 990 EVO Plus that holds this repository.
+`system_profiler SPUSBDataType -json` was no better: its schema does not carry `serial_num` where
+the flat listing implies, and a walk for it returned **nothing at all**, which is at least a *loud*
+failure.
+
+What works is a **structured walk that attaches each `"BSD Name"` to the USB device entry it is
+nested under**, and it must allow product names containing spaces — a `\S+` in the entry-header
+pattern silently matches no storage device on this machine, since every one of them is called
+something like `Portable SSD T5`. The verified map is in
+`progress/step-12-human-checklist.md` under *Which drive is which*.
+
+The rule underneath: **an instrument that returns a plausible wrong answer is worse than one that
+returns none**, and both failed here on the way to naming a drive that was about to be written to
+end to end. Cross-check any BSD↔serial mapping against a second source — `scripts/device-probe.sh`
+prints BSD and model together — before it is used to pick a write target.
+
 ### Registering and replacing the helper (`SMAppService`)
 
 Both measured at the keyboard on 2026-08-31/09-01, walking chunk 13 item 7. Neither is documented by

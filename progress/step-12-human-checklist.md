@@ -293,6 +293,30 @@ name, not a typo — established from the product's own binary rather than from 
 
 ---
 
+## Which drive is which — verified 2026-09-08 16:30, before chunk 3's re-walk
+
+Read this before any chunk that writes. BSD names are a **locator** and this machine has
+renumbered them before; the serial is the identity. Verified by a structured IORegistry walk that
+attaches each `BSD Name` to the USB device entry containing it, cross-checked against
+`scripts/device-probe.sh` for model and capacity.
+
+| USB product | USB serial | Whole disk | What it is |
+|---|---|---|---|
+| **Portable SSD T5** | **`12345686DAA9`** | **`disk7`** | ✅ **the scratch drive — the ONLY write-gate target.** Mounted `Test_Drive`, exFAT, one data slice `disk7s2` |
+| Ugreen Storage Device | `013117100578` | `disk8`, `disk9` | ⛔ **the 990 EVO Plus carrying this repository** (`/Volumes/1TB_UGreen`). Same block count as the T5 — 1,953,525,168 |
+| PSSD T5 EVO | `7423J07` | `disk6`, `disk10` | the 4 TB T5 EVO. Not a target |
+| Expansion HDD | `00000000NT17XBRA` | `disk11`, `disk13` | ⛔ the 22 TB Seagate. **Never** a write target |
+| UDisk | `2211190533300386001515` | `disk4` | the 125.8 MB multi-slice thumb — chunk **4.9**'s drive |
+| Flash Drive | `0376620100003464` | `disk5` | 256.6 GB thumb. Not a target |
+
+⚠️ **Two 1 TB Samsung SSDs sit next to each other in that list, and one of them holds the source
+tree.** They cannot be told apart by capacity or block count. Confirm the **serial** in the device
+pane before starting, which is what item 1 asks for.
+
+⚠️ **`disk7` is what chunk 3's log readings name.** If a replug renumbers it, every `disk7` below
+means "whichever whole disk carries `12345686DAA9`" — re-read this table rather than trusting the
+digit.
+
 ## Chunk 3 — the unplug during write-back *(WRITES to the scratch drive)*
 
 **The phase that matters.** `writingBack` is the one where this run holds the chunk's only copy of
