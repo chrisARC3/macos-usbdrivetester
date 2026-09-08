@@ -81,7 +81,7 @@ their reasoning.
 | | |
 |---|---|
 | **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
-| **Verified** | **1300 tests, 0 failures, 153 suites** (floor `scripts/.test-floor` = **1300**, ratcheted at 7f), run green **2026-09-08 at chunk 7f** — which added 4 and rewrote 3 that had asserted the defect. Before that, **1297** run green 2026-09-07 at chunk 7b. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29; **chunk 7b added 9 in 1** — `ShortTransferIsNotDeviceLossTests` (4) plus 5 into `InMemoryBlockDeviceTests`. **13/13** gate clients type-check. The full increment gate — DerivedData wiped before *each* of `build.sh Debug`, `build.sh Release` and `test.sh` — was run at 7a and **re-run at 7b, because 7b moved the helper source hash and 7a's figures were recorded against the old one**; see the chunk 7 section |
+| **Verified** | **1301 tests, 0 failures, 153 suites** (floor `scripts/.test-floor` = **1301**, ratcheted at 7f), run green **2026-09-08 at chunk 7f** — which added 5 and rewrote 3 that had asserted the defect. Before that, **1297** run green 2026-09-07 at chunk 7b. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29; **chunk 7b added 9 in 1** — `ShortTransferIsNotDeviceLossTests` (4) plus 5 into `InMemoryBlockDeviceTests`. **13/13** gate clients type-check. The full increment gate — DerivedData wiped before *each* of `build.sh Debug`, `build.sh Release` and `test.sh` — was run at 7a and **re-run at 7b, because 7b moved the helper source hash and 7a's figures were recorded against the old one**; see the chunk 7 section |
 | **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, **moved 2026-09-07 by chunk 7b**. The trail: `e6888aa5…` → `a951e527…` (chunk 1) → `42774589…` (chunk 3) → **`e19b0b3c…`** (chunk 7b). Chunks 2, 4, 5 and 6 did not move it, being app-target only — **and this row predicted chunk 4 would**, which was wrong, then predicted chunk 6 would not, which held, then predicted chunk 7 could, which held. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. ⚠️ **What moved it at 7b is a test fake**: `Core/InMemoryBlockDevice.swift` is a membership exception in `project.pbxproj` — built into `USBDriveTesterTests` **as well as** the helper — so its two new hooks link into the daemon binary (`nm` finds `injectShortRead` and `injectShortWrite` in it) even though nothing outside the test target ever instantiates the class. The hash therefore moved for a change that **cannot** alter what the running daemon does. That is not a reason to discount it: the recipe is defined by path, the binary really is different, and the four gates below had already lapsed at chunk 1, so 7b's move costs nothing that was not owed. It is a reason not to be surprised by it |
 | **Protocol** | **v15**, since chunk 3 (2026-09-05). **The installed daemon serves v15 as of 2026-09-08 12:14:01** (pid 84459, resolved from `/Applications`; the four hardware gates below were served by its predecessor pid 69701, also v15 and also from `/Applications`), confirmed by its own start line and asserted independently by three of the four gates. The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. ⚠️ Reinstall **and kickstart** before any gate (`scripts/install-app.sh`); copying files never reloads a running daemon, and **a kickstart can relaunch the DerivedData copy** — check the `to program:` resolve line, not just the version |
 | **Hardware gates** | ✅ **ALL FOUR RE-RUN AND PASSED 2026-09-07**, against helper hash **`e19b0b3c…`**, protocol **v15**, daemon pid 69701 started 15:25:16 and resolved from `/Applications`, on the 1 TB scratch T5 (serial `12345686DAA9`): `metrics-check.sh` **128 assertions / 0 failures**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15 checks / 0 failures**, `run-control-check.sh` **14 assertions / 0 failures** — **zero failures across all four**. Every figure is identical to what the same gate last reported at `e6888aa5…`, which is the expected outcome and not a reason the re-run could have been skipped. They had **ALL FOUR LAPSED 2026-09-05 at chunk 1** when the hash moved, and lapsed again at 7b; this row is now evidence about the current build. ⚠️ **They lapse again the moment the helper source hash moves** — re-derive it from the Helper row before citing any figure here |
@@ -186,7 +186,7 @@ of the three:
 | `test.sh` | 0 | 182 | — | 0 |
 
 **1297 tests / 153 suites / 0 failures**, floor 1297 — **the figures at that gate, 2026-09-07;
-7f took the suite to 1300 and the floor with it.** **13/13** gate clients type-check. The only
+7f took the suite to 1301 and the floor with it.** **13/13** gate clients type-check. The only
 `warning:` lines in any of the three logs are `appintentsmetadataprocessor`'s "No AppIntents.framework
 dependency", a toolchain notice rather than a source warning. Every figure is identical to 7a's,
 which is the expected result and not a reason to skip the run: 7b edited existing sources and added
@@ -436,8 +436,23 @@ made by the checklist, on its third chunk.
 `aSliceOfTheDriveDisappearingIsNotTheDriveBeingLost`, `theRunsOwnClaimTearingDownItsSlicesEndsNothing`
 (the logged sequence, in order), `onlyAWholeDiskDisappearanceCanMeanTheDriveWasLost`,
 `theGateReadsTheFlagRatherThanTheNamesShape`, `aSliceOfTheDriveUnderTestDoesNotEndTheRun` and its
-companion `theWholeDiskDisappearingStillEndsAPausedRun`. **Deleting the guard is killed by six of
-them.** Suite **1300 / 153 / 0**, floor ratcheted 1297 → 1300.
+companion `theWholeDiskDisappearingStillEndsAPausedRun`. **Deleting the wholeness test is killed by seven of
+them.** Suite **1301 / 153 / 0**, floor ratcheted 1297 → 1301.
+
+**And the refusal is no longer silent.** `wasLost` was split into two predicates — `isWholeDisk &&
+namesThisDrive`, with `isASliceOfThisDrive` as its complement — so the controller can log the
+interesting refusal and stay quiet about other drives:
+
+```
+a slice of the drive under test disappeared and was ignored: disk7s1 — this run's own exclusive
+whole-disk claim is what removes it, and the drive itself is still here: <model, serial, locator>
+```
+
+At **notice**, because on a partitioned drive it fires once per slice as a matter of course. It is
+there for the same reason `driveCannotBeWatchedForRemoval` is: **a guard that refuses silently cannot
+be told apart from a callback that never fired**, and telling those two apart is precisely the
+reading chunk 3's re-walk has to take. `everyDisappearanceIsLostOrIgnoredOrNotOurs` pins that the
+two predicates partition the cases, so a refusal is never ambiguous.
 
 **The helper source hash did not move** — `DeviceUnderTest.swift` is in `RunControl/`, outside the
 recipe — so 7d's four hardware gate results stand.

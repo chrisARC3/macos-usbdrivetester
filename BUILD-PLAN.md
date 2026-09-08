@@ -20,8 +20,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > same day on a shipped defect and owed a re-walk, and chunks 4 and 5 still to run**). ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
-> partitioned drive ended its run ten milliseconds after the claim. The suite is **1300 / 153 / 0**,
-> floor 1300. **The protocol is v15** (chunk 3,
+> partitioned drive ended its run ten milliseconds after the claim. The suite is **1301 / 153 / 0**,
+> floor 1301. **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -474,11 +474,12 @@ simulation-first still applies wherever the plan calls for it.
 > `55a5c71`, with the daemon rekickstarted at 12:14:01 (pid 84459, v15, `/Applications`). **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
-> open is what makes the slices disappear. **Fixed at 7f**, killed by six tests, helper hash
-> unmoved. **Chunk 3 is owed a re-walk from item 1, and chunks 4 and 5 remain**; all three pull a
+> open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash
+> unmoved — and an ignored slice now logs a line, so chunk 3's re-walk can tell the fix
+> working apart from the callback never firing. **Chunk 3 is owed a re-walk from item 1, and chunks 4 and 5 remain**; all three pull a
 > cable out of a running machine and write to the scratch drive. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
-> **1300 tests / 153 suites / 0 failures** (floor 1300, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),
+> **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:

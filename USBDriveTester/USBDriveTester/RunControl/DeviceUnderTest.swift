@@ -146,11 +146,31 @@ nonisolated struct DeviceUnderTest: Equatable {
     /// A name that does not parse matches only itself. That is the safe direction for a locator
     /// this code did not generate.
     func wasLost(whenDiskDisappeared disk: DisappearedDisk) -> Bool {
-        // **The whole-disk gate, and it comes first.** Every check below asks *which* drive this
-        // is about; this one asks whether the event can mean a drive left at all. Ordering it
-        // first is not an optimisation — it is what stops the run's own claim from answering yes.
-        guard disk.isWholeDisk else { return false }
+        // **Two independent questions, and the wholeness one comes first.** `namesThisDrive` asks
+        // *which* drive the event is about; `isWholeDisk` asks whether the event can mean a drive
+        // left at all. Keeping them apart is what lets `isASliceOfThisDrive` below say which of
+        // the two a rejection was — otherwise a refusal is silent, and route (b) going quiet is
+        // indistinguishable from route (b) never having been wired.
+        disk.isWholeDisk && namesThisDrive(disk)
+    }
 
+    /// **A slice of the drive under test disappeared** — the event this run's own exclusive claim
+    /// produces, a few milliseconds after it is granted. Not a device loss; see the header.
+    ///
+    /// This exists to be *logged*. A guard that refuses silently leaves the chunk 3 walker unable
+    /// to tell a working filter from a callback that never fired.
+    func isASliceOfThisDrive(_ disk: DisappearedDisk) -> Bool {
+        !disk.isWholeDisk && namesThisDrive(disk)
+    }
+
+    /// **Identity only** — does this disappearance name the drive under test, whole or sliced?
+    ///
+    /// False for every other disk, including the ones whose names merely *start* with this one's,
+    /// which is the trap a `hasPrefix` check falls into: `disk70` and `disk7s1` both begin with
+    /// `disk7`, and only one of them is this drive. The unit number is parsed rather than compared
+    /// as text for exactly that reason. A name that does not parse matches only itself — the safe
+    /// direction for a locator this code did not generate.
+    private func namesThisDrive(_ disk: DisappearedDisk) -> Bool {
         if disk.bsdName.rawValue == bsdName.rawValue { return true }
 
         // Both must parse before a unit number can be compared. If either does not, the exact

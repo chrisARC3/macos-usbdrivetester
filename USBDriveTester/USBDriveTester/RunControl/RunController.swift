@@ -661,7 +661,15 @@ final class RunController {
     func deviceDisappeared(_ disk: DisappearedDisk) {
         guard RunControlPolicy.deviceLossWouldEndTheRun(in: state) else { return }
         guard let deviceUnderTest else { return }
-        guard deviceUnderTest.wasLost(whenDiskDisappeared: disk) else { return }
+        guard deviceUnderTest.wasLost(whenDiskDisappeared: disk) else {
+            // **Say so when the refusal is the interesting one.** A slice of the drive under test
+            // going is this run's own claim tearing the partition scheme down; anything else is
+            // another drive, and logging those would be noise.
+            if deviceUnderTest.isASliceOfThisDrive(disk) {
+                RunControlLog.sliceOfTheDriveUnderTestIgnored(disk, deviceUnderTest)
+            }
+            return
+        }
 
         if windDown == nil {
             RunControlLog.deviceLost(deviceUnderTest, whileIn: state)
@@ -1029,6 +1037,22 @@ nonisolated enum RunControlLog {
     ///
     /// Names the ending so the log distinguishes the two ways route (b) can end a run without the
     /// report that would otherwise carry it.
+    /// A slice of the drive under test disappeared and was **not** treated as device loss.
+    ///
+    /// At notice level, not error: on any partitioned drive this fires once per slice as a matter
+    /// of course, a few milliseconds after the claim. It is here because the alternative is
+    /// silence, and silence cannot be told apart from a callback that never fired — which is
+    /// exactly the reading checklist chunk 3 has to take. Added 2026-09-08, chunk 7f.
+    static func sliceOfTheDriveUnderTestIgnored(_ disk: DisappearedDisk,
+                                                _ device: DeviceUnderTest) {
+        runLog.notice("""
+                      a slice of the drive under test disappeared and was ignored: \
+                      \(disk.bsdName.rawValue, privacy: .public) — this run's own exclusive \
+                      whole-disk claim is what removes it, and the drive itself is still here: \
+                      \(device.logIdentification, privacy: .public)
+                      """)
+    }
+
     static func deviceLostWithNoReport(_ ending: DeviceLossEnding?) {
         runLog.error("""
                      device loss with no report: no reply ever came back, so there is nothing \

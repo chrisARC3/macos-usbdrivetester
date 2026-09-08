@@ -87,6 +87,31 @@ struct DeviceUnderTestMatchingTests {
         #expect(underTest.wasLost(whenDiskDisappeared: gone("disk7", whole: true)))
     }
 
+    /// **The two predicates partition the cases, and that is the point of having both.** Exactly
+    /// one of them is true for a disappearance that names this drive, and neither is true for one
+    /// that does not — so a refusal is never ambiguous, and the log line can say which kind it was.
+    @Test func everyDisappearanceIsLostOrIgnoredOrNotOurs() {
+        let underTest = DeviceUnderTest.scratch(at: "disk7")
+
+        let ours = gone("disk7", whole: true)
+        #expect(underTest.wasLost(whenDiskDisappeared: ours))
+        #expect(!underTest.isASliceOfThisDrive(ours))
+
+        for slice in ["disk7s1", "disk7s2", "disk7s1s1"] {
+            let disk = gone(slice, whole: false)
+            #expect(!underTest.wasLost(whenDiskDisappeared: disk), "slice=\(slice)")
+            #expect(underTest.isASliceOfThisDrive(disk), "slice=\(slice)")
+        }
+
+        // Another drive is neither — including the prefix traps, which must not be logged as
+        // "a slice of the drive under test" any more than they may end the run.
+        for other in ["disk70", "disk8", "disk70s1", "disk8s2"] {
+            let disk = gone(other, whole: other.hasSuffix("1") || other.hasSuffix("2") ? false : true)
+            #expect(!underTest.wasLost(whenDiskDisappeared: disk), "other=\(other)")
+            #expect(!underTest.isASliceOfThisDrive(disk), "other=\(other)")
+        }
+    }
+
     /// **The prefix trap.** Every name here starts with `disk7` as text and is a different drive.
     /// A `hasPrefix` implementation passes every other test in this file and fails this one.
     @Test func aDifferentDriveWhoseNameSharesThePrefixIsNotTheDriveBeingLost() {

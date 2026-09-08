@@ -308,14 +308,27 @@ the original and has not finished putting it back.
    has already shipped one artefact that could not say which drive it was about — 2026-08-06.)*
 6. Log: `run ended: deviceLost`.
 
-   ⚠️ **THE NEW READING, and take it before anything else in this chunk — chunk 7f left it owed.**
-   Confirm the log contains **`a disk disappeared: disk7 (whole disk)`**, with the words *whole
-   disk*, not only the two slice lines. The whole of route (b) now rests on that event firing
-   **while the claim is held**, and that has never been measured: 2026-09-05 measured it with
-   nothing claimed, and 2026-09-08 saw only slices go. If it is absent, the fix made at 7f means a
-   real unplug is invisible to route (b) — route (a)'s `ENXIO` would still cover a *running* run,
-   and a **paused** one would be blind, which is chunk 4's whole subject. **Record the line
-   verbatim either way**, and if it is missing, stop and say so before chunk 4.
+   ⚠️ **TWO NEW READINGS, and take them before anything else in this chunk — chunk 7f left them
+   owed. They are a pair, and the second is only interpretable if the first passed.**
+
+   **(i) At the START of the run, right after the claim is granted**, confirm the log contains one
+   `a slice of the drive under test disappeared and was ignored: disk7sN` line **per slice** — at
+   **notice**. This is the 7f defect's own signature, now refused instead of acted on. Its purpose
+   here is not to prove the fix: it is to prove **the DiskArbitration callback is alive and route
+   (b) is receiving events at all**. Before 7f added it, an ignored slice logged nothing, so a
+   guard that refuses silently could not be told apart from a callback that never fired — the same
+   trap `RunControlLog.driveCannotBeWatchedForRemoval` already names. **If these lines are absent, stop here**: nothing
+   in reading (ii) can be concluded, because a missing event and a broken subscription look
+   identical from the log.
+
+   **(ii) After the cable is pulled**, confirm the log contains **`a disk disappeared: disk7 (whole
+   disk)`**, with the words *whole disk*, not only slice lines. The whole of route (b) now rests on
+   that event firing **while the claim is held**, and that has never been measured: 2026-09-05
+   measured it with nothing claimed, and 2026-09-08 saw only slices go. If it is absent *and (i)
+   passed*, then the event genuinely does not fire under a claim, and the 7f fix means a real
+   unplug is invisible to route (b) — route (a)'s `ENXIO` would still cover a *running* run, and a
+   **paused** one would be blind, which is chunk 4's whole subject. **Record both readings
+   verbatim either way**, and if (ii) is missing, stop and say so before chunk 4.
 7. A **report** appears — not the alert. On this path a reply came back, so there is a document to
    show, and the report is the message.
 8. The report's outcome is device loss, and its account names **which detector** accounted for it.
