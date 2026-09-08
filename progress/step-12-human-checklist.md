@@ -58,7 +58,7 @@ string that exists only in that build — and never by a timestamp, because two 
 
 ⚠️ **Point the content proof at `USBDriveTester.debug.dylib`, not at `MacOS/USBDriveTester`.** This
 is a debug-dylib build: the app binary is a **59 KB launcher stub** holding 79 strings, and all
-5,615 of the app's own strings live in the dylib beside it. Grepping the stub returns 0 for every
+5,600-odd of the app's own strings live in the dylib beside it (the exact count moves with every commit; the 79 is the number that matters). Grepping the stub returns 0 for every
 product string, which reads exactly like a failed install. Measured 2026-09-08, after that false
 negative was taken at face value for one command. The helper is a normal binary and is grepped
 directly.
