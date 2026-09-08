@@ -15,7 +15,9 @@ test target fixed to the designated scratch device with disk images removed as a
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
-> done and chunk 7 is under way** (7a, 7b, 7c and 7d done, 2026-09-07; only 7e is left). **The protocol is v15** (chunk 3,
+> done and chunk 7 is under way** (7a, 7b, 7c and 7d done, 2026-09-07; **7e is under way — the
+> five-chunk checklist walk, with chunks 1 and 2 passed 2026-09-08 and chunks 3, 4 and 5, the
+> physical unplugs, still to run**). **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -456,14 +458,19 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-07: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-09-08: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
 > handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
-> — the app is reinstalled and verified by symbol, the daemon is kickstarted (2026-09-07 15:25:16,
-> v15, resolved from `/Applications`), the multi-slice thumb is replugged with both slices intact,
-> and all four hardware gates are re-run and passed** — and 7e is not started. The suite stands at
+> — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
+> is replugged with both slices intact, and all four hardware gates are re-run and passed** on
+> 2026-09-07 against a v15 daemon resolved from `/Applications`; **and 7e is UNDER WAY** — the
+> five-chunk checklist walk, whose **chunks 1 and 2 were walked and passed 2026-09-08** against
+> `55a5c71`, with the daemon rekickstarted at 12:14:01 (pid 84459, v15, `/Applications`). **Chunks
+> 3, 4 and 5 remain**, and all three pull a cable out of a running machine and write to the scratch
+> drive. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
+> — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1297 tests / 153 suites / 0 failures** (floor 1297), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new

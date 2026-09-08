@@ -25,7 +25,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > chunk 7 is under way.** Chunk 7 is the mutation round, the human checklist, the physical-unplug
 > hardware gate and all four hardware gates re-run; **7a (the increment gate), 7b (the mutation
 > round), 7c (the human checklist) and 7d (reinstall, kickstart, and all four hardware gates re-run
-> and passed on 2026-09-07) are done; only 7e — the physical unplug — is left.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> and passed on 2026-09-07) are done, and 7e — walking that checklist — is under way: its chunks 1
+> and 2 were walked and passed 2026-09-08.** What is left is chunks 3, 4 and 5 — the physical
+> unplugs, which write to the scratch drive, and two measurements this step has never made. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >

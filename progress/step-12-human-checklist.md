@@ -49,6 +49,25 @@ Chunks are run **one at a time, reporting back between each.** Chunks 1 and 2 ar
 writes, no unplugging. Chunks 3, 4 and 5 pull a cable out of a running machine and **write to the
 scratch drive**.
 
+**Builds are installed automatically, and are never something you are asked about.** Any item below
+that needs a build — a temporary hook going in, a revert taking it back out, a return to ship code —
+is built and installed to `/Applications` before you are asked to look at anything. **The walk stops
+for your eyes, not for shell commands.** Every install is **proved by content** — a symbol or a
+string that exists only in that build — and never by a timestamp, because two hardware gate runs on
+2026-08-18 measured stale code while returning entirely plausible numbers.
+
+⚠️ **Point the content proof at `USBDriveTester.debug.dylib`, not at `MacOS/USBDriveTester`.** This
+is a debug-dylib build: the app binary is a **59 KB launcher stub** holding 79 strings, and all
+5,615 of the app's own strings live in the dylib beside it. Grepping the stub returns 0 for every
+product string, which reads exactly like a failed install. Measured 2026-09-08, after that false
+negative was taken at face value for one command. The helper is a normal binary and is grepped
+directly.
+
+⚠️ **The one thing an install cannot do for itself is reload the running daemon.** That needs
+`sudo`, so a kickstart line is still handed to you whenever one is owed — and after it runs, the
+`to program:` resolve line is checked, not just the version, because a kickstart can relaunch the
+DerivedData copy and the handshake cannot tell two builds of identical source apart.
+
 ### Prerequisites
 
 * **The 1 TB scratch T5, serial `12345686DAA9`.** The only write-gate target in this project.
@@ -123,8 +142,8 @@ The state is reachable only by a drive vanishing during the very first privilege
 helper never answering — so this chunk **induces** it rather than waiting for it.
 
 ⚠️ **This needs a temporary source edit installed to `/Applications`, and it must be reverted and
-reinstalled before chunk 3.** Ask before running it. Two things force that route rather than a build
-run in place from Xcode:
+reinstalled before chunk 3.** Both installs happen automatically — see *Running it*. Two things
+force that route rather than a build run in place from Xcode:
 
 * **`SMAppService` records the path of the app that registered the daemon** (`install-app.sh`'s
   header says why at length), so a DerivedData build has no registered helper.
@@ -136,11 +155,21 @@ run in place from Xcode:
    `model.runFailure = DeviceLossMessage.forRunWithNoReport(endedBy: .theHelperNeverAnswered)` —
    a debug menu item is the least invasive. The production path it stands in for is
    `RunController.swift:875`, `onFailure(DeviceLossMessage.forRunWithNoReport(endedBy:))`.
-   Then install it:
+   ⚠️ **Put it outside `USBDriveTester/USBDriveTester/Shared/`** — that directory is in the helper
+   source hash recipe, so an edit there lapses all four hardware gate results for a menu item.
+   It is then built and installed for you:
 
    ```bash
    /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/scripts/install-app.sh Debug
    ```
+
+   Proved by content before you are asked to look — the menu strings exist only in this build:
+
+   ```bash
+   strings /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debug.dylib | grep -c 'Device-loss alert'
+   ```
+
+   **2** means the hook is installed. ⚠️ **The hook is never committed.**
 2. The alert appears. Its title reads **"The drive was disconnected during the test"**.
 3. **No literal `**` anywhere in the body.** This is the whole reason the type exists: the alert
    renders `Text(failure.text)`, a `String`, which SwiftUI does **not** parse as Markdown — only
@@ -156,12 +185,37 @@ run in place from Xcode:
    and must **not** mention a half-written chunk. *(A paused run had nothing outstanding; telling
    that user a chunk may be half-written is a false alarm in a dialog, which is worse than in a
    document, because a dialog is read once and believed.)*
-9. **Revert the edit, reinstall, and kickstart.** Confirm `git status --short` is clean, then
-   re-run `install-app.sh` so chunks 3–5 measure ship code and not a build with a debug hook in it.
-   ⚠️ **Do not walk chunk 3 without doing this** — every reading below would be against a binary
+
+✅ **ALL EIGHT ITEMS PASSED.** Every one of items 2–8 was read off the screen by a person; nothing
+here was inferred from a test. Item 3 (no literal `**`) and item 8 (the paused case not borrowing
+the write-back warning) are the two the suite cannot reach, and both held.
+9. **Revert the edit, reinstall, and kickstart.** The revert and the reinstall are automatic;
+   `git status --short` must come back clean and the `strings` count above must come back **0**,
+   which is the proof that ship code is what is installed. The **kickstart is yours** — it needs
+   `sudo`:
+
+   ```bash
+   sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
+   ```
+
+   ⚠️ **Do not walk chunk 3 without all of this** — every reading below would be against a binary
    that is not the product.
 
-**Walked:** ____________  **Against build:** ____________
+   **Done 2026-09-08 10:38:33.** Hook reverted from a saved pristine copy (never `git checkout`),
+   rebuilt and reinstalled. Proved by content both ways: `strings … | grep -c 'Device-loss alert'`
+   → **0**, and the product's own `The drive was disconnected during the test` → **1**. Working
+   tree clean of the hook.
+
+**Walked:** **2026-09-08**  **Against build:** commit `55a5c71` **plus the chunk-1 debug hook
+(uncommitted, never committed)**, app installed 2026-09-08 08:26:05, protocol **v15**, helper source
+hash **`e19b0b3c…`** (the hook lived in `USBDriveTesterApp.swift`, outside `Shared/`, so the hash
+did not move and 7d's four gate results were not disturbed), daemon pid 69701 serving v15 from
+`/Applications`.
+
+⚠️ **What would invalidate this pass:** any change to `DeviceLossMessage`, to `RunControlsView`'s
+`.alert` modifier, or to `RunFailureMessage`. The alert has no automated cover at all — see the
+list at the end of this file — so this pass is the *only* evidence that dialog renders correctly,
+and it is evidence about one build on one day.
 
 ---
 
@@ -176,16 +230,66 @@ test — they compare strings — and renders as nothing.
    `scripts/render-ui.sh`), the header icon is **present and is an eject symbol in a circle**, not a
    blank space and not a question mark.
 2. It is tinted **orange** (cautionary), not green.
-3. It is **visibly a different shape** from the other five at 16 pt — not a variation on a mark
-   inside a circle. Squint, or screenshot and desaturate; the point of the symbol is its silhouette.
-4. The headline and the explanation below it both name the drive by **model and serial**.
+3. **No two of the seven collide in greyscale at 16 pt.** That is what NFR-USE-8 actually asks,
+   and the pair to check is whichever two look closest to you. Desaturate and read them. **Six of
+   the seven are a mark inside a filled circle by design** — only `exclamationmark.triangle.fill`
+   breaks that outline — so among those six the discriminator is the **interior mark**: a tick, a
+   square, a raised hand, an exclamation, an eject bar, a question. The seventh shares its interior
+   mark with `exclamationmark.circle.fill` and is told apart by its **outline** instead. Either
+   discriminator is a pass; a pair with **neither** is the failure.
+   *(Reworded 2026-09-08. The original demanded "a different shape … not a variation on a mark
+   inside a circle", which describes six of the seven symbols, so a walker following it literally
+   would have recorded a FAIL against a product behaving exactly as designed. Instrument defect,
+   found in chunk 2's own walk. `RunReportPresentation`'s note carries the same overstatement —
+   it calls `eject.circle.fill` a "distinct silhouette at 16pt" when the silhouette is a circle
+   like five others and it is the interior mark that is distinct.)*
+4. **The drive is named by model and serial, twice.** Once in the header block, on the line
+   directly beneath the headline — `Samsung Portable SSD T5 (serial 12345686DAA9)` — and again in
+   the **Drive** table, as separate Model and USB serial number rows. The headline itself names no
+   drive, and neither does the explanatory paragraph under it; that is correct.
+   *(Reworded 2026-09-08. The original asked for the naming in "the headline and the explanation
+   below it", which is neither of the two places it appears. Instrument defect, not a product one —
+   the identification this item exists to protect is present and doubled.)*
 5. **The paused case, by eye — BUILD-PLAN asks for this one specifically.** A run paused with
    nothing in flight must **not** be told a chunk may hold partly written data. It is the only case
    where `aWriteBackMayBeUnfinished` is `false` without route (a) having said which phase it was in,
    and a single hedged sentence covering all four cases would put a false alarm into a document
    somebody keeps. Chunk 4.7 produces this report.
 
-**Walked:** ____________  **Against build:** ____________
+**Getting the report on screen without hardware.** Items 1, 2, 4 and 5 are all readings off a
+rendered report, and until chunk 4.7 exists there is no real one. `scripts/render-ui.sh` draws the
+product's own `RunReportPresentation` offscreen — it is the app's code path, not a mock-up — via
+`tools/ui-probe`, which accepts `report-device-lost`, `report-device-lost-paused` and
+`report-device-lost-silent`. **Note that `render-ui.sh`'s own usage text does not list those three**
+(2026-09-08); pass them anyway.
+
+⚠️ **A hand-built symbol sheet is not the product.** Drawing the seven names at 16 pt magnified is
+the only practical way to judge item 3, but a tool that has the names **typed into it** cannot catch
+a typo in the app — it would draw the right glyph while the app drew nothing. Diff the names out of
+`RunReportPresentation.swift` against the sheet's before trusting it. Done and identical on
+**2026-09-08**; item 1 is what actually covers the typo, and item 1 must be read off the **rendered
+report**, never off the sheet.
+
+**Walked:** **2026-09-08**  **Against build:** commit `55a5c71`, ship code — the chunk-1 debug hook
+reverted and its absence proved by content (`Device-loss alert` → **0** in
+`USBDriveTester.debug.dylib`, `disappeared from the USB bus` → **1**, `nothing was left half-written`
+→ **1**, `eject.circle.fill` → **1**). App installed **2026-09-08 10:38**, protocol **v15**, helper
+source hash **`e19b0b3c…`**, daemon **pid 84459** started **12:14:01** and resolved by `xpcproxy`
+`to program: /Applications/USBDriveTester.app/…`.
+
+**Items 1, 2 and 5 PASSED** by eye on the rendered reports (`report-device-lost`,
+`report-device-lost-paused`). **Items 3 and 4 were not walked as written — both were instrument
+defects and were reworded above**, which is the third and fourth of that kind found in this project
+since 2026-09-04. Neither described a fault in the app.
+
+⚠️ **This is a pass against a render, not against a run.** Items 4 and 5 are re-read on real
+hardware at **chunk 4.7**, which produces the paused report for the first time. It lapses if
+`RunReportPresentation.swift`, `RunReport.swift`, `HonestFraming.swift` or `DeviceLossAccount.swift`
+move — none of which touch the helper hash, so nothing here re-lapses the hardware gates.
+
+*A corroboration worth keeping: `eject.circle.fill` occurs exactly **once** in the installed
+`USBDriveTester.debug.dylib`. That is item 1's real subject — the name in the shipped build is the
+name, not a typo — established from the product's own binary rather than from a rendering.*
 
 ---
 
