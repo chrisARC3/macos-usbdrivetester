@@ -23,8 +23,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > human checklist walked in full, and its verification gate re-run against the current XPC
 > protocol. **Step 12 — device-loss handling — is IN PROGRESS: chunks 0–6 of 8 are done, and
 > chunk 7 is under way.** Chunk 7 is the mutation round, the human checklist, the physical-unplug
-> hardware gate and all four hardware gates re-run; **7a (the increment gate) and 7b (the mutation
-> round) and 7c (the human checklist) are done, 7d is part done and 7e is not.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> hardware gate and all four hardware gates re-run; **7a (the increment gate), 7b (the mutation
+> round), 7c (the human checklist) and 7d (reinstall, kickstart, and all four hardware gates re-run
+> and passed on 2026-09-07) are done; only 7e — the physical unplug — is left.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >

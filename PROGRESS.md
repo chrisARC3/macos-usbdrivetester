@@ -23,9 +23,10 @@ could drift; the commit is the immutable, greppable one.
 
 > **Cold start? Step 12 began 2026-09-05.** Chunks 0–6 of 8 are done, and **chunk 7 is under
 > way**: 7a (the full increment gate), 7b (the mutation round) and 7c (the human checklist) are
-> done; **7d is PART DONE and 7e is not**. The app is reinstalled and verified; **the daemon
-> kickstart and one physical replug are owed and both need the user** — see 7d below. 7e walks
-> the checklist.
+> done, **7d is DONE, and 7e is not started**. The app is reinstalled and verified, the daemon is
+> kickstarted (2026-09-07 15:25:16, protocol v15, resolved from `/Applications`), the thumb is back
+> with both slices, and **all four hardware gates were re-run 2026-09-07 against helper hash
+> `e19b0b3c…` and passed with zero failures**. 7e walks the checklist — it is all that is left.
 > Step 11 closed 2026-09-05 and its account was archived to
 > [`progress/step-11.md`](progress/step-11.md) the same day. Nothing below is a snapshot; all of it
 > is current as of **2026-09-07**.
@@ -51,8 +52,9 @@ could drift; the commit is the immutable, greppable one.
 >    decisions from increments 9–12. Some bind here; `QuitSequence`'s shape especially.
 > 4. **[`progress/step-12-human-checklist.md`](progress/step-12-human-checklist.md)** — written at
 >    chunk 7c, **unwalked**. Its *"What has no automated cover"* list is the honest account of what
->    1,297 tests do not reach in this step, and one of its items is **blocked on a user decision**
->    (4.9, the multi-slice idempotency check — no partitioned scratch drive exists).
+>    1,297 tests do not reach in this step. Item 4.9 (the multi-slice idempotency check) **was**
+>    blocked for want of a partitioned drive; the user decision of 2026-09-07 settled it, and the
+>    125.8 MB thumb now holds the `multislice` role with its geometry confirmed on hardware.
 
 ### What Step 12 inherits, in one paragraph
 
@@ -74,10 +76,10 @@ their reasoning.
 | **Working tree** | clean, on `main`. **Ahead of `origin/main` by Step 12's commits** — nothing is pushed unless asked |
 | **Verified** | **1297 tests, 0 failures, 153 suites** (floor `scripts/.test-floor` = 1297), run green 2026-09-07 at chunk 7b. Chunk 1 added **19 tests in 4 suites**; chunk 2 added **12 in 2**; chunk 3 added **13 in 1**; chunk 4 added **49 in 2** — `DeviceLossWindDownTests` (13) and `RunControllerDeviceLossTests` (23), plus 6 policy rows and 7 sequencer tests into existing suites; chunk 5 added **42 in 4** — `DeviceLossAccountTests` (11, displayed as *"Device-loss account (Step 12, FR-DEV-8)"*), `DeviceLostOutcomeTests` (9), `DeviceLostMarkdownTests` (7) and `RunControllerDeviceLossReportTests` (7), plus 8 into `HonestFramingTests`; chunk 6 added **26 in 3** — `RunControllerDeviceLossSurfaceTests` (9), `DeviceLossMessageTests` (10, displayed as *"Device-loss alert (Step 12, FR-DEV-8)"*) and `AppModelDeviceLossTests` (5, *"Device loss rebuilds the list (Step 12, FR-DEV-8)"*), plus 2 more into `HonestFramingTests`, which now stands at 29; **chunk 7b added 9 in 1** — `ShortTransferIsNotDeviceLossTests` (4) plus 5 into `InMemoryBlockDeviceTests`. **13/13** gate clients type-check. The full increment gate — DerivedData wiped before *each* of `build.sh Debug`, `build.sh Release` and `test.sh` — was run at 7a and **re-run at 7b, because 7b moved the helper source hash and 7a's figures were recorded against the old one**; see the chunk 7 section |
 | **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, **moved 2026-09-07 by chunk 7b**. The trail: `e6888aa5…` → `a951e527…` (chunk 1) → `42774589…` (chunk 3) → **`e19b0b3c…`** (chunk 7b). Chunks 2, 4, 5 and 6 did not move it, being app-target only — **and this row predicted chunk 4 would**, which was wrong, then predicted chunk 6 would not, which held, then predicted chunk 7 could, which held. **Re-derive it before trusting any hardware gate result below** — the recipe is `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. ⚠️ **What moved it at 7b is a test fake**: `Core/InMemoryBlockDevice.swift` is a membership exception in `project.pbxproj` — built into `USBDriveTesterTests` **as well as** the helper — so its two new hooks link into the daemon binary (`nm` finds `injectShortRead` and `injectShortWrite` in it) even though nothing outside the test target ever instantiates the class. The hash therefore moved for a change that **cannot** alter what the running daemon does. That is not a reason to discount it: the recipe is defined by path, the binary really is different, and the four gates below had already lapsed at chunk 1, so 7b's move costs nothing that was not owed. It is a reason not to be surprised by it |
-| **Protocol** | **v15**, since chunk 3 (2026-09-05). ⚠️ **The installed daemon is older than this.** The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. Reinstall and kickstart before any gate: `scripts/install-app.sh` |
-| **Hardware gates** | ⚠️ **ALL FOUR LAPSED 2026-09-05, at chunk 1, exactly as the plan predicted** — the helper hash moved and every result recorded against `e6888aa5…` went with it. What each one *last* said, and what it is no longer evidence about: `metrics-check.sh` **128/0**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15/15** over the whole device — all three 2026-09-03 at `e6888aa5…`; `run-control-check.sh` **14 assertions / 0 failures**, twice on 2026-09-05 at the same hash. **None of these describes the current build.** They are re-run at chunk 7, against the moved hash and v15, and **a gate that has not been re-run cannot report anything** — do not cite the figures above as current |
+| **Protocol** | **v15**, since chunk 3 (2026-09-05). **The installed daemon serves v15 as of 2026-09-07 15:25:16** (pid 69701, resolved from `/Applications`), confirmed by its own start line and asserted independently by three of the four gates. The cycle reply went from 22 arguments to 23, so a v14 app and a v15 daemon **cannot** decode each other — loud, unlike the v13→v14 bump. ⚠️ Reinstall **and kickstart** before any gate (`scripts/install-app.sh`); copying files never reloads a running daemon, and **a kickstart can relaunch the DerivedData copy** — check the `to program:` resolve line, not just the version |
+| **Hardware gates** | ✅ **ALL FOUR RE-RUN AND PASSED 2026-09-07**, against helper hash **`e19b0b3c…`**, protocol **v15**, daemon pid 69701 started 15:25:16 and resolved from `/Applications`, on the 1 TB scratch T5 (serial `12345686DAA9`): `metrics-check.sh` **128 assertions / 0 failures**, `xpc-concurrency-check.sh` **0 failures**, `retention-cycle-check.sh` **15 checks / 0 failures**, `run-control-check.sh` **14 assertions / 0 failures** — **zero failures across all four**. Every figure is identical to what the same gate last reported at `e6888aa5…`, which is the expected outcome and not a reason the re-run could have been skipped. They had **ALL FOUR LAPSED 2026-09-05 at chunk 1** when the hash moved, and lapsed again at 7b; this row is now evidence about the current build. ⚠️ **They lapse again the moment the helper source hash moves** — re-derive it from the Helper row before citing any figure here |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, **reinstalled 2026-09-07 10:40 at chunk 7d** from `77edc94`. **The reinstall was verified by symbol, not by timestamp**: `nm -U` on `Contents/MacOS/com.arc3solutions.USBDriveTester.Helper` finds `injectShortRead` and `injectShortWrite`, which exist only in 7b's source, so the binary provably contains this commit's helper. Binary sha256 `ab4b6957…` (was `ef6ce121…`). ⚠️ **The RUNNING DAEMON IS OLDER STILL, and by more than anyone had noticed** — pid 97558 started **2026-09-04 17:01:05**, three minutes after `213735a`, which is **before Step 12's first commit**. It therefore predates chunk 1, the v15 bump at chunk 3 and every chunk since: it is a **protocol v14 daemon**, and the row above supposed until 2026-09-07 that it "may already be protocol-correct". It is not, and it was not for the whole of chunks 4–6. Copying files never reloaded it; the 2026-09-06 08:11 install did not either. **It must be kickstarted before any gate below can report anything**: `sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper` — needs `sudo`, so it is the user's to run |
-| **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-07: the 4 TB T5 EVO (`disk6`, serial `00000S7CLNJ0WC02266P`) and the 125.8 MB UDisk thumb (serial `2211190533300386001515`). ⚠️ **The thumb became a declared role — `multislice` — on 2026-09-07**, repartitioned into two 60 MB exFAT slices for checklist item 4.9, and it **de-enumerated during that repartition and has not come back**: a physical replug is owed before 4.9 can be walked |
+| **Fixture** | 1 TB scratch T5, **serial `12345686DAA9`** (`disk7` on 2026-09-05 — BSD names move across a replug, so scripts resolve by serial). Its **`fill.bin` was restored 2026-09-04 18:19**: 999,947,239,424 bytes, volume 100% used, three samples digesting distinctly. **Invalidated by** unlinking the file or erasing the volume — **not** by `retention-cycle-check.sh` or `run-control-check.sh`, which write back exactly the bytes they read. Also attached as of 2026-09-07: the 4 TB T5 EVO (`disk6`, serial `00000S7CLNJ0WC02266P`) and the 125.8 MB UDisk thumb (serial `2211190533300386001515`). **The thumb became a declared role — `multislice` — on 2026-09-07**, repartitioned for checklist item 4.9. It **de-enumerated during that repartition and was physically replugged the same day**, coming back complete: `resolve_target multislice` reports `/dev/disk4`, General UDisk, serial `2211190533300386001515`, 245760 × 512 B, slices `disk4s1` **59.8 MB** and `disk4s2` **64.0 MB**. The role's geometry is therefore **confirmed on hardware**, not merely expected. ⚠️ The slices are 59.8/64.0 MB, **not** the even 60/60 the repartition asked for — `Slice_B` took the remainder — so anything checking for *"two 60 MB slices"* should check for **two slices** |
 | **Owed** | **The four hardware gates**, all lapsed at chunk 1 and re-run at chunk 7. Also owed at chunk 7: `progress/step-12-human-checklist.md`, which does not exist yet, and the hardware gate that has no substitute — **a person pulling a real drive out of a real port**, the only thing that can measure what chunk 4's 3-second deadline was chosen without. Chunk 7's checklist also inherits **three declared-uncoverable survivors** for its *"What has no automated cover"* list: `deviceUnderTest = nil` in `driveIsBack()` (chunk 4), the identity of the device-loss SF Symbol (chunk 5), and **`RunControllerWiring`'s `onDeviceLost:` closure** (chunk 6) — the composition root, where a decision has no cover but a person at the keyboard. **And one thing only a person can see at all: the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. Nothing else — Step 11 closed with its checklist complete, and chunks 0–6 closed green |
 | **Remote** | private **`chrisARC3/macos-usbdrivetester`**, branch `main`. Commit straight to `main`; **nothing is pushed unless asked** |
 
@@ -116,7 +118,7 @@ The approved shape is eight chunks. The full account of each is in its commit me
 | **4** | The state machine and wind-down: the sixth `RunControlEvent`, three ways in and one out, and a deadline that does **not** fail open | **done 2026-09-06**, `8ba574b`. See below. Helper hash **unmoved** — app target only |
 | **5** | The report: the **sixth** `RunReportOutcome`, `DeviceLossAccount`, `HonestFraming`, presentation, Markdown | **done 2026-09-06**, `4b72d13`. See below. Helper hash **unmoved** — app target only |
 | **6** | The error surface and FR-DEV-8's discovery re-run; the modal interaction and its ⌘Q truth-table row | **done 2026-09-07**, `1de0d53`. See below. Helper hash **unmoved** — app target only |
-| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked. **7d PART DONE 2026-09-07**: app reinstalled and verified by symbol; **the daemon kickstart (needs `sudo`) and a replug of the multi-slice thumb are owed**, and the four hardware gates cannot run until the first of those. 7e (the physical unplug) is not started |
+| **7** | Mutation round, `progress/step-12-human-checklist.md`, the physical-unplug hardware gate, **and all four hardware gates re-run** against the moved hash and v15 | **in progress**, split into 7a–7e. **7a done 2026-09-07**, `76f5ad9` — the full increment gate. **7b done 2026-09-07** — the mutation round over chunks 1–3's surface: 12 mutations, **11 killed as declared, one unexpected survivor**, now closed. **Moves the helper hash to `e19b0b3c…`.** **7c done 2026-09-07** — `progress/step-12-human-checklist.md`, five chunks, unwalked. **7d DONE 2026-09-07**: app reinstalled and verified by symbol, the daemon kickstarted (twice — see below), the thumb replugged with both slices intact, and **all four hardware gates re-run against `e19b0b3c…`/v15 with zero failures**. 7e (the physical unplug, and the five-chunk checklist walk) is **all that remains of Step 12** |
 
 ### Chunk 7 — the gate, the mutation round, and the gap that was in the fake
 
@@ -214,8 +216,8 @@ Three things came out of writing it that are not checklist items:
   `noTwoVerifiedOutcomesShareASymbol` — the property rather than the tally — so the next case cannot
   repeat it. Test count unchanged at 1,297.
 
-**7d is part done.** The app is reinstalled and the install is *proved*; the two things left both
-need the user.
+**7d is DONE.** The app is reinstalled and the install is *proved*, the two things that needed the
+user were done by them on 2026-09-07, and all four hardware gates were re-run and passed.
 
 **The reinstall, verified by symbol rather than by timestamp.** `install-app.sh Debug` from
 `77edc94`, then:
@@ -237,14 +239,56 @@ it was not, and could not have been. What found it was checking the **daemon's**
 than the **bundle's** mtime — `install-app.sh` has printed that warning at every install since
 2026-08-18 and it had simply not been acted on.
 
-**Owed, and needs `sudo` — the user's:**
+**Run by the user 2026-09-07 — and it took two.**
 
 ```bash
 sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
 ```
 
-Until that runs, **none of the four hardware gates can report anything**: they check the live
-daemon's version themselves and a v14 daemon against a v15 app is the loud failure chunk 3 built.
+The **first**, at **11:07:38**, produced a protocol v15 daemon — and `xpcproxy` resolved the label
+to the **DerivedData** build rather than to `/Applications`:
+
+> `Resolved (com.arc3solutions.USBDriveTester, 1, Contents/MacOS/…Helper, …) to program:`
+> `/Users/…/DerivedData/USBDriveTester-…/Build/Products/Debug/USBDriveTester.app/Contents/MacOS/…`
+
+Harmless on the day — the two binaries were byte-identical, sha256 `ab4b6957…` — but this is
+`SMAppService`'s recorded-path hazard showing itself, and **the gate recipe wipes DerivedData**, so
+four gate results would otherwise have carried provenance pointing into a directory the recipe
+deletes. `backgroundtaskmanagementd` re-pointed the record to `/Applications` 102 seconds later,
+when the installed app was launched — but a running daemon does not re-exec on its own, so the
+**second** kickstart at **15:25:16** is the one that resolved to `/Applications/USBDriveTester.app/…`,
+and it is what all four gates ran against.
+
+**The lesson, and it is new: check the *resolve* line, not only the version.** A v15 answer says the
+source is right and says nothing whatever about which copy of it is running — the two builds share a
+source hash, so the handshake cannot tell them apart.
+
+```bash
+/usr/bin/log show --last 5m --predicate 'eventMessage CONTAINS "to program: " AND eventMessage CONTAINS "USBDriveTester"'
+```
+
+**All four hardware gates re-run 2026-09-07, and all four passed.** Against helper hash
+`e19b0b3c…`, protocol **v15**, daemon pid 69701 (started 15:25:16, resolved from `/Applications`),
+on the 1 TB scratch T5, serial `12345686DAA9`:
+
+| Gate | Result | Writes? | What it establishes here |
+|---|---|---|---|
+| `metrics-check.sh` | **128 assertions / 0 failures** | yes | live delivery, cumulative progress over four calls, NFR-PERF-3 device-bound at 2.377% host overhead |
+| `xpc-concurrency-check.sh` | **0 failures** | no | same connection **serialized**, second connection **concurrent** (worst 6.0 ms) — D1 unchanged |
+| `retention-cycle-check.sh` | **15 checks / 0 failures** | yes | 932 window fingerprints unchanged after writing 1,072,693,248 B at block 1855897600 (NFR-REL-1) |
+| `run-control-check.sh` | **14 assertions / 0 failures** | yes | all four I/O sizes settled at a chunk boundary with the exact resume point |
+
+**Every figure is identical to what the same gate last reported at `e6888aa5…`.** That is the
+expected outcome, and it is not an argument that the re-run could have been skipped — it is what
+being able to say so costs. Three of the four assert the daemon's protocol version themselves, so
+v15 is established from inside the product and not only from a log line.
+
+⚠️ **Counting assertions is an instrument, and it misread once here.** A first tally of
+`run-control-check.sh` gave **16**, against **14** in the record, with the script provably unchanged
+since `a6e3bb0`. The two extra were preamble checks — probe signing and unmount — outside the
+`---- assertions ----` block the recorded figure counts. Nothing had changed; the grep was wider
+than the convention. Recorded because a figure that disagrees with an earlier one is exactly the
+shape of a real finding, and the cost of checking was two minutes.
 
 **The multi-slice fixture, and an accident that confirmed its premise.** User decision 2026-09-07:
 checklist item 4.9 gets the **125.8 MB "General UDisk" thumb**, serial `2211190533300386001515`,
@@ -262,8 +306,12 @@ The repartition was:
 ⚠️ **It did not finish.** `partitionDisk` wrote the GPT and both slices — `disk4`, `disk4s1` and
 `disk4s2` all appear in the StorageKit log — and then the storage stack **vanished mid-format while
 the USB device stayed enumerated in IOKit with no `IOMedia` under it**. `diskutil` hung and was
-killed. The thumb has not come back; **a physical replug is owed**, and the geometry recorded for
-the role is what it is *expected* to be, unconfirmed until then.
+killed. **The thumb was physically replugged 2026-09-07 and came back complete** — the GPT and
+both slices survived, so `partitionDisk` had got further than the hang suggested. The geometry
+recorded for the role is now **confirmed** rather than expected: `resolve_target multislice`
+resolves `/dev/disk4`, General UDisk, serial `2211190533300386001515`, 245760 × 512 B. The slices
+came back **59.8 MB and 64.0 MB** rather than the even 60/60 asked for — `Slice_A`'s `60M` rounded
+down and `Slice_B`'s `R` took the remainder.
 
 Two things worth keeping from it:
 

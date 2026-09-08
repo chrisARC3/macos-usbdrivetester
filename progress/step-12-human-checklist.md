@@ -62,8 +62,9 @@ scratch drive**.
   /usr/sbin/diskutil list
   ```
 
-* **The 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`** — two 60 MB exFAT
-  slices, role `multislice`. Needed by **4.9 only**. Contents expendable; never a retention target.
+* **The 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`** — two exFAT slices,
+  **59.8 MB and 64.0 MB**, role `multislice`. Needed by **4.9 only**. Contents expendable; never a
+  retention target.
 
 * **The app installed and the daemon kickstarted** — chunk 7d. ⚠️ **The helper source hash moved at
   chunk 7b**, so the installed daemon is stale for certain. Copying files does not reload it: two
@@ -85,6 +86,18 @@ scratch drive**.
   Step 12's first commit.** It had served the whole of chunks 4–6 on protocol v14 while the app
   was at v15, and the 2026-09-06 install had not restarted it. Check the daemon's age, not the
   bundle's: `ps -o lstart= -p "$(pgrep -f USBDriveTester.Helper)"`.
+
+  ⚠️ **And check *which copy* it started, not just what version it answers.** The same day, a
+  kickstart brought up a correct v15 daemon **from the DerivedData build**: `SMAppService` had that
+  app's path recorded, and the version handshake cannot tell the two apart because the source is
+  identical. It took a second kickstart — after the installed app had run and re-pointed the
+  record — to get one running from `/Applications`.
+
+  ```bash
+  /usr/bin/log show --last 5m --predicate 'eventMessage CONTAINS "to program: " AND eventMessage CONTAINS "USBDriveTester"'
+  ```
+
+  The path in that line must be `/Applications/USBDriveTester.app/…`.
 
 * **A log stream, left running throughout.** Most items here are read off a **log line**, not off
   the look of a dialog:
@@ -240,23 +253,27 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    `threeCallbacksFromOneUnplugArmOneDeadline` closed it in the bench; on hardware it is unchecked.
 
    **Fixture: the 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`, repartitioned
-   into two 60 MB exFAT slices** (`Slice_A`, `Slice_B`). User decision **2026-09-07**: the
+   into two exFAT slices** — `Slice_A` **59.8 MB** and `Slice_B` **64.0 MB**, the command having
+   asked for 60M and a remainder. User decision **2026-09-07**: the
    designated scratch T5 has one volume, and the only other partitioned drive here is the 4 TB
    T5 EVO, which holds data a run would write over. Declared as role `multislice` in
    `scripts/lib/device-identity.sh`; resolve it by **serial**, never by node.
 
-   ⚠️ **The thumb de-enumerated during its own repartition, 2026-09-07 10:44, and needs a physical
-   replug.** `diskutil partitionDisk` wrote the GPT and both slices — `disk4`, `disk4s1` and
-   `disk4s2` all appear in the StorageKit log — and the storage stack then vanished mid-format
-   while the **USB device stayed enumerated in IOKit with no `IOMedia` under it**. `diskutil` hung
-   and was killed. Before walking this item:
+   **The thumb de-enumerated during its own repartition, 2026-09-07 10:44.** `diskutil
+   partitionDisk` wrote the GPT and both slices — `disk4`, `disk4s1` and `disk4s2` all appear in
+   the StorageKit log — and the storage stack then vanished mid-format while the **USB device
+   stayed enumerated in IOKit with no `IOMedia` under it**. `diskutil` hung and was killed.
+   **It was physically replugged the same day and came back complete.** Confirm it is still
+   present before walking this item — this step's whole subject is drives going away:
 
    ```bash
    /usr/sbin/diskutil list external
    ```
 
-   Two 60 MB slices means the geometry survived. **If the drive comes back with one slice or none,
-   re-run the repartition** — the thumb is expendable and the command is in `progress/step-12.md`.
+   **Two slices means the geometry survived.** They are **59.8 MB and 64.0 MB**, not the even
+   60/60 the command asked for, so do not check for *"two 60 MB slices"*. **If the drive shows one
+   slice or none, re-run the repartition** — the thumb is expendable and the command is in
+   `PROGRESS.md`, or `progress/step-12.md` once Step 12 is archived.
 
    The check itself:
 

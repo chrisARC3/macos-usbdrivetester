@@ -738,12 +738,14 @@ if [[ "$FAILURES" -eq 0 ]]; then
     echo "  Step 11 increment 3's: the run session, cumulative figures in the cycle's reply, and"
     echo "  whole-device progress, all on real media."
     echo
-    echo "  Still owed at Step 11 increment 7, with the other two Step 10 gates:"
-    echo "  scripts/retention-cycle-check.sh, because the helper binary moved."
+    echo "  This gate covers METRICS, not the write path. If the helper source hash has moved"
+    echo "  since scripts/retention-cycle-check.sh last ran, that gate is owed too — NFR-REL-1 is"
+    echo "  about the bytes, and nothing here reads them back to check they survived."
     echo
-    echo "  Note it is owed for THAT reason and not because the write path changed. Increment 3"
-    echo "  did not touch RetentionTestEngine: it changed what the observers accumulate and what"
-    echo "  the reply reports. Accumulating is not writing, and NFR-REL-1 is about the bytes."
+    echo "  PROGRESS.md's Helper row carries the current hash and the recipe for re-deriving it."
+    echo "  This used to name a specific gate as 'still owed', which went stale the moment that"
+    echo "  gate was re-run; it states the rule now, because a script that prints a status is a"
+    echo "  status block like any other and goes stale the same way."
 else
     echo "  ${FAILURES} failure(s) — see FAIL lines above."
 fi

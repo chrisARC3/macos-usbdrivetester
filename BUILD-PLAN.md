@@ -15,11 +15,12 @@ test target fixed to the designated scratch device with disk images removed as a
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
-> done and chunk 7 is under way** (7a, 7b and 7c done, 7d part done, 2026-09-07). **The protocol is v15** (chunk 3,
+> done and chunk 7 is under way** (7a, 7b, 7c and 7d done, 2026-09-07; only 7e is left). **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
-> ⚠️ **All four hardware gate results lapsed at chunk 1** and are re-run at chunk 7d; the ticks
+> ✅ **All four hardware gates were re-run at chunk 7d on 2026-09-07 against `e19b0b3c…` and v15,
+> and all four passed with zero failures** — they had lapsed at chunk 1 and again at 7b. The ticks
 > further down this file that name `e6888aa5…`, `42774589…` or v14 are historical from that moment.
 >
 > ⚠️ **This block said "Step 12 … is UNSTARTED. The protocol is v14" until 2026-09-05, through
@@ -459,9 +460,10 @@ simulation-first still applies wherever the plan calls for it.
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
 > handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
-> build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is part done
-> — the app is reinstalled and verified by symbol, but the daemon kickstart needs `sudo` and is
-> owed** — and 7e is not started. The suite stands at
+> build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
+> — the app is reinstalled and verified by symbol, the daemon is kickstarted (2026-09-07 15:25:16,
+> v15, resolved from `/Applications`), the multi-slice thumb is replugged with both slices intact,
+> and all four hardware gates are re-run and passed** — and 7e is not started. The suite stands at
 > **1297 tests / 153 suites / 0 failures** (floor 1297), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
