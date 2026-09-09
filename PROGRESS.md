@@ -132,7 +132,7 @@ The approved shape is eight chunks. The full account of each is in its commit me
 Split into five: **7a** the full increment gate, **7b** the mutation round, **7c** the human
 checklist, **7d** install plus the four lapsed hardware gates, **7e** walking that checklist,
 **7f** the defect that walk found. **7a–7d and 7f are done; 7e is under way** — its chunks 1 and 2
-passed 2026-09-08, its chunk 3 aborted on the defect and is owed a re-walk, and chunks 4 and 5 are
+passed 2026-09-08, **chunk 3's log half re-walked and PASSED 2026-09-09** — `a disk disappeared: disk7 (whole disk)` fires while the claim is held, the measurement the whole of route (b) rested on; its GUI half (items 4, 7–10) and chunks 4 and 5 remain, and chunks 4 and 5 are
 the remaining physical unplugs.
 
 **7a** (`76f5ad9`) ran the gate in its full form — DerivedData wiped before *each* of `build.sh

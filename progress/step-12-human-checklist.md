@@ -36,10 +36,13 @@ increment 9). The most consequential dialog this feature raises — the one show
 pulled mid-write-back and no report exists — has exactly one instrument, and it is a person looking
 at a screen.
 
-And a third: **two numbers in this step have never been measured.** The wind-down's three-second
+And a third: **two numbers in this step had never been measured** — the wind-down's three-second
 deadline, and whether a real de-enumerating drive produces a short read before it produces `ENXIO`.
-Both are pinned as *decisions* and neither is pinned as *physics*. Chunk 7 is what can answer them,
-and chunk 5 below is where the answers get written down.
+Both were pinned as *decisions* and neither as *physics*. ✅ **Chunk 3's walk on 2026-09-09
+answered the second: no short read.** The failing verify read returned `failed after 0 bytes:
+errno 6`, and the cycle's own tally puts the gap between written and verified at exactly one 8 MiB
+chunk. The deadline is answered in part and the answer inverted the 2026-09-08 reading; both are
+written up under chunk 3's result and carried into 5.1.
 
 ---
 
@@ -332,27 +335,39 @@ the original and has not finished putting it back.
    has already shipped one artefact that could not say which drive it was about — 2026-08-06.)*
 6. Log: `run ended: deviceLost`.
 
-   ⚠️ **TWO NEW READINGS, and take them before anything else in this chunk — chunk 7f left them
-   owed. They are a pair, and the second is only interpretable if the first passed.**
+   ⚠️ **TWO READINGS, and the order matters. (i) was WRONG as first written — corrected
+   2026-09-09 from the walk that took it.**
 
-   **(i) At the START of the run, right after the claim is granted**, confirm the log contains one
-   `a slice of the drive under test disappeared and was ignored: disk7sN` line **per slice** — at
-   **notice**. This is the 7f defect's own signature, now refused instead of acted on. Its purpose
-   here is not to prove the fix: it is to prove **the DiskArbitration callback is alive and route
-   (b) is receiving events at all**. Before 7f added it, an ignored slice logged nothing, so a
-   guard that refuses silently could not be told apart from a callback that never fired — the same
-   trap `RunControlLog.driveCannotBeWatchedForRemoval` already names. **If these lines are absent, stop here**: nothing
-   in reading (ii) can be concluded, because a missing event and a broken subscription look
-   identical from the log.
+   **(i) At the START of the run, right after the unmount**, confirm the **discovery** category
+   logs one `a disk disappeared: disk7sN (slice)` line **per slice**, at the moment of the claim:
 
-   **(ii) After the cable is pulled**, confirm the log contains **`a disk disappeared: disk7 (whole
-   disk)`**, with the words *whole disk*, not only slice lines. The whole of route (b) now rests on
-   that event firing **while the claim is held**, and that has never been measured: 2026-09-05
-   measured it with nothing claimed, and 2026-09-08 saw only slices go. If it is absent *and (i)
-   passed*, then the event genuinely does not fire under a claim, and the 7f fix means a real
-   unplug is invisible to route (b) — route (a)'s `ENXIO` would still cover a *running* run, and a
-   **paused** one would be blind, which is chunk 4's whole subject. **Record both readings
-   verbatim either way**, and if (ii) is missing, stop and say so before chunk 4.
+   ```
+   13:14:58.519  unmount succeeded on disk7s2: unmounted
+   13:14:58.535  a disk disappeared: disk7s1 (slice)
+   13:14:58.535  a disk disappeared: disk7s2 (slice)
+   13:14:58.536  acquired disk7: claim held, /dev/rdisk7 open exclusively (fd 4)
+   ```
+
+   This does not prove the 7f fix. It proves **the app's DiskArbitration subscription is alive and
+   delivering**, which is the only thing (ii) needs from it. If these are absent, stop — a missing
+   (ii) would then be uninterpretable.
+
+   ⚠️ **This item used to ask for `a slice of the drive under test disappeared and was ignored`,
+   from the `io` category. That reading is UNSATISFIABLE and asking for it would have failed a
+   sound build.** `RunController.deviceDisappeared`'s second guard is
+   `guard let deviceUnderTest else { return }`, and `deviceUnderTest` is set at
+   `RunController.swift:530` only when the claim comes back `.ready` — 13:14:58.540 in the walk
+   above, **five milliseconds after the slices had already gone**. The slices are torn down *by*
+   the claim, and the claim is what tells the app which drive is under test; the ordering is
+   inherent, not a defect. Worse, at the real unplug there are **no slices left to disappear** —
+   the walk logged only `disk7 (whole disk)` — so the line has no reachable path on a normal run
+   at all. See `CONSTRAINTS.md` §1 *Claiming a whole disk makes its own slices disappear*.
+
+   **(ii) After the cable is pulled**, confirm **`a disk disappeared: disk7 (whole disk)`**, with
+   the words *whole disk*. ✅ **MEASURED AND PASSED 2026-09-09 13:15:15.920** — the whole-disk
+   event **does** fire while the claim is held, which had never been measured and which the whole
+   of route (b) rested on. Route (a) fired 1 ms earlier with `errno 6 (Device not configured)`;
+   both routes saw it, and the run ended `deviceLost`.
 7. A **report** appears — not the alert. On this path a reply came back, so there is a document to
    show, and the report is the message.
 8. The report's outcome is device loss, and its account names **which detector** accounted for it.
@@ -398,7 +413,51 @@ and are about the machine rather than about the unplug:
   returned, so the 3-second deadline **expired**. The three-second constant is not generous against
   a real chunk; it is shorter than one. Recorded under 5.1.
 
-**Against build:** ____________  *(re-walk pending)*
+**RE-WALKED 2026-09-09 against `982406a`** — installed app from `0b37afd`, daemon pid 89541 (v15,
+`/Applications`), target `disk7` = Portable SSD T5 `12345686DAA9`. **The log half PASSES in full.
+Items needing a person at the screen are still open** — see *Still owed* below.
+
+**PASSED from the log:**
+
+| Item | Reading |
+|---|---|
+| (i) | Slice teardown seen in `discovery` at 13:14:58.535 — DA subscription alive. *Item as originally written was unsatisfiable; corrected above* |
+| (ii) | ✅ **`a disk disappeared: disk7 (whole disk)` at 13:15:15.920, claim held.** The measurement route (b) rested on |
+| 5 | `the drive under test left the machine while running: Samsung Portable SSD T5 (serial 12345686DAA9), disk7 at run time` — **error** level, model + serial, BSD labelled *at run time* |
+| 6 | `run ended: deviceLost` |
+| 11 | **NEITHER error fired, and that is the pass.** The helper answered in ~6 ms, so the 3 s deadline was never approached: `.920` waiting → `.926` `released disk7: descriptor closed, DiskArbitration claim dropped` → `16.299` `finishing → finished on deviceReleased` |
+
+**Three things this walk measured that were open questions:**
+
+1. **Route (a) and route (b) both fire, ~1 ms apart** — `ENXIO` at `.919`, whole-disk at `.920`.
+   On a *running* run they race. Chunk 4's paused run is where route (b) is alone.
+2. **A de-enumerating drive produces NO short read.** One of the two numbers named at the top of
+   this file as never measured: `read of 8388608 bytes at offset 2726297600 failed after 0 bytes:
+   errno 6 (Device not configured)`. **Zero bytes, straight to `ENXIO`.** The cycle's tally
+   corroborates it — `wrote 587202560 B` against `verified 578813952 B`, a gap of exactly one
+   8 MiB chunk, the one whose verify read hit `ENXIO`.
+3. **The 3 s deadline is not the problem it looked like on 2026-09-08.** When the device is
+   genuinely gone `ENXIO` aborts the cycle in ~1 ms and the reply is back in ~6 ms. The 6.67 s
+   overrun measured on the aborted walk happened because **nothing had actually been unplugged**,
+   so the cycle ran to completion. The deadline is short against a healthy chunk and generous
+   against a real loss — the opposite of the reading recorded on 2026-09-08, and the two are not
+   in conflict once the cause is named. Carried into 5.1.
+
+⚠️ **Still owed — a person at the screen. Do not mark this chunk passed until these are in:**
+
+- **Item 4** — no crash, no hang, window stays usable.
+- **Item 7** — a **report** appears, not the alert.
+- **Item 8** — the account names **which detector**. Both routes fired here 1 ms apart, so this
+  item is sharper than it was designed to be: whichever the report names, it must not claim
+  knowledge it lacks.
+- **Item 9** — ⚠️ **the phase.** The item expects `writingBack`. The helper logged *"the device was
+  lost while **verifying the write-back**"*, and the tally shows the loss fell in a verify read.
+  **Read what the report actually says.** If it says verify, the item's wording is wrong rather
+  than the product — the same class of instrument defect as (i) above — but that is a judgement to
+  make with the screen in front of you, not from the log.
+- **Item 10** — **no Resume offered.** Check the controls, not the report text.
+
+**Against build:** `982406a` *(log half; GUI half pending)*
 
 ---
 

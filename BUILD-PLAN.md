@@ -17,7 +17,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
 > done and chunk 7 is under way** (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e is under
 > way — the five-chunk checklist walk, with chunks 1 and 2 passed 2026-09-08, chunk 3 aborted the
-> same day on a shipped defect and owed a re-walk, and chunks 4 and 5 still to run**). ⚠️ **7f
+> same day on a shipped defect, its **log half re-walked and PASSED 2026-09-09** — the whole-disk
+> event fires under claim — with its GUI half and chunks 4 and 5 still to run**). ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
 > partitioned drive ended its run ten milliseconds after the claim. The suite is **1301 / 153 / 0**,
@@ -479,7 +480,9 @@ simulation-first still applies wherever the plan calls for it.
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash
 > unmoved — and an ignored slice now logs a line, so chunk 3's re-walk can tell the fix
-> working apart from the callback never firing. **Chunk 3 is owed a re-walk from item 1, and chunks 4 and 5 remain**; all three pull a
+> working apart from the callback never firing. **Chunk 3's log half was re-walked and PASSED 2026-09-09** — route (b) confirmed under
+> claim, no short read before `ENXIO`, and the 3 s deadline never approached because `ENXIO`
+> aborts the cycle in ~1 ms. **Its GUI half and chunks 4 and 5 remain**; all three pull a
 > cable out of a running machine and write to the scratch drive. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),

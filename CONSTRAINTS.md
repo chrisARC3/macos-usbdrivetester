@@ -573,11 +573,55 @@ preconditions* rather than in spite of them. `DeviceUnderTest` shipped exactly t
 milliseconds after the claim was granted, on every drive with a partition table. The run it
 discarded went on to complete 128/128 chunks with no failed block ranges.
 
-⚠️ **Still assumed, not measured: that the whole-disk event fires while the claim is held.** Both
-measurements above were made with nothing claimed (2026-09-05) or with only slices going
-(2026-09-08). It is likely — the same channel delivered the slice events under an active claim —
-but it is an inference, and the whole of route (b) now rests on it. **Step 12 checklist chunk 3 is
-what measures it**: pull the cable mid-run and look for `a disk disappeared: diskN (whole disk)`.
+✅ **RESOLVED 2026-09-09 — the whole-disk event DOES fire while the claim is held.** This section
+stood for a day saying it was assumed; chunk 3's walk pulled the cable mid-run and logged
+`a disk disappeared: disk7 (whole disk)` at 13:15:15.920 with the claim active. Route (b) is sound.
+See the next section for the timeline and for the third finding, which was not anticipated: at the
+unplug **only** the whole disk fires, because the slices went at the claim and cannot go twice — so
+the *"whole disk plus slices"* shape described above is what a real unplug looks like **only when
+nothing has claimed the drive**. Under a claim it is whole-disk-alone. Both shapes are
+distinguished from a self-inflicted teardown by the same discriminator, `DAMediaWhole`.
+
+### ⚠️ Under a claim, an unplug fires the WHOLE DISK only — measured 2026-09-09
+
+The open question route (b) rested on, answered by chunk 3's walk. Timeline, one run, `disk7`
+(Portable SSD T5, `12345686DAA9`):
+
+```
+13:14:58.519  unmount succeeded on disk7s2: unmounted
+13:14:58.535  a disk disappeared: disk7s1 (slice)          ← the claim tearing the
+13:14:58.535  a disk disappeared: disk7s2 (slice)             partition scheme down
+13:14:58.536  acquired disk7: claim held, /dev/rdisk7 open exclusively (fd 4)
+13:14:58.540  run control: starting → running on claimEstablished
+   … 17 s of I/O, cable pulled …
+13:15:15.919  retention cycle END: … the device was lost while verifying the write-back
+13:15:15.919  E  read … failed after 0 bytes: errno 6 (Device not configured)   ← route (a)
+13:15:15.920  a disk disappeared: disk7 (whole disk)                            ← route (b)
+13:15:15.920  E  the drive under test left the machine while running
+```
+
+Three findings, and the third was not anticipated:
+
+1. **The whole-disk `DADiskDisappeared` DOES fire while an exclusive claim is held.** Route (b) is
+   sound. This had been assumed since 2026-09-05 and measured only with nothing claimed.
+2. **Both routes fire, ~1 ms apart** — route (a)'s `ENXIO` at `.919`, route (b)'s whole-disk event
+   at `.920`. On a *running* run they race; on a **paused** one only route (b) can see it, which is
+   why route (b) had to be right.
+3. **At the unplug there are NO slice events — only the whole disk.** The slices went at the claim,
+   17 seconds earlier, and cannot disappear twice. So while a claim is held route (b) receives
+   **exactly one** event per unplug. The idempotency in `deviceDisappeared` is therefore not
+   exercised by this path at all; it is kept because it is cheap and because `paused`-with-volumes-
+   remounted is not this path. **Do not read "one event" as "idempotency is unnecessary"** — read it
+   as "the walk cannot test it", which is what puts multi-slice idempotency in chunk 4.9 on the
+   125.8 MB thumb instead.
+
+**The consequence for instrumentation, which cost a checklist item:** any log line that fires only
+on *a slice of the drive under test disappearing* is unreachable on a normal run. `deviceUnderTest`
+is set when the claim returns `.ready` (`RunController.swift:530`), five milliseconds *after* the
+slices have gone, so `deviceDisappeared`'s `guard let deviceUnderTest` swallows them; and at unplug
+there are no slices left. To prove the DA subscription is alive, read the **`discovery`** category's
+`a disk disappeared: disk7sN (slice)` lines at claim time — those come from the app's own
+subscription and do fire.
 
 ### Device loss (Step 12's territory — the engine's half built 2026-09-05)
 
