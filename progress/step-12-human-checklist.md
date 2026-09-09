@@ -490,8 +490,12 @@ detector; **item 10** no Resume offered, checked on the controls.
 | 1 | `verifying` | ✅ correct sentence for that phase — pass of the `verifying` row |
 | 2 | `reading` | ✅ correct sentence for that phase — pass of the `reading` row |
 | 3 | `verifying` | ✅ correct sentence for that phase |
+| 4 | `verifying` | ✅ correct sentence for that phase — block 1,130,496 |
 
-**Two of the three rows walked, every sentence correct. `writingBack` still unobserved.**
+**Two of the three rows walked, every sentence correct. `writingBack` still unobserved after 4
+attempts (19.8%).** Running tally `verifying` ×3, `reading` ×1, `writingBack` ×0. Three verifies in
+four is 11.1% on its own and not yet a signal; the rule below is what decides, not the shape of a
+small sample.
 
 ⚠️ **STOPPING RULE, declared in advance on 2026-09-09 at three misses — before it started to feel
 wrong, which is the only time a threshold means anything.** The three legs of an 8 MiB chunk are
