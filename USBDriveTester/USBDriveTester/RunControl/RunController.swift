@@ -1027,22 +1027,31 @@ nonisolated enum RunControlLog {
                      """)
     }
 
-    /// A device loss ended a run that produced **no report at all** (Step 12, chunk 6).
-    ///
-    /// `error` rather than `notice`, and the level is the point: this is the only ending in the app
-    /// where the user is told about their drive by an alert instead of by a document, and the
-    /// reason is that nothing came back to build a document from. Before chunk 6 this path logged
-    /// *"the helper refused the call, so no run took place"* and showed nothing — a false sentence
-    /// standing in for the message FR-DEV-8 requires.
-    ///
-    /// Names the ending so the log distinguishes the two ways route (b) can end a run without the
-    /// report that would otherwise carry it.
     /// A slice of the drive under test disappeared and was **not** treated as device loss.
     ///
-    /// At notice level, not error: on any partitioned drive this fires once per slice as a matter
-    /// of course, a few milliseconds after the claim. It is here because the alternative is
-    /// silence, and silence cannot be told apart from a callback that never fired — which is
-    /// exactly the reading checklist chunk 3 has to take. Added 2026-09-08, chunk 7f.
+    /// ## ⚠️ This has never been observed to fire, and that is now understood rather than suspected
+    ///
+    /// Added 2026-09-08 at chunk 7f on the reasoning that a guard refusing in silence cannot be
+    /// told apart from a callback that never fired. The reasoning was sound and **the remedy was
+    /// not**: chunk 3's walk on 2026-09-09 showed this line has no reachable path on a normal run.
+    ///
+    /// Two independent reasons, either of which alone is sufficient:
+    ///
+    /// 1. The slices are torn down **by** the claim, and the claim is what tells the app which
+    ///    drive is under test. They went at 13:14:58.535; `deviceUnderTest` was set at `.540` when
+    ///    the claim returned `.ready`. `deviceDisappeared`'s `guard let deviceUnderTest` swallows
+    ///    every one of them, five milliseconds too early, every time.
+    /// 2. At the real unplug there are **no slices left to disappear** — the walk logged only
+    ///    `disk7 (whole disk)`. They went 17 seconds earlier and cannot go twice.
+    ///
+    /// **Kept, not deleted**, because (1) is an ordering rather than a law: a future change that
+    /// set `deviceUnderTest` at the press instead of at the claim would deliver these events, and
+    /// this is what would make that visible rather than silent. It costs one branch.
+    ///
+    /// **What actually discharges the original worry** is the `discovery` category's own
+    /// `a disk disappeared: diskNsM (slice)` lines, which fire at claim time and prove the
+    /// DiskArbitration subscription is alive. Checklist chunk 3 reads those. Notice level, for the
+    /// day it does fire.
     static func sliceOfTheDriveUnderTestIgnored(_ disk: DisappearedDisk,
                                                 _ device: DeviceUnderTest) {
         runLog.notice("""
@@ -1053,6 +1062,16 @@ nonisolated enum RunControlLog {
                       """)
     }
 
+    /// A device loss ended a run that produced **no report at all** (Step 12, chunk 6).
+    ///
+    /// `error` rather than `notice`, and the level is the point: this is the only ending in the app
+    /// where the user is told about their drive by an alert instead of by a document, and the
+    /// reason is that nothing came back to build a document from. Before chunk 6 this path logged
+    /// *"the helper refused the call, so no run took place"* and showed nothing — a false sentence
+    /// standing in for the message FR-DEV-8 requires.
+    ///
+    /// Names the ending so the log distinguishes the two ways route (b) can end a run without the
+    /// report that would otherwise carry it.
     static func deviceLostWithNoReport(_ ending: DeviceLossEnding?) {
         runLog.error("""
                      device loss with no report: no reply ever came back, so there is nothing \

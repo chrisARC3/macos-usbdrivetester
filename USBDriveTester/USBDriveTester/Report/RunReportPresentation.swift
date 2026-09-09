@@ -94,10 +94,20 @@ nonisolated struct RunReportPresentation: Equatable {
             return RunReportPresentation(symbolName: "exclamationmark.circle.fill",
                                          tint: .cautionary)
         case .deviceLost:
-            // `eject.circle.fill` — a drive leaving, and the only symbol here that is not a
-            // punctuation mark or a hand. That matters more than the metaphor: the greyscale test
-            // asks whether six symbols are six shapes, and five of the other cases are variations
-            // on a mark inside a circle. This one has a distinct silhouette at 16pt.
+            // `eject.circle.fill` — a drive leaving.
+            //
+            // ⚠️ This comment used to claim the symbol "has a distinct silhouette at 16pt". **It
+            // does not.** Corrected 2026-09-09 after chunk 2's walk put the seven symbols side by
+            // side at their real 16 pt in greyscale: six of the seven are a mark inside a circle,
+            // this one included, and their outlines are indistinguishable. What separates them is
+            // the **interior mark** — here the eject triangle-and-bar, which no other case uses.
+            //
+            // The distinction is worth stating precisely because the pair that most needed telling
+            // apart turned out to be separated the OTHER way round:
+            // `exclamationmark.triangle.fill` and `exclamationmark.circle.fill` share an interior
+            // mark and are told apart by their outline alone. So neither "distinct silhouette" nor
+            // "distinct interior" is the rule — the rule is that **no two collide on both at
+            // once**, which is what NFR-USE-8 needs and what the greyscale render checks.
             //
             // Cautionary rather than affirmative, on the tint's own definition — the run was cut
             // short. It is emphatically **not** the drive being graded: NFR-USE-8's tint says how

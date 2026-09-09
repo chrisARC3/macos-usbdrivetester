@@ -71,6 +71,7 @@
 #     report               report-empty         report-failures
 #                          report-qualified     report-stopped             report-stopped-by-user
 #                          report-unidentified
+#     report-device-lost   report-device-lost-paused                       report-device-lost-silent
 #     warnings             warnings-ticked      warnings-confirm           warnings-unidentified
 #
 #   The `helper-gate-*` family is Step 11 increment 9's: the launch-time modal raised when the

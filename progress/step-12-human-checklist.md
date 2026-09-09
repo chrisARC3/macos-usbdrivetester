@@ -487,15 +487,33 @@ detector; **item 10** no Resume offered, checked on the controls.
 
 | # | Phase landed | Verdict |
 |---|---|---|
-| 1 | `verifying` | ✅ correct sentence for that phase — pass of the `verifying` row |
-| 2 | `reading` | ✅ correct sentence for that phase — pass of the `reading` row |
+| 1 | `verifying` | ✅ correct sentence for that phase |
+| 2 | `reading` | ✅ correct sentence for that phase — block 1,261,568 |
 | 3 | `verifying` | ✅ correct sentence for that phase |
 | 4 | `verifying` | ✅ correct sentence for that phase — block 1,130,496 |
+| 5 | `reading` | ✅ correct sentence for that phase — block 1,687,552 |
+| 6 | **`writingBack`** | ✅ **THE ONE THIS CHUNK EXISTED FOR** — block 1,392,640, sentence matched `HonestFraming.swift` word for word |
 
-**Two of the three rows walked, every sentence correct. `writingBack` still unobserved after 4
-attempts (19.8%).** Running tally `verifying` ×3, `reading` ×1, `writingBack` ×0. Three verifies in
-four is 11.1% on its own and not yet a signal; the rule below is what decides, not the shape of a
-small sample.
+**✅ ITEM 9 PASSED 2026-09-09. All three rows walked on real hardware, every sentence correct for
+its phase.** Final tally `verifying` ×3, `reading` ×2, `writingBack` ×1 — against an expectation of
+2 / 2 / 2, and five misses before the hit is a 13.2% run of luck. **The stopping rule was never
+reached** and is left above as the record of a threshold set before the data arrived.
+
+**The hypothesis the rule would have tested is DISPROVED, which is the better outcome than never
+having asked.** A write to a departing device does **not** silently succeed: attempt 6's write
+threw, was classified `.deviceLost`, and was attributed to `writingBack` by
+`RetentionTestEngine.swift:519` — the end-to-end path from a real failed write to the hazard
+sentence a person reads. That is the only part of this item hardware was ever needed for.
+
+ℹ️ **The wording half needs no hardware next time.** `scripts/render-ui.sh <out.png> 600 1000
+report-device-lost` renders the `writingBack` account from a fixture, and its sentence matches.
+Rendered and checked 2026-09-09. So a regression in the *wording* is catchable in seconds; only a
+regression in the *attribution* — a real write failure reaching the right phase — costs cable
+pulls. Worth knowing before anyone budgets six runs for a re-walk. ⚠️ The argument order is
+`OUT WIDTH HEIGHT VIEW`, not view-first; passing the view first silently writes a PNG named after
+the view into the current directory, which happened on 2026-09-09.
+
+**✅ CHUNK 3 IS CLOSED. Against build:** `982406a` *(all items; item 9 across six runs)*
 
 ⚠️ **STOPPING RULE, declared in advance on 2026-09-09 at three misses — before it started to feel
 wrong, which is the only time a threshold means anything.** The three legs of an 8 MiB chunk are
@@ -527,13 +545,7 @@ Item 9 above had asserted `writingBack` as though it were guaranteed; it is abou
 three, and asserting it would have marked the safety-critical path walked when nothing had touched
 it.
 
-**To close chunk 3:** re-run and pull again until the report names **`writing block N back`**, then
-confirm its sentence is the `writingBack` one quoted in item 9 — the one saying *that chunk may hold
-partly written data*. Subject to the stopping rule above.
-Everything else in this chunk stands and does not need re-walking — none of it was phase-dependent.
-
-**Against build:** `982406a` *(items (i), (ii), 1–8, 10, 11 PASSED; item 9's `writingBack` branch
-outstanding)*
+**Against build:** `982406a` *(every item PASSED — see the item 9 table above for its six runs)*
 
 ---
 
