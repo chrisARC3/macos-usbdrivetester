@@ -485,19 +485,47 @@ detector; **item 10** no Resume offered, checked on the controls.
 
 **Attempts so far — the phase is luck and every attempt is recorded, misses included:**
 
-| # | Phase landed | Sentence shown | Verdict |
-|---|---|---|---|
-| 1 | `verifying` | *"…re-reading block N to verify it. The write-back had already completed…"* | ✅ correct for that phase — **pass of the `verifying` row**, not of the item |
-| 2 | `reading` | *"…**reading** block 1,261,568. Nothing had been written to that chunk, so it holds what it held before the run reached it."* | ✅ correct for that phase — **pass of the `reading` row**, not of the item |
+| # | Phase landed | Verdict |
+|---|---|---|
+| 1 | `verifying` | ✅ correct sentence for that phase — pass of the `verifying` row |
+| 2 | `reading` | ✅ correct sentence for that phase — pass of the `reading` row |
+| 3 | `verifying` | ✅ correct sentence for that phase |
 
-**Two of the three rows are now walked and both were right.** Neither is a pass of the item. The run was lost while verifying, so the
-`writingBack` branch — *the phase this chunk exists for*, the only one holding the chunk's sole
-copy mid-write — **was never exercised**. Item 9 above had asserted `writingBack` as though it
-were guaranteed; it is about one chance in three, and asserting it would have marked the
-safety-critical path walked when nothing had touched it.
+**Two of the three rows walked, every sentence correct. `writingBack` still unobserved.**
 
-**To close chunk 3:** re-run and pull again until the report names **`writing the original back`**,
-then confirm it **does** warn that a write-back may be unfinished. Two or three attempts expected.
+⚠️ **STOPPING RULE, declared in advance on 2026-09-09 at three misses — before it started to feel
+wrong, which is the only time a threshold means anything.** The three legs of an 8 MiB chunk are
+~17.0 / 17.1 / 17.3 ms (from the run's own metrics: 492.6 / 490.8 / 483.8 MB/s), so each is
+**one chance in three** and a miss costs one run:
+
+| Misses | Chance of that run of luck | Reading |
+|---|---|---|
+| 3 | 29.6% | unremarkable — keep pulling |
+| 6 | 8.8% | note it, keep pulling |
+| **8** | **3.9%** | ⛔ **STOP. Do not keep pulling** — investigate a bias instead |
+
+**What was checked before setting this, so the threshold is not hiding a known defect:**
+`RetentionTestEngine.swift` has **three** attribution sites — 488 `.reading`, 519 `.writingBack`,
+543 `.verifying` — each keyed to the error thrown by *its own* operation, so a failed write is
+attributed to `writingBack` and cannot be mis-filed as a verify. Writes go to a raw character
+device with `F_NOCACHE` and `F_GLOBAL_NOCACHE` (`raw, unbuffered; cache-bypass check says
+bypassed` in the run log), so a write returning success has reached the device rather than a
+buffer. Attempt 1's tally corroborates: `wrote 587202560 B` = 70 chunks, `verified 578813952 B` =
+69 — the 70th write **succeeded** and its verify read hit `ENXIO` after 0 bytes.
+
+**If the rule trips**, the hypothesis to test is that a write to a *departing* device returns
+success while the read that follows it ~17 ms later does not — which would mean `writingBack` is
+systematically under-reported, and under-reported in the **hazardous** direction, since it is the
+one phase whose sentence warns of partly written data. That would be a finding about the platform,
+not about this app, and it belongs in `CONSTRAINTS.md` §1 beside the other USB measurements.
+
+Item 9 above had asserted `writingBack` as though it were guaranteed; it is about one chance in
+three, and asserting it would have marked the safety-critical path walked when nothing had touched
+it.
+
+**To close chunk 3:** re-run and pull again until the report names **`writing block N back`**, then
+confirm its sentence is the `writingBack` one quoted in item 9 — the one saying *that chunk may hold
+partly written data*. Subject to the stopping rule above.
 Everything else in this chunk stands and does not need re-walking — none of it was phase-dependent.
 
 **Against build:** `982406a` *(items (i), (ii), 1–8, 10, 11 PASSED; item 9's `writingBack` branch
