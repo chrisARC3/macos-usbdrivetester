@@ -379,15 +379,27 @@ the original and has not finished putting it back.
    an 8 MiB chunk is roughly 17 ms. A cable pull lands in one of the three at about **one chance in
    three**. Read the phase off the report, then check it against **its own row**:
 
-   | Report says | `aWriteBackMayBeUnfinished` | Because |
-   |---|---|---|
-   | `reading the original` | **no** | nothing had been written yet |
-   | `writing the original back` | **yes** | ⚠️ the only phase holding the chunk's sole copy mid-write |
-   | `verifying the write-back` | **no** | the write-back had already reported success — *unverified is not the same as bad* |
+   ⚠️ **There is no separate "warning" to look for. Every device-loss report carries EXACTLY ONE
+   sentence** — `HonestFraming.claim(about:)` is documented *"one claim, always"* — and the phase
+   selects **which**. So do not ask "was a warning shown"; that question has no answer and asking
+   it on 2026-09-09 produced a reply that could not be interpreted. **Match the sentence.** These
+   are verbatim from `HonestFraming.swift`, with `N` the digit-grouped block:
 
-   A report whose warning does not match its phase is a defect **whichever way round it is**;
-   claiming an unfinished write that had completed is as wrong as the reverse, and worse for a
-   person deciding whether to trust the drive. The rule is `DeviceLossAccount.aWriteBackMayBeUnfinished`.
+   - **reading** — *"The drive left while this tool was **reading** block N. Nothing had been
+     written to that chunk, so it holds what it held before the run reached it."*
+   - **writingBack** — ⚠️ *"The drive left while this tool was **writing block N back**. That is
+     the one point in the cycle where the original had been read and not yet fully written back,
+     so **that chunk may hold partly written data**. No other chunk is affected: every earlier one
+     was written back and verified, and no later one was started."*
+   - **verifying** — *"The drive left while this tool was **re-reading block N to verify it**. The
+     write-back had already completed, so the chunk was whole when the drive went — it is
+     unverified, and **unverified is not the same as bad**."*
+
+   A report pairing one phase with another phase's sentence is a defect **whichever way round it
+   is**: claiming an unfinished write that had completed is as wrong as the reverse, and worse for
+   a person deciding whether to trust the drive. `HonestFramingTests` pins sentence against
+   `DeviceLossAccount.aWriteBackMayBeUnfinished`, which is a specification the sentence is checked
+   against and **not** anything the UI reads — it appears nowhere outside the test target.
 
    ⚠️ **`writingBack` must be observed at least once before this chunk is passed.** It is the phase
    the chunk exists for — the header above calls it *the phase that matters* — and landing in it is
@@ -469,10 +481,16 @@ Items needing a person at the screen are still open** — see *Still owed* below
 hang, window usable; **item 7** a report, not the alert; **item 8** the account names which
 detector; **item 10** no Resume offered, checked on the controls.
 
-⚠️ **ITEM 9 IS THE ONE THING THIS CHUNK STILL OWES, and the walk is what found that out.** The
-report read **`verifying the write-back`** with **no unfinished-write warning** — which is
-`DeviceLossAccount.aWriteBackMayBeUnfinished` behaving exactly as written, and a **pass of the
-`verifying` row**. It is not a pass of the item. The run was lost while verifying, so the
+⚠️ **ITEM 9 IS THE ONE THING THIS CHUNK STILL OWES, and the walk is what found that out.**
+
+**Attempts so far — the phase is luck and every attempt is recorded, misses included:**
+
+| # | Phase landed | Sentence shown | Verdict |
+|---|---|---|---|
+| 1 | `verifying` | *"…re-reading block N to verify it. The write-back had already completed…"* | ✅ correct for that phase — **pass of the `verifying` row**, not of the item |
+| 2 | `reading` | *"…**reading** block 1,261,568. Nothing had been written to that chunk, so it holds what it held before the run reached it."* | ✅ correct for that phase — **pass of the `reading` row**, not of the item |
+
+**Two of the three rows are now walked and both were right.** Neither is a pass of the item. The run was lost while verifying, so the
 `writingBack` branch — *the phase this chunk exists for*, the only one holding the chunk's sole
 copy mid-write — **was never exercised**. Item 9 above had asserted `writingBack` as though it
 were guaranteed; it is about one chance in three, and asserting it would have marked the
