@@ -482,7 +482,8 @@ simulation-first still applies wherever the plan calls for it.
 > unmoved — and an ignored slice now logs a line, so chunk 3's re-walk can tell the fix
 > working apart from the callback never firing. **Chunk 3's log half was re-walked and PASSED 2026-09-09** — route (b) confirmed under
 > claim, no short read before `ENXIO`, and the 3 s deadline never approached because `ENXIO`
-> aborts the cycle in ~1 ms. **Its GUI half and chunks 4 and 5 remain**; all three pull a
+> aborts the cycle in ~1 ms. **Its GUI half passed the same day bar item 9's `writingBack` branch** — the run was lost
+> while `verifying`, and the phase is luck, roughly one in three — **and chunks 4 and 5 remain**; all three pull a
 > cable out of a running machine and write to the scratch drive. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),

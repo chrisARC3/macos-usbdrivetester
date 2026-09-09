@@ -372,7 +372,29 @@ the original and has not finished putting it back.
    show, and the report is the message.
 8. The report's outcome is device loss, and its account names **which detector** accounted for it.
    Route (a) knows the block and the phase; route (b) knows only *that*.
-9. **The phase named is `writingBack`**, and the report says a write-back may be unfinished.
+9. **The phase named, and what follows from it. ⚠️ You do not get to choose which phase you land
+   in — corrected 2026-09-09, having been written as if you did.**
+
+   The per-chunk cycle is read → write back → verify, and on the 1 TB T5 at ~490 MB/s each leg of
+   an 8 MiB chunk is roughly 17 ms. A cable pull lands in one of the three at about **one chance in
+   three**. Read the phase off the report, then check it against **its own row**:
+
+   | Report says | `aWriteBackMayBeUnfinished` | Because |
+   |---|---|---|
+   | `reading the original` | **no** | nothing had been written yet |
+   | `writing the original back` | **yes** | ⚠️ the only phase holding the chunk's sole copy mid-write |
+   | `verifying the write-back` | **no** | the write-back had already reported success — *unverified is not the same as bad* |
+
+   A report whose warning does not match its phase is a defect **whichever way round it is**;
+   claiming an unfinished write that had completed is as wrong as the reverse, and worse for a
+   person deciding whether to trust the drive. The rule is `DeviceLossAccount.aWriteBackMayBeUnfinished`.
+
+   ⚠️ **`writingBack` must be observed at least once before this chunk is passed.** It is the phase
+   the chunk exists for — the header above calls it *the phase that matters* — and landing in it is
+   luck. **If the report names `reading` or `verifying`, that is a valid pass of that row and NOT a
+   pass of this item: re-run and pull again until `writing the original back` comes up.** Expect two
+   or three attempts. Record every attempt's phase, including the ones that did not land, because
+   *"we pulled three times and never saw `writingBack`"* would itself be worth knowing.
 10. **No Resume is offered.** Only start-from-the-beginning. Check the controls, not the report text.
 11. Log after the release. **Both of these can fire, in this order** — the item said "either/or"
     until 2026-09-08, when the aborted walk produced both 3.5 seconds apart:
@@ -443,21 +465,25 @@ Items needing a person at the screen are still open** — see *Still owed* below
    against a real loss — the opposite of the reading recorded on 2026-09-08, and the two are not
    in conflict once the cause is named. Carried into 5.1.
 
-⚠️ **Still owed — a person at the screen. Do not mark this chunk passed until these are in:**
+✅ **THE GUI HALF PASSED 2026-09-09**, read off the screen by a person: **item 4** no crash, no
+hang, window usable; **item 7** a report, not the alert; **item 8** the account names which
+detector; **item 10** no Resume offered, checked on the controls.
 
-- **Item 4** — no crash, no hang, window stays usable.
-- **Item 7** — a **report** appears, not the alert.
-- **Item 8** — the account names **which detector**. Both routes fired here 1 ms apart, so this
-  item is sharper than it was designed to be: whichever the report names, it must not claim
-  knowledge it lacks.
-- **Item 9** — ⚠️ **the phase.** The item expects `writingBack`. The helper logged *"the device was
-  lost while **verifying the write-back**"*, and the tally shows the loss fell in a verify read.
-  **Read what the report actually says.** If it says verify, the item's wording is wrong rather
-  than the product — the same class of instrument defect as (i) above — but that is a judgement to
-  make with the screen in front of you, not from the log.
-- **Item 10** — **no Resume offered.** Check the controls, not the report text.
+⚠️ **ITEM 9 IS THE ONE THING THIS CHUNK STILL OWES, and the walk is what found that out.** The
+report read **`verifying the write-back`** with **no unfinished-write warning** — which is
+`DeviceLossAccount.aWriteBackMayBeUnfinished` behaving exactly as written, and a **pass of the
+`verifying` row**. It is not a pass of the item. The run was lost while verifying, so the
+`writingBack` branch — *the phase this chunk exists for*, the only one holding the chunk's sole
+copy mid-write — **was never exercised**. Item 9 above had asserted `writingBack` as though it
+were guaranteed; it is about one chance in three, and asserting it would have marked the
+safety-critical path walked when nothing had touched it.
 
-**Against build:** `982406a` *(log half; GUI half pending)*
+**To close chunk 3:** re-run and pull again until the report names **`writing the original back`**,
+then confirm it **does** warn that a write-back may be unfinished. Two or three attempts expected.
+Everything else in this chunk stands and does not need re-walking — none of it was phase-dependent.
+
+**Against build:** `982406a` *(items (i), (ii), 1–8, 10, 11 PASSED; item 9's `writingBack` branch
+outstanding)*
 
 ---
 
