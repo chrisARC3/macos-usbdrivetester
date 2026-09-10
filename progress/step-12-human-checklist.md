@@ -42,7 +42,8 @@ Both were pinned as *decisions* and neither as *physics*. ✅ **Chunk 3's walk o
 answered the second: no short read.** The failing verify read returned `failed after 0 bytes:
 errno 6`, and the cycle's own tally puts the gap between written and verified at exactly one 8 MiB
 chunk. The deadline is answered in part and the answer inverted the 2026-09-08 reading; both are
-written up under chunk 3's result and carried into 5.1.
+written up under chunk 3's result and carried into 5.1. ⚠️ **On 2026-09-10 both became six trials, not one**: the
+persisted unified log still held all six of chunk 3's pulls, and they are read back under 5.1 and 5.2.
 
 ---
 
@@ -279,7 +280,8 @@ rendered report, and until chunk 4.7 exists there is no real one. `scripts/rende
 product's own `RunReportPresentation` offscreen — it is the app's code path, not a mock-up — via
 `tools/ui-probe`, which accepts `report-device-lost`, `report-device-lost-paused` and
 `report-device-lost-silent`. **Note that `render-ui.sh`'s own usage text does not list those three**
-(2026-09-08); pass them anyway.
+(2026-09-08); pass them anyway. *(Fixed 2026-09-09 in `2086090`: the usage block now lists all
+three. The argument order is `OUT WIDTH HEIGHT VIEW`.)*
 
 ⚠️ **A hand-built symbol sheet is not the product.** Drawing the seven names at 16 pt magnified is
 the only practical way to judge item 3, but a tool that has the names **typed into it** cannot catch
@@ -318,12 +320,24 @@ renumbered them before; the serial is the identity. Verified by a structured IOR
 attaches each `BSD Name` to the USB device entry containing it, cross-checked against
 `scripts/device-probe.sh` for model and capacity.
 
+**Re-verified 2026-09-10, before chunk 4**, by two sources that agree on all six drives: an
+IORegistry walk attaching each whole disk to its **nearest** enclosing `IOUSBHostDevice`, and the
+app's own enumerator (`tools/device-id serial-of`, which `scripts/lib/device-identity.sh` builds).
+Every row still holds **except two cells, annotated in place**: the 4 TB T5 EVO's serial, which was
+**wrong on 2026-09-08**, and the 22 TB Seagate's APFS container, renumbered `disk13` → `disk12`.
+⚠️ **The wrong serial is a hub's.** `7423J07` belongs to the Apple *USB3 Gen2 Hub* (and its *USB2
+Hub* twin) that the 4 TB T5 EVO and the 1 TB scratch T5 both sit behind — a hub is a USB device
+entry too, and it carries a serial. The drive's own is `00000S7CLNJ0WC02266P`, which every other
+record in this repository names. Not a write hazard, since that drive is not a target and the
+scratch T5's row was right, but it is the **second wrong serial from a BSD↔serial walk in three
+days** (`CONSTRAINTS.md` §1, *Do not pair a serial to a drive by ADJACENCY*).
+
 | USB product | USB serial | Whole disk | What it is |
 |---|---|---|---|
 | **Portable SSD T5** | **`12345686DAA9`** | **`disk7`** | ✅ **the scratch drive — the ONLY write-gate target.** Mounted `Test_Drive`, exFAT, one data slice `disk7s2` |
 | Ugreen Storage Device | `013117100578` | `disk8`, `disk9` | ⛔ **the 990 EVO Plus carrying this repository** (`/Volumes/1TB_UGreen`). Same block count as the T5 — 1,953,525,168 |
-| PSSD T5 EVO | `7423J07` | `disk6`, `disk10` | the 4 TB T5 EVO. Not a target |
-| Expansion HDD | `00000000NT17XBRA` | `disk11`, `disk13` | ⛔ the 22 TB Seagate. **Never** a write target |
+| PSSD T5 EVO | ~~`7423J07`~~ **`00000S7CLNJ0WC02266P`** *(corrected 2026-09-10; `7423J07` is the hub's)* | `disk6`, `disk10` | the 4 TB T5 EVO. Not a target |
+| Expansion HDD | `00000000NT17XBRA` | `disk11`, `disk13` *(`disk12` on 2026-09-10)* | ⛔ the 22 TB Seagate. **Never** a write target |
 | UDisk | `2211190533300386001515` | `disk4` | the 125.8 MB multi-slice thumb — chunk **4.9**'s drive |
 | Flash Drive | `0376620100003464` | `disk5` | 256.6 GB thumb. Not a target |
 
@@ -464,7 +478,8 @@ and are about the machine rather than about the unplug:
 
 **RE-WALKED 2026-09-09 against `982406a`** — installed app from `0b37afd`, daemon pid 89541 (v15,
 `/Applications`), target `disk7` = Portable SSD T5 `12345686DAA9`. **The log half PASSES in full.
-Items needing a person at the screen are still open** — see *Still owed* below.
+Items needing a person at the screen are still open** — see *Still owed* below. *(All since passed —
+see ✅ **THE GUI HALF PASSED 2026-09-09** below, which replaced the *Still owed* list this pointed to.)*
 
 **PASSED from the log:**
 
@@ -579,8 +594,22 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    This is the item that distinguishes route (b) working from route (a) having covered for it, and
    nothing else in the system distinguishes them.
 6. The GUI stays alive and usable.
-7. A report appears. **Its account says nothing was in flight, and it does NOT warn that a chunk may
-   be half-written.** This is chunk 2 item 5's subject — check it here and record it there too.
+7. A report appears, and **its device-loss account is this sentence, word for word** — the
+   `.nothingWasInFlight` case of `HonestFraming.claim(about:)`, with *paused* in bold:
+
+   > The run was **paused** when the drive left, so no chunk was part-way through anything and
+   > nothing was left half-written. Every chunk the run had reached was written back and verified
+   > before it stopped.
+
+   **The pass is that sentence being on screen**, not a warning being absent. `claim(about:)`
+   returns exactly one sentence for every ending and the report has no separate warning element,
+   so *"does not warn"* gives a person nothing to look at; what this item guards against is a
+   *different* sentence in that slot — one of those that say a chunk *may hold partly written data*.
+   *(Reworded 2026-09-10, before the walk, from "it does NOT warn that a chunk may be half-written":
+   a reading off an absence, the same shape chunk 3 item 9 was reworded for on 2026-09-09. The
+   sentence was checked against `HonestFraming.swift:184-188` and against
+   `scripts/render-ui.sh <out.png> 600 1000 report-device-lost-paused` the same day.)* This is
+   chunk 2 item 5's subject — check it here and record it there too.
 8. Discovery re-runs; the drive leaves the list.
 9. **The multi-slice idempotency check — one unplug, one wind-down.** A partitioned drive fires
    `DADiskDisappeared` **once for the whole disk and once per slice** (measured 2026-09-05), so one
@@ -589,10 +618,38 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    **survived the whole suite**, because the test bench held only the latest.
    `threeCallbacksFromOneUnplugArmOneDeadline` closed it in the bench; on hardware it is unchecked.
 
+   ⚠️ **Prediction, declared 2026-09-10 before the walk: this item cannot exercise what it is named
+   for.** The premise above — the whole disk *and* each slice — was measured on 2026-09-05 with
+   **nothing claimed**. A run holds an exclusive whole-disk claim, a **paused** run keeps it
+   (`RunController.pause()` only sends `setRunControl(.pause)`), and under a claim the slices go
+   **at the claim**, not at the pull. Measured on every one of chunk 3's six pulls on 2026-09-09 and
+   read back from the persisted log on 2026-09-10: `disk7s1 (slice)` and `disk7s2 (slice)` in the
+   same millisecond as the helper's `acquired disk7`, and at the pull exactly **one**
+   `disk7 (whole disk)`. So on the thumb — `disk4` today; resolve it by serial — expect in the
+   `discovery` category:
+
+   - **at the claim**: `a disk disappeared: disk4s1 (slice)` and `a disk disappeared: disk4s2
+     (slice)` — which is also the proof the subscription is alive, as in chunk 3's reading (i);
+   - **at the pull**: exactly **one** `a disk disappeared: disk4 (whole disk)`, and no slice lines.
+
+   **One event cannot test idempotency against several.** The three checks below would pass and say
+   nothing about the three-level defence this item was written for. **In this design multi-slice
+   idempotency has no hardware path at all**: `threeCallbacksFromOneUnplugArmOneDeadline` covers it
+   on the bench, and nothing covers it on hardware. What walking 4.9 would still buy is chunk 4
+   repeated on a second drive — a 125.8 MB thumb behind a different hub, rather than the 1 TB T5 —
+   and a test of this prediction on it. **Not a second *shape*, though:** the 1 TB scratch T5 is
+   itself a two-slice drive — EFI `disk7s1` and data `disk7s2`, both seen going at every claim
+   above — so items 1–8 on the scratch T5 already run a paused unplug on two slices. **Whether that is worth a run is the user's decision at the
+   walk.** If the prediction fails — slice lines at the pull — the premise is back, and so is this
+   item. `CONSTRAINTS.md` §1 *Under a claim* carries the same correction; the `.finishing` row's
+   comment in `RunControlState.swift` still states the unclaimed premise and is owed a fix at the
+   next code boundary.
+
    **Fixture: the 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`, repartitioned
    into two exFAT slices** — `Slice_A` **59.8 MB** and `Slice_B` **64.0 MB**, the command having
    asked for 60M and a remainder. User decision **2026-09-07**: the
-   designated scratch T5 has one volume, and the only other partitioned drive here is the 4 TB
+   designated scratch T5 has one volume *(one volume but two slices, EFI and data — see the
+   2026-09-10 prediction above)*, and the only other partitioned drive here is the 4 TB
    T5 EVO, which holds data a run would write over. Declared as role `multislice` in
    `scripts/lib/device-identity.sh`; resolve it by **serial**, never by node.
 
@@ -625,16 +682,28 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    **The 2026-09-07 accident is itself a confirmation of the premise**, at the StorageKit layer
    rather than DiskArbitration's: three `Operation = Disappear` notifications — `disk4s1`,
    `disk4s2`, `disk4` — for one drive going away, which is exactly the count BUILD-PLAN records
-   for a two-partition drive. That is the fixture doing its job before it was asked to.
+   for a two-partition drive. That is the fixture doing its job before it was asked to. *(Of the
+   premise for an **unclaimed** drive, which is what a repartition is. A run's drive is claimed —
+   see the 2026-09-10 prediction above.)*
 
 **Walked:** ____________  **Against build:** ____________
 
 ---
 
-## Chunk 5 — the two measurements this step has never made *(WRITES to the scratch drive)*
+## Chunk 5 — the two measurements this step has never made *(WRITES to the scratch drive)* — ⚠️ *made 2026-09-09; read the note below first*
 
 Everything above checks a decision. This chunk measures the two facts those decisions were made
 without.
+
+⚠️ **Both measurements already exist, six trials each — read back 2026-09-10 from the persisted
+unified log.** Chunk 3's re-walk pulled the cable six times on a *running* run on 2026-09-09,
+against `982406a` (installed app from `0b37afd`, daemon pid 89541, helper `e19b0b3c…`), and 5.1's
+own step 1 is *"Run chunk 3 again with the log stream timestamped"* — so those six pulls are six
+trials on the item's own definition, and the log kept microseconds. The readings are under 5.1 and
+5.2. **Whether they discharge this chunk is the user's decision at the walk**: if they do, 5.1 and
+5.2 need no further cable pull and 5.3 needs only the reading under it. ⚠️ The log will not keep
+them for ever; the raw lines are in the message of the commit that added this note
+(`git log -S'six trials each' -- progress/step-12-human-checklist.md`).
 
 ### 5.1 — how long route (a)'s reply actually takes
 
@@ -666,7 +735,8 @@ connection a second message is not delivered until the call returns (measured 20
 reply could arrive, and the deadline **expired** at 14:28:27.045: `no reply after 3.000000s — ending
 the run on the removal callback alone`.
 
-So step 4's second branch is already refuted. **The three-second figure is not generous by three
+So step 4's second branch is already refuted *(it is not: six real unplugs put the reply in
+single-digit milliseconds — see the six-trial reading below, 2026-09-10)*. **The three-second figure is not generous by three
 orders of magnitude; it is less than half the length of one 8 MiB × 128-chunk call.** A deadline
 firing therefore means *the helper is busy*, which is the ordinary case — not *something is wrong*.
 
@@ -679,6 +749,45 @@ because the second number is what the constant is actually racing.
 completion rather than being cut short by a vanishing drive, so it is an upper bound on a healthy
 chunk and not a measurement of the case 5.1 names. Both are worth having; they are not the same
 number.
+
+**✅ The six-trial reading — taken 2026-09-09, read back 2026-09-10 — and it inverts the first.**
+From the persisted unified log (`/usr/bin/log show`, microseconds): chunk 3's six pulls, `disk7` =
+Portable SSD T5 `12345686DAA9`, against `982406a`, daemon pid 89541, helper `e19b0b3c…`.
+
+| Trial | Pull | Phase | (a) helper ends the cycle → (b) callback | **(b) callback → `run ended`** | Call had run for | Deadline |
+|---|---|---|---|---|---|---|
+| 1 | 13:15:15.920 | `verifying` | 1.8 ms | **4.2 ms** | 3.75 s | not reached |
+| 2 | 15:20:50.995 | `reading` | 2.0 ms | **6.3 ms** | 4.10 s | not reached |
+| 3 | 15:23:58.986 | `verifying` | 1.9 ms | **3.3 ms** | 3.15 s | not reached |
+| 4 | 15:27:40.151 | `verifying` | 1.8 ms | **2.7 ms** | 3.69 s | not reached |
+| 5 | 15:30:01.768 | `reading` | 1.9 ms | **4.9 ms** | 5.46 s | not reached |
+| 6 | 15:31:09.562 | `writingBack` | 0.8 ms | **3.0 ms** | 4.64 s | not reached |
+
+The bold column is step 2's interval, line to line: `the drive under test left the machine while
+running` → `run ended: deviceLost`. *Call had run for* is the helper's `retention cycle START` →
+`retention cycle END` — the number the 2026-09-08 note above asked to be recorded alongside. All six
+logged `device loss: a call is in flight; waiting up to 3.000000s`, and **none** logged `no reply
+after`.
+
+- **Step 4's second branch: all six land in single-digit milliseconds.** 3 s is **479× to 1,098×**
+  the readings — about three orders of magnitude, as the constant's own comment supposed. A
+  deadline firing therefore does mean *something is wrong*, not *something is slow*.
+- **Route (a) fires first at the helper and arrives second at the app, every time.** The helper
+  ends its cycle on `ENXIO` 0.8–2.0 ms before the removal callback, and its reply lands 2.7–6.3 ms
+  after it. So the wind-down started waiting in all six, and *the run ended by itself* — its way 2
+  — resolved all six. The race `DeviceLossWindDown`'s header calls the overwhelmingly common case
+  is the only one seen.
+- **The deadline does not race the call.** In four of the six the call had already run past 3 s when
+  the drive left, and the reply still came within 6.3 ms, because `ENXIO` cuts the call short in
+  about a millisecond. The deadline starts at the callback and bounds only what is left of the call
+  after a real loss. The 6.67 s of 2026-09-08 was a call nothing cut short, because nothing had been
+  unplugged — which is what the 7f defect looked like from here.
+- **Not 5.1's number, recorded so it is not taken for it:** `finishing → finished on
+  deviceReleased` came **342–377 ms** after `run ended` in all six. That is the release being
+  acknowledged, not the reply, and it was not investigated.
+
+**Owed at the next code boundary:** `DeviceLossWindDown.defaultDeadlineSeconds`'s header still says
+*"No real measurement stands behind it yet"*. App target; it moves no helper hash.
 
 ### 5.2 — does a vanishing drive produce a short read before `ENXIO`?
 
@@ -696,6 +805,19 @@ can say is whether a real de-enumerating drive does it.
    **zero** ranges unless a genuine short read preceded the loss. Two million ranges is the
    2026-08-06 defect and would mean chunk 1 regressed.
 
+**✅ Answered — taken 2026-09-09, read back 2026-09-10: no short transfer, six of six.** Every one
+of chunk 3's six pulls failed its in-flight I/O **after 0 bytes** with `errno 6 (Device not
+configured)` — five reads and, on trial 6, a **write** (`write of 8388608 bytes at offset 713031680
+failed after 0 bytes`), so the answer covers both directions. Every run's `run report:` line says
+`0 failing block(s) in 0 range(s)`: step 4's count is **zero, six times**. The cycle tallies agree —
+where the loss hit a verify read, `verified` trails `wrote` by exactly one 8 MiB chunk (trials 1, 3
+and 4); where it hit a read, all three tallies are equal (2 and 5); where it hit the write-back,
+`wrote` trails `read` by one chunk (6). **So step 3's branch: the drive went straight to `ENXIO`**,
+and `classify`'s note is owed its update from *open* to *measured: it does not happen, six of six*.
+⚠️ **That note is in `RetentionTestEngine.swift`, which is helper source — editing it moves the
+helper source hash and lapses the four hardware gates.** Batch it with the next helper change rather
+than buying a gate re-run for a comment.
+
 ### 5.3 — the offset, for the gate item
 
 BUILD-PLAN's gate asks that the logs be *"sufficient to reconstruct what happened (which device, at
@@ -703,6 +825,14 @@ what offset)"*. **Which device** is item 3.5. **At what offset** is the report's
 chunk 5 (2026-09-06) put the block in `DeviceLossAccount` rather than only in a log line. Confirm
 the report names a block, and that the block is plausible against the bytes the metrics panel showed
 before the pull.
+
+**Partly read back 2026-09-10.** For trials 2, 4, 5 and 6 the block was read off the report on
+screen on 2026-09-09 — chunk 3 item 9's table: 1,261,568, 1,130,496, 1,687,552 and 1,392,640 — and
+each equals the helper's own `retention cycle END: ended at block …` for that run, and is exactly
+the first block of the chunk whose I/O failed (block × 512 = the offset in the `failed after 0
+bytes` line). Plausibility against the **metrics panel** is a reading nobody took; the cycle's byte
+tallies say the same thing more precisely, and whether they stand in for it is part of the chunk 5
+decision above.
 
 **Walked:** ____________  **Against build:** ____________
 
@@ -765,9 +895,14 @@ argued for — chunk 6's round for the first three, chunk 7b's for the rest. The
   the deadline's *behaviour* is pinned exactly — it fires once, it does not fail open, it is
   idempotent — with **no real time passing**. That is the right design (a test that sleeps for a
   deadline is slow now and flaky later) and it means the number itself is untested by construction.
-  **Chunk 5.1 is the only thing that can put a measurement behind it.**
+  **Chunk 5.1 is the only thing that can put a measurement behind it.** *(Six measurements behind
+  it as of 2026-09-10 — 2.7–6.3 ms from the removal callback to the reply; see 5.1. Still no
+  automated cover, which is what this list is about.)*
 
 * **`errno` on real hardware.** That a de-enumerating drive returns `ENXIO` at all rests on **one
   observation** — the 2026-08-06 incident — which is evidence and not a gate.
   `FileDescriptorBlockDevice`'s header table carries the same split, and `DeviceLossTests`'s header
   says so in its second section. **Chunks 3 and 4 are the first deliberate reproduction.**
+  *(Reproduced **six times** by chunk 3's pulls on 2026-09-09 — `ENXIO` after 0 bytes every time,
+  five reads and one write — read back from the log 2026-09-10; see 5.2. **Chunk 4 cannot add to
+  it**: a paused run issues no I/O, so there is no errno to see — which is chunk 4's whole premise.)*

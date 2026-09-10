@@ -18,7 +18,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > done and chunk 7 is under way** (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e is under
 > way — the five-chunk checklist walk, with chunks 1 and 2 passed 2026-09-08, chunk 3 aborted the
 > same day on a shipped defect and **re-walked in full and CLOSED 2026-09-09** — the whole-disk
-> event fires under claim — **with chunks 4 and 5 still to run**). ⚠️ **7f
+> event fires under claim — **with chunks 4 and 5 still to run**, and chunk 5's two measurements
+> found on 2026-09-10 to be in the persisted log already, six trials each, from chunk 3's pulls). ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
 > partitioned drive ended its run ten milliseconds after the claim. The suite is **1301 / 153 / 0**,
@@ -263,6 +264,11 @@ are **process**, not history.
   variable named `path` in a loop destroys the search path for the rest of that command, and every
   subsequent tool fails with `command not found` — which reads like a broken environment rather
   than a typo. Name it anything else. (Checked-in scripts are `#!/bin/bash` and unaffected.)
+- **zsh does not word-split an unquoted variable.** `D="a.md b.md"; grep pat $D` searches one
+  file literally named `a.md b.md`, and with `2>/dev/null` on the end it reports **no match for
+  every pattern** — which reads exactly like a clean result. Hit 2026-09-10 on the very grep that
+  was checking the docs for stale status claims. Use an array — `D=(a.md b.md)`, then `"${D[@]}"` —
+  and **treat zero hits for every pattern as a broken instrument**, the way a zero test total is.
 - Scripts needing `sudo` must be run in a **real Terminal**; a run button has no TTY.
 - **`system_profiler SPUSBDataType` prints nothing on macOS 26** and exits 0 — the data type is now
   `SPUSBHostDataType`. An empty result is not a finding; it did not mean the drives had no serials.
@@ -482,12 +488,16 @@ simulation-first still applies wherever the plan calls for it.
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash
-> unmoved — and an ignored slice now logs a line, so chunk 3's re-walk can tell the fix
-> working apart from the callback never firing. **Chunk 3's log half was re-walked and PASSED 2026-09-09** — route (b) confirmed under
+> unmoved — and an ignored slice now logs a line, which **can never fire** on a normal run
+> (found 2026-09-09: the claim tears the slices down ~5 ms before the run knows its drive, and at the
+> pull there are none left); `discovery`'s own slice lines at claim time are what prove the callback
+> alive. **Chunk 3's log half was re-walked and PASSED 2026-09-09** — route (b) confirmed under
 > claim, no short read before `ENXIO`, and the 3 s deadline never approached because `ENXIO`
-> aborts the cycle in ~1 ms. **Chunk 3 is CLOSED, all items PASSED 2026-09-09** — item 9 took six runs
+> aborts the cycle in ~1 ms. **Six of six pulls**, read back from the persisted log 2026-09-10: the reply
+> 2.7–6.3 ms behind the removal callback and 0 bytes then `ENXIO` every time — which may discharge
+> chunk 5 without a cable pull, the user's call. **Chunk 3 is CLOSED, all items PASSED 2026-09-09** — item 9 took six runs
 > because the phase a cable-pull lands in is one chance in three, and the sixth landed in
-> `writingBack`, the hazard case. **Chunks 4 and 5 remain**; all three pull a
+> `writingBack`, the hazard case. **Chunks 4 and 5 remain**; both pull a
 > cable out of a running machine and write to the scratch drive. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),
@@ -1860,7 +1870,7 @@ If the device under test disappears mid-run, immediately terminate the test clea
 - Simulate this safely first, then confirm on real hardware with the scratch device. **The hook this named did not exist when it was written** — `InMemoryBlockDevice`'s three fault hooks were all *range*-based, and `injectReadFault(blocks: 0 ..< blockCount)` simulates a drive with every block bad, which is the exact misreading this step exists to remove rather than a way to test it. Chunk 1 (2026-09-05) added `injectDeviceLoss(afterCalls:)`, which takes no range because the device leaving the bus is not a property of any range.
 - Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state). **Chunk 4 (2026-09-06): the release is always issued, but it is only *waited for* when the owning connection is free.** If the wind-down's deadline expired, that connection is still blocked by the call that never answered — measured 2026-08-04 — so the release cannot be delivered, let alone acknowledged. The controller therefore does not wait, does **not** claim the drive was released, and logs `releaseCannotBeConfirmed`. The real recovery is that the next `acquireDevice` is refused with the helper's own reason if the claim is still held.
 - **Route (a) is blind while the run is paused**, and no line of this section said so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. **Chunk 2 (2026-09-05) built the detection**; `VolumeChangeWatcher` no longer discards which disk changed. **Chunk 4 (2026-09-06) wired it to `DeviceLossWindDown`**, whose way 1 — nothing in flight — is the paused case, and which ends the run at once there rather than waiting for a reply that provably cannot come.
-- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed. **Chunk 4 (2026-09-06) made it so, at three levels**: the event table refuses `deviceLost` from `finishing`, `RunController` builds one wind-down per run, and `DeviceLossWindDown.begin` is idempotent in itself. The middle one is not redundant — a mutation building one per callback armed three deadlines and **survived the whole suite**, because the test bench held only the latest; `threeCallbacksFromOneUnplugArmOneDeadline` is what closed it.
+- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed. **Chunk 4 (2026-09-06) made it so, at three levels**: the event table refuses `deviceLost` from `finishing`, `RunController` builds one wind-down per run, and `DeviceLossWindDown.begin` is idempotent in itself. The middle one is not redundant — a mutation building one per callback armed three deadlines and **survived the whole suite**, because the test bench held only the latest; `threeCallbacksFromOneUnplugArmOneDeadline` is what closed it. **⚠️ 2026-09-10: "one unplug is several events" holds for an *unclaimed* drive only.** Under the run's exclusive claim the slices go at the claim, and an unplug fires exactly one whole-disk event — six of six on chunk 3's pulls (`CONSTRAINTS.md` §1, *Under a claim*) — so this defence has **no hardware path** in this design, and checklist 4.9 cannot exercise it. It stays: it is cheap, and it is pinned on the bench.
 - **Do not match a disappearing disk by name prefix.** `disk7` and `disk70` share one and are different drives; a `hasPrefix` check ends a healthy run when an unrelated drive is unplugged. `DeviceUnderTest` compares the parsed unit number, and `DeviceUnderTestTests` pins five names that a prefix check gets wrong.
 - **The gate item above about reconstructing "which device, at what offset" is now partly answered by the report rather than only by the log. Chunk 5 (2026-09-06)** gives `RunReportOutcome` its sixth case and attaches a `DeviceLossAccount` — four named cases, because the two detectors leave the run knowing different amounts. **The one to check by eye at chunk 7 is the paused case**: a run paused with nothing in flight must NOT be told a chunk may hold partly written data, and that is the only case where `aWriteBackMayBeUnfinished` is `false` without route (a) having said which phase it was in. A single hedged sentence covering all four would put a false alarm into a document somebody keeps.
 

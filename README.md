@@ -31,7 +31,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > milliseconds in: route (b) treated a slice disappearance as the drive leaving, and taking
 > exclusive whole-disk access is what makes the slices disappear. Fixed, covered by six tests, and
 > **chunk 3 re-walked from the top and CLOSED 2026-09-09** — every item passed, item 9 on the sixth
-> cable pull, which landed mid-write-back: the hazard case. **Chunks 4 and 5 remain.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> cable pull, which landed mid-write-back: the hazard case. **Chunks 4 and 5 remain** — and chunk
+> 5's two measurements turned out, on 2026-09-10, to be in the persisted log already, six trials
+> each from chunk 3's pulls. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >

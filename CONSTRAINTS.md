@@ -290,6 +290,15 @@ pattern silently matches no storage device on this machine, since every one of t
 something like `Portable SSD T5`. The verified map is in
 `progress/step-12-human-checklist.md` under *Which drive is which*.
 
+⚠️ **2026-09-10: *nested under* has to mean the NEAREST enclosing `IOUSBHostDevice`.** A hub is a
+USB device entry too, and can carry a serial — this machine's Apple *USB3 Gen2 Hub* reports
+`7423J07` — and the 2026-09-08 map gave exactly that serial to the 4 TB T5 EVO behind it: the walk
+attached the disk to an enclosing entry that was not the drive's own. The scratch T5's row was
+right, so it was not a write hazard this time. Re-verified with a nearest-ancestor walk and
+cross-checked against the app's own enumerator (`tools/device-id serial-of <bsd>`, built by
+`scripts/lib/device-identity.sh`), which agreed on all six drives. **Prefer that second source**:
+it is the code the product runs, and it is what `resolve_target` already trusts.
+
 The rule underneath: **an instrument that returns a plausible wrong answer is worse than one that
 returns none**, and both failed here on the way to naming a drive that was about to be written to
 end to end. Cross-check any BSD↔serial mapping against a second source — `scripts/device-probe.sh`
@@ -565,7 +574,9 @@ rests on all four of these, and every one of them was an assumption first.
   reading it as `Bool` alone silently reports every whole disk as a slice.
 - **A partitioned drive fires once for the whole disk and once per slice** — observed as
   `disk13` then `disk13s1`, whole first. **Anything acting on this must be idempotent**, because a
-  two-partition drive produces three events for one unplug.
+  two-partition drive produces three events for one unplug. *(⚠️ 2026-09-10: that is with **nothing
+  claimed**. Under a run's exclusive claim an unplug is **one** event — see *Under a claim, an
+  unplug fires the WHOLE DISK only* below.)*
 - **`DAVolumePath` is already absent by then**, even for a volume that was mounted a moment
   earlier. A disappearance cannot be matched by its mount point, and the description-changed
   callback on `kDADiskDescriptionVolumePathKey` has nothing to report for an already-unmounted
@@ -633,6 +644,10 @@ The open question route (b) rested on, answered by chunk 3's walk. Timeline, one
 13:15:15.920  E  the drive under test left the machine while running
 ```
 
+**Six of six**, read back from the persisted unified log on 2026-09-10: every one of chunk 3's
+pulls that day logged `disk7s1 (slice)` and `disk7s2 (slice)` in the same millisecond as
+`acquired disk7`, and exactly **one** `disk7 (whole disk)` at the pull.
+
 Three findings, and the third was not anticipated:
 
 1. **The whole-disk `DADiskDisappeared` DOES fire while an exclusive claim is held.** Route (b) is
@@ -647,6 +662,14 @@ Three findings, and the third was not anticipated:
    remounted is not this path. **Do not read "one event" as "idempotency is unnecessary"** — read it
    as "the walk cannot test it", which is what puts multi-slice idempotency in chunk 4.9 on the
    125.8 MB thumb instead.
+
+   ⚠️ **Corrected 2026-09-10: chunk 4.9 cannot test it either.** A paused run keeps its claim
+   (`RunController.pause()` only sends `setRunControl(.pause)`), and the thumb is claimed like any
+   other drive — so its slices go at the claim and its unplug fires one whole-disk event, the same
+   as here. **Multi-slice idempotency has no hardware path in this design.** It is pinned on the
+   bench by `threeCallbacksFromOneUnplugArmOneDeadline` and by nothing else. The checklist's item
+   4.9 now carries this as a prediction declared before the walk, and leaves whether to walk it to
+   the user.
 
 **The consequence for instrumentation, which cost a checklist item:** any log line that fires only
 on *a slice of the drive under test disappearing* is unreachable on a normal run. `deviceUnderTest`
@@ -674,6 +697,10 @@ subscription and do fire.
   evidence, not a gate. Whether a de-enumerating drive *always* answers `ENXIO` — and whether it
   first answers with a short transfer and `errno 0`, which still classifies as a bad block — is
   **open, and only a hardware gate can close it**. Step 12's gate unplugs a drive on purpose.
+  *(2026-09-10: **seven** observations now, all on the same 1 TB T5 — chunk 3's six pulls on
+  2026-09-09 each failed their in-flight I/O after **0 bytes** with `ENXIO`, five reads and one
+  write, read back from the persisted log. No short transfer in either direction. That answers both
+  questions for this drive and says nothing yet about a different one.)*
 - **A run that is PAUSED cannot see the device leave through the errno route**, because it has
   returned from its call and issues no syscalls: the helper sits holding the claim and the fd with
   nothing to classify. The removal callback is the only route that can see it, which makes that

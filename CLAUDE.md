@@ -64,7 +64,12 @@ had not thought of; the fourth was not:
   said *"chunk 3 must be re-walked from the top"* through all six of chunk 3's commits. Each commit
   added *"chunk 3 CLOSED"* to the blocks it was looking at, and none grepped for the sentence it was
   making false. **Grep for the claim being retired, not the one being added** — knowing where the
-  five blocks are does not help when the grep is for the new sentence.
+  five blocks are does not help when the grep is for the new sentence. **And the fix for it had the same
+  gap**: `6be81e1` grepped for *"must be re-walked"* and missed three sites saying the same thing in
+  other words — PROGRESS's Owed row (*"owed a re-walk from item 1"*), its reading list (*"chunks 3,
+  4 and 5 are not walked"*) and BUILD-PLAN's *"so chunk 3's re-walk can tell"*. A claim has several
+  wordings: **grep each noun in it**, and treat a grep that finds nothing for *every* pattern as a
+  broken instrument, the way a zero test total is.
 
 **Four files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
 and `BUILD-PLAN.md` (twice). That is five blocks, and the grep has to find all five.
