@@ -26,11 +26,12 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > hardware gate and all four hardware gates re-run; **7a (the increment gate), 7b (the mutation
 > round), 7c (the human checklist) and 7d (reinstall, kickstart, and all four hardware gates re-run
 > and passed on 2026-09-07) are done, 7e — walking that checklist — is under way (chunks 1 and 2
-> passed 2026-09-08), and 7f fixed a false-positive device loss that walk uncovered.** Chunk 3 of
-> the walk aborted on 2026-09-08 when the app ended its own run ten milliseconds in: route (b)
-> treated a slice disappearance as the drive leaving, and taking exclusive whole-disk access is
-> what makes the slices disappear. Fixed, covered by six tests, and **chunk 3 must now be re-walked
-> from the top**, followed by chunks 4 and 5. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> passed 2026-09-08, chunk 3 on 2026-09-09), and 7f fixed a false-positive device loss that walk
+> uncovered.** Chunk 3 of the walk first aborted on 2026-09-08 when the app ended its own run ten
+> milliseconds in: route (b) treated a slice disappearance as the drive leaving, and taking
+> exclusive whole-disk access is what makes the slices disappear. Fixed, covered by six tests, and
+> **chunk 3 re-walked from the top and CLOSED 2026-09-09** — every item passed, item 9 on the sixth
+> cable pull, which landed mid-write-back: the hazard case. **Chunks 4 and 5 remain.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >
@@ -40,6 +41,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > second one outside `BUILD-PLAN.md`. It was missed because the check greps for the *claim* and
 > nobody thought of the README as a place where the current step is named. **It is. Add it to the
 > grep.**
+>
+> ⚠️ **And it said *"chunk 3 must now be re-walked from the top"* until 2026-09-10** — through all
+> six of chunk 3's commits, `bed54e9` to `2086090`, while `BUILD-PLAN.md` was kept current. The
+> **ninth**, and the first in a place already on the list; see `CLAUDE.md` for what that changes.
 >
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.

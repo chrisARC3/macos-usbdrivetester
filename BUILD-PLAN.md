@@ -463,7 +463,7 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-08: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-09-10: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
 > handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
@@ -475,7 +475,10 @@ simulation-first still applies wherever the plan calls for it.
 > `55a5c71`, with the daemon rekickstarted at 12:14:01 (pid 84459, v15, `/Applications`). The daemon kickstarted after 7f part 2 came back out of **DerivedData** (pid 88873, 16:01:04) — byte-identical
 > binary, so not a correctness fault, but a provenance one; **fixed the same day** by Unregister +
 > Register from the installed app, and the daemon now runs as **pid 89541 (16:22:50, v15,
-> `/Applications`)** with BTM re-parented. **Chunk 3
+> `/Applications`)**, its helper byte-identical to the one reinstalled 2026-09-10 from `2086090`.
+> ⚠️ **BTM was re-parented then and did not stay so**: the 2026-09-09 15:34 test run re-pointed it
+> at DerivedData, which the running daemon does not feel and the next kickstart would — so none is
+> to be run until the record reads `/Applications` again (`CONSTRAINTS.md` §1). **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash

@@ -121,6 +121,21 @@ DerivedData copy and the handshake cannot tell two builds of identical source ap
 
   The path in that line must be `/Applications/USBDriveTester.app/…`.
 
+  ⚠️ **And a test run moves the record back to DerivedData — measured 2026-09-09, found
+  2026-09-10.** The suite's host app runs from DerivedData, asks BTM about the daemon, and BTM
+  re-points the app's record at it (`CONSTRAINTS.md` §1, *It does not stay fixed*). A running
+  daemon does not feel that; the next launch comes up from DerivedData. So **after any test run,
+  read the record before kickstarting** — the URL must be `/Applications`:
+
+  ```bash
+  sudo /usr/bin/sfltool dumpbtm | /usr/bin/grep -B4 '#1: 16.com.arc3solutions.USBDriveTester.Helper' | /usr/bin/grep -E 'URL|Generation'
+  ```
+
+  If it names DerivedData, launch the installed app and read it again; if that does not move it,
+  Unregister then Register in the installed app's Step 3 panel does (measured 2026-09-08).
+  **As of 2026-09-10 no kickstart is owed**: the installed helper is byte-identical to the one
+  pid 89541 has run since 2026-09-08 16:22:50, launched from `/Applications`. Leave it running.
+
 * **A log stream, left running throughout.** Most items here are read off a **log line**, not off
   the look of a dialog:
 
@@ -436,7 +451,7 @@ after the claim was granted**, before the cable was touched. Route (b) accepted 
 disappearance as proof the drive had gone, and the exclusive whole-disk open is what makes the
 slices disappear. Fixed at **chunk 7f**; see `CONSTRAINTS.md` §1, 2026-09-08.
 
-**This chunk must be re-walked from item 1 against the fixed build.** Nothing recorded on
+**This chunk must be re-walked from item 1 against the fixed build.** *(Done — re-walked 2026-09-09 against `982406a` and CLOSED; see below.)* Nothing recorded on
 2026-09-08 counts toward it except the two readings below, which were taken from the aborted run
 and are about the machine rather than about the unplug:
 

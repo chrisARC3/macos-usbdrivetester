@@ -375,6 +375,39 @@ Apple and both were found only because someone pressed the button.
   time — wrongly parented, but enabled — so a bare Register would have reported success and changed
   nothing. **Unregister first.**
 
+  **⚠️ It does not stay fixed: a test run re-points the record at DerivedData — measured
+  2026-09-09 15:34:09.672, found 2026-09-10.** Record #11 was back on the DerivedData URL, its
+  generation bumped `…605884` → `…605885`, and **no install had run in between**. The BTM daemon's
+  own log names the moment:
+
+  ```
+  _bundleURLForAuditToken: updating item uuid=226468B0-…, name=USBDriveTester, type=app, …
+    url=file:///Applications/USBDriveTester.app/ URL to: file:///Users/…/DerivedData/…/Debug/USBDriveTester.app/
+  ```
+
+  That is six seconds into `Test-USBDriveTester-2026.09.09_15-34-03`. The suite's host **is** the
+  app, run from DerivedData; it asked BTM about the daemon, and BTM moved the record to the asking
+  process's bundle. It is the only such line in the retained log, which for this daemon reaches
+  back only to 2026-09-09 13:14 — nothing from 2026-09-08 survives to compare.
+
+  - **`rm -rf "$DEST"` is cleared on both counts measured.** The 2026-09-09 re-parent had no
+    install to blame, and the 2026-09-10 09:26 install — `rm -rf` and `ditto` both — changed **no**
+    USBDriveTester record, dumps before and after identical. What moved it on 2026-09-08 is still
+    not established: a test run at 15:03:31 preceded it, which fits this mechanism and proves
+    nothing.
+  - **After any test run, a kickstart relaunches the DerivedData copy.** A running daemon does not
+    feel it — its provenance was fixed when it launched — so the hazard is the *next* launch, and
+    byte-identical helpers mean nothing else will say so. The reverse direction is recorded but not
+    measured with a dump: on 2026-09-07 a kickstart came up from `/Applications` *"after the
+    installed app had run and re-pointed the record"* (Step 12 checklist, Prerequisites).
+  - **So read the record before a kickstart, and the resolve line after.** Record #11 — the app
+    record listing the helper under `Embedded Item Identifiers` — must carry
+    `file:///Applications/USBDriveTester.app/`. ⚠️ **`sfltool dumpbtm` needs admin**: run without
+    `sudo` it raises a password dialog on the logged-in user's screen, every time — measured
+    2026-09-10, `authd` logging a `system.privilege.admin` authorization for each of two runs made
+    from an agent's shell, and a third left waiting on its dialog. It is a hand-over command, like
+    the kickstart.
+
 ### Quitting, and the run boundary
 
 - **`AppModel.mayIssueNewWork` is a precondition, not a hint.** It is false from the moment a quit is
