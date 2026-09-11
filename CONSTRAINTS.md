@@ -1487,7 +1487,16 @@ Every defect this project has produced came from trusting a substitute for the r
   the idempotence this test pins, so its two slice calls are now filtered before any wind-down is
   built. **A new filter upstream of an idempotence test can silently empty it; re-check the test's
   inputs, not just its result, when one is added.** Whether the mutation survives again is
-  predicted, not yet measured — `PROGRESS.md`'s Owed row.)*
+  predicted, not yet measured — `PROGRESS.md`'s Owed row.)* *(✅ 2026-09-11, chunk 7h: **measured —
+  it survived all 1301 tests**, so the sub-lesson above has its instance and is no longer a
+  worry about a mechanism but a record of one. Killed by
+  `aSecondWholeDiskCallbackBuildsNoSecondWindDown`, which delivers the whole-disk callback **twice**
+  to a running run — the state where nothing upstream is filtering, exactly as the bolded lesson
+  four sentences up says to. **Note what the two lessons cost together: the bench fix was right and
+  was kept, and the test still stopped covering the thing — because the defect moved from what the
+  bench could see to what the test was allowed to deliver.** The cheap check, whenever a guard is
+  added: list the tests that reach the guarded code and ask how many calls each still gets through,
+  not whether they are green.)*
 - **A DOC COMMENT THAT OVERCLAIMS IS A DEFECT, AND THE MUTATION ROUND IS WHAT FINDS IT.** Deleting
   `windDown?.standDown()` survived the suite. The investigation found the comment was wrong, not the
   code: it said the call prevented a double-ending, but the sequencer's `.ended` phase already

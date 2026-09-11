@@ -6,7 +6,10 @@
 > and was re-walked and closed **2026-09-09** against `982406a`; **chunk 4 was walked and closed
 > 2026-09-11** against `c767317`, installed app built from `2086090`, on the 1 TB scratch T5 and —
 > for 4.9 — the 125.8 MB thumb. Chunk 5 needed no cable pull: chunk 3's six logged pulls discharge
-> 5.1 and 5.2, and the helper's cycle tallies stand in for 5.3's metrics-panel reading. Each chunk's
+> 5.1 and 5.2, and the helper's cycle tallies stand in for 5.3's metrics-panel reading. **The one
+> thing this checklist left owed — chunk 4's two logging gaps — was closed in code at 7g and seen
+> on the installed build 2026-09-11 16:14–16:19**, save the `Resume` line, which was never pressed;
+> the note under chunk 4 carries the log lines. Each chunk's
 > own **Walked** line is the record; this block only points at them. Written at chunk 7c on
 > **2026-09-07**, against commit `3da3ef7`, protocol **v15**, helper source hash **`e19b0b3c…`**.
 >
@@ -801,6 +804,19 @@ few milliseconds of it, never as an ordering.
 *(Both closed in code 2026-09-11 at chunk 7g: `run control: A → B on the <Label> command` for every
 accepted command, and `<reason>: selected diskN (capacity) by default — …` whenever the policy moves
 the selection. Not yet seen by a person on an installed build — `PROGRESS.md`'s Owed row.)*
+
+*(✅ **Seen 2026-09-11 16:14–16:19** on the installed 7g build, `abc07e3`, on the 1 TB scratch T5
+(serial `12345686DAA9`, disk7) — read back from the unified log, not off the screen. Both gaps are
+closed in fact: the run logged `idle → starting on the Start command`, `running → pausing on the
+Pause command` **with** `pausing → paused on pauseSettled` after it — the missing half this item
+was written for — `paused → stopping on the Stop command`, and the two event transitions to
+`finished`; and the ejection of the idle selected drive logged `device connect/disconnect: selected
+disk5 (256.64 GB) by default — the first usable drive (FR-DEV-3), because the selected one has
+gone`, once, with launch having logged the `because nothing was selected` variant. ⚠️ **`paused →
+running on the Resume command` was not seen**: the walk went Start → Pause → Stop, and the helper
+log confirms no second `run control set to proceed` between them. It is the fourth label on the
+same `apply(_:movingTo:)` call, and one of the three seen is enough to show the mechanism — but the
+line itself is unseen, and this project records what a pass was true of. Carried in the Owed row.)*
 
 **What would invalidate this:** a behavioural change to `DeviceLossWindDown.swift`,
 `RunController.swift`'s pause or device-loss path, `VolumeChangeWatcher`, `DeviceDiscovery`,

@@ -37,9 +37,12 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > already in the persisted log, six trials each from chunk 3's pulls, and were accepted as they
 > stand. **Chunk 7g closed the walk's two logging gaps in code on 2026-09-11** — every run command
 > and every automatic re-selection now leaves a line — and retired the two stale app-target
-> comments with them; the third is helper source and waits for the next helper change.
-> **What remains of Step 12** is a person seeing those lines on the installed build, one test gap
-> 7g predicts, and the step's own verification gate. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> comments with them; the third is helper source and waits for the next helper change. **A person
+> ran that build on the 1 TB scratch T5 the same evening** and both kinds of line came out as
+> specified — six of the seven expected; Resume was never pressed, so its line is still unseen.
+> **Chunk 7h then closed the test gap 7g predicted**: the *build one wind-down per callback*
+> mutation was measured surviving all 1301 tests, and one new test kills it.
+> **What remains of Step 12** is that unseen `Resume` line and the step's own verification gate. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >
@@ -57,7 +60,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1301 tests / 153 suites / 0 failures** (floor 1301), zero source warnings from
+> Current verified state: **1302 tests / 153 suites / 0 failures** (floor 1302), zero source warnings from
 > three clean builds, **13/13** gate clients type-checking, XPC protocol v15. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.

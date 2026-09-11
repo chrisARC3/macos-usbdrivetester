@@ -23,13 +23,16 @@ test target fixed to the designated scratch device with disk images removed as a
 > decision**, its two measurements being in the persisted log already, six trials each, from chunk
 > 3's pulls); **7g, the same day, closed both of the walk's logging gaps in code** and retired the
 > two stale app-target comments with them — the third, in helper source, waits for the next helper
-> change by user decision. **What remains of Step 12** is `PROGRESS.md`'s Owed row — a person
-> seeing 7g's lines on the installed build, and a mutation survivor 7g predicts — and this step's
+> change by user decision. **A person ran that build on the 1 TB scratch T5 the same evening** and
+> both kinds of line came out as specified — six of the seven expected; Resume was never pressed.
+> **7h then closed the mutation survivor 7g predicted**: measured surviving all 1301 tests, killed
+> by one new test. **What remains of Step 12** is `PROGRESS.md`'s Owed row — the unseen
+> `paused → running on the Resume command` line — and this step's
 > own verification gate, still unticked. ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
-> partitioned drive ended its run ten milliseconds after the claim. The suite is **1301 / 153 / 0**,
-> floor 1301. **The protocol is v15** (chunk 3,
+> partitioned drive ended its run ten milliseconds after the claim. The suite is **1302 / 153 / 0**,
+> floor 1302. **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -513,10 +516,13 @@ simulation-first still applies wherever the plan calls for it.
 > report saying *paused*, on the 1 TB scratch T5 and — 4.9, by user decision — the thumb, where the
 > declared prediction held: one whole-disk event, so no idempotency exercised, and none has a
 > hardware path in this design. **7g closed chunk 4's two logging gaps in code the same day** —
-> commands and automatic re-selections now log — with the helper hash unmoved. **What remains** is
+> commands and automatic re-selections now log — with the helper hash unmoved, **and a person saw
+> those lines on the installed build that evening**, six of the seven expected; Resume was never
+> pressed, so its line is still unseen. **7h closed the mutation survivor 7g predicted**, measured
+> surviving all 1301 tests and killed by one new test. **What remains** is
 > the Owed row in `PROGRESS.md` and this step's verification gate. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
-> **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),
+> **1302 tests / 153 suites / 0 failures** (floor 1302, ratcheted at 7h), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:

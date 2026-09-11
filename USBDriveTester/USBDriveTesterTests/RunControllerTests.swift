@@ -1245,8 +1245,11 @@ struct RunControllerDeviceLossTests {
     /// *(2026-09-11: "what a real drive being pulled mid-run looks like" is an **unclaimed** drive.
     /// Under a run's claim the unplug is the whole disk alone — eight of eight, 2026-09-09 and
     /// 2026-09-11. And since chunk 7f the two slice calls here stop at `deviceDisappeared`'s
-    /// guard (3) before reaching the wind-down, so whether this still kills that mutation is
-    /// **unmeasured** — it was last measured before 7f. Raised at chunk 7g for the next chunk.)*
+    /// guard (3) before reaching the wind-down, so this test no longer kills that mutation:
+    /// measured at chunk 7h, the mutation passed all 1301 tests. It was said here until 7h that
+    /// this test covered it. `aSecondWholeDiskCallbackBuildsNoSecondWindDown` covers it now; what
+    /// this test still pins is that the three callbacks produce one ending, one report and one
+    /// release.)*
     @Test func threeCallbacksFromOneUnplugArmOneDeadline() {
         let bench = Bench()
         #expect(bench.driveTo(.running))
@@ -1261,6 +1264,45 @@ struct RunControllerDeviceLossTests {
         // And route (a) then disarms everything that was built, not merely the latest.
         bench.emit(.runEnded(result(.deviceLost, finalReply: reply(.deviceLost))))
         #expect(bench.everyWindDownIsFinished)
+        #expect(bench.reports.count == 1)
+    }
+
+    /// **Two whole-disk callbacks, one wind-down** — the idempotence the test above was written to
+    /// pin, driven from the state where nothing upstream is filtering it out.
+    ///
+    /// That test delivers one whole-disk call and two slice calls, and it did kill the
+    /// build-one-per-callback mutation until chunk 7f taught `deviceDisappeared` to drop a slice of
+    /// the drive under test at its third guard. After 7f the two slice calls stop before any
+    /// wind-down is reached, so the test delivers **one** accepted call and holds with or without
+    /// the `if windDown == nil` guard. Predicted at chunk 7g and measured here, 2026-09-11: with
+    /// the guard replaced by `if true`, all 1301 tests passed.
+    ///
+    /// A real drive cannot send this pair — under a run's claim an unplug fires the whole disk
+    /// alone, once (`CONSTRAINTS.md` §1, *Under a claim*; eight of eight, 2026-09-09 and
+    /// 2026-09-11). So the guard is belt-and-braces, and this pins it as such rather than pretending
+    /// to reproduce hardware. What losing it costs is the second assertion: the second callback
+    /// would build a second sequence and overwrite the controller's only reference to the first,
+    /// leaving it armed where `standDown()` cannot reach it, to fire three seconds later accusing
+    /// the helper of never answering a call it had already answered. `begin(waitingForAReply:)` is
+    /// idempotent per instance, so a second *instance* is the only way to arm twice — which is why
+    /// this counts instances and why the bench keeps every one rather than the latest.
+    ///
+    /// **What would invalidate this:** a new guard upstream of the `windDown == nil` check that
+    /// stops a second whole-disk call reaching it. This test would then pass for that reason
+    /// instead of for the guard — precisely how its predecessor quietly stopped covering this.
+    @Test func aSecondWholeDiskCallbackBuildsNoSecondWindDown() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+
+        #expect(bench.windDowns == 1)
+        #expect(bench.controller.state == .running, "still waiting for the reply")
+
+        bench.emit(.runEnded(result(.deviceLost, finalReply: reply(.deviceLost))))
+        #expect(bench.everyWindDownIsFinished,
+                "a sequence the controller no longer points at was left armed")
         #expect(bench.reports.count == 1)
     }
 
