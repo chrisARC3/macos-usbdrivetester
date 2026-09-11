@@ -110,6 +110,20 @@ readonly FIXTURE_BLOCK_SIZE=512
 # which holds data that a run would write over. Two 60 MB exFAT slices on a disposable thumb is
 # the smallest thing that can ask the question.
 #
+# ⚠️ CORRECTED 2026-09-10 — BOTH PREMISES WERE WRONG, AND THE THUMB CANNOT ASK THE QUESTION.
+# The scratch T5 is GPT with an EFI slice beside its exFAT volume: one volume, but TWO slices, so
+# it was a partitioned drive all along. And "whole disk plus slices" holds only with nothing
+# claimed: a run's exclusive open tears the slices down at the claim, so a claimed drive's unplug
+# fires ONE whole-disk event (measured 2026-09-09, six of six). A paused run keeps its claim, so
+# the thumb behaves exactly as the T5 does. Multi-slice idempotency has no hardware path in this
+# design; `threeCallbacksFromOneUnplugArmOneDeadline` pins it on the bench, and nothing else does.
+# See CONSTRAINTS.md §1, "Under a claim, an unplug fires the WHOLE DISK only", and checklist
+# item 4.9, which carries this as a prediction and leaves whether to walk it to the user.
+# (✅ WALKED 2026-09-11, user decision, and the prediction HELD: both slices went at the claim,
+# 09:43:12.584, and a paused run's unplug fired exactly ONE `disk4 (whole disk)` and no slice
+# line — one loss line, one `run ended`, one report. So 4.9 passed without exercising any
+# idempotency, as declared. The role's use is spent; keep it for a future unclaimed-drive question.)
+#
 # NOT a retention-gate target and never a write-gate target in the product's sense: 125.8 MB is
 # too small to say anything about throughput, and it holds no /dev/urandom fill, so a placement
 # could land on all-zero space and report a clean pass having proved nothing. It exists to be
@@ -121,6 +135,13 @@ readonly FIXTURE_BLOCK_SIZE=512
 # with no `IOMedia` under it. `diskutil` hung and was killed. **A physical replug is needed
 # before this role can be used**, and the block count below is what the geometry is EXPECTED to
 # be, unconfirmed until then. See `progress/step-12-human-checklist.md` item 4.9.
+# (✅ Replugged the same day and CONFIRMED, 2026-09-07: `resolve_target multislice` reported
+# /dev/disk4, 245760 × 512 B, slices 59.8 MB and 64.0 MB — not the even 60/60 asked for, so
+# check for TWO slices, never for two 60 MB ones. Re-verified by serial 2026-09-10.)
+# (⚠️ AND NOT TWO exFAT SLICES, found 2026-09-11: `disk4s2` has no volume — no name, not mounted,
+# `diskutil` personality `MS-DOS` with no FAT variant. Its format is most likely what the hang cut
+# off. Only `disk4s1` is `Slice_A`, exFAT. Two slices is what the role needs; two volumes it never
+# did, since a slice is an IOMedia whether or not it holds a filesystem.)
 readonly MULTISLICE_SERIAL="2211190533300386001515"
 readonly MULTISLICE_MODEL="General UDisk"
 readonly MULTISLICE_BLOCKS=245760

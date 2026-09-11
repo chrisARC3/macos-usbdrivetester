@@ -38,8 +38,12 @@ echo
 
 # --- process table -----------------------------------------------------------
 # Match the executable name rather than a path, so a helper running from either
-# /Applications or a DerivedData build is caught.
-PIDS="$(pgrep -f "MacOS/$LABEL" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')"
+# /Applications or a DerivedData build is caught — and match it on the EXECUTABLE, the end of
+# `ps -o comm`. Not `pgrep -f`, which also matches any process whose ARGUMENTS contain that
+# path — an `nm`, a `codesign`, an editor — and would fail `absent` with no daemon running.
+# Found 2026-09-10.
+PIDS="$(/bin/ps -axo pid=,comm= | /usr/bin/awk -v want="MacOS/$LABEL" '
+    substr($0, length($0) - length(want) + 1) == want { printf "%s%s", sep, $1; sep = " " }')"
 if [[ -n "$PIDS" ]]; then
     RUNNING=1
     echo "process:  RUNNING (pid(s): $PIDS)"

@@ -1,8 +1,18 @@
 # Step 12 — the human checklist
 
-> **STATUS: UNWALKED.** Written at chunk 7c on **2026-09-07**, against commit `3da3ef7`, protocol
-> **v15**, helper source hash **`e19b0b3c…`**. Nothing here has been run. Chunk 7d installs the
-> build these checks are about; chunk 7e walks them.
+> **STATUS, 2026-09-11: ALL FIVE CHUNKS CLOSED — chunks 1–4 WALKED; chunk 5 DISCHARGED, by user
+> decision, from chunk 3's log.** Chunks 1 and 2 passed **2026-09-08** against `55a5c71` (chunk 1
+> with its debug hook, chunk 2 without); chunk 3 aborted that day on a shipped defect, fixed at 7f,
+> and was re-walked and closed **2026-09-09** against `982406a`; **chunk 4 was walked and closed
+> 2026-09-11** against `c767317`, installed app built from `2086090`, on the 1 TB scratch T5 and —
+> for 4.9 — the 125.8 MB thumb. Chunk 5 needed no cable pull: chunk 3's six logged pulls discharge
+> 5.1 and 5.2, and the helper's cycle tallies stand in for 5.3's metrics-panel reading. Each chunk's
+> own **Walked** line is the record; this block only points at them. Written at chunk 7c on
+> **2026-09-07**, against commit `3da3ef7`, protocol **v15**, helper source hash **`e19b0b3c…`**.
+>
+> ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
+> through three chunks' walks and thirteen commits to this very file. It names no step, so the grep
+> for the five blocks that do never finds it — the tenth stale status block (`CLAUDE.md`).
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
@@ -85,21 +95,34 @@ DerivedData copy and the handshake cannot tell two builds of identical source ap
   /usr/sbin/diskutil list
   ```
 
-* **The 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`** — two exFAT slices,
+* **The 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`** — two slices,
   **59.8 MB and 64.0 MB**, role `multislice`. Needed by **4.9 only**. Contents expendable; never a
-  retention target.
+  retention target. *(Corrected 2026-09-11 from "two exFAT slices": only the first holds a volume.
+  `diskutil info` reads `disk4s1` as `Slice_A`, exFAT, mounted, and `disk4s2` as **no volume name,
+  not mounted, personality `MS-DOS` with no FAT variant** — where the scratch T5's real FAT32 EFI
+  slice reads `EFI` / `MS-DOS FAT32`. Most likely the second slice's format is what the 2026-09-07
+  hang cut off, and "came back complete" was judged on the partition map and the sizes, which did
+  survive. It does not touch 4.9, which counts slices, not volumes: a slice is an `IOMedia` whether
+  or not it holds a filesystem, and the scratch T5's unmounted EFI slice goes at the claim like the
+  mounted one.)*
 
 * **The app installed and the daemon kickstarted** — chunk 7d. ⚠️ **The helper source hash moved at
   chunk 7b**, so the installed daemon is stale for certain. Copying files does not reload it: two
   hardware gate runs on 2026-08-18 measured stale code while returning plausible numbers. Verify the
-  reinstall took with `nm -U`, never by timestamp:
+  reinstall took with `nm -gU`, never by timestamp:
 
   ```bash
-  nm -U /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper | grep -c injectShort
+  /usr/bin/nm -gU /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper | /usr/bin/grep -c injectShort
   ```
 
   **2** means the installed helper contains chunk 7b's source; **0** means it does not, whatever
-  the timestamps say. Then, because copying files never restarts a running daemon:
+  the timestamps say. ⚠️ **The `-g` is load-bearing, and was found missing 2026-09-10.** Every
+  build from this project's scheme is coverage-instrumented, so plain `nm -U` also lists a local
+  `___profc_` and `___profd_` counter for each of the two functions and each of their closures:
+  **14** lines, not 2, on both helpers installed since 7b's source landed — `7590b920…` and
+  `ab4b6957…`, the very binary 7d recorded as "2" (`CONSTRAINTS.md` §1, *Every scheme build is
+  coverage-instrumented*). `-g` keeps external symbols only. Then, because copying files never
+  restarts a running daemon:
 
   ```bash
   sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
@@ -108,7 +131,15 @@ DerivedData copy and the handshake cannot tell two builds of identical source ap
   ⚠️ **On 2026-09-07 the running daemon was found to have started 2026-09-04 17:01:05 — before
   Step 12's first commit.** It had served the whole of chunks 4–6 on protocol v14 while the app
   was at v15, and the 2026-09-06 install had not restarted it. Check the daemon's age, not the
-  bundle's: `ps -o lstart= -p "$(pgrep -f USBDriveTester.Helper)"`.
+  bundle's — the daemon is the process with **uid 0 and parent pid 1**:
+
+  ```bash
+  /bin/ps -axo pid=,ppid=,uid=,lstart=,comm= | /usr/bin/awk '$2 == 1 && $3 == 0 && $NF ~ /com\.arc3solutions\.USBDriveTester\.Helper$/'
+  ```
+
+  *(Found 2026-09-10: this read `ps -o lstart= -p "$(pgrep -f USBDriveTester.Helper)"`, and
+  `pgrep -f` matches any process whose command line contains the name — a second pid breaks the
+  `ps`.)*
 
   ⚠️ **And check *which copy* it started, not just what version it answers.** The same day, a
   kickstart brought up a correct v15 daemon **from the DerivedData build**: `SMAppService` had that
@@ -306,6 +337,13 @@ since 2026-09-04. Neither described a fault in the app.
 hardware at **chunk 4.7**, which produces the paused report for the first time. It lapses if
 `RunReportPresentation.swift`, `RunReport.swift`, `HonestFraming.swift` or `DeviceLossAccount.swift`
 move — none of which touch the helper hash, so nothing here re-lapses the hardware gates.
+
+✅ **Re-read on a real report 2026-09-11, at chunk 4.7** — a paused run on the 1 TB scratch T5,
+unplugged, against `c767317` with the app built from `2086090`. **Items 1, 2, 4 and 5 all hold on
+it**, by the user's eye: the eject symbol in a circle, orange, `Samsung Portable SSD T5 (serial
+12345686DAA9)` beneath the headline and again in the Drive table, and the paused sentence word for
+word. Item 3 is a comparison across seven symbols and stays the 2026-09-08 reading. The same lapse
+conditions apply to this re-read.
 
 *A corroboration worth keeping: `eject.circle.fill` occurs exactly **once** in the installed
 `USBDriveTester.debug.dylib`. That is item 1's real subject — the name in the shipped build is the
@@ -624,7 +662,8 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    (`RunController.pause()` only sends `setRunControl(.pause)`), and under a claim the slices go
    **at the claim**, not at the pull. Measured on every one of chunk 3's six pulls on 2026-09-09 and
    read back from the persisted log on 2026-09-10: `disk7s1 (slice)` and `disk7s2 (slice)` in the
-   same millisecond as the helper's `acquired disk7`, and at the pull exactly **one**
+   same millisecond as the helper's `acquired disk7` *(too tight — within a few milliseconds of it,
+   on either side; measured 2026-09-11, see the result below)*, and at the pull exactly **one**
    `disk7 (whole disk)`. So on the thumb — `disk4` today; resolve it by serial — expect in the
    `discovery` category:
 
@@ -637,17 +676,21 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    idempotency has no hardware path at all**: `threeCallbacksFromOneUnplugArmOneDeadline` covers it
    on the bench, and nothing covers it on hardware. What walking 4.9 would still buy is chunk 4
    repeated on a second drive — a 125.8 MB thumb behind a different hub, rather than the 1 TB T5 —
+   *(so it was, checked 2026-09-11: the kernel's detach line at the pull names
+   `AppleUSB20HubPort@00131000`, a USB 2 hub on another bus from the T5's `0x02210000`)* —
    and a test of this prediction on it. **Not a second *shape*, though:** the 1 TB scratch T5 is
    itself a two-slice drive — EFI `disk7s1` and data `disk7s2`, both seen going at every claim
    above — so items 1–8 on the scratch T5 already run a paused unplug on two slices. **Whether that is worth a run is the user's decision at the
-   walk.** If the prediction fails — slice lines at the pull — the premise is back, and so is this
+   walk.** *(Decided 2026-09-11: walked, and the prediction held in both halves — see the result
+   below.)* If the prediction fails — slice lines at the pull — the premise is back, and so is this
    item. `CONSTRAINTS.md` §1 *Under a claim* carries the same correction; the `.finishing` row's
    comment in `RunControlState.swift` still states the unclaimed premise and is owed a fix at the
    next code boundary.
 
    **Fixture: the 125.8 MB "General UDisk" thumb, serial `2211190533300386001515`, repartitioned
    into two exFAT slices** — `Slice_A` **59.8 MB** and `Slice_B` **64.0 MB**, the command having
-   asked for 60M and a remainder. User decision **2026-09-07**: the
+   asked for 60M and a remainder. *(Corrected 2026-09-11: two slices, but one volume — `disk4s2`
+   holds no exFAT and no name. See Prerequisites.)* User decision **2026-09-07**: the
    designated scratch T5 has one volume *(one volume but two slices, EFI and data — see the
    2026-09-10 prediction above)*, and the only other partitioned drive here is the 4 TB
    T5 EVO, which holds data a run would write over. Declared as role `multislice` in
@@ -657,7 +700,8 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    partitionDisk` wrote the GPT and both slices — `disk4`, `disk4s1` and `disk4s2` all appear in
    the StorageKit log — and the storage stack then vanished mid-format while the **USB device
    stayed enumerated in IOKit with no `IOMedia` under it**. `diskutil` hung and was killed.
-   **It was physically replugged the same day and came back complete.** Confirm it is still
+   **It was physically replugged the same day and came back complete.** *(Complete as a partition
+   map. Its second slice never got its volume — found 2026-09-11, see Prerequisites.)* Confirm it is still
    present before walking this item — this step's whole subject is drives going away:
 
    ```bash
@@ -686,11 +730,90 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
    premise for an **unclaimed** drive, which is what a repartition is. A run's drive is claimed —
    see the 2026-09-10 prediction above.)*
 
-**Walked:** ____________  **Against build:** ____________
+**✅ CHUNK 4 PASSED 2026-09-11 — all nine items, on two drives.** Walked by the user at the
+keyboard; the log read back with `/usr/bin/log show --style compact` and filtered by process. The
+daemon was **pid 89541** before, between and after both pulls.
+
+**Items 1–8 on the 1 TB scratch T5**, serial `12345686DAA9`, `disk7`, I/O size 4 MiB:
+
+| Item | Reading |
+|---|---|
+| 1 | The pre-run prompt and `run authorised` both name serial `12345686DAA9`; the helper claimed `disk7` at 09:26:36.171 |
+| 2 | `retention cycle END: paused by the user at block 1236992; 151/256 chunks` — read, wrote and verified 633,339,904 B each, no failed ranges — then `run paused and settled at block 1236992` and `pausing → paused on pauseSettled` at 09:26:40.219. The measurements panel: **every field plausible, by eye, before the pull** (the log's figures: read 477.3 MB/s, write 491.9 MB/s, R-W-R-C 160.7 MB/s) |
+| 3 | `a disk disappeared: disk7 (whole disk)` at 09:29:33.544 — **one**, and no slice line, the slices having gone at the claim (09:26:36.173) |
+| 4 | `device loss: nothing was in flight, ending the run now` (way 1) and `run ended: deviceLost` at 09:29:33.545 — **1 ms after the callback**, no deadline line. By eye: at once |
+| 5 | `the drive under test left the machine while paused: Samsung Portable SSD T5 (serial 12345686DAA9), disk7 at run time` — **`paused`** |
+| 6 | By eye: the GUI alive and usable |
+| 7 | By eye: a report, and **this item's sentence word for word** — with chunk 2's items 1, 2 and 4 re-read on the same report and recorded there. Log: `run report: Ended — the drive disappeared from the USB bus, and the rest was not tested; … 0 failing block(s) in 0 range(s)` |
+| 8 | `discovery found 5 USB whole disk(s): disk4, disk5, disk6, disk8, disk11` at 09:29:34.099, and again after `discovery resumed` at .116 |
+
+Also seen, and gate items rather than this chunk's: the helper `released disk7` at 09:29:33.546;
+after the report was dismissed, **no Resume** — Pause and Stop disabled, Start offered — and the
+list on FR-DEV-3's default selection (`DeviceSelectionPolicy` rule 2, by design). **Replugged at
+09:42:02.735**: `connected disk7`, still serial `12345686DAA9`, **no second loss line**, and
+`fill.bin` still 999,947,239,424 bytes, modified 2026-09-04 18:19:30. *Not 5.1's number, recorded
+beside chunk 3's so it is not taken for one:* `finishing → finished on deviceReleased` came
+**551 ms** after `run ended` here and **368 ms** on the thumb, against 342–377 ms on chunk 3's six.
+Not investigated.
+
+**Item 9 on the 125.8 MB thumb**, serial `2211190533300386001515`, `disk4`, over USB High Speed
+(480 Mb/s) where the T5 ran at 10 Gb/s. Paused at block 32768, 4/30 chunks. **The 2026-09-10
+prediction held in both halves:**
+
+- **at the claim**: `disk4s1 (slice)` and `disk4s2 (slice)` at 09:43:12.584;
+- **at the pull**: exactly **one** `a disk disappeared: disk4 (whole disk)`, at 09:55:03.555, and
+  no slice line;
+- **the three checks**: **one** `the drive under test left the machine while paused: General UDisk
+  (serial 2211190533300386001515), disk4 at run time`, **one** `run ended: deviceLost` in the same
+  millisecond, and **one** report — by the user's eye, the UI *"exactly as before"*.
+
+So 4.9 passed and, as declared, exercised no idempotency — one event cannot. Multi-slice
+idempotency stays pinned by `threeCallbacksFromOneUnplugArmOneDeadline` alone.
+
+⚠️ **"The same millisecond as the helper's `acquired`" was too tight.** On the T5 the slice lines
+came **2 ms after** `acquired disk7` (.171 → .173); on the thumb **3 ms before** `acquired disk4`
+(.584 → .587), 14 ms after the app unmounted `Slice_A`. Both are inside the claim — the helper
+logs `acquired` once the claim is already held, and two processes' lines are not ordered at this
+resolution — and both are **4–5 ms before `claimEstablished`** (.177, .589), which is
+`RunController`'s own account of why its slice guard never fires. Read *"at the claim"* as within a
+few milliseconds of it, never as an ordering.
+
+**Two instrument readings taken on the way:**
+
+- **`tools/device-id` logs into the app's own subsystem and category.** `scripts/lib/device-identity.sh`
+  runs it, and each run writes `discovery found N USB whole disk(s)` exactly as the app does — two
+  such lines at 09:43:52 were the resolver. **Read the process column on any `discovery` line**, and
+  do not resolve a drive between a pull and its readback.
+- **`log show --start` rejects fractional seconds** (*"Failed conversion of '… 09:29:34.2'"*) and
+  prints only that error, which a line count reads as a one-line log. Whole seconds only.
+
+**Two logging gaps, neither a product defect — to be fixed at the next app build (user decision
+2026-09-11):**
+
+- **The user's own commands leave no `run control: A → B` line.** Start, `pause()`, `resume()` and
+  `stop()` assign `state` directly, and only `report(_:)` logs a transition — so this walk logged
+  `pausing → paused` with no `running → pausing` before it, and the helper's `run control set to
+  pause` is the only trace of the press.
+- **FR-DEV-3's default re-selection is not logged.** `refresh()` applies `DeviceSelectionPolicy`
+  silently; only a click logs `selected …`. The log cannot say which drive the app pointed at once
+  the drive under test had gone.
+
+**What would invalidate this:** a behavioural change to `DeviceLossWindDown.swift`,
+`RunController.swift`'s pause or device-loss path, `VolumeChangeWatcher`, `DeviceDiscovery`,
+`HonestFraming.swift`, `RunReportPresentation.swift`, `RunReport.swift` or `DeviceLossAccount.swift`
+— all app target, none of which moves the helper hash — or a helper-hash move, which lapses the
+claim-and-release half. The two logging fixes above add lines and change no behaviour, but the
+commit that makes them should re-read this list by name rather than assume so.
+
+**Walked:** **2026-09-11**, 09:24–09:55  **Against build:** commit `c767317` — installed app built
+from `2086090` (dylib `44610313…`, helper `7590b920…`; no app or helper source differs between the
+two, and the working tree held documentation and script edits only), protocol **v15**, helper
+source hash **`e19b0b3c…`**, daemon **pid 89541** started 2026-09-08 16:22:50 and resolved from
+`/Applications`.
 
 ---
 
-## Chunk 5 — the two measurements this step has never made *(WRITES to the scratch drive)* — ⚠️ *made 2026-09-09; read the note below first*
+## Chunk 5 — the two measurements this step has never made *(WRITES to the scratch drive)* — ⚠️ *made 2026-09-09; read the note below first* — ✅ **DISCHARGED 2026-09-11**
 
 Everything above checks a decision. This chunk measures the two facts those decisions were made
 without.
@@ -701,7 +824,9 @@ against `982406a` (installed app from `0b37afd`, daemon pid 89541, helper `e19b0
 own step 1 is *"Run chunk 3 again with the log stream timestamped"* — so those six pulls are six
 trials on the item's own definition, and the log kept microseconds. The readings are under 5.1 and
 5.2. **Whether they discharge this chunk is the user's decision at the walk**: if they do, 5.1 and
-5.2 need no further cable pull and 5.3 needs only the reading under it. ⚠️ The log will not keep
+5.2 need no further cable pull and 5.3 needs only the reading under it. **✅ Decided 2026-09-11:
+they do** — 5.1 and 5.2 from the six pulls, and 5.3 from the helper's cycle tallies in place of the
+metrics panel. See the **Walked** line at the end of this chunk. ⚠️ The log will not keep
 them for ever; the raw lines are in the message of the commit that added this note
 (`git log -S'six trials each' -- progress/step-12-human-checklist.md`).
 
@@ -711,7 +836,9 @@ them for ever; the raw lines are in the message of the commit that added this no
 chosen to be *uncontroversially generous rather than tuned*: **"No real measurement stands behind it
 yet."** This is that measurement.
 
-1. Run chunk 3 again with the log stream timestamped to microseconds:
+1. Run chunk 3 again with the log stream timestamped — `--style compact` stamps to the
+   **millisecond**, which is the resolution this item needs *(found 2026-09-10 saying
+   "microseconds", which `--style compact` does not give)*:
 
    ```bash
    /usr/bin/log stream --predicate 'subsystem == "com.arc3solutions.USBDriveTester"' --info --style compact
@@ -832,9 +959,22 @@ each equals the helper's own `retention cycle END: ended at block …` for that 
 the first block of the chunk whose I/O failed (block × 512 = the offset in the `failed after 0
 bytes` line). Plausibility against the **metrics panel** is a reading nobody took; the cycle's byte
 tallies say the same thing more precisely, and whether they stand in for it is part of the chunk 5
-decision above.
+decision above. **✅ Decided 2026-09-11: they stand in for it.**
 
-**Walked:** ____________  **Against build:** ____________
+**Walked:** **not walked — DISCHARGED 2026-09-11 by user decision**, from chunk 3's six cable pulls
+of 2026-09-09.  **Against build:** those pulls ran against `982406a` — installed app from
+`0b37afd`, daemon **pid 89541**, helper source hash **`e19b0b3c…`**, protocol **v15**, I/O size
+8 MiB. **They describe the current build too**: the same daemon process is still running, and the
+app source from `0b37afd` to the installed `2086090` differs **in comments only** —
+`RunController.swift` and `RunReportPresentation.swift` doc comments, plus `render-ui.sh`'s usage
+line (`git diff 0b37afd 2086090`, read 2026-09-11). **5.1**: six trials against the three asked
+for, 2.7–6.3 ms from the removal callback to `run ended`, the deadline never reached. **5.2**: no
+short transfer, six of six, 0 failing ranges each time. **5.3**: the report's block equals the
+helper's `ended at block …` on all four trials that read one off the screen. Lapses with a
+behavioural change to `DeviceLossWindDown.swift` or `RunController.swift`'s device-loss path, or a
+helper-hash move. Owed from it: `DeviceLossWindDown.defaultDeadlineSeconds`' header (5.1, app
+target) and `classify`'s note (5.2, **helper source** — moves the hash), both listed in
+`PROGRESS.md`'s Owed row.
 
 ---
 
@@ -882,14 +1022,16 @@ argued for — chunk 6's round for the first three, chunk 7b's for the rest. The
   automated distinguishes "refused because the state is wrong" from "refused because the subject is
   gone". **Chunk 3.13/3.14 is the nearest check** — reconnect the drive after a loss and confirm no
   second wind-down fires — and it is weaker than the mutation it stands against. Recorded as a known
-  gap rather than claimed as covered.
+  gap rather than claimed as covered. *(Seen again 2026-09-11 after chunk 4's paused unplug: the
+  1 TB scratch T5 replugged, `connected disk7`, no second loss line. Same weakness.)*
 
 * **Which log level a device-loss line carries.** `deviceLost`, `driveCannotBeWatchedForRemoval`,
   `releaseCannotBeConfirmed` and `deviceLostWithNoReport` are all **error**; `releaseAcknowledgedLate`
   is **notice**, and it is the *good* ending of `releaseCannotBeConfirmed`. Nothing automated reads a
   log line, so the level distinction has no cover at all — the same gap increment 12 recorded for
   `reportARefusedTermination`. **Chunk 3.11 is the check**, and it asks which of the two lines
-  appeared rather than whether either did.
+  appeared rather than whether either did. *(The paused case's `deviceLost` line logged at **error**
+  on both of chunk 4's pulls, 2026-09-11 — `E` in the compact style's type column.)*
 
 * **The three-second deadline as a duration.** `DeviceLossWindDownTests` injects the schedule, so
   the deadline's *behaviour* is pinned exactly — it fires once, it does not fail open, it is

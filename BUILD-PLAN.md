@@ -15,11 +15,14 @@ test target fixed to the designated scratch device with disk images removed as a
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
-> done and chunk 7 is under way** (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e is under
-> way — the five-chunk checklist walk, with chunks 1 and 2 passed 2026-09-08, chunk 3 aborted the
-> same day on a shipped defect and **re-walked in full and CLOSED 2026-09-09** — the whole-disk
-> event fires under claim — **with chunks 4 and 5 still to run**, and chunk 5's two measurements
-> found on 2026-09-10 to be in the persisted log already, six trials each, from chunk 3's pulls). ⚠️ **7f
+> done and chunk 7 is under way** (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
+> five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
+> aborted the same day on a shipped defect and was **re-walked in full and CLOSED 2026-09-09** — the
+> whole-disk event fires under claim — **chunk 4, the paused unplug, passed and CLOSED 2026-09-11**
+> on the 1 TB scratch T5 and the 125.8 MB thumb, and **chunk 5 was discharged the same day by user
+> decision**, its two measurements being in the persisted log already, six trials each, from chunk
+> 3's pulls). **What remains of Step 12** is `PROGRESS.md`'s Owed row — two logging gaps and three
+> stale comments at a code boundary — and this step's own verification gate, still unticked. ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
 > partitioned drive ended its run ten milliseconds after the claim. The suite is **1301 / 153 / 0**,
@@ -259,7 +262,9 @@ are **process**, not history.
   `producer | head -1` can SIGPIPE the producer. Use `grep -m1`.
 - Bash arithmetic is **signed** 64-bit: `od -An -N8 -tu8` yields values above 2⁶³ that go negative
   through a modulo. Use 32 bits.
-- Invoke `log` as **`/usr/bin/log`** — the bare name gets mangled in this environment.
+- Invoke `log` as **`/usr/bin/log`** — the bare name gets mangled in this environment. *(It is zsh's
+  own `log` builtin, which lists logins and takes no arguments: `log:1: too many arguments`. Hit
+  again 2026-09-11.)*
 - **Ad-hoc commands run under zsh, where `path` is tied to `PATH`.** Assigning a scalar to a
   variable named `path` in a loop destroys the search path for the rest of that command, and every
   subsequent tool fails with `command not found` — which reads like a broken environment rather
@@ -269,6 +274,9 @@ are **process**, not history.
   every pattern** — which reads exactly like a clean result. Hit 2026-09-10 on the very grep that
   was checking the docs for stale status claims. Use an array — `D=(a.md b.md)`, then `"${D[@]}"` —
   and **treat zero hits for every pattern as a broken instrument**, the way a zero test total is.
+  *(Hit again 2026-09-11, the day after this was written, on the same kind of grep — 32 patterns,
+  zero each, a date known to be present among them. Knowing the trap did not prevent it; the
+  zero-for-every-pattern rule caught it both times. Keep a pattern that must hit in every sweep.)*
 - Scripts needing `sudo` must be run in a **real Terminal**; a run button has no TTY.
 - **`system_profiler SPUSBDataType` prints nothing on macOS 26** and exits 0 — the data type is now
   `SPUSBHostDataType`. An empty result is not a finding; it did not mean the drives had no serials.
@@ -469,15 +477,15 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-10: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-09-11: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
 > handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
-> 2026-09-07 against a v15 daemon resolved from `/Applications`; **and 7e is UNDER WAY** — the
-> five-chunk checklist walk, whose **chunks 1 and 2 were walked and passed 2026-09-08** against
+> 2026-09-07 against a v15 daemon resolved from `/Applications`; **and 7e is CLOSED, 2026-09-11** —
+> the five-chunk checklist walk, whose **chunks 1 and 2 were walked and passed 2026-09-08** against
 > `55a5c71`, with the daemon rekickstarted at 12:14:01 (pid 84459, v15, `/Applications`). The daemon kickstarted after 7f part 2 came back out of **DerivedData** (pid 88873, 16:01:04) — byte-identical
 > binary, so not a correctness fault, but a provenance one; **fixed the same day** by Unregister +
 > Register from the installed app, and the daemon now runs as **pid 89541 (16:22:50, v15,
@@ -494,11 +502,15 @@ simulation-first still applies wherever the plan calls for it.
 > alive. **Chunk 3's log half was re-walked and PASSED 2026-09-09** — route (b) confirmed under
 > claim, no short read before `ENXIO`, and the 3 s deadline never approached because `ENXIO`
 > aborts the cycle in ~1 ms. **Six of six pulls**, read back from the persisted log 2026-09-10: the reply
-> 2.7–6.3 ms behind the removal callback and 0 bytes then `ENXIO` every time — which may discharge
-> chunk 5 without a cable pull, the user's call. **Chunk 3 is CLOSED, all items PASSED 2026-09-09** — item 9 took six runs
+> 2.7–6.3 ms behind the removal callback and 0 bytes then `ENXIO` every time — which **discharged
+> chunk 5 without a cable pull, by user decision 2026-09-11**. **Chunk 3 is CLOSED, all items PASSED 2026-09-09** — item 9 took six runs
 > because the phase a cable-pull lands in is one chance in three, and the sixth landed in
-> `writingBack`, the hazard case. **Chunks 4 and 5 remain**; both pull a
-> cable out of a running machine and write to the scratch drive. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
+> `writingBack`, the hazard case. **Chunk 4 is CLOSED, all nine items PASSED 2026-09-11** against
+> `c767317`: a *paused* run unplugged, route (b) alone, ended 1 ms after the removal callback with a
+> report saying *paused*, on the 1 TB scratch T5 and — 4.9, by user decision — the thumb, where the
+> declared prediction held: one whole-disk event, so no idempotency exercised, and none has a
+> hardware path in this design. **What remains** is the Owed row in `PROGRESS.md` and this step's
+> verification gate. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
@@ -1870,9 +1882,9 @@ If the device under test disappears mid-run, immediately terminate the test clea
 - Simulate this safely first, then confirm on real hardware with the scratch device. **The hook this named did not exist when it was written** — `InMemoryBlockDevice`'s three fault hooks were all *range*-based, and `injectReadFault(blocks: 0 ..< blockCount)` simulates a drive with every block bad, which is the exact misreading this step exists to remove rather than a way to test it. Chunk 1 (2026-09-05) added `injectDeviceLoss(afterCalls:)`, which takes no range because the device leaving the bus is not a property of any range.
 - Ensure the claim is released even though the device is already gone (avoid a stuck DiskArbitration state). **Chunk 4 (2026-09-06): the release is always issued, but it is only *waited for* when the owning connection is free.** If the wind-down's deadline expired, that connection is still blocked by the call that never answered — measured 2026-08-04 — so the release cannot be delivered, let alone acknowledged. The controller therefore does not wait, does **not** claim the drive was released, and logs `releaseCannotBeConfirmed`. The real recovery is that the next `acquireDevice` is refused with the helper's own reason if the claim is still held.
 - **Route (a) is blind while the run is paused**, and no line of this section said so. A paused run has returned from its call and issues no syscalls, so there is no `errno` to classify — the helper simply sits holding the claim and the fd. Only route (b) can see a device unplugged while paused, which makes it load-bearing rather than a second opinion. **Chunk 2 (2026-09-05) built the detection**; `VolumeChangeWatcher` no longer discards which disk changed. **Chunk 4 (2026-09-06) wired it to `DeviceLossWindDown`**, whose way 1 — nothing in flight — is the paused case, and which ends the run at once there rather than waiting for a reply that provably cannot come.
-- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed. **Chunk 4 (2026-09-06) made it so, at three levels**: the event table refuses `deviceLost` from `finishing`, `RunController` builds one wind-down per run, and `DeviceLossWindDown.begin` is idempotent in itself. The middle one is not redundant — a mutation building one per callback armed three deadlines and **survived the whole suite**, because the test bench held only the latest; `threeCallbacksFromOneUnplugArmOneDeadline` is what closed it. **⚠️ 2026-09-10: "one unplug is several events" holds for an *unclaimed* drive only.** Under the run's exclusive claim the slices go at the claim, and an unplug fires exactly one whole-disk event — six of six on chunk 3's pulls (`CONSTRAINTS.md` §1, *Under a claim*) — so this defence has **no hardware path** in this design, and checklist 4.9 cannot exercise it. It stays: it is cheap, and it is pinned on the bench.
+- **One unplug is several events.** Measured 2026-09-05: a partitioned drive fires `DADiskDisappeared` once for the whole disk and once per slice. Whatever chunk 4 wires this to **must be idempotent** — a two-partition drive produces three notifications for one removal, and a wind-down that runs three times is a different defect from the one being fixed. **Chunk 4 (2026-09-06) made it so, at three levels**: the event table refuses `deviceLost` from `finishing`, `RunController` builds one wind-down per run, and `DeviceLossWindDown.begin` is idempotent in itself. The middle one is not redundant — a mutation building one per callback armed three deadlines and **survived the whole suite**, because the test bench held only the latest; `threeCallbacksFromOneUnplugArmOneDeadline` is what closed it. **⚠️ 2026-09-10: "one unplug is several events" holds for an *unclaimed* drive only.** Under the run's exclusive claim the slices go at the claim, and an unplug fires exactly one whole-disk event — six of six on chunk 3's pulls (`CONSTRAINTS.md` §1, *Under a claim*) — so this defence has **no hardware path** in this design, and checklist 4.9 cannot exercise it. It stays: it is cheap, and it is pinned on the bench. *(✅ 4.9 walked anyway 2026-09-11, by user decision, on the thumb: one whole-disk event at the pull, as predicted — eight of eight claimed unplugs now, on two drives.)*
 - **Do not match a disappearing disk by name prefix.** `disk7` and `disk70` share one and are different drives; a `hasPrefix` check ends a healthy run when an unrelated drive is unplugged. `DeviceUnderTest` compares the parsed unit number, and `DeviceUnderTestTests` pins five names that a prefix check gets wrong.
-- **The gate item above about reconstructing "which device, at what offset" is now partly answered by the report rather than only by the log. Chunk 5 (2026-09-06)** gives `RunReportOutcome` its sixth case and attaches a `DeviceLossAccount` — four named cases, because the two detectors leave the run knowing different amounts. **The one to check by eye at chunk 7 is the paused case**: a run paused with nothing in flight must NOT be told a chunk may hold partly written data, and that is the only case where `aWriteBackMayBeUnfinished` is `false` without route (a) having said which phase it was in. A single hedged sentence covering all four would put a false alarm into a document somebody keeps.
+- **The gate item above about reconstructing "which device, at what offset" is now partly answered by the report rather than only by the log. Chunk 5 (2026-09-06)** gives `RunReportOutcome` its sixth case and attaches a `DeviceLossAccount` — four named cases, because the two detectors leave the run knowing different amounts. **The one to check by eye at chunk 7 is the paused case**: a run paused with nothing in flight must NOT be told a chunk may hold partly written data, and that is the only case where `aWriteBackMayBeUnfinished` is `false` without route (a) having said which phase it was in. A single hedged sentence covering all four would put a false alarm into a document somebody keeps. *(✅ Checked by eye on a real report 2026-09-11, checklist 4.7: a paused run unplugged, and the report said* paused *and that nothing was left half-written, word for word.)*
 
 ---
 

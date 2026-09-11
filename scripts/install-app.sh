@@ -72,7 +72,12 @@ echo "Installed. Launch it from /Applications and use the Step 3 panel to regist
 # So the check is on the binary's own timestamp, not on the version. If a daemon is running from
 # an older binary than the one just installed, say so loudly and give the exact command.
 HELPER_BIN="$DEST/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper"
-HELPER_PID="$(pgrep -f 'USBDriveTester.Helper' | head -1 || true)"
+# The daemon is the helper process with uid 0 and parent pid 1 (launchd), matched on its
+# EXECUTABLE. Not `pgrep -f`, which matches any process whose ARGUMENTS contain the name — an `nm`,
+# a `log` predicate, an editor — so `head -1` could time the wrong process and stay silent about a
+# stale daemon, the one thing this check exists to say. Found 2026-09-10.
+HELPER_PID="$(/bin/ps -axo pid=,ppid=,uid=,comm= | /usr/bin/awk -v want='MacOS/com.arc3solutions.USBDriveTester.Helper' '
+    $2 == 1 && $3 == 0 && substr($0, length($0) - length(want) + 1) == want { print $1; exit }')"
 if [[ -n "$HELPER_PID" && -f "$HELPER_BIN" ]]; then
     BIN_EPOCH="$(stat -f '%m' "$HELPER_BIN")"
     PID_START="$(ps -o lstart= -p "$HELPER_PID" 2>/dev/null || true)"

@@ -299,6 +299,13 @@ cross-checked against the app's own enumerator (`tools/device-id serial-of <bsd>
 `scripts/lib/device-identity.sh`), which agreed on all six drives. **Prefer that second source**:
 it is the code the product runs, and it is what `resolve_target` already trusts.
 
+⚠️ **And because it is the code the product runs, it logs like the product — measured 2026-09-11.**
+Every `resolve_target` writes `discovery found N USB whole disk(s)` into the app's own subsystem and
+`discovery` category, from a process named `device-id`. On a walk that reads `discovery` lines as
+evidence of what the *app* saw, two of them turned up between a pause and a pull, from the
+resolver. **Read the process column on any `discovery` line**, and do not resolve a drive between a
+cable pull and the readback of its log.
+
 The rule underneath: **an instrument that returns a plausible wrong answer is worse than one that
 returns none**, and both failed here on the way to naming a drive that was about to be written to
 end to end. Cross-check any BSD↔serial mapping against a second source — `scripts/device-probe.sh`
@@ -416,6 +423,51 @@ Apple and both were found only because someone pressed the button.
     2026-09-10, `authd` logging a `system.privilege.admin` authorization for each of two runs made
     from an agent's shell, and a third left waiting on its dialog. It is a hand-over command, like
     the kickstart.
+
+### Every scheme build is coverage-instrumented — measured 2026-09-10
+
+**`build.sh`, `install-app.sh` and `test.sh` all produce binaries carrying LLVM coverage counters —
+the installed app and daemon included, Release as well as Debug.** No `.xcscheme` has ever been
+committed, so `-scheme USBDriveTester` runs a scheme `xcodebuild` **autocreates**, and that
+scheme's test action gathers coverage. Xcode then synthesizes `CLANG_COVERAGE_MAPPING = YES` (with a
+`CLANG_PROFILE_DATA_DIRECTORY`) into every action run through it — a plain `build` included.
+Measured with Xcode 26.6, unchanged since 2026-06-26:
+
+- `xcodebuild -showBuildSettings -scheme USBDriveTester` resolves `CLANG_COVERAGE_MAPPING = YES` for
+  **Debug and Release**. The same query by `-target` resolves nothing.
+- DerivedData's cached build requests (`XCBuildData/*/build-request.json`) carry it among their
+  **synthesized** overrides for build-only runs, not only for test runs.
+- All 21 helper object files carry `__llvm_prf_cnts`, and both helpers installed since chunk 7b
+  carry the counters: `7590b920…` today, and `ab4b6957…` in its own `nm` output of 2026-09-07.
+
+What it changes, and what it does not:
+
+- **`nm -U` counts are not source counts.** Each function and each of its closures gains a local
+  `___profc_` and `___profd_` symbol carrying the function's name, so `nm -U … | grep -c
+  injectShort` is **14** for two functions. **A presence test uses `nm -gU`** — external symbols
+  only, **2**. The Step 12 checklist expected 2 from plain `nm -U` from 2026-09-07 until this was
+  found; how that "2" came to be recorded is in `PROGRESS.md`, chunk 7d.
+- **No behavioural effect is known.** The counters change no result. An instrumented process that
+  exits normally writes `default.profraw` into its working directory; the daemon's is `/` (its
+  plist sets no `WorkingDirectory`), which is read-only, and no `/default.profraw` exists.
+- **Every figure taken from the app or the daemon was taken on an instrumented binary** — seen
+  directly from 2026-09-07, implied by the settings for as long as this Xcode has been installed.
+  The figures compare like with like; none of them says what an uninstrumented build costs. That
+  includes the unexplained ~209 µs per-chunk term in the daemon's CPU (`progress/step-09.md`), for
+  which instrumentation is an **untested** candidate.
+- **Not fit to distribute.** The counters' names embed absolute source paths —
+  `___profc_/Volumes/1TB_UGreen/…/InMemoryBlockDevice.swift:…` — and a `build.sh Release` build is
+  instrumented too (from the settings; no Release binary was on disk to inspect). Step 16 must
+  build without it.
+
+**Left as it is — user decision 2026-09-11.** Changing it then would have put a different binary
+under Step 12's checklist chunks 4 and 5 than chunks 1–3 ran on — chunk 4 was walked on the
+instrumented build later that day, and chunk 5 discharged from chunk 3's log — and it still needs a
+kickstart while BTM points at DerivedData. **Revisit at the next helper-source change** — which
+owes a rebuild, a kickstart and a gate re-run anyway — **or at Step 16, whichever is first.** Two
+ways then: commit a shared scheme with coverage off, which keeps `build.sh` and `test.sh` on one
+flavour; or pass `CLANG_COVERAGE_MAPPING=NO` from `build.sh`, which makes the two compile
+differently into one DerivedData, so every switch between them rebuilds everything.
 
 ### Quitting, and the run boundary
 
@@ -648,6 +700,16 @@ The open question route (b) rested on, answered by chunk 3's walk. Timeline, one
 pulls that day logged `disk7s1 (slice)` and `disk7s2 (slice)` in the same millisecond as
 `acquired disk7`, and exactly **one** `disk7 (whole disk)` at the pull.
 
+**Eight of eight, and on a second drive — 2026-09-11**, checklist chunk 4, both runs **paused** at
+the pull: the 1 TB scratch T5 again, and the 125.8 MB thumb (`2211190533300386001515`, two slices,
+over USB High Speed where the T5 runs at 10 Gb/s). Each logged both of its slices at the claim and exactly
+**one** whole-disk event at the pull. ⚠️ **"In the same millisecond as `acquired`" is too tight**:
+the T5's slice lines came **2 ms after** `acquired disk7`, the thumb's **3 ms before** `acquired
+disk4` — the helper logs `acquired` once the claim is already held, and two processes' lines are not
+ordered at this resolution. What held both times is **4–5 ms before `claimEstablished`**, which is
+the ordering the next paragraph's guard depends on. Read *"at the claim"* as within a few
+milliseconds of it.
+
 Three findings, and the third was not anticipated:
 
 1. **The whole-disk `DADiskDisappeared` DOES fire while an exclusive claim is held.** Route (b) is
@@ -669,7 +731,9 @@ Three findings, and the third was not anticipated:
    as here. **Multi-slice idempotency has no hardware path in this design.** It is pinned on the
    bench by `threeCallbacksFromOneUnplugArmOneDeadline` and by nothing else. The checklist's item
    4.9 now carries this as a prediction declared before the walk, and leaves whether to walk it to
-   the user.
+   the user. *(✅ Walked 2026-09-11 by user decision, and the prediction held in both halves: the
+   thumb's slices went at the claim and its paused unplug fired one `disk4 (whole disk)` — one loss
+   line, one `run ended`, one report. 4.9 passed without exercising idempotency, as declared.)*
 
 **The consequence for instrumentation, which cost a checklist item:** any log line that fires only
 on *a slice of the drive under test disappearing* is unreachable on a normal run. `deviceUnderTest`
@@ -718,7 +782,13 @@ subscription and do fire.
   `incomplete` rather than naming the removal, and nothing has told the *person* yet — chunks 5
   and 6. Nothing is distributed before Step
   16 (section 2), so the person misled is the one who can recognise it, which lowers the stakes and
-  changes nothing about the remaining gap.
+  changes nothing about the remaining gap. *(✅ 2026-09-10: **closed in code since 2026-09-07** —
+  chunk 5 made the report name the removal on 2026-09-06, and chunk 6 raised the alert on
+  2026-09-07. A person has since seen both: the alert by eye through a debug hook and the report's
+  face on 2026-09-08 (checklist chunks 1 and 2), and a real report after a real unplug of a
+  *running* run on 2026-09-09 (chunk 3). **The paused run was walked with a cable on 2026-09-11**
+  (chunk 4), on the 1 TB scratch T5 and the 125.8 MB thumb: route (b) alone ended it **1 ms** after
+  the removal callback, and the report said *paused* and that nothing was left half-written.)*
 - **`interruptedAtBlock` carries two different things from v15, and the outcome code is the only
   thing that says which.** Under `pausedByUser` it is a **resume point** — the run settled at a
   chunk boundary with nothing in flight. Under `deviceLost` it is where the run died *inside* a

@@ -46,12 +46,12 @@ has not been re-run cannot report anything.*
 
 **A status block that disagrees with the body is worse than no status block.** When one is edited,
 every other status block in the repository is edited in the same commit — `grep -rn` is the check,
-and this project has now paid for skipping it **nine** times. **Grep for the claim, not for the
+and this project has now paid for skipping it **ten** times. **Grep for the claim, not for the
 filename.** Snapshot blocks are the exception: correct them by annotating with a date, never by
 rewriting them to match today.
 
-The last four are the shape of the problem. The first three were each in a place the previous fix
-had not thought of; the fourth was not:
+The last five are the shape of the problem. The sixth, seventh, eighth and tenth were each in a
+place the previous fix had not thought of; the ninth was not:
 
 - **Sixth, 2026-09-05** — `BUILD-PLAN.md` holds **two** status blocks, 400 lines apart, and Step 12's
   chunks 1 and 2 updated only the lower one.
@@ -70,6 +70,11 @@ had not thought of; the fourth was not:
   4 and 5 are not walked"*) and BUILD-PLAN's *"so chunk 3's re-walk can tell"*. A claim has several
   wordings: **grep each noun in it**, and treat a grep that finds nothing for *every* pattern as a
   broken instrument, the way a zero test total is.
+- **Tenth, found 2026-09-10** — `progress/step-12-human-checklist.md`'s own header said *"STATUS:
+  UNWALKED … Nothing here has been run"* through three chunks' walks and thirteen commits to that
+  file. It names no step, so the grep for the five blocks below never reaches it. **A checklist's
+  status line is a status block about itself**: the commit that fills in a **Walked** line edits it
+  too.
 
 **Four files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
 and `BUILD-PLAN.md` (twice). That is five blocks, and the grep has to find all five.

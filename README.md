@@ -25,15 +25,18 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > chunk 7 is under way.** Chunk 7 is the mutation round, the human checklist, the physical-unplug
 > hardware gate and all four hardware gates re-run; **7a (the increment gate), 7b (the mutation
 > round), 7c (the human checklist) and 7d (reinstall, kickstart, and all four hardware gates re-run
-> and passed on 2026-09-07) are done, 7e — walking that checklist — is under way (chunks 1 and 2
-> passed 2026-09-08, chunk 3 on 2026-09-09), and 7f fixed a false-positive device loss that walk
-> uncovered.** Chunk 3 of the walk first aborted on 2026-09-08 when the app ended its own run ten
+> and passed on 2026-09-07) are done, 7e — walking that checklist — closed on 2026-09-11 (chunks 1
+> and 2 passed 2026-09-08, chunk 3 on 2026-09-09, chunk 4 on 2026-09-11, and chunk 5 discharged from
+> chunk 3's log), and 7f fixed a false-positive device loss that walk uncovered.** Chunk 3 of the walk first aborted on 2026-09-08 when the app ended its own run ten
 > milliseconds in: route (b) treated a slice disappearance as the drive leaving, and taking
 > exclusive whole-disk access is what makes the slices disappear. Fixed, covered by six tests, and
 > **chunk 3 re-walked from the top and CLOSED 2026-09-09** — every item passed, item 9 on the sixth
-> cable pull, which landed mid-write-back: the hazard case. **Chunks 4 and 5 remain** — and chunk
-> 5's two measurements turned out, on 2026-09-10, to be in the persisted log already, six trials
-> each from chunk 3's pulls. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> cable pull, which landed mid-write-back: the hazard case. **Chunk 4 — a paused run unplugged —
+> passed on 2026-09-11** on two drives: the run ended a millisecond after the drive left, and the
+> report said it had been paused and nothing was half-written. Chunk 5's two measurements were
+> already in the persisted log, six trials each from chunk 3's pulls, and were accepted as they
+> stand. **What remains of Step 12** is a small code boundary — two logging gaps and three stale
+> comments — and the step's own verification gate. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >
