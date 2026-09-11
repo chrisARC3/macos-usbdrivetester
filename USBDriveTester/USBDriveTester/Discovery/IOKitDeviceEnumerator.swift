@@ -117,7 +117,9 @@ nonisolated protocol DeviceSource: AnyObject {
     ///   different questions and only one of them may be coalesced: `onChange` says "the list is
     ///   stale" and is debounced 200 ms, while this names a subject a run has to act on and is
     ///   delivered as it arrives. Fired **once per disk**, so a drive with two partitions produces
-    ///   three of these — the consumer must be idempotent (measured 2026-09-05).
+    ///   three of these — the consumer must be idempotent (measured 2026-09-05). All three come at
+    ///   the unplug only if nothing has claimed the drive; under a run's claim the two slices go
+    ///   at the claim and the unplug is the whole disk alone (`CONSTRAINTS.md` §1, *Under a claim*).
     func startObserving(onChange: @escaping () -> Void,
                         onDiskDisappeared: @escaping (DisappearedDisk) -> Void)
 

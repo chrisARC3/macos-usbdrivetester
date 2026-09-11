@@ -61,6 +61,10 @@
 //    3. **A partitioned drive fires once for the whole disk and once per slice**, so a consumer
 //       must be idempotent. `DAVolumePath` is already absent by then even for a volume that was
 //       mounted a moment earlier — so a disappearance cannot be matched by its mount point.
+//       *(2026-09-11: that is an **unclaimed** drive's unplug — the ram disks had nothing
+//       claimed. Under a run's exclusive claim the slices go at the claim, and the unplug fires
+//       the whole disk only: eight of eight on two drives, 2026-09-09 and 2026-09-11, in
+//       `CONSTRAINTS.md` §1, *Under a claim*.)*
 //
 
 import Foundation

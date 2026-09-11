@@ -77,8 +77,11 @@ final class DeviceDiscovery {
     /// the alternative, handing the run controller to the source at `start()`, would need a
     /// controller that is not there yet.
     ///
-    /// Fires **several times for one unplug** — once for the whole disk and once per slice. Every
-    /// consumer must be idempotent.
+    /// Fires **once per disk that leaves**, so one unplug of an *unclaimed* partitioned drive is
+    /// several calls — the whole disk, then each slice (measured 2026-09-05) — and every consumer
+    /// must be idempotent. The drive under test is the exception, because of its claim: taking it
+    /// sends the slices *at the claim*, so its unplug is one whole-disk call — eight of eight on two
+    /// drives, 2026-09-09 and 2026-09-11 (`CONSTRAINTS.md` §1, *Under a claim*).
     var onDiskDisappeared: ((DisappearedDisk) -> Void)?
 
     private let source: DeviceSource
@@ -140,11 +143,44 @@ final class DeviceDiscovery {
             log.notice("\(reason, privacy: .public): \(change.logDescription, privacy: .public)")
         }
 
+        let previousSelection = selectedDeviceID
         devices = current
         selectedDeviceID = DeviceSelectionPolicy.selection(in: current,
-                                                           previousSelection: selectedDeviceID)
+                                                           previousSelection: previousSelection)
         lastRefresh = Date()
         hasPendingChange = false
+
+        if selectedDeviceID != previousSelection {
+            logSelectionMovedByPolicy(from: previousSelection, reason: reason)
+        }
+    }
+
+    /// **The policy moved the selection — say so, in `refresh`'s own `<reason>: …` shape.** Until
+    /// 2026-09-11 only ``select(_:)`` logged: a person's choice left a line, the policy's did not.
+    /// Step 12's checklist walk watched the main window pick the next drive after a device loss and
+    /// found nothing in the log saying it had. Now `selected ` finds both, and `by default` tells
+    /// them apart.
+    ///
+    /// Only a *change* is logged. ``DeviceSelectionPolicy``'s rule 1 keeps a selection that is still
+    /// connected, so this fires when there was none — launch, or a rebuilt list after the user
+    /// deselected — or when the selected drive has left the list.
+    private func logSelectionMovedByPolicy(from previousSelection: UInt64?, reason: String) {
+        guard let device = selectedDevice else {
+            // Rule 4: only an empty list selects nothing.
+            log.notice("\(reason, privacy: .public): selection cleared — no USB drive is connected")
+            return
+        }
+        let rule = device.isSelectable
+            ? "the first usable drive (FR-DEV-3)"
+            : "the first drive, none being usable"
+        let because = previousSelection == nil
+            ? "nothing was selected"
+            : "the selected one has gone"
+        log.notice("""
+                   \(reason, privacy: .public): selected \(device.bsdName.rawValue, privacy: .public) \
+                   (\(device.capacityDescription, privacy: .public)) by default — \
+                   \(rule, privacy: .public), because \(because, privacy: .public)
+                   """)
     }
 
     /// A device arrived or departed (FR-DEV-7). Delivered on the main queue, already

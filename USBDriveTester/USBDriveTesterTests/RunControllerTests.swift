@@ -116,7 +116,9 @@ private final class StubSequencer: RunSequencing {
     private(set) var deviceLosses = 0
 
     /// Whether a run is still there to end. The real sequencer answers `false` from `.ended`,
-    /// which is what makes the second and third disappearance callbacks of one unplug free.
+    /// which is what makes the second and third disappearance callbacks of one unplug free — an
+    /// *unclaimed* drive's unplug; under a run's claim it is the whole disk alone (`CONSTRAINTS.md`
+    /// §1, *Under a claim*).
     var runIsStillGoing = true
 
     /// The reply a device-loss ending carries. `nil` models route (b) with no reply ever received
@@ -208,9 +210,10 @@ private final class Bench {
     /// How many times FR-DEV-8's discovery re-run was asked for.
     ///
     /// A **count** rather than a flag, and it is the same lesson chunk 4's wind-down bench paid
-    /// for: one unplug delivers a whole-disk callback and one per slice, so "did it happen" and
-    /// "how many times" are different questions and only the second one catches an idempotence
-    /// defect. A `Bool` here would be green for one re-enumeration and green for three.
+    /// for: one unplug of an *unclaimed* drive delivers a whole-disk callback and one per slice
+    /// (under a run's claim, the whole disk alone), so "did it happen" and "how many times" are
+    /// different questions and only the second one catches an idempotence defect. A `Bool` here
+    /// would be green for one re-enumeration and green for three.
     private(set) var discoveryReRuns = 0
 
     /// The wind-down the controller built for a device loss, and the deadline it armed.
@@ -225,9 +228,10 @@ private final class Bench {
     /// **Every** wind-down built, in order, held so a test can ask whether each was **disarmed**.
     ///
     /// A list rather than one, and that is not thoroughness: holding only the latest is where a
-    /// build-one-per-callback defect hides. One unplug delivers three callbacks, so a controller
-    /// that built three sequences would leave two of them armed with nothing tracking them, and an
-    /// assertion on the last would pass.
+    /// build-one-per-callback defect hides. One unplug of an *unclaimed* drive delivers three
+    /// callbacks, so a controller that built three sequences would leave two of them armed with
+    /// nothing tracking them, and an assertion on the last would pass. (Under a run's claim the
+    /// unplug is the whole disk alone — `CONSTRAINTS.md` §1, *Under a claim*.)
     ///
     /// The controller drops its own reference when the drive goes back, so this is also the only
     /// way to see a sequence that outlived the run it was guarding — the case that matters, since
@@ -1082,8 +1086,9 @@ struct RunControllerSettleAndReportTests {
 ///   * **A paused run ends.** Route (a) is structurally blind to it — a paused run issues no
 ///     syscalls, so no `errno` can arrive — and `runEnded` is *ignored* from `paused`. This is the
 ///     one path where nothing else in the app can end the run.
-///   * **One unplug is one wind-down**, though it arrives as one callback per slice plus one for
-///     the whole disk.
+///   * **One unplug is one wind-down**, though an *unclaimed* drive's arrives as one callback per
+///     slice plus one for the whole disk. Under the run's claim it is the whole disk alone — eight
+///     of eight, 2026-09-09 and 2026-09-11 — so that burst is the bench's case, not the drive's.
 ///   * **After the deadline the release is not waited for.** The deadline expiring *means* the
 ///     helper is still inside the blocking call, and a second message on that connection is not
 ///     delivered until it returns (measured 2026-08-04) — so waiting would be waiting for a message
@@ -1191,8 +1196,9 @@ struct RunControllerDeviceLossTests {
 
     /// The fixture's APFS volume lives on a **synthesized** disk — `disk9s1`, on a `disk9` that is
     /// not part of `disk8`'s numbering. It does not match, and that is correct rather than a gap:
-    /// the whole disk's own disappearance always fires too (measured 2026-09-05, fact 1), so the
-    /// loss is seen by the event that names the drive rather than by one that names a container.
+    /// the whole disk's own disappearance always fires too (measured 2026-09-05, fact 1, and with
+    /// the claim held on 2026-09-09 — eight of eight by 2026-09-11), so the loss is seen by the
+    /// event that names the drive rather than by one that names a container.
     @Test func aSynthesizedContainerIsNotTheDriveUnderTest() {
         let bench = Bench()
         #expect(bench.driveTo(.running))
@@ -1206,7 +1212,10 @@ struct RunControllerDeviceLossTests {
     // MARK: One unplug, several callbacks
 
     /// **Three callbacks, one wind-down, one run ending.** A two-partition drive produces a
-    /// disappearance for the whole disk and one per slice (measured 2026-09-05).
+    /// disappearance for the whole disk and one per slice (measured 2026-09-05). *(2026-09-11:
+    /// that is an **unclaimed** drive; under a run's claim the unplug is the whole disk alone. And
+    /// since chunk 7f the two slice calls here stop at `deviceDisappeared`'s guard (3) — a slice of
+    /// the drive under test is the claim's doing, not a loss — before any wind-down is reached.)*
     @Test func threeCallbacksFromOneUnplugEndOneRun() {
         let bench = Bench()
         #expect(bench.driveTo(.paused))
@@ -1232,6 +1241,12 @@ struct RunControllerDeviceLossTests {
     /// answering a call it had already answered — and `standDown()` reaches only the one the
     /// controller still points at. A mutation building one per callback survived the whole suite
     /// until this existed.
+    ///
+    /// *(2026-09-11: "what a real drive being pulled mid-run looks like" is an **unclaimed** drive.
+    /// Under a run's claim the unplug is the whole disk alone — eight of eight, 2026-09-09 and
+    /// 2026-09-11. And since chunk 7f the two slice calls here stop at `deviceDisappeared`'s
+    /// guard (3) before reaching the wind-down, so whether this still kills that mutation is
+    /// **unmeasured** — it was last measured before 7f. Raised at chunk 7g for the next chunk.)*
     @Test func threeCallbacksFromOneUnplugArmOneDeadline() {
         let bench = Bench()
         #expect(bench.driveTo(.running))
@@ -1447,8 +1462,11 @@ struct RunControllerDeviceLossTests {
     }
 
     /// A drive pulled while the claim is going back does not re-decide a run whose outcome was
-    /// already settled. This is also where the second and third callbacks of an unplug land when
-    /// the first ended the run — see `threeCallbacksFromOneUnplugEndOneRun` for the other half.
+    /// already settled. This is also where the second and third callbacks of an *unclaimed*
+    /// drive's unplug would land when the first ended the run — see
+    /// `threeCallbacksFromOneUnplugEndOneRun` for the other half. Under a run's claim the unplug
+    /// is the whole disk alone, so of those two cases only a pull during the release has a
+    /// hardware path.
     @Test func aDisappearanceWhileTheDriveIsBeingReleasedChangesNothing() {
         let bench = Bench()
         bench.holdRelease = true
@@ -1767,6 +1785,9 @@ struct RunControllerDeviceLossSurfaceTests {
     /// **One unplug is several callbacks and must still be one re-enumeration.** A partitioned
     /// drive fires a disappearance for the whole disk and one per slice (measured 2026-09-05), and
     /// a discovery re-run per callback is a different defect from the one FR-DEV-8 asks for.
+    /// *(2026-09-11: an **unclaimed** drive's unplug. Under a run's claim it is the whole disk
+    /// alone — eight of eight, 2026-09-09 and 2026-09-11 — and since chunk 7f the slice calls here
+    /// stop at `deviceDisappeared`'s guard (3).)*
     @Test func oneUnplugReRunsDiscoveryOnce() {
         let bench = Bench()
         #expect(bench.driveTo(.paused))

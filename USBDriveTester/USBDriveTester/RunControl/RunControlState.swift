@@ -550,11 +550,16 @@ nonisolated enum RunControlPolicy {
                 return notWhileIn(state, event)
 
             case .finishing:
-                // **The idempotence row.** One unplug produces a disappearance for the whole disk
-                // and one for each slice — measured 2026-09-05 — so the second and third arrive
-                // here, after the first has already moved the machine. It is also where a drive
-                // pulled *after* a run ended cleanly lands: that run's outcome was decided before
-                // the drive left, and re-deciding it here would rewrite history.
+                // **The idempotence row.** One unplug of an *unclaimed* drive produces a
+                // disappearance for the whole disk and one for each slice — measured 2026-09-05 —
+                // so the second and third would arrive after the first had moved the machine. A
+                // run's drive is claimed, and under the claim the slices go *at the claim*: its
+                // unplug fires the whole disk only, eight of eight on two drives (2026-09-09 and
+                // 2026-09-11, `CONSTRAINTS.md` §1 *Under a claim*). That burst has no hardware path
+                // in this design, and the row stays because it costs nothing. What it does decide
+                // on hardware is a drive pulled *after* a run ended cleanly — route (b)'s first
+                // guard reads this row through `deviceLossWouldEndTheRun` — and that run's outcome
+                // was decided before the drive left: re-deciding it here would rewrite history.
                 return notWhileIn(state, event)
 
             case .idle, .finished:

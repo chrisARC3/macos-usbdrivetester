@@ -529,7 +529,9 @@ struct RunSequencerControlTests {
     }
 
     /// **One unplug, several callbacks** — one for the whole disk and one per slice (measured
-    /// 2026-09-05). The second and third find the run already over and cost nothing.
+    /// 2026-09-05). The second and third find the run already over and cost nothing. That is an
+    /// *unclaimed* drive's unplug; under a run's claim it is the whole disk alone (eight of eight,
+    /// 2026-09-09 and 2026-09-11), so on hardware a second call is a run another route has ended.
     @Test func aSecondDisappearanceFindsNoRunToEnd() {
         let harness = Harness()
         harness.start()

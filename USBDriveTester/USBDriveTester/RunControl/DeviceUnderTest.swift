@@ -64,24 +64,26 @@
 //  `CONSTRAINTS.md` fact 1 — so nothing is missed, including by a paused run, which is the case
 //  route (b) exists for.
 //
-//  ⚠️ **What is assumed and not yet measured**: that the whole-disk event still fires *while the
-//  claim is held*. The 2026-09-05 measurement was made against `hdiutil` ram disks with nothing
-//  claimed. It is very likely — DiskArbitration reported the slices going while the claim was held,
-//  which is the same channel — but it is an inference, and **checklist chunk 3 is what measures
-//  it**: pull the cable mid-run and look for `a disk disappeared: disk7 (whole disk)`. If it does
-//  not fire, this returns `false` for a real unplug, route (a)'s `ENXIO` still covers a *running*
-//  run, and a *paused* one would be blind — which is chunk 4's subject and why chunk 3 runs first.
+//  ✅ **Measured 2026-09-09: the whole-disk event does fire while the claim is held.** Until then
+//  it was an inference — the 2026-09-05 measurement was made against `hdiutil` ram disks with
+//  nothing claimed — and the whole of route (b) rested on it: had it not fired, this would return
+//  `false` for a real unplug, and a *paused* run would be blind. Checklist chunk 3 pulled the cable
+//  mid-run six times and logged `a disk disappeared: disk7 (whole disk)` every time, with the
+//  claim held; checklist chunk 4's two paused pulls — the 1 TB scratch T5 again and a 125.8 MB
+//  thumb — made it eight of eight on two drives on 2026-09-11 (`CONSTRAINTS.md` §1, *Under a
+//  claim*). Until 2026-09-11 this paragraph still said the event was assumed and not yet measured.
 //
 //  **Consequence for the caller: one unplug now yields one accepted event, not three.** The
 //  idempotency in `DeviceLossWindDown` becomes belt-and-braces rather than load-bearing. It stays:
 //  a mutation deleting it survived the whole suite once, and nothing here makes that safer.
 //
-//  ## This has no production caller yet, on purpose
+//  ## Built with no production caller, on purpose — and chunk 4 gave it one
 //
-//  Chunk 2 is the seam and the log line; **chunk 4 is what acts on the answer** — ending the run,
-//  releasing a claim on an already-absent device, and doing it once. Stated here rather than left
-//  to be discovered, because machinery that appears wired and does nothing is a failure this
-//  project has already paid for (`selectionSyncToken`, deleted 2026-08-05).
+//  Chunk 2 was the seam and the log line; **chunk 4 acted on the answer** — ending the run,
+//  releasing a claim on an already-absent device, and doing it once — and since chunk 4
+//  (2026-09-06) `RunController.deviceDisappeared` is its caller. The gap was stated here at the
+//  time rather than left to be discovered, because machinery that appears wired and does nothing
+//  is a failure this project has already paid for (`selectionSyncToken`, deleted 2026-08-05).
 //
 //  ## Why this is in RunControl and not Discovery, which is where it was first written
 //

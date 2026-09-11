@@ -302,8 +302,12 @@ final class RunSequencer {
     ///     so `ENXIO` cannot arrive, and route (a) is structurally blind here. This is the case
     ///     route (b) exists for.
     ///
-    /// - Returns: whether a run was ended. `false` once the run is over, which is what makes the
-    ///   three disappearance callbacks one unplug produces cost nothing after the first.
+    /// - Returns: whether a run was ended. `false` once the run is over, so a second call costs
+    ///   nothing. That was written for the three disappearance callbacks one unplug of an
+    ///   *unclaimed* drive produces (measured 2026-09-05); the drive under test is claimed, its
+    ///   slices go at the claim, and its unplug is one whole-disk event (eight of eight, 2026-09-09
+    ///   and 2026-09-11). What the `false` answers on hardware today is a run another route has
+    ///   already ended — `RunController.endTheRunBecauseTheDriveIsGone`'s guard.
     @discardableResult
     func deviceLost() -> Bool {
         switch phase {

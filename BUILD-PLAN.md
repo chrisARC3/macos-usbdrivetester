@@ -21,8 +21,11 @@ test target fixed to the designated scratch device with disk images removed as a
 > whole-disk event fires under claim — **chunk 4, the paused unplug, passed and CLOSED 2026-09-11**
 > on the 1 TB scratch T5 and the 125.8 MB thumb, and **chunk 5 was discharged the same day by user
 > decision**, its two measurements being in the persisted log already, six trials each, from chunk
-> 3's pulls). **What remains of Step 12** is `PROGRESS.md`'s Owed row — two logging gaps and three
-> stale comments at a code boundary — and this step's own verification gate, still unticked. ⚠️ **7f
+> 3's pulls); **7g, the same day, closed both of the walk's logging gaps in code** and retired the
+> two stale app-target comments with them — the third, in helper source, waits for the next helper
+> change by user decision. **What remains of Step 12** is `PROGRESS.md`'s Owed row — a person
+> seeing 7g's lines on the installed build, and a mutation survivor 7g predicts — and this step's
+> own verification gate, still unticked. ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
 > partitioned drive ended its run ten milliseconds after the claim. The suite is **1301 / 153 / 0**,
@@ -509,8 +512,9 @@ simulation-first still applies wherever the plan calls for it.
 > `c767317`: a *paused* run unplugged, route (b) alone, ended 1 ms after the removal callback with a
 > report saying *paused*, on the 1 TB scratch T5 and — 4.9, by user decision — the thumb, where the
 > declared prediction held: one whole-disk event, so no idempotency exercised, and none has a
-> hardware path in this design. **What remains** is the Owed row in `PROGRESS.md` and this step's
-> verification gate. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
+> hardware path in this design. **7g closed chunk 4's two logging gaps in code the same day** —
+> commands and automatic re-selections now log — with the helper hash unmoved. **What remains** is
+> the Owed row in `PROGRESS.md` and this step's verification gate. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1301 tests / 153 suites / 0 failures** (floor 1301, ratcheted at 7f), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —

@@ -798,12 +798,23 @@ few milliseconds of it, never as an ordering.
   silently; only a click logs `selected …`. The log cannot say which drive the app pointed at once
   the drive under test had gone.
 
+*(Both closed in code 2026-09-11 at chunk 7g: `run control: A → B on the <Label> command` for every
+accepted command, and `<reason>: selected diskN (capacity) by default — …` whenever the policy moves
+the selection. Not yet seen by a person on an installed build — `PROGRESS.md`'s Owed row.)*
+
 **What would invalidate this:** a behavioural change to `DeviceLossWindDown.swift`,
 `RunController.swift`'s pause or device-loss path, `VolumeChangeWatcher`, `DeviceDiscovery`,
 `HonestFraming.swift`, `RunReportPresentation.swift`, `RunReport.swift` or `DeviceLossAccount.swift`
 — all app target, none of which moves the helper hash — or a helper-hash move, which lapses the
 claim-and-release half. The two logging fixes above add lines and change no behaviour, but the
-commit that makes them should re-read this list by name rather than assume so.
+commit that makes them should re-read this list by name rather than assume so. *(Re-read by name
+2026-09-11 at chunk 7g, from `git diff -U0` filtered to non-comment lines: `RunController.swift`'s
+pause path — and start, resume and stop — now assigns through `apply(_:movingTo:)`, which logs one
+line and makes the same assignment, so the same states in the same order; its device-loss path,
+`DeviceLossWindDown.swift` and `VolumeChangeWatcher` changed comments only; `DeviceDiscovery.refresh()`
+computes the same selection from the same inputs and logs after it; `HonestFraming.swift`,
+`RunReportPresentation.swift`, `RunReport.swift` and `DeviceLossAccount.swift` are untouched; the
+helper hash is unmoved. No behavioural change by this line's terms, so chunk 4 stands.)*
 
 **Walked:** **2026-09-11**, 09:24–09:55  **Against build:** commit `c767317` — installed app built
 from `2086090` (dylib `44610313…`, helper `7590b920…`; no app or helper source differs between the
@@ -914,7 +925,8 @@ after`.
   acknowledged, not the reply, and it was not investigated.
 
 **Owed at the next code boundary:** `DeviceLossWindDown.defaultDeadlineSeconds`'s header still says
-*"No real measurement stands behind it yet"*. App target; it moves no helper hash.
+*"No real measurement stands behind it yet"*. App target; it moves no helper hash. *(Paid
+2026-09-11 at chunk 7g: the header now carries these six readings.)*
 
 ### 5.2 — does a vanishing drive produce a short read before `ENXIO`?
 
@@ -943,7 +955,8 @@ and 4); where it hit a read, all three tallies are equal (2 and 5); where it hit
 and `classify`'s note is owed its update from *open* to *measured: it does not happen, six of six*.
 ⚠️ **That note is in `RetentionTestEngine.swift`, which is helper source — editing it moves the
 helper source hash and lapses the four hardware gates.** Batch it with the next helper change rather
-than buying a gate re-run for a comment.
+than buying a gate re-run for a comment. *(User decision 2026-09-11, at chunk 7g: exactly that — it
+waits for the next helper-source change.)*
 
 ### 5.3 — the offset, for the gate item
 
@@ -974,7 +987,9 @@ helper's `ended at block …` on all four trials that read one off the screen. L
 behavioural change to `DeviceLossWindDown.swift` or `RunController.swift`'s device-loss path, or a
 helper-hash move. Owed from it: `DeviceLossWindDown.defaultDeadlineSeconds`' header (5.1, app
 target) and `classify`'s note (5.2, **helper source** — moves the hash), both listed in
-`PROGRESS.md`'s Owed row.
+`PROGRESS.md`'s Owed row. *(2026-09-11, at chunk 7g: the first is paid; the second waits for the
+next helper-source change, by user decision. In `DeviceLossWindDown.swift` and on
+`RunController.swift`'s device-loss path 7g changed comments only, so this stands.)*
 
 ---
 

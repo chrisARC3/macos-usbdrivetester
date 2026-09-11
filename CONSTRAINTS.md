@@ -1480,7 +1480,14 @@ Every defect this project has produced came from trusting a substitute for the r
   many" into "what was the last", and how-many is exactly what an idempotence bug is about.* And
   the second-order lesson: this survivor was invisible in the *paused* walk, because there the
   first callback ends the run and the state guard swallows the rest. **Drive an idempotence test
-  from the state where nothing else is filtering.**
+  from the state where nothing else is filtering.** *(⚠️ 2026-09-11, Step 12 chunk 7g: "one unplug
+  delivers a whole-disk callback and one per slice" is an **unclaimed** drive — under a run's claim
+  it is the whole disk alone, §1 *Under a claim*. And the lesson recurred without anyone noticing:
+  7f added a filter — only a whole-disk call gets past `deviceDisappeared`'s guard (3) — upstream of
+  the idempotence this test pins, so its two slice calls are now filtered before any wind-down is
+  built. **A new filter upstream of an idempotence test can silently empty it; re-check the test's
+  inputs, not just its result, when one is added.** Whether the mutation survives again is
+  predicted, not yet measured — `PROGRESS.md`'s Owed row.)*
 - **A DOC COMMENT THAT OVERCLAIMS IS A DEFECT, AND THE MUTATION ROUND IS WHAT FINDS IT.** Deleting
   `windDown?.standDown()` survived the suite. The investigation found the comment was wrong, not the
   code: it said the call prevented a double-ending, but the sequencer's `.ended` phase already

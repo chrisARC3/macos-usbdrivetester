@@ -62,8 +62,10 @@
 //
 //  Same reason `QuitSequence`'s is: a test that sleeps for a deadline is slow now and flaky later.
 //  The deadline path here is also unreachable by clicking — it needs a drive pulled at the moment a
-//  privileged call wedges — so driving it by hand is the only cover it can have before chunk 7 puts
-//  a person and a real drive in front of it.
+//  privileged call wedges — so driving it by hand is the only cover it can have. Chunk 7 put a
+//  person and a real drive in front of it and did not change that: in six pulls of a running run
+//  (2026-09-09) the reply came 2.7–6.3 ms after the callback and the deadline was never reached,
+//  which is the design working and leaves the deadline path covered by the tests alone.
 //
 
 import Foundation
@@ -113,9 +115,13 @@ final class DeviceLossWindDown {
     /// magnitude of headroom is what makes it safe to say that a deadline firing means something
     /// is genuinely wrong rather than merely slow.
     ///
-    /// **No real measurement stands behind it yet**, and that is stated rather than implied: only
-    /// chunk 7's hardware gate — a person pulling a real drive out of a real port — can say what
-    /// the interval between the removal callback and the `ENXIO` reply actually is.
+    /// **Measured on hardware since 2026-09-09**: six real cable pulls of a running run (Step 12
+    /// checklist chunk 3, read back from the log on 2026-09-10 and accepted as checklist 5.1 on
+    /// 2026-09-11) put route (a)'s reply **2.7–6.3 ms** after the removal callback every time, and
+    /// the deadline was never reached — three seconds is 479 to 1,098 times the readings. `ENXIO`
+    /// cuts the call short, so the deadline is not racing the call's own length. The figure stays
+    /// as it is; what changed is that it is no longer a guess. Until then this said no real
+    /// measurement stood behind it, and only a person pulling a real drive could supply one.
     /// `nonisolated` so it can be read from `init`'s own default argument, which is evaluated
     /// outside the actor — the whole app target is `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`,
     /// so without this a constant would be main-actor-isolated like everything else.
@@ -149,10 +155,13 @@ final class DeviceLossWindDown {
 
     /// The drive under test has gone.
     ///
-    /// **Idempotent, and that is load-bearing rather than tidy.** One unplug produces a
-    /// disappearance for the whole disk *and* one for each of its slices — measured 2026-09-05,
-    /// three callbacks for a two-partition drive — so this is called several times for one event.
-    /// The second and third do nothing.
+    /// **Idempotent — belt-and-braces now, and kept.** It was written load-bearing: one unplug of an
+    /// *unclaimed* drive produces a disappearance for the whole disk *and* one for each of its
+    /// slices — measured 2026-09-05, three callbacks for a two-partition drive — and all three were
+    /// once let through. Since chunk 7f the caller lets through a whole-disk disappearance only, and
+    /// the drive under test is claimed, which sends its slices *at the claim*: its unplug is one
+    /// whole-disk event, eight of eight on two drives (2026-09-09 and 2026-09-11). So a second call
+    /// has no hardware path in this design; if one comes, it does nothing.
     ///
     /// - Parameter waitingForAReply: whether a privileged call is in flight. `false` means the run
     ///   is paused and the run ends here (way 1); `true` arms the deadline and waits for route (a)

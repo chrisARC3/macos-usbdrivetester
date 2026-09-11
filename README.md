@@ -35,8 +35,11 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > passed on 2026-09-11** on two drives: the run ended a millisecond after the drive left, and the
 > report said it had been paused and nothing was half-written. Chunk 5's two measurements were
 > already in the persisted log, six trials each from chunk 3's pulls, and were accepted as they
-> stand. **What remains of Step 12** is a small code boundary — two logging gaps and three stale
-> comments — and the step's own verification gate. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> stand. **Chunk 7g closed the walk's two logging gaps in code on 2026-09-11** — every run command
+> and every automatic re-selection now leaves a line — and retired the two stale app-target
+> comments with them; the third is helper source and waits for the next helper change.
+> **What remains of Step 12** is a person seeing those lines on the installed build, one test gap
+> 7g predicts, and the step's own verification gate. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
 > prevention, logging consolidation and notarization do not yet.
 >

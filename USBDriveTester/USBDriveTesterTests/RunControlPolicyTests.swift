@@ -366,7 +366,10 @@ struct RunControlPolicyTests {
     /// **One unplug, several callbacks.** A drive leaving produces a disappearance for the whole
     /// disk and one for each slice — measured 2026-09-05 — so the second and third arrive after the
     /// first has already moved the machine to `finishing`. Ignoring them there is what makes the
-    /// repeats free.
+    /// repeats free. *(2026-09-11: that is an **unclaimed** drive. Under a run's claim the slices go
+    /// at the claim and the unplug is the whole disk alone — eight of eight, 2026-09-09 and
+    /// 2026-09-11 — so the burst has no hardware path, and the case below is the one this row
+    /// decides on hardware.)*
     ///
     /// The same row covers a drive pulled *after* a run ended cleanly: that run's outcome was
     /// settled before the drive left, and re-deciding it here would rewrite history.

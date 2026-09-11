@@ -101,9 +101,10 @@ struct DeviceLossWindDownTests {
         #expect(windDown.isFinished)
     }
 
-    /// And once it has stood down, a late disappearance cannot restart it. One unplug delivers a
-    /// callback per slice as well as one for the whole disk, so these arrive after the run has
-    /// ended as a matter of course.
+    /// And once it has stood down, a late disappearance cannot restart it. Written for an unplug's
+    /// slice callbacks trailing its whole-disk one, which is an *unclaimed* drive's shape (measured
+    /// 2026-09-05). Under a run's claim the unplug is the whole disk alone — eight of eight,
+    /// 2026-09-09 and 2026-09-11 — so this is the bench's defence now rather than the drive's.
     @Test func aLateDisappearanceCannotRestartAFinishedSequence() {
         let harness = Harness()
         let windDown = makeWindDown(harness: harness)
@@ -150,9 +151,12 @@ struct DeviceLossWindDownTests {
 
     // MARK: - One way out
 
-    /// **Idempotence, and it is load-bearing rather than tidy.** One unplug produces a
-    /// disappearance for the whole disk *and* one per slice — three callbacks for a two-partition
-    /// drive, measured 2026-09-05 — so `begin` is called repeatedly for one event.
+    /// **Idempotence — load-bearing when written, belt-and-braces now.** One unplug of an
+    /// *unclaimed* drive produces a disappearance for the whole disk *and* one per slice — three
+    /// callbacks for a two-partition drive, measured 2026-09-05 — and all three once reached
+    /// `begin`. Since chunk 7f the controller passes on whole-disk calls only, and under a run's
+    /// claim the unplug is the whole disk alone (eight of eight, 2026-09-09 and 2026-09-11). The
+    /// name keeps the old premise; what the test pins — one deadline however many calls — stands.
     @Test func threeCallbacksFromOneUnplugArmOneDeadline() {
         let harness = Harness()
         let windDown = makeWindDown(harness: harness)
@@ -168,8 +172,10 @@ struct DeviceLossWindDownTests {
         #expect(harness.endings == [.theHelperNeverAnswered])
     }
 
-    /// The repeats cannot change the *kind* of wait either. A whole-disk callback and a slice
-    /// callback say the same thing about one drive, and the first one decides.
+    /// The repeats cannot change the *kind* of wait either: whatever calls `begin` again, the first
+    /// call decides. *(Until 2026-09-11 this said a whole-disk callback and a slice callback "say
+    /// the same thing about one drive". Chunk 7f found the opposite on 2026-09-08 — a slice of the
+    /// drive under test goes because the run claimed it — and no slice call reaches `begin` now.)*
     @Test func aRepeatCannotTurnAWaitIntoAnImmediateEnding() {
         let harness = Harness()
         let windDown = makeWindDown(harness: harness)

@@ -319,8 +319,12 @@ final class RunController {
 
     /// The sequence ending a run whose drive has gone, or `nil` when no loss is being handled.
     ///
-    /// **One per loss, not one per callback.** A single unplug delivers a disappearance for the
-    /// whole disk and one for each slice, so this is what makes the second and third free.
+    /// **One per loss, not one per callback.** A single unplug of an *unclaimed* drive delivers a
+    /// disappearance for the whole disk and one for each slice (measured 2026-09-05), so this is
+    /// what makes the second and third free. A run's drive is claimed, and under the claim the
+    /// slices go *at the claim*: its unplug fires the whole disk only — eight of eight on two
+    /// drives, 2026-09-09 and 2026-09-11 (`CONSTRAINTS.md` §1, *Under a claim*). So this is the
+    /// bench's defence, with no hardware path in this design; it stays because it costs nothing.
     private var windDown: DeviceLossWindDown?
 
     /// Whether the release about to be issued can be *acknowledged*.
@@ -443,7 +447,7 @@ final class RunController {
         // takes it from here. See `PendingStart.ioSizeBytes`.
         pending.ioSizeBytes = ioSizeBytes()
         self.pending = pending
-        state = next
+        apply(.start, movingTo: next)
 
         beginPreparation(pending)
     }
@@ -582,7 +586,7 @@ final class RunController {
             // `finishing`. Applying the command again is what makes that harmless.
             guard case .to(let next) = RunControlPolicy.outcome(
                 of: .pause, in: self.state, preconditions: self.preconditions()) else { return }
-            self.state = next
+            self.apply(.pause, movingTo: next)
         }
     }
 
@@ -610,7 +614,7 @@ final class RunController {
             }
             guard case .to(let next) = RunControlPolicy.outcome(
                 of: .resume, in: self.state, preconditions: self.preconditions()) else { return }
-            self.state = next
+            self.apply(.resume, movingTo: next)
             self.sequencer?.resume()
         }
     }
@@ -628,7 +632,7 @@ final class RunController {
         // **Before** the sequencer is told. From `paused` it finishes synchronously and emits
         // `runEnded` in this same turn — and `runEnded` is ignored from `paused`. Told in the other
         // order, a stop from a pause is silently dropped and the run never ends.
-        state = next
+        apply(.stop, movingTo: next)
 
         windDownTheRun()
     }
@@ -651,8 +655,10 @@ final class RunController {
     ///      because `disk70` and `disk7s1` both begin with `disk7` and only one of them is this
     ///      drive.
     ///
-    /// **Called several times for one unplug** — once for the whole disk and once per slice
-    /// (measured 2026-09-05) — but since chunk 7f only the whole-disk call gets past guard (3):
+    /// **Called several times for one unplug of an unclaimed drive** — once for the whole disk and
+    /// once per slice (measured 2026-09-05). The drive under test is claimed, and its slices go
+    /// *at the claim*, so its unplug calls this once, for the whole disk (eight of eight,
+    /// 2026-09-09 and 2026-09-11). Since chunk 7f only a whole-disk call gets past guard (3):
     /// a slice of the drive under test disappears because *this run claimed the drive*, and
     /// accepting one ended a healthy run ten milliseconds in (measured 2026-09-08). Everything
     /// after the guards is still idempotent by construction — the first call builds the wind-down,
@@ -936,6 +942,27 @@ final class RunController {
         case .ignored(let reason):
             log.error("run control: \(reason, privacy: .public)")
         }
+    }
+
+    /// **A command moving the machine, logged in `report(_:)`'s own shape.** Until 2026-09-11 the
+    /// four command sites assigned `state` directly and only *events* were logged, so Step 12's
+    /// checklist walk read `pausing → paused on pauseSettled` with no `running → pausing` before
+    /// it — the helper's `run control set to pause` was the only trace of the press. Now every
+    /// accepted command logs one line, and `run control: ` finds every transition whichever side
+    /// moved the machine.
+    ///
+    /// "The Stop command" rather than "the user's Stop": Cancel and Quit issues it too.
+    ///
+    /// Takes the destination rather than asking the table again: every caller has just had it from
+    /// ``RunControlPolicy/outcome(of:in:preconditions:)``, and a second lookup could disagree with
+    /// the one the caller acted on.
+    private func apply(_ command: RunCommand, movingTo next: RunControlState) {
+        log.notice("""
+                   run control: \(String(describing: self.state), privacy: .public) → \
+                   \(String(describing: next), privacy: .public) on the \
+                   \(command.label, privacy: .public) command
+                   """)
+        state = next
     }
 
     private static func describe(_ result: Result<Void, Error>) -> String {

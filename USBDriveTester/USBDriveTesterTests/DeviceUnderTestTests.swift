@@ -11,7 +11,9 @@
 //  inside it. Those are facts about DiskArbitration, they were measured on 2026-09-05 against a
 //  real session driven by `hdiutil` ram disks, and they are recorded in `CONSTRAINTS.md` — with
 //  the boundary stated there too, because a ram disk detaching cleanly is not the same event as a
-//  USB drive being pulled. Step 12's hardware gate is what closes that.
+//  USB drive being pulled. Step 12's hardware gate is what closes that. *(Closed 2026-09-09:
+//  checklist chunk 3 pulled a claimed drive six times and the whole-disk event fired every time;
+//  eight of eight on two drives by 2026-09-11 — `CONSTRAINTS.md` §1, *Under a claim*.)*
 //
 //  ## The second trap, found on hardware 2026-09-08 (chunk 7f)
 //
