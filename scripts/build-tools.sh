@@ -28,8 +28,9 @@
 #     target*, so they see `DiscoveredDevice`, `IOKitDeviceEnumerator` and the views. They need
 #     `-default-isolation MainActor` to match `SWIFT_DEFAULT_ACTOR_ISOLATION`, and they must
 #     exclude `USBDriveTesterApp.swift`, whose `@main` clashes with a tool's top-level code.
-#   * **standalone** — `nocache-probe` takes no protocol at all; `nocache-calibration.sh` builds it
-#     from its own source alone, and handing it the shared file is not what the gate does.
+#   * **standalone** — `nocache-probe` and `sleep-assertion-probe` take no protocol at all; their
+#     gates build them from their own source alone, and handing them the shared file is not what
+#     the gate does.
 #
 # The recipes must match what each gate actually uses. They are duplicated here rather than
 # sourced, because the gates build inside `set -e` pipelines with their own temp dirs — but a
@@ -83,7 +84,7 @@ for dir in "$TOOLS"/*/; do
                 -default-isolation MainActor -typecheck \
                 "${APP_SOURCES[@]}" "${own[@]}" > "$log" 2>&1
             ;;
-        nocache-probe)
+        nocache-probe|sleep-assertion-probe)
             xcrun swiftc -swift-version 5 -typecheck "${own[@]}" > "$log" 2>&1
             ;;
         *)

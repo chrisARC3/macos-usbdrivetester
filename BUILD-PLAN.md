@@ -17,7 +17,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS COMPLETE (2026-09-11) — all nine
 > chunks done and all four gate items ticked on real hardware, eight cable pulls on two drives;
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
-> NEXT AND HAS NOT STARTED.** Step 12's chunks 0–6 built it and chunk 7 proved it
+> IN PROGRESS — planned in five chunks, chunk 1 (the instrument) done 2026-09-12.** Step 12's
+> chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
 > five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
 > aborted the same day on a shipped defect and was **re-walked in full and CLOSED 2026-09-09** — the
@@ -490,8 +491,8 @@ simulation-first still applies wherever the plan calls for it.
 > verification gate re-run against the **v14** daemon on 2026-09-05. **STEP 12 (device-loss
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
-> [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is next and has
-> not started.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
+> five chunks planned, chunk 1 (the instrument) done 2026-09-12.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -1935,6 +1936,29 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 - [ ] During an active run, the Mac does not idle-sleep (verify with a short idle-sleep timer or `pmset -g assertions` showing `PreventUserIdleSystemSleep` while running).
 - [ ] On pause/stop/complete/fail/device-loss, the assertion is released (`pmset -g assertions` no longer lists it).
 - [ ] Exactly one assertion is held at a time (no leaks across pause/resume cycles) — verified across several transitions.
+
+> ⚠️ **How these three are read — settled 2026-09-12 by `scripts/sleep-assertion-check.sh`, before
+> any of Step 13 was wired.** The three items above are unchanged; what follows is how to take the
+> reading, because two of the obvious ways of taking it pass without the product.
+>
+> **Read the `Listed by owning process:` section, matched on the app's pid — never the system-wide
+> summary count.** `PreventUserIdleSystemSleep` reads **1** on this machine with nothing of ours
+> loaded, because `powerd` holds one the whole time the display is on, and it is a **flag, not a
+> count**: measured 1 at baseline, 1 while we held one, 1 while we held **two**, 1 after release.
+> An item answered from that line is answered by `powerd`.
+>
+> The type string the items name is **correct as written** — `beginActivity` does publish
+> `PreventUserIdleSystemSleep` — and the `reason:` string reaches `pmset`'s `named:` field verbatim,
+> so the reading can be matched on both axes. Item 3 is readable there too: two activities from one
+> process show as **two** entries with two ids, so a leak is visible rather than hidden behind a
+> per-process flag.
+>
+> For item 1's *"the Mac does not idle-sleep"* half, the **display must be allowed to sleep first**.
+> Until it does, `powerd`'s own assertion keeps the machine awake whether or not this app holds
+> anything, so a run that survives an idle timer with the display on has demonstrated nothing.
+>
+> Full findings, and what invalidates them (a macOS update, not a commit): `CONSTRAINTS.md` §1,
+> *Idle-sleep assertions*.
 
 ### Risks / gotchas
 - The most common bug is a **leaked assertion** on an error path — route acquire/release exclusively through the state machine so every exit releases it.

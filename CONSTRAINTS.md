@@ -799,6 +799,51 @@ subscription and do fire.
 
 *Full account: `progress/step-10.md`, increment 6; BUILD-PLAN Step 12's inherited notes.*
 
+### Idle-sleep assertions — measured 2026-09-12 (Step 13 chunk 1)
+
+Measured by `scripts/sleep-assertion-check.sh` and `tools/sleep-assertion-probe`, on macOS 26.0
+(Darwin 25.6.0), before a line of Step 13 was written. Nothing here is about this app, so **it does
+not lapse when a commit moves — it lapses on a macOS update.** Re-run it then, and before walking
+Step 13's gate on a machine that has been updated since.
+
+- **`ProcessInfo.beginActivity(options: [.idleSystemSleepDisabled], reason:)` publishes exactly one
+  `PreventUserIdleSystemSleep`**, attributed to the process's pid, and **the `reason:` string is
+  what `pmset` shows as `named:`**, verbatim. BUILD-PLAN Step 13's gate greps for that type string
+  and it is correct as written — which was not a given: the API is documented in terms of behaviour
+  and never in terms of the assertion it creates, and another process on this machine publishes
+  `NoIdleSleepAssertion` for the same intent by the `IOPMAssertionCreateWithName` route BUILD-PLAN
+  names as the equivalent.
+- **It touches nothing else.** The pid publishes no `PreventUserIdleDisplaySleep` and no
+  `PreventSystemSleep`, which is BUILD-PLAN step 3's requirement — idle *system* sleep only, and
+  deliberate sleep still works — confirmed by reading what our own pid owns rather than a
+  system-wide count another app can move.
+- **One activity per token, and they are visible individually.** Two `beginActivity` calls from one
+  process show as **two** entries with two assertion ids; ending one leaves the other held. So a
+  leaked assertion is *visible* in `pmset`, and Step 13's third gate item — "exactly one at a time"
+  — can be read there rather than only in the suite.
+- **Acquire and release are visible on the first read**: 0.086–0.089 s in every phase, against
+  0.091 s for one `pmset -g assertions` invocation. ⚠️ **Those are upper bounds set by the
+  instrument, not latencies the mechanism produced** — every change was already true before the
+  first read completed. Do not quote 88 ms as a latency.
+
+⚠️ **The summary count cannot answer any of this, and a gate item read off it passes with the app
+not running.** `pmset -g assertions`'s system-wide block reads
+
+```
+   PreventUserIdleSystemSleep     1
+```
+
+**before anything of ours exists**, because `powerd` holds one the whole time the display is on
+(*"Powerd - Prevent sleep while display is on"*). Measured: baseline 1, held 1, held twice 1,
+released 1 — **the line never moves.** It is a system-wide flag, not a count of holders. So every
+reading of this gate is taken from the **`Listed by owning process:`** section, matched on our pid,
+and `powerd`'s own assertion is also why a person checking that the Mac *actually stays awake* has
+to let the **display** sleep first: until it does, the machine will not idle-sleep whether or not
+this app holds anything.
+
+*This is the same shape as the error channel firing 17 false positives per test run: the instrument
+was the defect. Here it was found before the gate was walked rather than after.*
+
 ### The instrument: `scripts/render-ui.sh` and `tools/ui-probe`
 
 - **A SwiftUI sheet or alert gets its own window and can never be captured in place.** Those surfaces
