@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunk 1 of 5)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–2 of 5)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -64,8 +64,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1302 tests / 153 suites / 0 failures** (floor 1302), zero source warnings from
-> three clean builds, **13/13** gate clients type-checking, XPC protocol v15. See
+> Current verified state: **1313 tests / 156 suites / 0 failures** (floor 1313), zero source warnings from
+> three clean builds, **14/14** gate clients type-checking, XPC protocol v15. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 

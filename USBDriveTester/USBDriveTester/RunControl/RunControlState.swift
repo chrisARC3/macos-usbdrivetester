@@ -593,6 +593,50 @@ nonisolated enum RunControlPolicy {
         return false
     }
 
+    /// **Does a run in this state need the Mac kept awake?** (Step 13, NFR-REL-9.)
+    ///
+    /// True in ``RunControlState/running`` and nowhere else — **user decision, 2026-09-12.**
+    /// BUILD-PLAN's step 1 says `state == Running`; NFR-REL-9 says *"while a run is actively
+    /// executing"*, and those differ on two states, because ``RunControlState/pausing`` and
+    /// ``RunControlState/stopping`` are states in which the helper is still finishing a chunk. The
+    /// narrow reading was taken for three reasons:
+    ///
+    ///   * **Pressing Pause or Stop is HID input**, which resets the idle timer for the whole settle
+    ///     that press begins — so the interval this rule declines to cover is one the machine cannot
+    ///     idle-sleep in anyway.
+    ///   * **A gate item whose answer depends on when you look is a bad gate item.** Holding through
+    ///     `pausing` would make *"on pause, the assertion is released"* true only after a delay the
+    ///     person reading `pmset` is racing.
+    ///   * **It puts the release on the transition *out of* `running`**, so ``RunControlState/finished``
+    ///     is never the release site. A run whose release is never acknowledged
+    ///     (`releaseCannotBeConfirmed`) stops in `finishing` and never reaches `finished` — and would
+    ///     hold the assertion for ever under any rule that released it there. That is the leaked
+    ///     assertion BUILD-PLAN's risks note names, and it is reachable rather than theoretical.
+    ///
+    /// The one exit with no HID input in front of it is a device loss, which lands in `finishing`
+    /// with the drive already gone.
+    ///
+    /// - Important: **this is not derived from another row, and it is not ``RunControlState/isRunActive``.**
+    ///   Its neighbour ``deviceLossWouldEndTheRun(in:)`` *is* derived, because a guard that
+    ///   disagreed with the transition it guards would be invisible; there is no equivalent table to
+    ///   derive this from — "is the drive being written to" is a new fact about each state rather
+    ///   than a consequence of an existing one. `isRunActive` answers a different question (is
+    ///   something happening that must freeze the device list, block an uninstall, and make a quit
+    ///   ask first) and the two disagree most sharply at ``RunControlState/paused``, which is
+    ///   run-active and is named by NFR-REL-9 as a state that must *not* hold the assertion.
+    ///
+    /// Written out in full like every other switch here, so a ninth state is a compile error at this
+    /// row rather than a silent `false`.
+    static func preventsIdleSleep(in state: RunControlState) -> Bool {
+        switch state {
+        case .running:
+            return true
+
+        case .idle, .starting, .pausing, .paused, .stopping, .finishing, .finished:
+            return false
+        }
+    }
+
     /// The one wording for an event that does not apply, so every ignored row logs the same shape
     /// and a grep finds all of them.
     private static func notWhileIn(_ state: RunControlState,
