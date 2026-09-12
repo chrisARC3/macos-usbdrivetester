@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–2 of 5)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–3 of 5)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -45,8 +45,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > callback* mutation was measured surviving all 1301 tests, and one new test kills it. The last
 > unseen line, `paused → running on the Resume command`, was watched on hardware at 18:02 the same
 > evening, and **Step 12 closed** — its full account is in
-> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is next and
-> has not been started.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is in progress**, three
+> of its five chunks done on 2026-09-12: the gate's instrument measured, the rule and its seam
+> built, and the assertion wired to the one place the run state is assigned. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control, device-loss handling and the pre-run warnings all exist and are exercised on real
 > hardware. Sleep prevention, logging consolidation and notarization do not yet.
 >
@@ -64,7 +65,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state: **1313 tests / 156 suites / 0 failures** (floor 1313), zero source warnings from
+> Current verified state: **1323 tests / 157 suites / 0 failures** (floor 1323), zero source warnings from
 > three clean builds, **14/14** gate clients type-checking, XPC protocol v15. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.

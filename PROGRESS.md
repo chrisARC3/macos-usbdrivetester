@@ -21,14 +21,15 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 13 — System-sleep prevention (NFR-REL-9). **IN PROGRESS — chunks 1–2 of 5 done**
+## Step 13 — System-sleep prevention (NFR-REL-9). **IN PROGRESS — chunks 1–3 of 5 done**
 
 > **Cold start? Step 12 CLOSED 2026-09-11** — all four verification-gate items ticked in
 > `BUILD-PLAN.md` against `7e51398`, app installed from `abc07e3`. Its full account is
 > [`progress/step-12.md`](progress/step-12.md); **Step 13 is planned in five chunks and chunk 1 —
-> the instrument — and chunk 2 — the rule and the seam — are done (2026-09-12). `RunController` is
-> not wired yet; that is chunk 3.** The suite is
-> **1313 / 156 / 0**, floor **1313**. The protocol is **v15** and the helper source hash is
+> the instrument — chunk 2 — the rule and the seam — and chunk 3 — the one acquire/release path —
+> are done (2026-09-12). What remains is chunk 4 (mutation round and the human checklist) and
+> chunk 5 (the hardware walk and the gate).** The suite is
+> **1323 / 157 / 0**, floor **1323**. The protocol is **v15** and the helper source hash is
 > **`e19b0b3c…`**, unmoved since chunk 7b on 2026-09-07.
 >
 > ⚠️ **Do not kickstart the helper.** BTM record #11 has pointed at **DerivedData** since a
@@ -44,13 +45,13 @@ could drift; the commit is the immutable, greppable one.
 > made the last of those a real path with a real state machine behind it, so Step 13 has exactly one
 > acquire/release site to wire rather than a branch per ending.
 
-### Current state — 2026-09-11, at the close of Step 12, before Step 13 begins
+### Current state — 2026-09-12, Step 13 chunks 1–3 done
 
 | | |
 |---|---|
-| **Step 13** | **in progress — five chunks, 1 and 2 done 2026-09-12.** (1) the instrument, ✅ done — `tools/sleep-assertion-probe` + `scripts/sleep-assertion-check.sh`, findings in `CONSTRAINTS.md` §1 *Idle-sleep assertions*; (2) the rule and the seam, ✅ done — `RunControlPolicy.preventsIdleSleep(in:)`, `IdleSleepPreventing` / `IdleSleepPreventer` in `RunControl/SleepPrevention.swift`, and `CountingIdleSleepPrevention` in the test target for chunk 3 to inject; **`RunController` is untouched so far**; (3) one acquire/release path — funnel `report(_:)` and `apply(_:movingTo:)` through a private `move(to:)`, new init parameter **with a default** (Step 12 chunk 6: one without a default breaks `ui-probe` and only `build-tools.sh` finds it), `os_log` on both edges; (4) mutation round + `progress/step-13-human-checklist.md`, written with the code rather than after it; (5) hardware walk and the gate. **No chunk touches `Helper/` or `Shared/`**, so the helper hash does not move and the four gates recorded against it do not lapse — owed items (a) and (b) therefore stay owed. Objective, four detailed steps, three gate items and the one named risk are in `BUILD-PLAN.md` |
-| **Step 13's one scoping decision** | **The assertion is held while `state == .running` and in no other state — user decision 2026-09-12.** BUILD-PLAN says `Running`; NFR-REL-9 says *"actively executing"*, and `.pausing`/`.stopping` are states where the helper is still finishing a chunk (bounded by one call of at most `maximumBytesPerCall` = 1 GiB), so the two documents differ on two states. `.running` alone was chosen because pressing Pause or Stop is HID input, which resets the idle timer for the whole settle that press begins; because an item whose reading depends on *when* you look is a bad gate item; and because holding iff `.running` makes the release happen on the transition **out of** running — so `.finished` is never the release site and **`releaseCannotBeConfirmed` cannot leak it**, which is the risk Step 12 handed forward. The one exit with no HID input in front of it is device loss → `.finishing`, where the drive is already gone |
-| **Verified** | **1313 tests, 0 failures, 156 suites** (floor `scripts/.test-floor` = **1313**, ratcheted at Step 13 chunk 2 — the floor raises itself on a green run), run green **2026-09-12 10:59**, zero Swift warnings in the build and the test build. **14/14** gate clients type-check. ⚠️ `scripts/build-tools.sh` is what catches those: the app build does not compile `tools/`, so a new `RunController` parameter without a default breaks `ui-probe` and nothing else would find it — that happened at Step 12 chunk 6 |
+| **Step 13** | **in progress — five chunks, 1–3 done 2026-09-12.** (1) the instrument, ✅ done — `tools/sleep-assertion-probe` + `scripts/sleep-assertion-check.sh`, findings in `CONSTRAINTS.md` §1 *Idle-sleep assertions*; (2) the rule and the seam, ✅ done — `RunControlPolicy.preventsIdleSleep(in:)`, `IdleSleepPreventing` / `IdleSleepPreventer` in `RunControl/SleepPrevention.swift`, and `CountingIdleSleepPrevention` in the test target for chunk 3 to inject; (3) the one acquire/release path, ✅ done — `report(_:)` and `apply(_:movingTo:)` both go through a private `move(to:)`, the sole assignment to `state`, which asks the rule about the destination; init parameter `sleepPrevention` **with a default** (Step 12 chunk 6: one without a default breaks `ui-probe` and only `build-tools.sh` finds it), and **`RunControllerWiring` is deliberately unchanged** — the composition root has no automated cover (m17), so nothing there is required for the assertion to work; (4) mutation round + `progress/step-13-human-checklist.md`, written with the code rather than after it; (5) hardware walk and the gate. **No chunk touches `Helper/` or `Shared/`**, so the helper hash does not move and the four gates recorded against it do not lapse — owed items (a) and (b) therefore stay owed. Objective, four detailed steps, three gate items and the one named risk are in `BUILD-PLAN.md` |
+| **Step 13's one scoping decision** | **The assertion is held while `state == .running` and in no other state — user decision 2026-09-12.** BUILD-PLAN says `Running`; NFR-REL-9 says *"actively executing"*, and `.pausing`/`.stopping` are states where the helper is still finishing a chunk (bounded by one call of at most `maximumBytesPerCall` = 1 GiB), so the two documents differ on two states. `.running` alone was chosen because pressing Pause or Stop is HID input, which resets the idle timer for the whole settle that press begins; because an item whose reading depends on *when* you look is a bad gate item; and because holding iff `.running` makes the release happen on the transition **out of** running — so `.finished` is never the release site and the leaked-assertion risk `BUILD-PLAN.md` names cannot reach it. The one exit with no HID input in front of it is device loss → `.finishing`, where the drive is already gone. ⚠️ **Corrected 2026-09-12 at chunk 3:** that risk was handed over named as `releaseCannotBeConfirmed`, and measurement says otherwise — *that* path reaches `.finished` synchronously. The state a run can sit in indefinitely is **`.finishing`**, by the opposite path: a release that can be confirmed and is never answered. See the annotation under *What Step 13 inherits* |
+| **Verified** | **1323 tests, 0 failures, 157 suites** (floor `scripts/.test-floor` = **1323**, ratcheted at Step 13 chunk 3 — the floor raises itself), run green **2026-09-12 15:04**, zero Swift warnings in the build and the test build. **14/14** gate clients type-check. ⚠️ `scripts/build-tools.sh` is what catches those: the app build does not compile `tools/`, so a new `RunController` parameter without a default breaks `ui-probe` and nothing else would find it — that happened at Step 12 chunk 6 |
 | **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, unmoved since **2026-09-07** (Step 12 chunk 7b). **Re-derive it before trusting any hardware gate result** — `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Step 13 is described as **GUI-side** in `BUILD-PLAN.md`, so it should not move the hash; if a chunk of it does, say so before writing the code, because **four hardware gates and the whole of Step 12's checklist are recorded against this hash** |
 | **Installed app** | `/Applications/USBDriveTester.app`, Debug, **installed 2026-09-11 11:02:01** from `abc07e3`. Proved by content: `diff -rq` against DerivedData **0** differ, dylib **`c08f95ad…`** (re-checked 18:0x on 2026-09-11, unchanged), helper binary **`7590b920…`** byte-identical. Daemon **pid 89541**, uid 0, ppid 1, started **2026-09-08 16:22:50**, protocol **v15**, resolved from `/Applications`. ⚠️ **Grep `Contents/MacOS/USBDriveTester.debug.dylib`, never `Contents/MacOS/USBDriveTester`** — the latter is a 59 KB launcher stub and a content proof aimed at it returns 0 for everything, reading exactly like a failed install. ⚠️ **Prove an install by content, never by timestamp**, and take the DerivedData hash *after* the install: `install-app.sh` rebuilds through `build.sh` |
 | **Owed, carried out of Step 12** | **(a) `RetentionTestEngine.classify`'s *"What remains open"* note is stale** — no short transfer, six of six, checklist 5.2 measured it 2026-09-09. It is **helper source**, so fixing it moves the hash and lapses four hardware gates for a comment. **User decision 2026-09-11: it waits for the next helper-source change.** Whichever chunk first touches `Helper/` or `Shared/` pays it. **(b) The build flavour is coverage-instrumented** — user decision 2026-09-11, left as is until the next helper-source change or Step 16, whichever comes first (`CONSTRAINTS.md` §1, *Every scheme build is coverage-instrumented*); **Step 16 must build without it**. **(c) Noticed, not changed:** `DeviceDiscovery.deselect()`'s doc and `DeviceDiscoveryTests.swift:205` still justify refusing a deselection during a run by *"the helper's claim follows the selection"* — a rule Step 11 increment 5 retired (`DeviceListView.swift`: *"The claim no longer follows the selection"*). The refusal may still be right; its stated reason is not, and naming the real one is a **design question**, not a comment fix. And `scripts/mount-change-test.sh:46` kills with `pkill -f`, the matcher `install-app.sh` and `lifecycle-check.sh` were both fixed away from on 2026-09-11 — it would also kill any process whose *arguments* carry the name |
@@ -71,6 +72,23 @@ assertion is released on `.finished` alone, a run whose release is never confirm
 (`releaseCannotBeConfirmed`) would hold it forever, which is exactly the leaked-assertion risk
 `BUILD-PLAN.md` names. Read `progress/step-12.md`'s chunk 4 section before choosing the release
 site.
+
+> ⚠️ **The last sentence but one is WRONG, and chunk 3 measured it so — 2026-09-12.** The risk is
+> real and it is in the wrong place. A run that ends on the wind-down's deadline **does** reach
+> `.finished`: `releaseTheDrive` issues the release it cannot wait for and then calls `driveIsBack`
+> **synchronously** (`RunController.swift`, `if !canBeConfirmed { driveIsBack(…) }`), so
+> `deviceReleased` is reported and the machine lands in `.finished` in the same turn.
+> `aRunWhoseReleaseCannotBeConfirmedHasAlreadyReleasedTheAssertion` pins it.
+>
+> **The state that can be sat in indefinitely is `.finishing`, and by the opposite path**: a release
+> that *can* be confirmed and is then never answered, where `driveIsBack` is only ever called from
+> inside the completion. So a `.finished`-based rule would still leak — on a run the handoff did not
+> name. Step 13 does not have the question either way, because the rule is *held only in
+> `.running`*, and the release therefore happens on the way out of it.
+>
+> Kept as written above rather than rewritten, per this repository's rule: a dated claim corrected in
+> place destroys the record of when it stopped being true. The error is instructive — it was reasoned
+> from `releaseCannotBeConfirmed`'s name rather than read off the code path.
 
 ---
 

@@ -17,8 +17,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS COMPLETE (2026-09-11) — all nine
 > chunks done and all four gate items ticked on real hardware, eight cable pulls on two drives;
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
-> IN PROGRESS — planned in five chunks; 1 (the instrument) and 2 (the rule and the seam) done
-> 2026-09-12.** Step 12's
+> IN PROGRESS — planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
+> one acquire/release path) done 2026-09-12.** Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
 > five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
@@ -35,8 +35,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > `abc07e3` — the evidence and what invalidates each is beside them. ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
-> partitioned drive ended its run ten milliseconds after the claim. The suite is **1313 / 156 / 0**,
-> floor 1313. **The protocol is v15** (chunk 3,
+> partitioned drive ended its run ten milliseconds after the claim. The suite is **1323 / 157 / 0**,
+> floor 1323. **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -493,7 +493,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument) and 2 (the rule and the seam) done 2026-09-12.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -529,7 +529,7 @@ simulation-first still applies wherever the plan calls for it.
 > surviving all 1301 tests and killed by one new test. **The step is CLOSED**: all four gate items
 > ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
-> **1313 tests / 156 suites / 0 failures** (floor 1313, ratcheted at Step 13 chunk 2), protocol **v15** (chunk 3, 2026-09-05),
+> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **14/14** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:

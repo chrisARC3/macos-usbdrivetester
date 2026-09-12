@@ -241,6 +241,13 @@ private final class Bench {
 
     private var fireWindDownDeadline: (@MainActor () -> Void)?
 
+    /// What the run asked of the idle-sleep assertion (Step 13).
+    ///
+    /// A recorder, not a re-implementation: it does **not** absorb a second `begin()` the way
+    /// `IdleSleepPreventer` does, so a controller that held twice shows up here as two calls rather
+    /// than being quietly corrected into one. See `CountingIdleSleepPrevention`'s own note.
+    let sleep = CountingIdleSleepPrevention()
+
     private(set) lazy var controller: RunController = RunController(
         preconditions: {
             RunPreconditions(hasUsableSelection: self.selection?.isSelectable ?? false,
@@ -293,6 +300,7 @@ private final class Bench {
             self.settles += 1
         },
         onFailure: { self.failures.append($0) },
+        sleepPrevention: self.sleep,
         onDeviceLost: {
             self.steps.append("discovery re-run")
             self.discoveryReRuns += 1
@@ -1872,5 +1880,218 @@ struct RunControllerDeviceLossSurfaceTests {
         let controls = RunControlPolicy.controls(in: bench.controller.state, preconditions: .ready)
         #expect(controls.pause.label != "Resume", "a run whose drive left offered to resume")
         #expect(!controls.pause.isEnabled)
+    }
+}
+
+// MARK: - The idle-sleep assertion follows the state (Step 13, NFR-REL-9)
+
+/// **What this suite establishes, and what it cannot.** Whether the Mac stays awake is a system
+/// reading — only `pmset -g assertions` can answer it, and that is Step 13's verification gate.
+/// These tests establish that the *decision* is made on every transition and only there, which is
+/// BUILD-PLAN's answer to its own named risk: *route acquire and release exclusively through the
+/// state machine so every exit releases it.*
+///
+/// The bench's preventer is a **recorder**, not a second implementation: it does not absorb a
+/// double `begin()`, so a controller that held twice fails here rather than being corrected into
+/// looking right. `IdleSleepPreventer` is what absorbs it in production, and its own suite covers
+/// that.
+@MainActor
+struct RunControllerSleepPreventionTests {
+
+    static let wholeDisk = Bench.unplugged("disk8")
+
+    /// The invariant the whole step reduces to: what is held agrees with where the machine is.
+    private func assertionAgreesWithTheState(_ bench: Bench) -> Bool {
+        bench.sleep.isHeld == RunControlPolicy.preventsIdleSleep(in: bench.controller.state)
+    }
+
+    /// **Nothing is held while the drive is being prepared.** `starting` unmounts and claims and
+    /// writes nothing, and it can end in `startAborted` without a run ever existing — an assertion
+    /// taken at the press would outlive that.
+    @Test func nothingIsHeldBeforeTheClaimIsEstablished() {
+        let bench = Bench()
+        #expect(bench.driveTo(.starting))
+
+        #expect(!bench.sleep.isHeld)
+        #expect(bench.sleep.begins == 0)
+    }
+
+    /// Taken when the run begins executing, and taken **once**.
+    @Test func theAssertionIsTakenWhenTheRunStartsExecuting() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        #expect(bench.sleep.isHeld)
+        #expect(bench.sleep.begins == 1)
+    }
+
+    /// **NFR-REL-9 names pause explicitly**, and this is the row where a plausible shortcut would
+    /// fail: `paused` is run-active, so a rule written against `isRunActive` would keep the Mac
+    /// awake indefinitely while nothing was being written.
+    @Test func pausingReleasesItAndResumingTakesItAgain() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        #expect(!bench.sleep.isHeld, "a paused run held the assertion")
+
+        bench.controller.resume()
+
+        #expect(bench.controller.state == .running)
+        #expect(bench.sleep.isHeld)
+        #expect(bench.sleep.begins == 2)
+    }
+
+    /// **Step 13's third gate item, as far as a test can carry it**: no leak across pause/resume
+    /// cycles.
+    ///
+    /// The sequence matters more than the totals here — two begins and two ends are the same counts
+    /// whether they interleave or arrive as a pair — so this asserts on `calls` and on the absence
+    /// of two consecutive holds. Chunk 1 measured why that is worth catching: two `beginActivity`
+    /// calls publish two assertions with two ids, and ending one leaves the other held for the life
+    /// of the process.
+    @Test func threePauseResumeCyclesNeverHoldTwoAtOnce() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        for _ in 0..<3 {
+            bench.controller.pause()
+            bench.emit(.pauseSettled(resumeBlock: 8_192))
+            #expect(!bench.sleep.isHeld)
+            bench.controller.resume()
+            #expect(bench.sleep.isHeld)
+        }
+
+        #expect(bench.sleep.begins == 4, "one for the run and one per resume")
+
+        let heldTwiceInARow = zip(bench.sleep.calls, bench.sleep.calls.dropFirst())
+            .contains { $0 == "begin" && $1 == "begin" }
+        #expect(!heldTwiceInARow, "a second assertion was taken while one was already held")
+    }
+
+    /// A run that completes lets it go on the way out of `running`, not at the terminal state.
+    @Test func aRunThatEndsReleasesIt() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+
+        bench.emit(.runEnded(Bench.completedRun))
+
+        #expect(!bench.sleep.isHeld)
+        #expect(bench.sleep.ends >= 1)
+    }
+
+    /// **The fifth ending, which NFR-REL-9 predates** — and the one place the obvious expectation is
+    /// wrong.
+    ///
+    /// *This test asserted that the removal callback released the assertion, and failed on
+    /// 2026-09-12. The product was right and the test was wrong*, which is the standing rule about
+    /// instruments in this project — so what it asserts now is what actually happens, and why that
+    /// is correct:
+    ///
+    /// On a **running** run, route (b) does not end the run. It arms a three-second deadline and
+    /// waits for the helper's reply (`begin(waitingForAReply: state != .paused)`), because route (a)
+    /// carries the ending and the run is genuinely still running until it arrives — measured at
+    /// 2.7–6.3 ms over six pulls on hardware, 2026-09-09. The machine is still in `running`, so the
+    /// assertion is still held, and it **should** be: the Mac must not idle-sleep in the window
+    /// between a drive leaving and the run finding out.
+    ///
+    /// The release happens when the run actually ends, which is the reply. That is the whole
+    /// argument for hanging this off the state rather than off an ending: nobody had to decide what
+    /// a half-ended run means, because the state machine had already decided it.
+    @Test func aDriveLostWhileRunningKeepsItUntilTheRunActuallyEnds() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+        #expect(bench.sleep.isHeld)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+
+        #expect(bench.controller.state == .running, "still waiting for the reply")
+        #expect(bench.sleep.isHeld, "the run has not ended yet")
+        #expect(assertionAgreesWithTheState(bench))
+
+        bench.emit(.runEnded(result(.deviceLost, finalReply: reply(.deviceLost))))
+
+        #expect(!bench.sleep.isHeld)
+        #expect(assertionAgreesWithTheState(bench))
+    }
+
+    /// A drive pulled from a **paused** run — route (b)'s reason for existing — finds nothing held,
+    /// because the pause released it.
+    @Test func aDriveLostWhilePausedWasNeverHoldingIt() {
+        let bench = Bench()
+        #expect(bench.driveTo(.paused))
+        bench.sequencer?.deviceLossReply = reply(.pausedByUser)
+        #expect(!bench.sleep.isHeld)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+
+        #expect(!bench.sleep.isHeld)
+        #expect(bench.sleep.begins == 1, "the assertion was re-taken by a run that was ending")
+    }
+
+    /// **The risk Step 12 handed forward, measured rather than reasoned about.**
+    ///
+    /// A device loss that ends on the deadline leaves the helper inside a blocking call, so the
+    /// release cannot be acknowledged (`releaseCannotBeConfirmed`). The question Step 13 inherited
+    /// was whether such a run reaches `finished` at all — because a rule that released the
+    /// assertion there would hold it for ever on a run that stopped short.
+    ///
+    /// It does not matter which answer this records: the assertion was released on the way out of
+    /// `running`, long before either state. That is the point of putting the rule where it is
+    /// rather than guarding the ending.
+    @Test func aRunWhoseReleaseCannotBeConfirmedHasAlreadyReleasedTheAssertion() {
+        let bench = Bench()
+        #expect(bench.driveTo(.running))
+        bench.sequencer?.deviceLossReply = reply(.completed, chunksProcessed: 3)
+
+        bench.controller.deviceDisappeared(Self.wholeDisk)
+        #expect(bench.expireWindDownDeadline())
+
+        #expect(!bench.sleep.isHeld)
+        #expect(bench.sleep.ends >= 1)
+        #expect(assertionAgreesWithTheState(bench))
+        #expect(bench.controller.state == .finished,
+                "recorded so the inherited warning can be corrected if this ever changes")
+    }
+
+    /// **The bypass check.** `move(to:)` is the only place `state` is assigned, and a third
+    /// assignment added later would take the assertion with it silently. This walks to every state
+    /// the machine can reach and asserts the invariant in each, so such a bypass fails here rather
+    /// than in `pmset` three weeks later.
+    ///
+    /// Over `allCases` rather than a list, for the reason `RunControlPolicyTests` walks its tables
+    /// in full: a ninth state would otherwise be covered by nobody.
+    @Test func theAssertionFollowsTheStateInEveryStateTheMachineCanReach() {
+        for state in RunControlState.allCases {
+            let bench = Bench()
+            #expect(bench.driveTo(state), "could not reach \(state)")
+            #expect(assertionAgreesWithTheState(bench), "state=\(state)")
+        }
+    }
+
+    /// The same invariant through one continuous life, because the walk above builds a fresh
+    /// machine for each state and a leak is a property of a *sequence*.
+    @Test func theAssertionFollowsTheStateThroughEveryTransition() {
+        let bench = Bench()
+
+        func check(_ what: String) {
+            #expect(assertionAgreesWithTheState(bench),
+                    "\(what): held=\(bench.sleep.isHeld) state=\(bench.controller.state)")
+        }
+
+        check("idle")
+        bench.startAndProceed()
+        check("running")
+        bench.controller.pause()
+        check("pausing")
+        bench.emit(.pauseSettled(resumeBlock: 8_192))
+        check("paused")
+        bench.controller.resume()
+        check("resumed")
+        bench.controller.stop()
+        check("stopping")
+        bench.emit(.runEnded(Bench.completedRun))
+        check("ended")
+
+        #expect(bench.controller.state == .finished)
+        #expect(!bench.sleep.isHeld)
     }
 }

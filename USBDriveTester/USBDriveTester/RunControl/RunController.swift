@@ -222,6 +222,19 @@ final class RunController {
 
     // MARK: Injected
 
+    /// Keeps the Mac awake while the run is executing (Step 13, NFR-REL-9).
+    ///
+    /// **Not a closure like its neighbours**, because it is one long-lived object with two calls
+    /// rather than an operation to perform: the token's lifetime is the assertion's, and the object
+    /// is the only thing that knows whether one is held. See `SleepPrevention.swift` for why that
+    /// fact lives there and not here.
+    ///
+    /// Injected for the suite, and built in ``init(preconditions:selectedDevice:prepare:makeSequencer:makeWindDown:setRunControl:release:ioSizeBytes:failureMode:onReport:onRunBegan:onRunSettled:onFailure:sleepPrevention:onDeviceLost:)``
+    /// when nothing is passed. The parameter is **optional rather than defaulted to
+    /// `IdleSleepPreventer()`** for the reason ``makeWindDown`` is: a default argument expression is
+    /// evaluated outside the actor and this type is `@MainActor`. The init body is inside it.
+    private let sleepPrevention: IdleSleepPreventing
+
     private let preconditions: () -> RunPreconditions
     private let selectedDevice: () -> DiscoveredDevice?
     private let prepare: (DiscoveredDevice, @escaping (DevicePreparationOutcome) -> Void) -> Void
@@ -362,7 +375,12 @@ final class RunController {
          onRunBegan: @escaping () -> Void = {},
          onRunSettled: @escaping () -> Void = {},
          onFailure: @escaping (RunFailureMessage) -> Void = { _ in },
+         sleepPrevention: IdleSleepPreventing? = nil,
          onDeviceLost: @escaping () -> Void) {
+        // **A default, like every other optional parameter here**, and Step 12 chunk 6 is why it is
+        // not simply required: `tools/` is not compiled by the app build, so a new parameter without
+        // one breaks `ui-probe` and nothing but `scripts/build-tools.sh` would find it.
+        self.sleepPrevention = sleepPrevention ?? IdleSleepPreventer()
         self.preconditions = preconditions
         self.selectedDevice = selectedDevice
         self.prepare = prepare
@@ -938,7 +956,7 @@ final class RunController {
                        \(String(describing: next), privacy: .public) on \
                        \(String(describing: event), privacy: .public)
                        """)
-            state = next
+            move(to: next)
         case .ignored(let reason):
             log.error("run control: \(reason, privacy: .public)")
         }
@@ -962,7 +980,39 @@ final class RunController {
                    \(String(describing: next), privacy: .public) on the \
                    \(command.label, privacy: .public) command
                    """)
+        move(to: next)
+    }
+
+    /// **The only place `state` is assigned**, and therefore the only place anything can be hung off
+    /// a transition.
+    ///
+    /// It exists for Step 13. NFR-REL-9's risk is *a leaked assertion on an error path*, and
+    /// BUILD-PLAN's answer to it is to route acquire and release exclusively through the state
+    /// machine so that every exit releases — which is a property of *where the code is*, not of how
+    /// carefully each ending was enumerated. There is no list of endings here: the rule is asked
+    /// about the destination, and a ninth way out of `running` added in 2027 is covered on the day
+    /// it is added.
+    ///
+    /// Both callers log before calling this, so their lines still read `A → B` with `A` as the state
+    /// being left. The `run control:` line and the `sleep prevention:` line that may follow it are
+    /// adjacent in the log on purpose — that pairing is what makes a leak diagnosable from the
+    /// record rather than from a hunch, which is what Step 12's command-side logging was for.
+    ///
+    /// - Important: **a third assignment to `state` would bypass this** and take the assertion with
+    ///   it. `theAssertionFollowsTheStateThroughEveryTransition` is the check: it walks the machine
+    ///   and asserts the invariant after every move, so a bypass on any path it covers fails there
+    ///   rather than in `pmset` three weeks later.
+    private func move(to next: RunControlState) {
         state = next
+
+        // Asked about the destination rather than told by the caller, for the reason
+        // `RunControlPolicy.controls` is derived rather than decided again: two statements of one
+        // rule are two things that drift, and this pair would drift silently.
+        if RunControlPolicy.preventsIdleSleep(in: next) {
+            sleepPrevention.begin()
+        } else {
+            sleepPrevention.end()
+        }
     }
 
     private static func describe(_ result: Result<Void, Error>) -> String {

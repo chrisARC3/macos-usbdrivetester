@@ -119,12 +119,18 @@ struct SleepPreventionPolicyTests {
 
     /// **The leak Step 12 handed forward, closed by where the rule sits rather than by a guard.**
     ///
-    /// A run whose release is never acknowledged (`releaseCannotBeConfirmed` — the helper is still
-    /// inside a call that went quiet) stops in `finishing` and never reaches `finished`. Any rule
-    /// that released the assertion on `finished` would hold it for ever on exactly that run, which
-    /// is BUILD-PLAN's named risk and is reachable rather than theoretical. Because the rule is
-    /// "held only in `running`", both terminal-ish states are already false and the release happened
-    /// on the way out of `running`.
+    /// A run can stop in `finishing` and never reach `finished` — the release was issued and its
+    /// completion never came, and `driveIsBack` is only called from inside it. Any rule that
+    /// released the assertion on `finished` would hold it for ever on exactly that run, which is
+    /// BUILD-PLAN's named risk and is reachable rather than theoretical. Because the rule is "held
+    /// only in `running`", both states are already false and the release happened on the way out.
+    ///
+    /// ⚠️ **This paragraph named the wrong path until 2026-09-12.** It said `releaseCannotBeConfirmed`
+    /// was the run that stops short, inherited from Step 12's handoff — and chunk 3 measured that
+    /// such a run reaches `finished` synchronously, because `releaseTheDrive` calls `driveIsBack`
+    /// itself when it cannot wait. `RunControllerSleepPreventionTests` pins both halves. The risk was
+    /// real and its example was not; it had been reasoned from a flag's name rather than read off the
+    /// code path.
     ///
     /// **What would invalidate this:** widening `preventsIdleSleep` to any state a run can stop in.
     @Test func aRunThatNeverReachesFinishedHasAlreadyReleasedIt() {
