@@ -16,13 +16,15 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is in progress
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is next and has not started
 >
-> Steps 1–11 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
+> Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
 > human checklist walked in full, and its verification gate re-run against the current XPC
-> protocol. **Step 12 — device-loss handling — is IN PROGRESS: chunks 0–6 of 8 are done, and
-> chunk 7 is under way.** Chunk 7 is the mutation round, the human checklist, the physical-unplug
+> protocol. **Step 12 — device-loss handling — CLOSED on 2026-09-11**, all nine chunks done and
+> all four verification-gate items ticked against real hardware: **eight cable pulls on two
+> drives**, a run ending 2.7–6.3 ms after the drive left, naming the model, the serial and the
+> block it stopped at. Chunk 7 was the mutation round, the human checklist, the physical-unplug
 > hardware gate and all four hardware gates re-run; **7a (the increment gate), 7b (the mutation
 > round), 7c (the human checklist) and 7d (reinstall, kickstart, and all four hardware gates re-run
 > and passed on 2026-09-07) are done, 7e — walking that checklist — closed on 2026-09-11 (chunks 1
@@ -39,12 +41,14 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and every automatic re-selection now leaves a line — and retired the two stale app-target
 > comments with them; the third is helper source and waits for the next helper change. **A person
 > ran that build on the 1 TB scratch T5 the same evening** and both kinds of line came out as
-> specified — six of the seven expected; Resume was never pressed, so its line is still unseen.
-> **Chunk 7h then closed the test gap 7g predicted**: the *build one wind-down per callback*
-> mutation was measured surviving all 1301 tests, and one new test kills it.
-> **What remains of Step 12** is that unseen `Resume` line and the step's own verification gate. The engine, the privilege plumbing, the safety guards, metrics, reporting,
-> run control and the pre-run warnings all exist and are exercised on real hardware. Sleep
-> prevention, logging consolidation and notarization do not yet.
+> specified. **Chunk 7h then closed the test gap 7g predicted**: the *build one wind-down per
+> callback* mutation was measured surviving all 1301 tests, and one new test kills it. The last
+> unseen line, `paused → running on the Resume command`, was watched on hardware at 18:02 the same
+> evening, and **Step 12 closed** — its full account is in
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is next and
+> has not been started.** The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> run control, device-loss handling and the pre-run warnings all exist and are exercised on real
+> hardware. Sleep prevention, logging consolidation and notarization do not yet.
 >
 > ⚠️ **This block said *"Step 12 … is next and is not yet started"* until 2026-09-07** — wrong
 > since chunk 1 landed on 2026-09-05, through seven chunks and a protocol bump. That is the

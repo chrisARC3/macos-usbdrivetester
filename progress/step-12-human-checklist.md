@@ -8,8 +8,10 @@
 > for 4.9 — the 125.8 MB thumb. Chunk 5 needed no cable pull: chunk 3's six logged pulls discharge
 > 5.1 and 5.2, and the helper's cycle tallies stand in for 5.3's metrics-panel reading. **The one
 > thing this checklist left owed — chunk 4's two logging gaps — was closed in code at 7g and seen
-> on the installed build 2026-09-11 16:14–16:19**, save the `Resume` line, which was never pressed;
-> the note under chunk 4 carries the log lines. Each chunk's
+> on the installed build 2026-09-11, all four command labels**: Start, Pause and Stop at
+> 16:14–16:19, and `Resume` at 18:02:13 on a second run made for it; the note under chunk 4 carries
+> the log lines. **With that, STEP 12 CLOSED the same day** — all four of its verification-gate
+> items ticked in `BUILD-PLAN.md`, this checklist being the evidence behind three of them. Each chunk's
 > own **Walked** line is the record; this block only points at them. Written at chunk 7c on
 > **2026-09-07**, against commit `3da3ef7`, protocol **v15**, helper source hash **`e19b0b3c…`**.
 >
@@ -817,6 +819,14 @@ running on the Resume command` was not seen**: the walk went Start → Pause →
 log confirms no second `run control set to proceed` between them. It is the fourth label on the
 same `apply(_:movingTo:)` call, and one of the three seen is enough to show the mechanism — but the
 line itself is unseen, and this project records what a pass was true of. Carried in the Owed row.)*
+
+*(✅ **And seen 2026-09-11 18:01:39–18:02:19**, on a second run made for it — same installed build,
+same drive, now `disk4` after the replug, which is itself why a drive is named by serial and not by
+node. `run control: paused → running on the Resume command` at **18:02:13.596**, six milliseconds
+after the helper's own `run control set to proceed`; and the Stop that followed reads `running →
+stopping on the Stop command`, **not** `paused → stopping` as it did at 16:18 — a second,
+independent confirmation that the Resume actually moved the machine rather than only writing a
+line. **All four command labels are now observed on hardware, and this item is closed in full.**)*
 
 **What would invalidate this:** a behavioural change to `DeviceLossWindDown.swift`,
 `RunController.swift`'s pause or device-loss path, `VolumeChangeWatcher`, `DeviceDiscovery`,

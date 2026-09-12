@@ -14,8 +14,11 @@ test target fixed to the designated scratch device with disk images removed as a
 "Test hardware")
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
-> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS IN PROGRESS: chunks 0–6 of 8 are
-> done and chunk 7 is under way** (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
+> own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS COMPLETE (2026-09-11) — all nine
+> chunks done and all four gate items ticked on real hardware, eight cable pulls on two drives;
+> archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
+> NEXT AND HAS NOT STARTED.** Step 12's chunks 0–6 built it and chunk 7 proved it
+> (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
 > five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
 > aborted the same day on a shipped defect and was **re-walked in full and CLOSED 2026-09-09** — the
 > whole-disk event fires under claim — **chunk 4, the paused unplug, passed and CLOSED 2026-09-11**
@@ -24,11 +27,10 @@ test target fixed to the designated scratch device with disk images removed as a
 > 3's pulls); **7g, the same day, closed both of the walk's logging gaps in code** and retired the
 > two stale app-target comments with them — the third, in helper source, waits for the next helper
 > change by user decision. **A person ran that build on the 1 TB scratch T5 the same evening** and
-> both kinds of line came out as specified — six of the seven expected; Resume was never pressed.
+> both kinds of line came out as specified, all four command labels, `Resume` included.
 > **7h then closed the mutation survivor 7g predicted**: measured surviving all 1301 tests, killed
-> by one new test. **What remains of Step 12** is `PROGRESS.md`'s Owed row — the unseen
-> `paused → running on the Resume command` line — and this step's
-> own verification gate, still unticked. ⚠️ **7f
+> by one new test. **The step's four gate items are ticked** against `7e51398`, app installed from
+> `abc07e3` — the evidence and what invalidates each is beside them. ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
 > partitioned drive ended its run ten milliseconds after the claim. The suite is **1302 / 153 / 0**,
@@ -483,10 +485,13 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-09-11: Steps 1–11 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-09-11: Steps 1–12 and Step 14 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
-> verification gate re-run against the **v14** daemon on 2026-09-05. **Step 12 (device-loss
-> handling) IS IN PROGRESS**: chunks 0–6 of 8 are done, and chunk 7 is under way — 7a (the clean
+> verification gate re-run against the **v14** daemon on 2026-09-05. **STEP 12 (device-loss
+> handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
+> `7e51398` with the app installed from `abc07e3`, and the account archived to
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is next and has
+> not started.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -517,10 +522,10 @@ simulation-first still applies wherever the plan calls for it.
 > declared prediction held: one whole-disk event, so no idempotency exercised, and none has a
 > hardware path in this design. **7g closed chunk 4's two logging gaps in code the same day** —
 > commands and automatic re-selections now log — with the helper hash unmoved, **and a person saw
-> those lines on the installed build that evening**, six of the seven expected; Resume was never
-> pressed, so its line is still unseen. **7h closed the mutation survivor 7g predicted**, measured
-> surviving all 1301 tests and killed by one new test. **What remains** is
-> the Owed row in `PROGRESS.md` and this step's verification gate. Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
+> those lines on the installed build that evening**, all four command labels, `Resume` at 18:02:13.
+> **7h closed the mutation survivor 7g predicted**, measured
+> surviving all 1301 tests and killed by one new test. **The step is CLOSED**: all four gate items
+> ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1302 tests / 153 suites / 0 failures** (floor 1302, ratcheted at 7h), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **13/13** gate clients type-checking against v15 —
@@ -1882,11 +1887,24 @@ If the device under test disappears mid-run, immediately terminate the test clea
 5. **Re-run discovery (FR-DEV-8):** automatically re-execute Step 5's discovery routine so the (possibly reconnected) device list is fresh.
 6. **`os_log`** device loss and clean termination (NFR-OBS-1/2 — logs must be enough to diagnose the interrupted run after the fact).
 
-### Verification Gate (must pass before Step 13)
-- [ ] Physically unplugging the device mid-run (the designated scratch device) **immediately** terminates the run, releases the node, and shows the specific device-loss error — the GUI stays alive and usable.
-- [ ] Discovery re-runs automatically; reconnecting the device repopulates the list.
-- [ ] No resume is offered; only restart-from-beginning.
-- [ ] Logs after the event are sufficient to reconstruct what happened (which device, at what offset) without recording contents.
+### Verification Gate (must pass before Step 13) — ✅ **ALL FOUR PASSED, ticked 2026-09-11 at chunk 7h**
+
+**What these are true of.** The evidence is `progress/step-12-human-checklist.md`, walked on real
+hardware across three days, and the ticks are recorded against **`7e51398`** with the app installed
+from **`abc07e3`** (dylib `c08f95ad…`, helper `7590b920…`, daemon pid 89541 started 2026-09-08
+16:22:50 and resolved from `/Applications`, protocol **v15**, helper source hash **`e19b0b3c…`**).
+The cable pulls themselves ran against earlier commits — chunk 3 against `982406a` (app from
+`0b37afd`), chunk 4 against `c767317` (app from `2086090`) — and **the chain from those to the
+installed build touches no device-loss behaviour**: `0b37afd` → `2086090` differs in comments only,
+and `2086090` → `abc07e3` is 7g, which adds two log lines on the *command* and *selection* paths and
+changes only comments in `DeviceLossWindDown.swift` and on `RunController.swift`'s device-loss path.
+`abc07e3` → `7e51398` is 7h, test and documents only. The drive throughout is the 1 TB scratch T5,
+serial **`12345686DAA9`**.
+
+- [x] Physically unplugging the device mid-run (the designated scratch device) **immediately** terminates the run, releases the node, and shows the specific device-loss error — the GUI stays alive and usable. — **Chunk 3, 2026-09-09, six pulls of a running run**, plus **chunk 4, 2026-09-11, paused pulls on two drives**. *Immediately* is measured, not asserted: **2.7–6.3 ms** from the removal callback to `run ended` across six trials (5.1), the 3 s deadline never approached; the release lands ~6 ms after the whole-disk callback (`.920` → `.926 released disk7: descriptor closed, DiskArbitration claim dropped` → `finishing → finished on deviceReleased`). The specific error is at **error** level and names model and serial — `the drive under test left the machine while running: Samsung Portable SSD T5 (serial 12345686DAA9), disk7 at run time`. GUI checked by eye 2026-09-09 (items 4 and 7): no crash, no hang, window usable, and a report rather than the alert. **Invalidated by** a behavioural change to `DeviceLossWindDown.swift` or `RunController.swift`'s device-loss path, or a helper-hash move.
+- [x] Discovery re-runs automatically; reconnecting the device repopulates the list. — **Chunk 3 items 12–14 and chunk 4 item 8**, walked and passed: the scratch drive leaves the list with nothing clicked, reappears on reconnect **confirmed by serial**, and a second run is accepted — so the interrupted run's claim is not still held. ⚠️ The `RunControllerWiring` closure that fires the re-run has **no automated cover** — chunk 7b's mutation m17 deletes the call and passes the whole suite — so this item is the only thing standing behind it and a re-walk is the only way to re-establish it. **Invalidated by** a change to `RunControllerWiring`'s `onDeviceLost:` wiring or to `DeviceDiscovery`'s refresh path.
+- [x] No resume is offered; only restart-from-beginning. — **Chunk 3 item 10**, read off the controls by a person 2026-09-09. Reinforced in the machine itself: `RunControlPolicy` admits `resume` only from `.paused`, and a device loss routes through `.finishing` to `.finished`, from which no resume is reachable — pinned by `RunControlPolicyTests`. **Invalidated by** a new edge into `.paused`, or a control that offers resume from a finished run.
+- [x] Logs after the event are sufficient to reconstruct what happened (which device, at what offset) without recording contents. — **Which device**: chunk 3 item 5, the error line above, model + serial + BSD name labelled *at run time*. **At what offset**: 5.3 — the block is in the report via `DeviceLossAccount`, and on all four trials where it was read off the screen (1,261,568 / 1,130,496 / 1,687,552 / 1,392,640) it equalled the helper's own `retention cycle END: ended at block …` and the first block of the failing chunk (block × 512 = the offset in the `failed after 0 bytes` line). **Without contents**: the log carries block numbers, byte counts and errnos, never buffers. ✅ **Strengthened at 7g and seen by a person 2026-09-11**: every accepted command now logs `run control: A → B on the <Start|Pause|Resume|Stop> command`, so the reconstruction covers what the *operator* did as well as what the device did — all four labels observed on the installed build, the first three at 16:14–16:19 and `paused → running on the Resume command` at 18:02:13.596. **Invalidated by** a change to `DeviceLossAccount`, `RunControlLog`, or the helper's cycle-end line.
 
 ### Risks / gotchas
 - Simulate this safely first, then confirm on real hardware with the scratch device. **The hook this named did not exist when it was written** — `InMemoryBlockDevice`'s three fault hooks were all *range*-based, and `injectReadFault(blocks: 0 ..< blockCount)` simulates a drive with every block bad, which is the exact misreading this step exists to remove rather than a way to test it. Chunk 1 (2026-09-05) added `injectDeviceLoss(afterCalls:)`, which takes no range because the device leaving the bus is not a property of any range.
