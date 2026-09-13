@@ -493,7 +493,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Only the hardware walk remains.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -529,7 +529,7 @@ simulation-first still applies wherever the plan calls for it.
 > surviving all 1301 tests and killed by one new test. **The step is CLOSED**: all four gate items
 > ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
-> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3), protocol **v15** (chunk 3, 2026-09-05),
+> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, and complete at 1323 in all seventeen runs of chunk 4's mutation round), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds, **14/14** gate clients type-checking against v15 —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
@@ -1960,6 +1960,16 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 >
 > Full findings, and what invalidates them (a macOS update, not a commit): `CONSTRAINTS.md` §1,
 > *Idle-sleep assertions*.
+>
+> **The reading is taken by `scripts/sleep-assertion-watch.sh`, not by hand** (added chunk 4,
+> 2026-09-13). Two of these items are unanswerable by a person typing `pmset` at the right moment.
+> Item 2 asks for a release that happens milliseconds after a button press, so a hand reading can
+> only report the end state; item 3 asks about a **sequence** — three pause/resume cycles show one
+> entry whether the count went 1,0,1,0,1 or 1,2,3 — so a sample taken afterwards cannot see a leak
+> at all. The watcher polls at 4 Hz, prints a line on every change, and reports the maximum ever
+> held at once. ⚠️ It counts `PreventUserIdleSystemSleep` **by type**: its own smoke test against
+> `powerd` reported *"2 held"* for a correct machine, because `powerd` holds an `ExternalMedia`
+> assertion beside its sleep one — and this app mounts and unmounts external media.
 
 ### Risks / gotchas
 - The most common bug is a **leaked assertion** on an error path — route acquire/release exclusively through the state machine so every exit releases it.

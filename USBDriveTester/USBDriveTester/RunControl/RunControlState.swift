@@ -613,6 +613,20 @@ nonisolated enum RunControlPolicy {
     ///     hold the assertion for ever under any rule that released it there. That is the leaked
     ///     assertion BUILD-PLAN's risks note names, and it is reachable rather than theoretical.
     ///
+    /// ⚠️ **The third bullet names the wrong path, and was left standing as written on 2026-09-13.**
+    /// The conclusion holds; the example does not. A run whose release *cannot* be confirmed reaches
+    /// `finished` synchronously — `releaseTheDrive` issues the release it cannot wait for and then
+    /// calls `driveIsBack` itself, measured at chunk 3 and pinned by
+    /// `aRunWhoseReleaseCannotBeConfirmedHasAlreadyReleasedTheAssertion`. The run that can sit in
+    /// `finishing` indefinitely is the **opposite** one: a release that *can* be confirmed and is
+    /// then never answered, where `driveIsBack` is only ever called from inside the completion. So a
+    /// `finished`-based rule would still leak, on a run Step 12's handoff did not name. Kept with
+    /// this annotation rather than rewritten, because a dated claim corrected in place destroys the
+    /// record of when it stopped being true — and because the mistake is worth seeing: it was
+    /// reasoned from a flag's *name* instead of read off the code path. **Third site of this claim**;
+    /// chunk 3 corrected `PROGRESS.md` and `SleepPreventionTests.swift` and did not grep for it here,
+    /// in the source of the rule itself.
+    ///
     /// The one exit with no HID input in front of it is a device loss, which lands in `finishing`
     /// with the drive already gone.
     ///

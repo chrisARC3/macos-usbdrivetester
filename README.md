@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–3 of 5)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -45,9 +45,14 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > callback* mutation was measured surviving all 1301 tests, and one new test kills it. The last
 > unseen line, `paused → running on the Resume command`, was watched on hardware at 18:02 the same
 > evening, and **Step 12 closed** — its full account is in
-> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is in progress**, three
-> of its five chunks done on 2026-09-12: the gate's instrument measured, the rule and its seam
-> built, and the assertion wired to the one place the run state is assigned. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is in progress**, four
+> of its five chunks done: the gate's instrument measured, the rule and its seam
+> built, and the assertion wired to the one place the run state is assigned (2026-09-12), then
+> **its mutation round run on 2026-09-13 — 17 mutations, 13 killed, four survivors, all four
+> declared in advance.** Two of those survivors are the point: deleting the release call outright,
+> and holding the display-sleep assertion instead of the system one, each pass all 1,323 tests.
+> That is what [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for,
+> and walking it is the only chunk left. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control, device-loss handling and the pre-run warnings all exist and are exercised on real
 > hardware. Sleep prevention, logging consolidation and notarization do not yet.
 >
