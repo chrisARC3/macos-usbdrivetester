@@ -1,10 +1,11 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-13: UNWALKED. Nothing in this file has been run.** Written at **chunk 4**,
-> alongside the mutation round rather than after it, against commit `ad1ee28`, suite
-> **1323 / 157 / 0**, protocol **v15**, helper source hash **`e19b0b3c…`**. The installed app at the
-> time of writing is from `abc07e3` (2026-09-11) and **predates every line of Step 13** — chunk 5
-> installs a build that contains it, and item 0.1 is how you know which one you are looking at.
+> **STATUS, 2026-09-13: IN PROGRESS at chunk 5. Item 0 PASSED; chunks 1, 2 and 3 are UNWALKED.**
+> Written at **chunk 4**, alongside the mutation round rather than after it, against commit
+> `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash **`e19b0b3c…`**. The
+> app was installed from **`af09416`** on 2026-09-13 at 10:51 and **item 0.1 passed against it** —
+> the build it replaced, `abc07e3`, predated every line of Step 13 and read 0. **No kickstart was
+> owed and none was run.** Nothing below item 0 has been run by a person.
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -133,7 +134,23 @@ until chunk 5 installs.
 (`theAssertionNamesItselfInTheWordsTheGateLooksFor`) precisely so that an edit to it breaks a test
 rather than this instruction — mutation **m9** of chunk 4's round confirms the test kills it.
 
-**Record:** installed build ________ (commit), dylib SHA ________, greps ______.
+**Record:** ✅ **PASSED 2026-09-13 10:51**, headless, at chunk 5.
+
+| | |
+|---|---|
+| installed from | `af09416` (chunk 4), Debug, via `scripts/install-app.sh` |
+| item 0.1 greps | **1** — the previous install, from `abc07e3`, read **0** |
+| installed dylib | `a8a0e932…`, byte-identical to the build products (`diff -rq`: **0** differ) |
+| installed helper binary | `7590b920…` — **unchanged from the 2026-09-11 install** |
+| daemon | pid **89541**, uid 0, ppid 1, started **2026-09-08 16:22:50** — the same process, running byte-identical code |
+| kickstart | **none owed, none run.** Step 13 is GUI-side; helper source hash `e19b0b3c…` unmoved |
+
+**And the instrument was re-run the same morning.** `scripts/sleep-assertion-check.sh`, **0
+failures**: the type is `PreventUserIdleSystemSleep`, the `reason` string reaches `named:` verbatim,
+two activities from one process show as **two** entries, ending one leaves the other held, and the
+system-wide summary did not move when we took one (baseline 1, held 1). Release was visible in
+**0.090 s against a 0.086 s read cost** — at the instrument's floor, so the release is already true
+on the first read rather than 90 ms late. **Nothing in chunk 2 below should be waited for.**
 
 ---
 
