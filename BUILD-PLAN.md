@@ -19,9 +19,10 @@ test target fixed to the designated scratch device with disk images removed as a
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
 > IN PROGRESS — planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
-> 2026-09-13, and 5 (the hardware walk) under way: item 0 passed 2026-09-13, and chunk 1 passed
-> 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten.
-> Chunk 2 is part-walked: 2.1–2.4 and 2.6 passed 2026-09-18, and 2.5, 2.7 and 2.8 are owed.
+> 2026-09-13, and 5 (the hardware walk) PAUSED 2026-09-18 for the move to Xcode 27 — four chunks,
+> chunk 1 done — to restart at item 0 on the Xcode 27 build. Before the pause, item 0 passed
+> 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
+> and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed).
 > The daemon was kickstarted 2026-09-18 13:06:19 and runs the installed helper from `/Applications`
 > again (`PROGRESS.md`, cold start).** Step 12's
 > chunks 0–6 built it and chunk 7 proved it
@@ -228,21 +229,28 @@ are **process**, not history.
 
 **The build environment**
 
-- Full Xcode 26.5 is at **`/Applications/Development/Xcode.app`** and is **not** the selected
-  developer dir. ⚠️ **2026-09-18: that path has held Xcode 27.0 (27A266a) since 2026-09-15**, installed
-  over 26.5, and it is the only Xcode on the machine. So `build.sh` and `test.sh` now build with
-  Xcode 27, and every build recorded before that date was made with 26. Xcode 27 has also left
-  uncommitted project edits, one of which removes the `ARCHS = arm64` below; that is a user decision
-  (`PROGRESS.md`, *Toolchain*). `build.sh` / `test.sh` pin `DEVELOPER_DIR` themselves; anything else you run by
-  hand must export it. **Do not run `sudo xcode-select`.**
+- Full Xcode is at **`/Applications/Development/Xcode.app`** and is **not** the selected developer
+  dir. It held Xcode 26.6 until **2026-09-15**, when Xcode 27.0 (27A266a) was installed over it, and
+  it is the only Xcode on the machine: `build.sh` and `test.sh` build with Xcode 27, and every build
+  recorded before 2026-09-18 was made with 26. *(This bullet said 26.5 until 2026-09-18 — the SDK's
+  version, not Xcode's; `PROGRESS.md`, Toolchain row.)* `build.sh` / `test.sh` pin `DEVELOPER_DIR`
+  themselves; anything else you run by hand must export it. **Do not run `sudo xcode-select`.**
+- **Xcode 27's upgrade edits, settled 2026-09-18 (user decision): three taken, one refused.** Taken:
+  `LastUpgradeCheck` 2700, `DEAD_CODE_STRIPPING = YES` on every target, and
+  `STRING_CATALOG_GENERATE_SYMBOLS = YES`, which does nothing here — there are no string catalogs.
+  **Refused: removing `ARCHS = arm64`.** Measured with Xcode 27's `-showBuildSettings`: without it,
+  **Release resolves to `arm64 x86_64`**, because the macOS 27 SDK still lists `x86_64`. Debug stays
+  `arm64` through `ONLY_ACTIVE_ARCH = YES`, so no Debug build and no test run would ever have shown
+  the change. Restored, every target resolves to `arm64` in both configurations. **If a later
+  Xcode's "update to recommended settings" offers the removal again, refuse it.**
 - App target: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which makes even plain value types,
   protocols, C-callback functions, file-scope `Logger`s and extensions on standard-library types
   main-actor-isolated. Mark them `nonisolated`, or the test target cannot use them.
 - `MemberImportVisibility` is on: a member from a transitively-imported module needs its module
   imported **directly** (`Timer.publish(…).autoconnect()` needs `import Combine`; `NSApp` needs
   `import AppKit`).
-- `SWIFT_VERSION = 5.0` — keep it. `ARCHS = arm64`, deployment target 26.0, team `5JC55GTLZA`,
-  App Sandbox **off** (must stay off), Hardened Runtime on.
+- `SWIFT_VERSION = 5.0` — keep it. `ARCHS = arm64` — keep it too (above). Deployment target 26.0,
+  team `5JC55GTLZA`, App Sandbox **off** (must stay off), Hardened Runtime on.
 - **Target membership — and the version of this note that stood until 2026-08-12 was WRONG about
   which target needs the tick.** Read from `project.pbxproj`, not remembered:
   - The app folder, the test folder **and the helper folder** are each a
@@ -502,7 +510,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is under way: item 0 passed 2026-09-13, and chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten. Chunk 2 is part-walked: 2.1–2.4 and 2.6 passed 2026-09-18, and 2.5, 2.7 and 2.8 are owed.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — four chunks, chunk 1 done — to restart at item 0 on the Xcode 27 build. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed).** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on

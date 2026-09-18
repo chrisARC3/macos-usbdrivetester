@@ -1,12 +1,14 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-18: IN PROGRESS at chunk 5. Item 0 PASSED 2026-09-13; its daemon row LAPSED on
+> **STATUS, 2026-09-18: IN PROGRESS at chunk 5 — and PAUSED since 2026-09-18 for the move to
+> Xcode 27 (user decision). The walk restarts at item 0 on the Xcode 27 install, and every pass in
+> this file — item 0, chunk 1, 2.1–2.4 and 2.6 — is a fact about the Xcode 26 build `af09416` and
+> lapses at that install. Before the pause: item 0 PASSED 2026-09-13; its daemon row LAPSED on
 > 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
 > 14:47–14:53, on its third walk: the first, that morning, could not show its readings and the
-> watcher was rewritten; the second's paste ended before the selection. Chunk 2 is PART-WALKED: its
+> watcher was rewritten; the second's paste ended before the selection. Chunk 2 was PART-WALKED: its
 > first walk, 15:04–15:07, passed 2.1–2.4 and 2.6 and did two of 2.5's three cycles, which 2.5's
-> threshold — one short since it was written, now corrected — let read as enough. 2.5, 2.7 and 2.8
-> are owed, and all of chunk 3.**
+> threshold — one short since it was written, now corrected — let read as enough.**
 > Written at **chunk 4**, alongside the mutation round rather than after
 > it, against commit `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash
 > **`e19b0b3c…`** (re-derived 2026-09-18, unmoved). The app was installed from **`af09416`** on
@@ -508,13 +510,17 @@ right type and name, on entry to `running`; each Pause released it in the same s
 took it again; Stop released it before the run's report was logged; nothing was ever held twice.
 But the log has **two** Resumes, not three — Start, two cycles, Stop — and 2.5's threshold as then
 written read that as enough (corrected at 2.5). **Owed: 2.5, 2.7 and 2.8**, against the same build
-and daemon. *Evidence in the Walk record, below.*
+and daemon. *Evidence in the Walk record, below.* *(2026-09-18, later: not against this build after
+all — the walk was paused for the move to Xcode 27, and restarts at item 0 on the new install.)*
 
 **Walked:** date ________ build ________ drive `12345686DAA9`, transcript and summary pasted below.
 
 ---
 
-## Chunk 3 — the endings a button cannot make, and the two negatives *(writes + one cable pull)*
+## Chunk 3 — the endings a button cannot make, and the two negatives *(writes + two cable pulls)*
+
+*The heading said "one cable pull" until 2026-09-18; 3.5 and 3.6 each pull the cable, and the
+run 3.5 ends is not the paused run 3.6 needs.*
 
 **3.1 — display sleep is not prevented.** Read the detail column for the app's pid at any point
 during a run (2.1's line will do).

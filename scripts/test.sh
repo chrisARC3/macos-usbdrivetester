@@ -40,6 +40,13 @@
 # has to remember to bump it and it cannot go stale-low, which is what would make it stop
 # catching anything. It only ever refuses to go DOWN.
 #
+# ONLY A GREEN RUN RAISES IT (fixed 2026-09-18). Until then the raise came before the failure
+# check, so any run that printed a summary could raise the floor, red or not, and the paragraph
+# above was wrong about its own code. A red run's count is the wrong number to keep: failing
+# exploratory tests that are then deleted would leave the floor above the suite, and the first
+# run on a new toolchain (Xcode 27, 2026-09-18) is exactly when a count should be looked at
+# before it becomes the floor.
+#
 # Deleting tests on purpose is the one case that needs a human: delete the floor file and the
 # next run re-establishes it. That is deliberate friction — a suite getting smaller should be
 # a decision somebody took, not something a script absorbs silently.
@@ -101,14 +108,17 @@ if (( COUNT < FLOOR )); then
     exit 1
 fi
 
+if [[ "$STATUS" -ne 0 ]]; then
+    echo "  ✖ ${COUNT} tests in ${SUITES} suites ran; the run FAILED. See the failures above."
+    if (( COUNT > FLOOR )); then
+        echo "    The floor stays at ${FLOOR}: it rises only on a green run."
+    fi
+    exit "$STATUS"
+fi
+
 if (( COUNT > FLOOR )); then
     echo "$COUNT" > "$FLOOR_FILE"
     echo "  floor raised ${FLOOR} → ${COUNT} (${SUITES} suites)"
-fi
-
-if [[ "$STATUS" -ne 0 ]]; then
-    echo "  ✖ ${COUNT} tests in ${SUITES} suites ran; the run FAILED. See the failures above."
-    exit "$STATUS"
 fi
 
 echo "  ✔ ${COUNT} tests in ${SUITES} suites — complete and green."
