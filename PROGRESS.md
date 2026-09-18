@@ -255,7 +255,10 @@ the default location, `~/Library/Developer/Xcode/DerivedData/USBDriveTester-*` �
 `scripts/build-tools.sh` after them. What must come out:
 
 - **zero Swift warnings** in all three builds. The 2026-09-16 Debug build had none; a new one comes
-  from the new compiler, and is read and reported before any source is changed;
+  from the new compiler, and is read and reported before any source is changed. Grep for warnings
+  **naming a `.swift` file** (`CONSTRAINTS.md` §2): that log's one bare `warning:` was
+  `appintentsmetadataprocessor`'s *"Metadata extraction skipped, no AppIntents.framework dependency
+  found"*, Xcode 27's wording of the known line that is not a source warning;
 - **every project source compiled**, in Debug and in Release — count the sources, not the tasks;
 - **a Release app that is arm64 only**: `lipo -archs` on each Mach-O in its `Contents/MacOS` — the
   executable and the embedded helper — prints `arm64` alone. That is what chunk 1's `ARCHS`
