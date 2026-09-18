@@ -105,9 +105,11 @@ LAST_PRINT_AT=$(date +%s)
 
 # The executable behind a pid, from the kernel. `lsof`'s first txt mapping is the main executable's
 # vnode; `ps -o comm=` (argv[0]) is the fallback. Never the unified log — see the header.
+# awk stops at the first name itself. It was `sed | head -1` until 2026-09-18, and sed printed
+# "stdout: Broken pipe" into the transcript when head left early on a process mapping many files.
 executable_of() {
     local path
-    path="$(/usr/sbin/lsof -a -p "$1" -d txt -Fn 2>/dev/null | /usr/bin/sed -n 's/^n//p' | head -1)"
+    path="$(/usr/sbin/lsof -a -p "$1" -d txt -Fn 2>/dev/null | /usr/bin/awk '/^n/ { print substr($0, 2); exit }')"
     [[ -z "$path" ]] && path="$(/bin/ps -o comm= -p "$1" 2>/dev/null)"
     echo "${path:-(unknown)}"
 }

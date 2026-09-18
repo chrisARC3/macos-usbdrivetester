@@ -93,7 +93,12 @@ format (the pid is illustrative):
 only in a header row, over bare columns that its own em-dash placeholder pushed out of line, and
 item 1.1 asked a person to find `held 0` in it. They could not, and said so. It is the shape of one
 of the defects found in the week of 2026-09-04: an item asking for a reading off a line that does
-not carry it.
+not carry it. **Changed once more the same day, after chunk 1 passed and before chunk 2:** the
+`exe` lookup could print `sed: stdout: Broken pipe` into the transcript for a process mapping many
+files (5 runs of 5 against Finder, through a terminal; neither chunk 1 walk showed it). It now
+stops at the first name by itself — identical output for all 654 of this user's processes, and no
+reading changed. Chunk 1 ran on the version before this; each chunk's **Walked** line names its
+watcher.
 
 ⚠️ **Never answer a gate item from the system-wide summary at the top of `pmset -g assertions`.**
 `PreventUserIdleSystemSleep` reads **1** on this machine with nothing of ours running, because
