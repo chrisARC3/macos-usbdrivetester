@@ -3,7 +3,10 @@
 > **STATUS, 2026-09-18: IN PROGRESS at chunk 5. Item 0 PASSED 2026-09-13; its daemon row LAPSED on
 > 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
 > 14:47–14:53, on its third walk: the first, that morning, could not show its readings and the
-> watcher was rewritten; the second's paste ended before the selection. Chunks 2 and 3 are owed.**
+> watcher was rewritten; the second's paste ended before the selection. Chunk 2 is PART-WALKED: its
+> first walk, 15:04–15:07, passed 2.1–2.4 and 2.6 and did two of 2.5's three cycles, which 2.5's
+> threshold — one short since it was written, now corrected — let read as enough. 2.5, 2.7 and 2.8
+> are owed, and all of chunk 3.**
 > Written at **chunk 4**, alongside the mutation round rather than after
 > it, against commit `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash
 > **`e19b0b3c…`** (re-derived 2026-09-18, unmoved). The app was installed from **`af09416`** on
@@ -458,8 +461,17 @@ second half of every paused run with no assertion at all and nothing would say s
 **2.5 — three pause/resume cycles, and never two at once.** Repeat 2.3/2.4 twice more, then read the
 watcher's summary (Ctrl-C, or leave it and read it at the end of the chunk).
 
-*Pass:* `most at once     held 1  (PreventUserIdleSystemSleep only)` and a `changes` count of at
-least 7.
+*Pass:* `most at once     held 1  (PreventUserIdleSystemSleep only)`, and **three**
+`paused → running on the Resume command` lines for the pid in the log — 2.2's command, its
+`--last 10m` widened to cover the walk — each with a transcript line going to `held 1` within a
+second of it. A heartbeat's `held 1  (unchanged)` is not one: during a run every heartbeat reads
+`held 1`.
+⚠️ **Corrected 2026-09-18, after chunk 2's first walk.** This read *"and a `changes` count of at
+least 7"*, which was one short from the day it was written (`af09416`): the watcher counts its own
+first line as a change — chunk 1's two `held 0` lines summarised as `changes 2`. So Start, **two**
+cycles and Stop also make 7, and the 15:04 walk did exactly that. Adding one would not make the count
+right, because every change of pid or detail column adds a line, and an app launched mid-watch adds
+one. The log says what was pressed and the transcript what was held, and the pass reads both.
 **This is gate item 3, and the summary line is the evidence** — a person sampling `pmset` after
 three cycles sees one entry whether the count went 1,0,1,0,1 or 1,2,3, because a leak is a property
 of a *sequence*. Chunk 1 measured that two activities from one process publish two entries with two
@@ -488,6 +500,15 @@ adjacent to `running → finishing`.
 but `(unchanged)` lines. An assertion outlives the
 process that took it only if the process is still alive, so this is really a check that nothing
 *else* was left behind.
+
+**First walk, 2026-09-18 15:04:56–15:07:40 — 2.1–2.4 and 2.6 passed; 2.5 one cycle short.** The
+installed app, pid 54729, and daemon pid 46679, both as in chunk 1; the scratch T5 by serial,
+`12345686DAA9`, named by the pre-run prompt and acquired as `disk8`. Start took one assertion, of the
+right type and name, on entry to `running`; each Pause released it in the same second; each Resume
+took it again; Stop released it before the run's report was logged; nothing was ever held twice.
+But the log has **two** Resumes, not three — Start, two cycles, Stop — and 2.5's threshold as then
+written read that as enough (corrected at 2.5). **Owed: 2.5, 2.7 and 2.8**, against the same build
+and daemon. *Evidence in the Walk record, below.*
 
 **Walked:** date ________ build ________ drive `12345686DAA9`, transcript and summary pasted below.
 
@@ -686,3 +707,80 @@ timeout) and `useractivityd` (55 s), and the Claude desktop app held a `NoIdleSl
 "Electron", taken at 14:49:16. None of it touches a reading here, since every reading is matched on
 the app's pid — but it is exactly what item 3.4's prerequisite is about, and it changes by the
 minute.
+
+### Chunk 2, first walk — 2026-09-18 15:04, 2.5 one cycle short
+
+**Build:** installed app from `af09416` (dylib `a8a0e932…`), pid 54729 — the process chunk 1's third
+walk watched; daemon pid 46679 from `/Applications`, `runs = 2` at 15:00:35 and again at 15:09:06, so
+it was neither restarted nor replaced across the walk. **Watcher:** as committed in `278ac0b`.
+**Drive:** the pre-run prompt at 15:05:18.960 named serial `12345686DAA9`, and the helper acquired
+`disk8` at 15:05:31.404 with IOKit reporting 1000204886016 bytes. As pasted — the transcript, then the
+summary Ctrl-C printed:
+
+```
+15:04:56  pid 54729  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+15:04:56  pid 54729  held 0  (owns no assertions)
+15:05:31  pid 54729  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+15:05:37  pid 54729  held 0  (owns no assertions)
+15:06:37  pid 54729  held 0  (unchanged)
+15:06:56  pid 54729  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+15:07:01  pid 54729  held 0  (owns no assertions)
+15:07:11  pid 54729  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+15:07:23  pid 54729  held 0  (owns no assertions)
+```
+
+```
+== summary ======================================================================
+  watched          USBDriveTester from 2026-09-18 15:04:56 to 2026-09-18 15:07:40
+  samples          499 at 0.25s
+  changes          7
+  held at all      yes
+  most at once     held 1  (PreventUserIdleSystemSleep only)
+```
+
+2.2's extract, read headless at 15:09:06 with `--start`/`--end` in place of `--last 10m`. Every line
+is pid 54729:
+
+```
+2026-09-18 15:05:20.400 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: idle → starting on the Start command
+2026-09-18 15:05:31.409 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: starting → running on claimEstablished
+2026-09-18 15:05:31.411 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-18 15:05:37.418 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: running → pausing on the Pause command
+2026-09-18 15:05:37.418 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-18 15:05:37.430 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: pausing → paused on pauseSettled
+2026-09-18 15:06:56.537 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: paused → running on the Resume command
+2026-09-18 15:06:56.537 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-18 15:07:01.562 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: running → pausing on the Pause command
+2026-09-18 15:07:01.562 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-18 15:07:01.582 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: pausing → paused on pauseSettled
+2026-09-18 15:07:11.282 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: paused → running on the Resume command
+2026-09-18 15:07:11.282 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-18 15:07:22.812 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: running → stopping on the Stop command
+2026-09-18 15:07:22.814 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-18 15:07:22.838 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: stopping → finishing on runEnded
+2026-09-18 15:07:23.180 Df USBDriveTester[54729:13ffec] [com.arc3solutions.USBDriveTester:io] run control: finishing → finished on deviceReleased
+```
+
+- **2.1 ✅** `held 1` at 15:05:31: one entry, `PreventUserIdleSystemSleep "USB drive retention test
+  in progress"`, and no display-sleep type — the summary raised no flag. The two spaces after the
+  name are the detail column's separator (the watcher's `printf "%s \"%s\"  "`), not a second entry.
+- **2.2 ✅** `holding` at 15:05:31.411, 2 ms after `starting → running on claimEstablished`; the 11 s
+  from `idle → starting` at 15:05:20.400 — the pre-run unmount and the claim — have no
+  sleep-prevention line. Each Resume pairs the same way, `paused → running` then `holding`, in the
+  same millisecond.
+- **2.3 ✅** each Pause logs `running → pausing`, then `released` in the same millisecond, then
+  `paused` 12 ms and 20 ms later: the helper stopped at its next 4 MiB chunk. The watcher read `held 0`
+  in the same second both times, 15:05:37 and 15:07:01.
+- **2.4 ✅** `held 1` again at 15:06:56 and 15:07:11, the same type and name.
+- **2.5 ❌ not passed — two cycles, not three.** `most at once held 1` and no line read `held 2`, so
+  neither re-take doubled; but the third cycle was not done. `changes 7` is the watcher's first line,
+  Start, two cycles and Stop. It met the bar as then written only because the bar was one short —
+  corrected at 2.5.
+- **2.6 ✅** Stop at 15:07:22.812 and `released` at .814 — before `run ended: stoppedByUser` (.838),
+  the report line (.839) and `finishing → finished` (15:07:23.180). The watcher read `held 0` at
+  15:07:23.
+
+The helper's side: four bounded calls on `disk8` — paused at blocks 1818624 and 3342336, one full
+1 GiB call completed at 15:07:18.180 in 6.9 s, stopped at block 6856704 — each reading, writing back
+and verifying, with no failed range. The report: *"Stopped by the user — the rest of the drive was not
+tested"*, 0 failing blocks.

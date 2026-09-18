@@ -54,7 +54,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > That is what [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for,
 > and walking it is the only chunk left. The walk is under way: item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
-> and the instrument was rewritten. Chunks 2 and 3 remain. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> and the instrument was rewritten. Chunk 2 is part-walked — 2.5, 2.7 and 2.8 are owed — and chunk 3 remains. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control, device-loss handling and the pre-run warnings all exist and are exercised on real
 > hardware. Sleep prevention, logging consolidation and notarization do not yet.
 >

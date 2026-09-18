@@ -1480,6 +1480,10 @@ Every defect this project has produced came from trusting a substitute for the r
   them was checked line by line. The count came out rather than being corrected; where a count is
   genuinely load-bearing, derive it from the thing it counts, as
   `theDefinitionNamesEveryRateTheReportTabulatesAndNoOther` parses the rendered table.
+  **Again 2026-09-18, in a checklist:** Step 13's item 2.5 passed on *"a `changes` count of at least
+  7"*, one short from the day it was written because the watcher counts its own first line, and a
+  walk missing one of its three cycles met it. The repair was the same: the item now reads the
+  Resume lines in the log, which are what the number stood for.
 - **Search-and-replace across a codebase rewrites the prose that records what a name used to be, and
   prose does not fail to compile.** Renaming the app-side `sustained*` rate properties to match what
   v14 made them carry also silently rewrote a protocol-history sentence describing what those names
