@@ -30,8 +30,9 @@ drift this consolidation exists to remove.
 
 > ⚠️ **2026-09-18: this Mac has run macOS 27.0 (26A428) since 2026-09-16, and Xcode 27.0 (27A266a)
 > since 2026-09-15.** Every measurement in this section was taken on macOS 26 unless its entry says
-> otherwise, and a platform update is exactly what can move one. **Only *Idle-sleep assertions* has
-> been re-measured.** Re-measure an entry before a design leans on it.
+> otherwise, and a platform update is exactly what can move one. **Re-measured on macOS 27 so far:
+> *Idle-sleep assertions*, and the record-and-resolve bullets dated 2026-09-18 under *Registering
+> and replacing the helper*.** Re-measure an entry before a design leans on it.
 
 ### XPC: the connection blocks, not the daemon
 
@@ -421,9 +422,17 @@ Apple and both were found only because someone pressed the button.
     byte-identical helpers mean nothing else will say so. The reverse direction is recorded but not
     measured with a dump: on 2026-09-07 a kickstart came up from `/Applications` *"after the
     installed app had run and re-pointed the record"* (Step 12 checklist, Prerequisites).
+    *Measured with a dump on 2026-09-18 — see* The reverse direction, *below.*
   - **So read the record before a kickstart, and the resolve line after.** Record #11 — the app
-    record listing the helper under `Embedded Item Identifiers` — must carry
-    `file:///Applications/USBDriveTester.app/`. ⚠️ **`sfltool dumpbtm` needs admin**: run without
+    record listing the helper under `Embedded Item Identifiers` — must name
+    `/Applications/USBDriveTester.app`. ⚠️ **The dump prints a bare path; the log prints a URL**: on
+    macOS 27.0 the record reads `URL: /Applications/USBDriveTester.app`, no scheme and no trailing
+    slash, and the 2026-09-18 dump has no `file://` in any of its 1,182 lines — while BTM's log
+    names the same place `file:///Applications/USBDriveTester.app/`. Until 2026-09-18 this bullet
+    said the record "must carry" the log's form, which fails a correct record when read literally.
+    What macOS 26's dump printed is not established: the 2026-09-08 notes above render the field both
+    ways, `/Applications/USBDriveTester.app/` in the table and `file:///…/` in *RESOLVED*, and
+    neither is marked verbatim. ⚠️ **`sfltool dumpbtm` needs admin**: run without
     `sudo` it raises a password dialog on the logged-in user's screen, every time — measured
     2026-09-10, `authd` logging a `system.privilege.admin` authorization for each of two runs made
     from an agent's shell, and a third left waiting on its dialog. It is a hand-over command, like
@@ -446,7 +455,11 @@ Apple and both were found only because someone pressed the button.
 
     The only move of the record between 2026-09-13 and then. So the record follows **whichever copy
     of the app last asked** — a test host, an Xcode run or the installed app — and the running daemon
-    feels none of it.
+    feels none of it. **And end to end, the same day:** a dump at 12:57 had record #11 on
+    `/Applications` and no record on DerivedData, and the kickstart at 13:06:19 resolved **to
+    program: `/Applications/USBDriveTester.app/Contents/MacOS/…Helper`** (pid 46679), replacing a
+    DerivedData daemon that had run since 2026-09-16. Launching the installed app is enough to fix
+    the record; only a relaunch of the daemon fixes the daemon.
   - **⚠️ `log show`'s `processImagePath` is not provenance either — measured 2026-09-18.** The
     unified log looks the path up through the binary's LC_UUID, so two copies of one binary share one
     path in it. All 167 lines from the installed app's pid 24803 were attributed to
@@ -455,7 +468,19 @@ Apple and both were found only because someone pressed the button.
     binary most likely to be identical across copies, because it holds none of the app's code. For a
     process of the logged-in user, `lsof -a -p <pid> -d txt -Fn` names the executable from the
     kernel; `scripts/sleep-assertion-watch.sh` prints it for every new pid. For the root daemon the
-    resolve line is still the only witness.
+    resolve line is still the only witness: `ps -o comm=` names it by its program identifier,
+    `Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, which names no bundle at all (pid
+    46679, 2026-09-18).
+  - **⚠️ On macOS 27.0 `log show` finds itself — measured 2026-09-18.** `log` logs its own
+    invocation, `log run noninteractively, parent: … args: '/usr/bin/log' 'show' '--predicate' …`,
+    so a predicate on `eventMessage` alone matches that line: the strings it looks for are among the
+    args. Every recipe here then prints one line about itself, and a check for **absence** prints a
+    line when there is nothing — `_bundleURLForAuditToken` since 12:50 printed exactly one, and it
+    was the query. **Name the process in the predicate**: `process == "xpcproxy"` for the resolve
+    line, `process == "backgroundtaskmanagementd"` for record moves. Both were checked against known
+    lines the same day — the 2026-09-16 17:28:36 DerivedData resolve, the 13:06:19 `/Applications`
+    one and the 10:26:52.825 record move — and the record-move filter against the empty interval
+    since 12:50, where it printed only its header. Whether macOS 26 did this was never recorded.
 
 ### Every scheme build is coverage-instrumented — measured 2026-09-10
 
@@ -1301,6 +1326,9 @@ Every defect this project has produced came from trusting a substitute for the r
   `/usr/bin/log`, and the shell had been saying `too many arguments` into the `/dev/null` the
   command itself sent it to. Redirecting stderr on a diagnostic command converts "this did not run"
   into "this found nothing", which are opposite results wearing the same face.
+  **And its mirror, on macOS 27.0: a `log show` predicate on `eventMessage` alone matches `log`'s own
+  invocation line** (2026-09-18, §1, *`log show` finds itself*), so a check for absence reports one
+  line when there is nothing. A non-empty result is not a finding either until you have read it.
   **The same day, in the other direction: `build.sh | grep error:` came back empty and was read as
   "it builds".** It did not — exit code 65, `** BUILD FAILED **`, two errors the grep's own pipeline
   had scrolled past. A pipeline reports the *last* command's status, so grepping a build log throws

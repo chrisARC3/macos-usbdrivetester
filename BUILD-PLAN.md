@@ -21,7 +21,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
 > 2026-09-13, and 5 (the hardware walk) under way: item 0 passed 2026-09-13, and chunk 1's first
 > walk, 2026-09-18, is not a pass — the watcher could not show its reading, and was rewritten.
-> ⚠️ A kickstart is owed first (`PROGRESS.md`, cold start).** Step 12's
+> The daemon was kickstarted 2026-09-18 13:06:19 and runs the installed helper from `/Applications`
+> again (`PROGRESS.md`, cold start).** Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
 > five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
@@ -513,9 +514,10 @@ simulation-first still applies wherever the plan calls for it.
 > ⚠️ **BTM was re-parented then and did not stay so**: the 2026-09-09 15:34 test run re-pointed it
 > at DerivedData, which the running daemon does not feel and the next kickstart would — so none is
 > to be run until the record reads `/Applications` again (`CONSTRAINTS.md` §1). ⚠️ **2026-09-18:
-pid 89541 is gone** — it ended with the reboot into macOS 27.0 on 2026-09-16, and the daemon since
-is Xcode 27's DerivedData build, pid 12059. BTM's log has the record back on `/Applications` since
-10:26:52 that day, and a kickstart is owed and handed over (`PROGRESS.md`, cold start). **Chunk 3
+> pid 89541 is gone** — it ended with the reboot into macOS 27.0 on 2026-09-16, and the daemon from
+> then was Xcode 27's DerivedData build, pid 12059. BTM's log had the record back on `/Applications`
+> from 10:26:52 that day, and the user's kickstart at **13:06:19** brought the daemon up from there:
+> **pid 46679**, the installed helper (`PROGRESS.md`, cold start). **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash

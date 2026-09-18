@@ -1,17 +1,18 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-18: IN PROGRESS at chunk 5. Item 0 PASSED 2026-09-13, and its daemon row has
-> since LAPSED. Chunk 1 was walked once, on 2026-09-18, and is NOT passed — the watcher could not
-> show the reading its items asked for, and has been rewritten. Chunks 1, 2 and 3 are owed; 2 and 3
-> not before a kickstart.** Written at **chunk 4**, alongside the mutation round rather than after
+> **STATUS, 2026-09-18: IN PROGRESS at chunk 5. Item 0 PASSED 2026-09-13; its daemon row LAPSED on
+> 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 was walked once, on
+> 2026-09-18, and is NOT passed — the watcher could not show the reading its items asked for, and has
+> been rewritten. Chunks 1, 2 and 3 are owed.** Written at **chunk 4**, alongside the mutation round rather than after
 > it, against commit `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash
 > **`e19b0b3c…`** (re-derived 2026-09-18, unmoved). The app was installed from **`af09416`** on
 > 2026-09-13 at 10:51 and **item 0.1 passed against it**; the build it replaced, `abc07e3`, predated
 > every line of Step 13 and read 0. Re-checked 2026-09-18: the installed app is unchanged.
 > ⚠️ **What moved underneath it was the machine, not the code.** macOS **27.0** (26A428) was
-> installed and the Mac rebooted on **2026-09-16**, and the daemon that came up afterwards is an
+> installed and the Mac rebooted on **2026-09-16**, and the daemon that came up afterwards was an
 > **Xcode 27 build out of DerivedData** (pid 12059, helper `32a647da…`), not the installed
-> `7590b920…`. See *The daemon*, below.
+> `7590b920…`. **Kickstarted 2026-09-18 13:06:19**: the daemon is now pid **46679**, resolved from
+> `/Applications`, running `7590b920…`. See *The daemon*, below.
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -112,7 +113,32 @@ live in the dylib beside it. Grepping the stub returns 0 for every product strin
 exactly like a failed install (measured 2026-09-08, after that false negative was taken at face
 value for one command).
 
-### ⚠️ The daemon — a kickstart is owed since 2026-09-16, and it is handed over
+### The daemon — kickstarted 2026-09-18 13:06:19, from `/Applications`
+
+**Kickstarted 2026-09-18 by the user, after the record was read, and it came up from
+`/Applications`.** Headless readings, except the two commands the user ran:
+
+| | |
+|---|---|
+| record, 12:57 | `sfltool dumpbtm`, run by the user. Record **#11** (in the UID −2 section; the app record listing the helper under `Embedded Item Identifiers`): `URL: /Applications/USBDriveTester.app`, generation `710330143423605892`. Daemon record #12: `[enabled, allowed, notified]`, uuid `FF3ADEC2-…` — the `BTM uuid` that `launchctl print` names — generation 125, last use 10:26:52. **No record names DerivedData** |
+| kickstart | run by the user. pid 12059 ended on `Terminated: 15`; `runs = 2`, `immediate reason = non-ipc demand` |
+| resolve line | `13:06:19.646616 xpcproxy[46679]: Resolved (…, FF3ADEC2-…) to program: /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper` |
+| daemon | pid **46679**, root, ppid 1, started **2026-09-18 13:06:19** |
+| helper binary | **`7590b920…`** at that path — the installed helper that item 0 names |
+| record since | no `_bundleURLForAuditToken` line for this app between 12:50 and 13:07 |
+
+*What would invalidate it:* a relaunch of the daemon — a crash, a kickstart or a reboot — after
+something has pulled the record elsewhere, and the test suite or an Xcode run of the project does
+exactly that. **Before chunks 2 and 3, check the pid is still 46679:**
+
+```bash
+/bin/launchctl print system/com.arc3solutions.USBDriveTester.Helper | /usr/bin/grep -E '^[[:space:]]+pid = '
+```
+
+If it is not, read the resolve line again (the recipe below) before walking.
+
+**Written 2026-09-18 before the kickstart — why one was owed, and the recipe, corrected where
+marked:**
 
 **2026-09-18.** The daemon the 2026-09-13 text further down describes is gone. The Mac rebooted into
 macOS 27.0 at **2026-09-16 10:38:53**, and the daemon was next launched at **17:28:36** that day,
@@ -150,14 +176,28 @@ First the record, written to a file the assistant can read without `sudo`:
 sudo /usr/bin/sfltool dumpbtm > /tmp/usbdrivetester-btm.txt
 ```
 
-Record #11 — the app record that lists the helper under `Embedded Item Identifiers` — must carry
-`file:///Applications/USBDriveTester.app/`. Only then:
+Record #11 — the app record that lists the helper under `Embedded Item Identifiers` — must name
+`/Applications/USBDriveTester.app`. ⚠️ *Corrected 2026-09-18, on reading the 12:57 dump: this said
+it "must carry `file:///Applications/USBDriveTester.app/`", which is BTM's **log**'s form. The dump
+prints a bare path — `URL: /Applications/USBDriveTester.app` on macOS 27.0, no scheme and no
+trailing slash, and no `file://` in any of its 1,182 lines — so the old wording, read literally,
+fails a correct record.* Only then:
 
 ```bash
 sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
 ```
 
 after which the resolve line is read back headlessly: `to program:` must name `/Applications`.
+
+```bash
+/usr/bin/log show --last 10m --predicate 'process == "xpcproxy" AND eventMessage CONTAINS "to program: " AND eventMessage CONTAINS "USBDriveTester"'
+```
+
+⚠️ *Added 2026-09-18: keep `process == "xpcproxy"` in it.* On macOS 27.0 `log` logs its own
+invocation — `log run noninteractively, parent: … args: '/usr/bin/log' 'show' …` — and a predicate
+on `eventMessage` alone matches that line, because the predicate is among the args. Without the
+process clause the recipe prints a line about itself, and a check for **absence** prints one when
+there is nothing (measured 13:07; `CONSTRAINTS.md` §1).
 
 ⚠️ **Do not run the test suite or run the project from Xcode between those two commands, or after
 them until chunk 3 is walked.** The test host is the app run from DerivedData, and it pulls the
@@ -191,7 +231,8 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
 * **The app installed from a build containing Step 13.** Item 0.1 below.
 
 * **For chunks 2 and 3, the daemon running the installed helper** — resolved from `/Applications`.
-  Since 2026-09-16 it has not been. See *The daemon*, above.
+  From 2026-09-16 it was not; since the kickstart at **2026-09-18 13:06:19** it is, as pid
+  **46679**. Check the pid before each of those chunks — the command is in *The daemon*, above.
 
 * **Nothing else holding the machine awake.** A `caffeinate` left running from another session, or
   a video playing, does not break any item here — every reading is matched on the app's pid — but it
@@ -230,7 +271,7 @@ rather than this instruction — mutation **m9** of chunk 4's round confirms the
 | installed dylib | `a8a0e932…`, byte-identical to the build products (`diff -rq`: **0** differ) |
 | installed helper binary | `7590b920…` — **unchanged from the 2026-09-11 install** |
 | daemon | pid **89541**, uid 0, ppid 1, started **2026-09-08 16:22:50** — the same process, running byte-identical code. ⚠️ **Lapsed 2026-09-16**: that process ended with the reboot into macOS 27.0 — see the re-check below |
-| kickstart | **none owed, none run.** Step 13 is GUI-side; helper source hash `e19b0b3c…` unmoved. ⚠️ **One is owed since 2026-09-16** — see *The daemon* |
+| kickstart | **none owed, none run.** Step 13 is GUI-side; helper source hash `e19b0b3c…` unmoved. ⚠️ **One was owed from 2026-09-16, and was run 2026-09-18 13:06:19** — see *The daemon* |
 
 **And the instrument was re-run the same morning.** `scripts/sleep-assertion-check.sh`, **0
 failures**: the type is `PreventUserIdleSystemSleep`, the `reason` string reaches `named:` verbatim,
@@ -246,7 +287,7 @@ on the first read rather than 90 ms late. **Nothing in chunk 2 below should be w
 | item 0.1 greps | **1** — unchanged |
 | installed dylib | `a8a0e932…` — unchanged |
 | installed helper binary | `7590b920…` — unchanged |
-| daemon | ⚠️ **not the installed helper**: pid 12059, from DerivedData, an Xcode 27 build (`32a647da…`). See *The daemon* |
+| daemon | ⚠️ **not the installed helper**: pid 12059, from DerivedData, an Xcode 27 build (`32a647da…`). **Restored 13:06:19 by a kickstart**: pid 46679, resolved from `/Applications`, running `7590b920…`. See *The daemon* |
 | instrument | `scripts/sleep-assertion-check.sh` re-run on macOS 27.0: **0 failures**, every finding unchanged, release visible after **0.093 s against a 0.087 s read** — still the instrument's floor. Compiled by Xcode 27's Swift 6.4; the probe measures macOS, not this app |
 
 The 2026-09-13 instrument run lapsed with the update, as that script's own footer says it would; this
@@ -319,8 +360,10 @@ rewritten watcher. *Evidence in the Walk record, below.*
 This is gate items 1, 2 and 3 for every ending a person can produce with a button. Chunk 3 covers
 the one they cannot.
 
-⚠️ **Not before the kickstart in *The daemon*, above** — this chunk runs a real test through the
-helper, and the one running since 2026-09-16 is a binary no gate has run against.
+⚠️ **Only against the daemon the kickstart brought up** — pid **46679**, from `/Applications`,
+since 2026-09-18 13:06:19. This chunk runs a real test through the helper, and from 2026-09-16 until
+that kickstart the helper was a binary no gate had run against. Check the pid first (*The daemon*,
+above); if it has changed, read the resolve line before going on.
 
 Start a fresh watcher for this chunk so its summary covers only this walk:
 
