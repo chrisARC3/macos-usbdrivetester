@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5 done, the walk under way)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -52,7 +52,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > declared in advance.** Two of those survivors are the point: deleting the release call outright,
 > and holding the display-sleep assertion instead of the system one, each pass all 1,323 tests.
 > That is what [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for,
-> and walking it is the only chunk left. The engine, the privilege plumbing, the safety guards, metrics, reporting,
+> and walking it is the only chunk left. The walk is under way: item 0 passed on 2026-09-13, and
+> chunk 1's first walk, on 2026-09-18, is not yet a pass — the instrument could not show the reading
+> it was asked for, and has been rewritten. The engine, the privilege plumbing, the safety guards, metrics, reporting,
 > run control, device-loss handling and the pre-run warnings all exist and are exercised on real
 > hardware. Sleep prevention, logging consolidation and notarization do not yet.
 >

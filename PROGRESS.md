@@ -21,7 +21,7 @@ could drift; the commit is the immutable, greppable one.
 
 ---
 
-## Step 13 — System-sleep prevention (NFR-REL-9). **IN PROGRESS — chunks 1–4 of 5 done**
+## Step 13 — System-sleep prevention (NFR-REL-9). **IN PROGRESS — chunks 1–4 of 5 done, chunk 5 under way**
 
 > **Cold start? Step 12 CLOSED 2026-09-11** — all four verification-gate items ticked in
 > `BUILD-PLAN.md` against `7e51398`, app installed from `abc07e3`. Its full account is
@@ -29,18 +29,27 @@ could drift; the commit is the immutable, greppable one.
 > the instrument — chunk 2 — the rule and the seam — chunk 3 — the one acquire/release path — and
 > chunk 4 — the mutation round and the human checklist — are done (chunks 1–3 on 2026-09-12,
 > chunk 4 on 2026-09-13). What remains is chunk 5 alone: the hardware walk and the gate.** The
-> walk is written and unwalked in
-> [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md), and its instrument
-> is `scripts/sleep-assertion-watch.sh`. The suite is
+> walk is in [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) and its
+> instrument is `scripts/sleep-assertion-watch.sh`: **item 0 passed 2026-09-13; chunk 1 was walked
+> once on 2026-09-18 and is not a pass** — the watcher could not show the reading its items asked
+> for, and was rewritten the same morning. Chunks 1, 2 and 3 are owed. The suite is
 > **1323 / 157 / 0**, floor **1323**. The protocol is **v15** and the helper source hash is
 > **`e19b0b3c…`**, unmoved since chunk 7b on 2026-09-07.
 >
-> ⚠️ **Do not kickstart the helper.** BTM record #11 has pointed at **DerivedData** since a
-> 2026-09-09 test run; the running daemon (pid 89541, started 2026-09-08 16:22:50) came from
-> `/Applications` and is unaffected, but **the next kickstart would come up from DerivedData** with
-> byte-identical binaries and a matching protocol saying nothing is wrong. The re-register command
-> needs `sudo` and is in the checklist's Prerequisites — **hand it over, do not run it**. See
-> `CONSTRAINTS.md` §1, *It does not stay fixed* and *The BTM record is keyed by bundle IDENTIFIER*.
+> ⚠️ **A kickstart is owed, and it is handed over — 2026-09-18.** The Mac rebooted into macOS 27.0
+> on 2026-09-16, and the daemon that came up is **Xcode 27's build out of DerivedData** (pid 12059,
+> helper `32a647da…`, not the installed `7590b920…`): a reboot is a kickstart nobody typed. BTM's own
+> log moved record #11 back to `/Applications` at 2026-09-18 10:26:52, when the installed app was
+> launched, so the fix is `sfltool dumpbtm` to confirm and then the kickstart — **both `sudo`, both
+> handed over, never run from here**; the commands are in the checklist's *The daemon*. **Do not run
+> the test suite or the project from Xcode until chunk 3 is walked**: either pulls the record back to
+> DerivedData. See `CONSTRAINTS.md` §1, *A reboot is a kickstart nobody typed*.
+>
+> ⚠️ **Xcode 27.0 replaced Xcode 26.5 at the pinned path on 2026-09-15**, so any build or test run
+> from here on is an Xcode 27 build — and Xcode 27 has left **uncommitted** edits in
+> `project.pbxproj` and `xcschememanagement.plist`, one of which removes `ARCHS = arm64`, a setting
+> BUILD-PLAN keeps on purpose. **Neither committed nor reverted: user decision owed** (the
+> *Toolchain* row below). The walk does not need a build.
 >
 > **Step 13 is small and is mostly a wiring question**, which is why it comes after Step 12 rather
 > than before: it holds an idle-system-sleep assertion while `state == .running` and releases it on
@@ -48,15 +57,16 @@ could drift; the commit is the immutable, greppable one.
 > made the last of those a real path with a real state machine behind it, so Step 13 has exactly one
 > acquire/release site to wire rather than a branch per ending.
 
-### Current state — 2026-09-13, Step 13 chunks 1–4 done
+### Current state — 2026-09-18, Step 13 chunks 1–4 done, chunk 5 under way
 
 | | |
 |---|---|
-| **Step 13** | **in progress — five chunks, 1–4 done (1–3 on 2026-09-12, 4 on 2026-09-13).** (1) the instrument, ✅ done — `tools/sleep-assertion-probe` + `scripts/sleep-assertion-check.sh`, findings in `CONSTRAINTS.md` §1 *Idle-sleep assertions*; (2) the rule and the seam, ✅ done — `RunControlPolicy.preventsIdleSleep(in:)`, `IdleSleepPreventing` / `IdleSleepPreventer` in `RunControl/SleepPrevention.swift`, and `CountingIdleSleepPrevention` in the test target for chunk 3 to inject; (3) the one acquire/release path, ✅ done — `report(_:)` and `apply(_:movingTo:)` both go through a private `move(to:)`, the sole assignment to `state`, which asks the rule about the destination; init parameter `sleepPrevention` **with a default** (Step 12 chunk 6: one without a default breaks `ui-probe` and only `build-tools.sh` finds it), and **`RunControllerWiring` is deliberately unchanged** — the composition root has no automated cover (m17), so nothing there is required for the assertion to work; (4) mutation round + `progress/step-13-human-checklist.md`, ✅ done — **17 mutations, 13 killed, 4 survived, all four declared in advance**, no unexpected survivor and no inconclusive row; the checklist was written alongside the round rather than after it, so its items are built around measured holes; **`scripts/sleep-assertion-watch.sh` is new** — the gate asks a person to press Pause and then read `pmset`, which is a race they cannot win, so the walk gets a 4 Hz change-log instead; (5) hardware walk and the gate, **all that remains**. **No chunk touches `Helper/` or `Shared/`**, so the helper hash does not move and the four gates recorded against it do not lapse — owed items (a) and (b) therefore stay owed. Objective, four detailed steps, three gate items and the one named risk are in `BUILD-PLAN.md` |
+| **Step 13** | **in progress — five chunks, 1–4 done (1–3 on 2026-09-12, 4 on 2026-09-13).** (1) the instrument, ✅ done — `tools/sleep-assertion-probe` + `scripts/sleep-assertion-check.sh`, findings in `CONSTRAINTS.md` §1 *Idle-sleep assertions*; (2) the rule and the seam, ✅ done — `RunControlPolicy.preventsIdleSleep(in:)`, `IdleSleepPreventing` / `IdleSleepPreventer` in `RunControl/SleepPrevention.swift`, and `CountingIdleSleepPrevention` in the test target for chunk 3 to inject; (3) the one acquire/release path, ✅ done — `report(_:)` and `apply(_:movingTo:)` both go through a private `move(to:)`, the sole assignment to `state`, which asks the rule about the destination; init parameter `sleepPrevention` **with a default** (Step 12 chunk 6: one without a default breaks `ui-probe` and only `build-tools.sh` finds it), and **`RunControllerWiring` is deliberately unchanged** — the composition root has no automated cover (m17), so nothing there is required for the assertion to work; (4) mutation round + `progress/step-13-human-checklist.md`, ✅ done — **17 mutations, 13 killed, 4 survived, all four declared in advance**, no unexpected survivor and no inconclusive row; the checklist was written alongside the round rather than after it, so its items are built around measured holes; **`scripts/sleep-assertion-watch.sh` is new** — the gate asks a person to press Pause and then read `pmset`, which is a race they cannot win, so the walk gets a 4 Hz change-log instead; (5) hardware walk and the gate, **under way** — item 0 passed 2026-09-13 and its daemon row lapsed 2026-09-16; chunk 1 walked 2026-09-18 and not passed, because the instrument could not show the reading (rewritten, re-walk owed); chunks 2 and 3 owed, **after the kickstart**. **No chunk touches `Helper/` or `Shared/`**, so the helper hash does not move and the four gates recorded against it do not lapse — owed items (a) and (b) therefore stay owed. ⚠️ **But since 2026-09-16 the running daemon is not the helper binary those gates ran against** — see *Installed app*. Objective, four detailed steps, three gate items and the one named risk are in `BUILD-PLAN.md` |
 | **Step 13's one scoping decision** | **The assertion is held while `state == .running` and in no other state — user decision 2026-09-12.** BUILD-PLAN says `Running`; NFR-REL-9 says *"actively executing"*, and `.pausing`/`.stopping` are states where the helper is still finishing a chunk (bounded by one call of at most `maximumBytesPerCall` = 1 GiB), so the two documents differ on two states. `.running` alone was chosen because pressing Pause or Stop is HID input, which resets the idle timer for the whole settle that press begins; because an item whose reading depends on *when* you look is a bad gate item; and because holding iff `.running` makes the release happen on the transition **out of** running — so `.finished` is never the release site and the leaked-assertion risk `BUILD-PLAN.md` names cannot reach it. The one exit with no HID input in front of it is device loss → `.finishing`, where the drive is already gone. ⚠️ **Corrected 2026-09-12 at chunk 3:** that risk was handed over named as `releaseCannotBeConfirmed`, and measurement says otherwise — *that* path reaches `.finished` synchronously. The state a run can sit in indefinitely is **`.finishing`**, by the opposite path: a release that can be confirmed and is never answered. See the annotation under *What Step 13 inherits* |
-| **Verified** | **1323 tests, 0 failures, 157 suites** (floor `scripts/.test-floor` = **1323**, ratcheted at Step 13 chunk 3 — the floor raises itself), run green **2026-09-13 10:29**, zero Swift warnings in the build and the test build. **Chunk 4's mutation round ran the suite 17 more times** — every run complete at 1323, no incomplete run and no inconclusive row. **14/14** gate clients type-check. ⚠️ `scripts/build-tools.sh` is what catches those: the app build does not compile `tools/`, so a new `RunController` parameter without a default breaks `ui-probe` and nothing else would find it — that happened at Step 12 chunk 6 |
+| **Verified** | **1323 tests, 0 failures, 157 suites** (floor `scripts/.test-floor` = **1323**, ratcheted at Step 13 chunk 3 — the floor raises itself), run green **2026-09-13 10:29** with Xcode 26.5 on macOS 26, zero Swift warnings in the build and the test build. ⚠️ **Not run since the toolchain moved** — deliberately: a test run re-points BTM mid-walk, and the Xcode 27 question is open (*Toolchain*). **Chunk 4's mutation round ran the suite 17 more times** — every run complete at 1323, no incomplete run and no inconclusive row. **14/14** gate clients type-check. ⚠️ `scripts/build-tools.sh` is what catches those: the app build does not compile `tools/`, so a new `RunController` parameter without a default breaks `ui-probe` and nothing else would find it — that happened at Step 12 chunk 6 |
 | **Helper** | source hash **`e19b0b3c972d4b5bf9e052d087df231d34c8eee65aaddb9d772ce338db35edb9`**, unmoved since **2026-09-07** (Step 12 chunk 7b). **Re-derive it before trusting any hardware gate result** — `find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USBDriveTester/Shared -name '*.swift' \| sort \| xargs cat \| shasum -a 256`. Step 13 is described as **GUI-side** in `BUILD-PLAN.md`, so it should not move the hash; if a chunk of it does, say so before writing the code, because **four hardware gates and the whole of Step 12's checklist are recorded against this hash** |
-| **Installed app** | `/Applications/USBDriveTester.app`, Debug, **installed 2026-09-11 11:02:01** from `abc07e3`. Proved by content: `diff -rq` against DerivedData **0** differ, dylib **`c08f95ad…`** (re-checked 18:0x on 2026-09-11, unchanged), helper binary **`7590b920…`** byte-identical. Daemon **pid 89541**, uid 0, ppid 1, started **2026-09-08 16:22:50**, protocol **v15**, resolved from `/Applications`. ⚠️ **Grep `Contents/MacOS/USBDriveTester.debug.dylib`, never `Contents/MacOS/USBDriveTester`** — the latter is a 59 KB launcher stub and a content proof aimed at it returns 0 for everything, reading exactly like a failed install. ⚠️ **Prove an install by content, never by timestamp**, and take the DerivedData hash *after* the install: `install-app.sh` rebuilds through `build.sh` |
+| **Installed app** | `/Applications/USBDriveTester.app`, Debug, **installed 2026-09-13 10:51** from **`af09416`** (Step 13 chunk 4), built with Xcode 26.5. Proved by content: checklist item 0.1 greps **1** — the `abc07e3` build it replaced read 0 — dylib **`a8a0e932…`**, `diff -rq` against the build products **0** differ, helper binary **`7590b920…`**, unchanged since 2026-09-11. **Re-checked 2026-09-18: unchanged.** ⚠️ **The daemon is not running it.** Pid **12059**, uid 0, started **2026-09-16 17:28:36**, after the macOS 27.0 reboot, and resolved by `xpcproxy` to **DerivedData**: Xcode 27's build of unchanged source, helper binary **`32a647da…`**, protocol v15. A kickstart is owed and handed over (cold start, above). ⚠️ This row still named `abc07e3` until 2026-09-18 — `f7e2ff3`, the install's own commit, edited only the checklist (*Chunk 5*, below). ⚠️ **Grep `Contents/MacOS/USBDriveTester.debug.dylib`, never `Contents/MacOS/USBDriveTester`** — the latter is a 59 KB launcher stub and a content proof aimed at it returns 0 for everything, reading exactly like a failed install. ⚠️ **Prove an install by content, never by timestamp**, and take the DerivedData hash *after* the install: `install-app.sh` rebuilds through `build.sh` |
+| **Toolchain** | **Xcode 27.0 (27A266a) since 2026-09-15**, installed over Xcode 26.5 at the pinned `/Applications/Development/Xcode.app`; **macOS 27.0 (26A428) since 2026-09-16**. Every build, test run and gate result recorded before 2026-09-18 was made with Xcode 26 on macOS 26 — including the installed app, which nothing on this machine can now rebuild byte for byte. Xcode 27 has left **uncommitted** edits: `project.pbxproj` — `LastUpgradeCheck` 2660 → 2700, **`ARCHS = arm64` removed** from the project's Debug and Release, `DEAD_CODE_STRIPPING = YES` on every target, `STRING_CATALOG_GENERATE_SYMBOLS = YES` — and an `orderHint` swap in `xcschememanagement.plist`. **User decision owed: take them, or restore `ARCHS = arm64`**, which BUILD-PLAN's *The build environment* keeps on purpose. Measured behaviour re-checked on macOS 27 so far: *Idle-sleep assertions* only, 0 failures (`CONSTRAINTS.md` §1) |
 | **Owed, carried out of Step 12** | **(a) `RetentionTestEngine.classify`'s *"What remains open"* note is stale** — no short transfer, six of six, checklist 5.2 measured it 2026-09-09. It is **helper source**, so fixing it moves the hash and lapses four hardware gates for a comment. **User decision 2026-09-11: it waits for the next helper-source change.** Whichever chunk first touches `Helper/` or `Shared/` pays it. **(b) The build flavour is coverage-instrumented** — user decision 2026-09-11, left as is until the next helper-source change or Step 16, whichever comes first (`CONSTRAINTS.md` §1, *Every scheme build is coverage-instrumented*); **Step 16 must build without it**. **(c) Noticed, not changed:** `DeviceDiscovery.deselect()`'s doc and `DeviceDiscoveryTests.swift:205` still justify refusing a deselection during a run by *"the helper's claim follows the selection"* — a rule Step 11 increment 5 retired (`DeviceListView.swift`: *"The claim no longer follows the selection"*). The refusal may still be right; its stated reason is not, and naming the real one is a **design question**, not a comment fix. And `scripts/mount-change-test.sh:46` kills with `pkill -f`, the matcher `install-app.sh` and `lifecycle-check.sh` were both fixed away from on 2026-09-11 — it would also kill any process whose *arguments* carry the name |
 | **No automated cover** | Four things, inherited and still true — they are in `progress/step-12-human-checklist.md`'s own list with what a person checks instead: `deviceUnderTest = nil` in `driveIsBack()`; the identity of the device-loss SF Symbol; **`RunControllerWiring`'s `onDeviceLost:` closure**, the composition root, where mutation m17 deletes the call and the whole suite passes; and **the device-loss alert itself**, which `render-ui.sh` cannot capture because an `.alert` takes its own window. ✅ **Step 13's assertion joined this list on 2026-09-13, as predicted, and measurement says which half**: it is not the *decision* that has no cover but the **effect**. Mutation **m7** — delete `endActivity(token)`, keep `token = nil` — passes all 1323 tests, and that is NFR-REL-9's defect exactly; **m8** — hold the display-sleep assertion instead of the system one — passes all 1323 too. Both are in `progress/step-13-human-checklist.md`'s own list with the items that check them |
 
@@ -139,6 +149,40 @@ log cannot tell the app from the test host by process name — both are `USBDriv
 `scripts/test.sh` emits hundreds of genuine `run control: … → running` / `sleep prevention: holding …`
 pairs. Observed at 09:59:42 on 2026-09-13, from this very round. Checklist item 2.2 says to match the
 pid the watcher printed, and not to run the suite during a walk.
+
+### Chunk 5 — the walk, under way
+
+**Item 0 passed 2026-09-13** (`f7e2ff3`): the app installed from `af09416`, proved by content on
+the dylib.
+
+**2026-09-16 moved the machine under it.** macOS 27.0 installed and rebooted at 10:38:53, and at
+17:28:36 Xcode 27 ran the project; the first launch of the daemon after the reboot resolved through
+BTM record #11, which had been on DerivedData since 2026-09-09. So item 0's daemon row lapsed and
+the instrument's 2026-09-13 run lapsed with the OS. The instrument was re-run on macOS 27.0 on
+2026-09-18: **0 failures**, every finding unchanged.
+
+**Chunk 1's first walk, 2026-09-18, is not a pass, and the defects were both in the instrument.**
+The watcher printed *held* only in a header, so item 1.1's `held 0` was on no line; item 1.2's
+`| head -12` printed the summary and cut off the owner it asked for. The watcher now carries its
+reading on every line (`pid N  held N  …`), names the executable of every new pid from the kernel,
+prints a heartbeat so a transcript shows it was watching during an event that changes nothing, and
+prints `held ?` rather than a number it did not read when two copies are running. Tested against
+`powerd`, Finder, a name not running and a disposable binary relaunched and run twice at once, with
+the summary on SIGTERM. *(A copy of `/bin/sleep` cannot stand in for that binary: Apple's platform
+binaries are killed at exec when run from another path — status 137.)*
+
+**Which copy of the app ran chunk 1 was first answered wrongly, from the log.** `log show`'s
+`processImagePath` named a DerivedData folder that no longer exists; the same lines'
+`processImageUUID` is the installed stub's, and BTM resolved the process to `/Applications`. That
+went into `CONSTRAINTS.md` §1, and it is why the watcher now names the executable itself.
+
+**Twelfth and thirteenth lapses of the status-block rule, both committed 2026-09-13 and found
+2026-09-18.** *Twelfth*: chunk 4's `af09416` updated `BUILD-PLAN.md`'s lower status block and not its
+top one, which went on naming Step 13's done chunks as 1, 2 and 3 — the sixth lapse's shape exactly;
+the grep was for the sentence being added, and the top block words the chunks differently. *Thirteenth*:
+chunk 5's `f7e2ff3` installed a new build and edited only the checklist, so this file's *Installed
+app* row went on naming `abc07e3`. An install retires the old build's hash everywhere it is named as
+current, and **`git grep abc07e3` would have found the row**.
 
 ---
 

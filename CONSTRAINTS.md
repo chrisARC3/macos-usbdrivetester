@@ -28,6 +28,11 @@ drift this consolidation exists to remove.
 
 ## 1. Measured behaviour that constrains design
 
+> ⚠️ **2026-09-18: this Mac has run macOS 27.0 (26A428) since 2026-09-16, and Xcode 27.0 (27A266a)
+> since 2026-09-15.** Every measurement in this section was taken on macOS 26 unless its entry says
+> otherwise, and a platform update is exactly what can move one. **Only *Idle-sleep assertions* has
+> been re-measured.** Re-measure an entry before a design leans on it.
+
 ### XPC: the connection blocks, not the daemon
 
 While the helper is inside a blocking privileged call, **a second message on that same connection is
@@ -423,6 +428,34 @@ Apple and both were found only because someone pressed the button.
     2026-09-10, `authd` logging a `system.privilege.admin` authorization for each of two runs made
     from an agent's shell, and a third left waiting on its dialog. It is a hand-over command, like
     the kickstart.
+  - **⚠️ A reboot is a kickstart nobody typed — 2026-09-16, found 2026-09-18.** The Mac rebooted
+    into macOS 27.0 at 10:38:53 with record #11 still on DerivedData, and the daemon, which launches
+    on demand, did not run again until 17:28:36, when Xcode 27 ran the project. `xpcproxy[12059]`
+    resolved it to the DerivedData bundle Xcode had rebuilt five seconds earlier — a helper binary
+    no gate had run against, from unchanged source. *Do not kickstart* protected nothing: the daemon
+    it protected did not survive the reboot, and the first launch after one goes through the record
+    as it stands. **After a reboot, read the record and the resolve line as after a kickstart.**
+  - **The reverse direction, now measured from BTM's own log — 2026-09-18 10:26:52.825.** Launching
+    the installed app moved record #11 back:
+
+    ```
+    _bundleURLForAuditToken: updating item …, name=USBDriveTester, type=app, …
+      url=file:///…/DerivedData/USBDriveTester-djyud…/Build/Products/Debug/USBDriveTester.app/
+      URL to: file:///Applications/USBDriveTester.app/
+    ```
+
+    The only move of the record between 2026-09-13 and then. So the record follows **whichever copy
+    of the app last asked** — a test host, an Xcode run or the installed app — and the running daemon
+    feels none of it.
+  - **⚠️ `log show`'s `processImagePath` is not provenance either — measured 2026-09-18.** The
+    unified log looks the path up through the binary's LC_UUID, so two copies of one binary share one
+    path in it. All 167 lines from the installed app's pid 24803 were attributed to
+    `DerivedData/USBDriveTester-fndvz…/…/MacOS/USBDriveTester`, a folder that no longer exists, while
+    their `processImageUUID` was the installed stub's own, `EE5AD84B…`. The 59 KB launcher stub is the
+    binary most likely to be identical across copies, because it holds none of the app's code. For a
+    process of the logged-in user, `lsof -a -p <pid> -d txt -Fn` names the executable from the
+    kernel; `scripts/sleep-assertion-watch.sh` prints it for every new pid. For the root daemon the
+    resolve line is still the only witness.
 
 ### Every scheme build is coverage-instrumented — measured 2026-09-10
 
@@ -805,6 +838,10 @@ Measured by `scripts/sleep-assertion-check.sh` and `tools/sleep-assertion-probe`
 (Darwin 25.6.0), before a line of Step 13 was written. Nothing here is about this app, so **it does
 not lapse when a commit moves — it lapses on a macOS update.** Re-run it then, and before walking
 Step 13's gate on a machine that has been updated since.
+
+✅ **Re-measured 2026-09-18 on macOS 27.0 (26A428, Darwin 27.0.0)**, two days after the update: **0
+failures, every finding below unchanged**, release visible after 0.093 s against 0.087 s for one
+read. The probe was compiled by Xcode 27's Swift 6.4, which does not bear on what it measures.
 
 - **`ProcessInfo.beginActivity(options: [.idleSystemSleepDisabled], reason:)` publishes exactly one
   `PreventUserIdleSystemSleep`**, attributed to the process's pid, and **the `reason:` string is

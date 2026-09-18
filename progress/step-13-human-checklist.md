@@ -1,11 +1,17 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-13: IN PROGRESS at chunk 5. Item 0 PASSED; chunks 1, 2 and 3 are UNWALKED.**
-> Written at **chunk 4**, alongside the mutation round rather than after it, against commit
-> `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash **`e19b0b3c…`**. The
-> app was installed from **`af09416`** on 2026-09-13 at 10:51 and **item 0.1 passed against it** —
-> the build it replaced, `abc07e3`, predated every line of Step 13 and read 0. **No kickstart was
-> owed and none was run.** Nothing below item 0 has been run by a person.
+> **STATUS, 2026-09-18: IN PROGRESS at chunk 5. Item 0 PASSED 2026-09-13, and its daemon row has
+> since LAPSED. Chunk 1 was walked once, on 2026-09-18, and is NOT passed — the watcher could not
+> show the reading its items asked for, and has been rewritten. Chunks 1, 2 and 3 are owed; 2 and 3
+> not before a kickstart.** Written at **chunk 4**, alongside the mutation round rather than after
+> it, against commit `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash
+> **`e19b0b3c…`** (re-derived 2026-09-18, unmoved). The app was installed from **`af09416`** on
+> 2026-09-13 at 10:51 and **item 0.1 passed against it**; the build it replaced, `abc07e3`, predated
+> every line of Step 13 and read 0. Re-checked 2026-09-18: the installed app is unchanged.
+> ⚠️ **What moved underneath it was the machine, not the code.** macOS **27.0** (26A428) was
+> installed and the Mac rebooted on **2026-09-16**, and the daemon that came up afterwards is an
+> **Xcode 27 build out of DerivedData** (pid 12059, helper `32a647da…`), not the installed
+> `7590b920…`. See *The daemon*, below.
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -59,7 +65,33 @@ running machine.
 opening a terminal is sampling a second or two later and can only report the end state. The watcher
 polls at 4 Hz and prints a line on every change, so the transcript holds the transitions themselves
 and the timestamps line up with the app's own log. Start it before the chunk, do the GUI walk, press
-Ctrl-C, and paste the transcript into the chunk's record.
+Ctrl-C, and paste the transcript **and the summary it prints** into the chunk's record.
+
+**Every line carries its own reading**, so nothing depends on a header that has scrolled away. The
+format (the pid is illustrative):
+
+```
+10:26:52  pid 12345  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+10:26:52  pid 12345  held 0  (owns no assertions)
+10:27:52  pid 12345  held 0  (unchanged)
+```
+
+* **`exe`** is printed once for each new pid, taken from the kernel, before anything about what it
+  holds. If it is not the installed app, the next line says `!! NOT THE INSTALLED APP` — quit that
+  copy, launch `/Applications/USBDriveTester.app`, and start the item again. Readings from another
+  copy are about another build.
+* **`held N`** is the number of `PreventUserIdleSystemSleep` assertions that pid owns, and it is what
+  every item below reads. Everything else the pid owns follows it on the same line.
+* **`(unchanged)`** is a heartbeat, once a minute while nothing moves. It is how a transcript shows it
+  was watching while something happened that was supposed to change nothing — item 1.3.
+* **`held ?`** means more than one process is called `USBDriveTester` — an Xcode run beside the
+  installed app, say — and the watcher refuses to guess which one you are testing. Quit the other.
+
+⚠️ **Rewritten 2026-09-18, after chunk 1's first walk.** The first version printed the word *held*
+only in a header row, over bare columns that its own em-dash placeholder pushed out of line, and
+item 1.1 asked a person to find `held 0` in it. They could not, and said so. It is the shape of one
+of the defects found in the week of 2026-09-04: an item asking for a reading off a line that does
+not carry it.
 
 ⚠️ **Never answer a gate item from the system-wide summary at the top of `pmset -g assertions`.**
 `PreventUserIdleSystemSleep` reads **1** on this machine with nothing of ours running, because
@@ -80,7 +112,59 @@ live in the dylib beside it. Grepping the stub returns 0 for every product strin
 exactly like a failed install (measured 2026-09-08, after that false negative was taken at face
 value for one command).
 
-### ⚠️ No kickstart is owed by this step, and none must be run
+### ⚠️ The daemon — a kickstart is owed since 2026-09-16, and it is handed over
+
+**2026-09-18.** The daemon the 2026-09-13 text further down describes is gone. The Mac rebooted into
+macOS 27.0 at **2026-09-16 10:38:53**, and the daemon was next launched at **17:28:36** that day,
+when Xcode 27 ran the project: `xpcproxy[12059]` resolved it **to program:
+`…/DerivedData/USBDriveTester-djyud…/Build/Products/Debug/USBDriveTester.app/Contents/MacOS/`**, five
+seconds after Xcode 27 had rebuilt that bundle. Since then the daemon under this walk has been:
+
+| | |
+|---|---|
+| pid | **12059**, root, ppid 1, started **2026-09-16 17:28:36** |
+| from | **DerivedData**, per `xpcproxy`'s resolve line — not `/Applications` |
+| helper binary | **`32a647da…`**, built by **Xcode 27** at 17:28:31. The installed one is `7590b920…` |
+| helper source | `e19b0b3c…`, unmoved. The **toolchain and the build settings** differ, not the code |
+
+No gate in this project has run against that binary. **Chunk 1 does not depend on it**: it reads the
+app's assertions, and the app is the installed `af09416` build. **Chunks 2 and 3 do**: they run a
+real test through the helper, and a pass recorded against a helper that Xcode rebuilds on every run
+is a pass about nothing in particular.
+
+**The record has already moved back.** BTM's own log, at the moment the installed app was launched
+for chunk 1's first walk:
+
+```
+2026-09-18 10:26:52.825  _bundleURLForAuditToken: updating item …, name=USBDriveTester, type=app, …
+  url=file:///…/DerivedData/USBDriveTester-djyud…/Build/Products/Debug/USBDriveTester.app/
+  URL to: file:///Applications/USBDriveTester.app/
+```
+
+It is the only move of the record since 2026-09-13. So a kickstart now should bring the daemon up
+from `/Applications` — but **read the record first and the resolve line after** (`CONSTRAINTS.md`
+§1). Both commands need `sudo`, so they are handed over and never run from an assistant's shell.
+First the record, written to a file the assistant can read without `sudo`:
+
+```bash
+sudo /usr/bin/sfltool dumpbtm > /tmp/usbdrivetester-btm.txt
+```
+
+Record #11 — the app record that lists the helper under `Embedded Item Identifiers` — must carry
+`file:///Applications/USBDriveTester.app/`. Only then:
+
+```bash
+sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper
+```
+
+after which the resolve line is read back headlessly: `to program:` must name `/Applications`.
+
+⚠️ **Do not run the test suite or run the project from Xcode between those two commands, or after
+them until chunk 3 is walked.** The test host is the app run from DerivedData, and it pulls the
+record to itself (measured 2026-09-09). The running daemon would not feel it; any relaunch would —
+a kickstart, a crash, or a reboot, which is how this one happened.
+
+**As written 2026-09-13, true then, and kept as the record of when it stopped being true:**
 
 **Step 13 is GUI-side only.** It touches `RunControlState.swift`, `SleepPrevention.swift` and
 `RunController.swift`, all in the app target; the **helper source hash is `e19b0b3c…`, unmoved since
@@ -105,6 +189,9 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
   ```
 
 * **The app installed from a build containing Step 13.** Item 0.1 below.
+
+* **For chunks 2 and 3, the daemon running the installed helper** — resolved from `/Applications`.
+  Since 2026-09-16 it has not been. See *The daemon*, above.
 
 * **Nothing else holding the machine awake.** A `caffeinate` left running from another session, or
   a video playing, does not break any item here — every reading is matched on the app's pid — but it
@@ -142,8 +229,8 @@ rather than this instruction — mutation **m9** of chunk 4's round confirms the
 | item 0.1 greps | **1** — the previous install, from `abc07e3`, read **0** |
 | installed dylib | `a8a0e932…`, byte-identical to the build products (`diff -rq`: **0** differ) |
 | installed helper binary | `7590b920…` — **unchanged from the 2026-09-11 install** |
-| daemon | pid **89541**, uid 0, ppid 1, started **2026-09-08 16:22:50** — the same process, running byte-identical code |
-| kickstart | **none owed, none run.** Step 13 is GUI-side; helper source hash `e19b0b3c…` unmoved |
+| daemon | pid **89541**, uid 0, ppid 1, started **2026-09-08 16:22:50** — the same process, running byte-identical code. ⚠️ **Lapsed 2026-09-16**: that process ended with the reboot into macOS 27.0 — see the re-check below |
+| kickstart | **none owed, none run.** Step 13 is GUI-side; helper source hash `e19b0b3c…` unmoved. ⚠️ **One is owed since 2026-09-16** — see *The daemon* |
 
 **And the instrument was re-run the same morning.** `scripts/sleep-assertion-check.sh`, **0
 failures**: the type is `PreventUserIdleSystemSleep`, the `reason` string reaches `named:` verbatim,
@@ -151,6 +238,20 @@ two activities from one process show as **two** entries, ending one leaves the o
 system-wide summary did not move when we took one (baseline 1, held 1). Release was visible in
 **0.090 s against a 0.086 s read cost** — at the instrument's floor, so the release is already true
 on the first read rather than 90 ms late. **Nothing in chunk 2 below should be waited for.**
+
+**Re-checked 2026-09-18, headless, after the Mac was updated to macOS 27.0 (26A428) on 2026-09-16.**
+
+| | |
+|---|---|
+| item 0.1 greps | **1** — unchanged |
+| installed dylib | `a8a0e932…` — unchanged |
+| installed helper binary | `7590b920…` — unchanged |
+| daemon | ⚠️ **not the installed helper**: pid 12059, from DerivedData, an Xcode 27 build (`32a647da…`). See *The daemon* |
+| instrument | `scripts/sleep-assertion-check.sh` re-run on macOS 27.0: **0 failures**, every finding unchanged, release visible after **0.093 s against a 0.087 s read** — still the instrument's floor. Compiled by Xcode 27's Swift 6.4; the probe measures macOS, not this app |
+
+The 2026-09-13 instrument run lapsed with the update, as that script's own footer says it would; this
+is its re-run. **Item 0.1 did not lapse**: the installed app is the same bytes. *What would invalidate
+this re-check:* another install, or another macOS update.
 
 ---
 
@@ -168,27 +269,46 @@ Start the watcher in its own terminal and leave it running for the whole chunk:
 **1.1 — at rest, the app holds nothing.** Launch USBDriveTester from `/Applications`. Do not select
 anything, do not start a run.
 
-*Pass:* the watcher prints a line naming the app's pid with **held 0** and `—` for the assertions.
-*Fail:* any `PreventUserIdleSystemSleep` line attributed to the app's pid before a run has started.
+*Pass:* the watcher prints the app's pid with
+`exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester`, and then
+`held 0  (owns no assertions)`.
+*Fail:* `held 1` or more for the app's pid before a run has started.
+*Neither:* `!! NOT THE INSTALLED APP` — see *Running it*; quit that copy and start the item again.
 
 **1.2 — look at the trap once.** In another terminal:
 
 ```bash
-/usr/bin/pmset -g assertions | /usr/bin/head -12
+/usr/bin/pmset -g assertions | /usr/bin/grep -E "^ +PreventUserIdleSystemSleep +[0-9]|PreventUserIdleSystemSleep named"
 ```
 
-The summary block near the top reads `PreventUserIdleSystemSleep   1` **right now**, with the app
-holding nothing. Find the owner further down — it is `powerd`, named *"Powerd - Prevent sleep while
-display is on"*.
+Two lines come back. The first is the system-wide summary, `PreventUserIdleSystemSleep   1`,
+reading 1 **right now** with the app holding nothing. The second is its owner:
+`pid NNN(powerd): … PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"`.
 
-*Pass:* you have seen the 1 and identified `powerd` as its owner. There is nothing to fix; this item
-exists so that no later item is answered from that line.
+*Pass:* you have seen the 1 and that its owner is `powerd`, and no line names the app's pid. There is
+nothing to fix; this item exists so that no later item is answered from that line.
+⚠️ **Corrected 2026-09-18.** This item said `| head -12`, which prints the summary and cuts off the
+owner list the item asks you to read. The first walk could not find `powerd` from it.
 
 **1.3 — selecting a drive holds nothing.** Select the 1 TB scratch T5 **by serial** in the device
 pane. Do not press Start.
 
-*Pass:* still **held 0**. Selection is not a run; `preventsIdleSleep(in: .idle)` is false and this is
-the observable half of it.
+Then **wait for one `(unchanged)` line** — at most a minute — before pressing Ctrl-C. A change-only
+log cannot show it was watching during an event that changed nothing; the heartbeat can.
+
+*Pass:* no `held 1` anywhere in the transcript, an `(unchanged)` line after the selection, and the
+summary reading `most at once     held 0`. Selection is not a run;
+`preventsIdleSleep(in: .idle)` is false and this is the observable half of it.
+
+**First walk, 2026-09-18 10:26–10:34 — not recorded as a pass.** It ran against the installed
+`af09416` app, pid 24803 (the log's `processImageUUID` for that pid is the installed stub's LC_UUID,
+`EE5AD84B…`, and BTM resolved the process's bundle to `/Applications`). **1.1** read 0, on a line that did not
+say what the 0 was — the watcher printed *held* only in its header. **1.2**'s `head -12` showed the 1
+and cut off its owner; the owner was confirmed headlessly afterwards as `powerd`, pid 595. **1.3**:
+the app logged selecting `disk8` — the scratch T5 by serial, `12345686DAA9` — at 10:28:57, and the
+transcript has no line after 10:26:52 and no end time, so it cannot show it was watching then. **What
+failed was the instrument, and it was fixed rather than argued with.** Re-walk owed, with the
+rewritten watcher. *Evidence in the Walk record, below.*
 
 **Walked:** date ________ build ________ watcher transcript pasted below.
 
@@ -198,6 +318,9 @@ the observable half of it.
 
 This is gate items 1, 2 and 3 for every ending a person can produce with a button. Chunk 3 covers
 the one they cannot.
+
+⚠️ **Not before the kickstart in *The daemon*, above** — this chunk runs a real test through the
+helper, and the one running since 2026-09-16 is a binary no gate has run against.
 
 Start a fresh watcher for this chunk so its summary covers only this walk:
 
@@ -255,7 +378,8 @@ second half of every paused run with no assertion at all and nothing would say s
 **2.5 — three pause/resume cycles, and never two at once.** Repeat 2.3/2.4 twice more, then read the
 watcher's summary (Ctrl-C, or leave it and read it at the end of the chunk).
 
-*Pass:* `most at once  1  (PreventUserIdleSystemSleep only)` and a `changes` count of at least 7.
+*Pass:* `most at once     held 1  (PreventUserIdleSystemSleep only)` and a `changes` count of at
+least 7.
 **This is gate item 3, and the summary line is the evidence** — a person sampling `pmset` after
 three cycles sees one entry whether the count went 1,0,1,0,1 or 1,2,3, because a leak is a property
 of a *sequence*. Chunk 1 measured that two activities from one process publish two entries with two
@@ -280,7 +404,8 @@ adjacent to `running → finishing`.
 
 **2.8 — quitting with no run holds nothing.** Quit the app.
 
-*Pass:* the watcher's last line reads `(USBDriveTester is not running)`. An assertion outlives the
+*Pass:* the watcher prints `pid -  held 0  (USBDriveTester is not running)`, with nothing after it
+but `(unchanged)` lines. An assertion outlives the
 process that took it only if the process is still alive, so this is really a check that nothing
 *else* was left behind.
 
@@ -398,3 +523,25 @@ not argued for. The suite total was **1,323** for every row.
 
 *(Paste watcher transcripts, log extracts and dates here as chunks are walked. Each chunk's own
 **Walked** line above is the record of record; this section is the evidence behind it.)*
+
+### Chunk 1, first walk — 2026-09-18, not a pass
+
+**Build:** installed app from `af09416` (dylib `a8a0e932…`); daemon pid 12059 from DerivedData, which
+chunk 1 does not read. **Watcher:** the 2026-09-13 version, as committed in `af09416`. As pasted:
+
+```
+10:26:43  —      0     (USBDriveTester is not running)
+10:26:52  24803          ── pid changed (— → 24803): the app was relaunched
+10:26:52  24803    0     —
+```
+
+No summary: the transcript ends there, with no end time. From the app's own log afterwards,
+headless: the app selected `disk8` at **10:28:57** and quit at **10:34:41**; `disk8` resolved by
+serial to the 1 TB scratch T5, `12345686DAA9`. Item 1.2 was answered from `head -12`, whose output
+ends at the summary block.
+
+**Which copy was running was settled by two instruments, after a third gave the wrong answer.**
+`log show` attributed all 167 of pid 24803's lines to a `USBDriveTester-fndvz…` DerivedData folder
+that no longer exists. That path is looked up through the binary's LC_UUID, and the log carries the
+UUID too: `EE5AD84B…`, the installed stub's. BTM resolved the same process's bundle to
+`/Applications` at 10:26:52.825. `CONSTRAINTS.md` §1 now says so.

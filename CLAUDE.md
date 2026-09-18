@@ -46,12 +46,12 @@ has not been re-run cannot report anything.*
 
 **A status block that disagrees with the body is worse than no status block.** When one is edited,
 every other status block in the repository is edited in the same commit — `grep -rn` is the check,
-and this project has now paid for skipping it **ten** times. **Grep for the claim, not for the
+and this project has now paid for skipping it **thirteen** times. **Grep for the claim, not for the
 filename.** Snapshot blocks are the exception: correct them by annotating with a date, never by
 rewriting them to match today.
 
-The last five are the shape of the problem. The sixth, seventh, eighth and tenth were each in a
-place the previous fix had not thought of; the ninth was not:
+From the sixth on they are the shape of the problem. The sixth, seventh, eighth and tenth were each
+in a place the previous fix had not thought of; the ninth, twelfth and thirteenth were not:
 
 - **Sixth, 2026-09-05** — `BUILD-PLAN.md` holds **two** status blocks, 400 lines apart, and Step 12's
   chunks 1 and 2 updated only the lower one.
@@ -75,6 +75,14 @@ place the previous fix had not thought of; the ninth was not:
   file. It names no step, so the grep for the five blocks below never reaches it. **A checklist's
   status line is a status block about itself**: the commit that fills in a **Walked** line edits it
   too.
+- **Eleventh to thirteenth, 2026-09-13** — all three in commits written knowing this rule. The
+  eleventh was a claim corrected in two documents and left standing in the doc comment of the rule it
+  described. The **twelfth was the sixth again**: chunk 4 updated `BUILD-PLAN.md`'s lower block and
+  not its top one, which words the chunks differently from the sentence the grep was for. The
+  **thirteenth** was an install whose commit touched only the checklist, so `PROGRESS.md`'s
+  *Installed app* row went on naming the old build for five days. **An install retires the old
+  build's hash everywhere it is named as current — grep for the hash.** The last two were found on
+  2026-09-18, while writing up the walk that followed them.
 
 **Four files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
 and `BUILD-PLAN.md` (twice). That is five blocks, and the grep has to find all five.

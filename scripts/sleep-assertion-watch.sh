@@ -27,39 +27,67 @@
 # sampling after three pause/resume cycles sees the same one entry whether the count went 1,0,1,0,1
 # or 1,2,3. This prints the count on every change and reports the maximum at the end.
 #
+# EVERY LINE CARRIES ITS OWN READING — rewritten 2026-09-18 after the first walk
+#
+# The first version printed a header row (`time  pid  held  assertions…`) and then bare columns.
+# Checklist chunk 1, walked 2026-09-18, found that **the word "held" appeared on no line at all** —
+# the checklist told a person to look for `held 0`, and the transcript carried `0` under a header,
+# misaligned by two columns because bash's `printf %-6s` pads BYTES and the em-dash placeholder was
+# three of them. During a run lasting hours the header scrolls away and a bare `1` means nothing.
+# That is the shape of one of the defects found in the week of 2026-09-04 (CLAUDE.md): an item
+# asking for a reading off a line that does not carry it. Now every line reads `pid N  held N  …` in
+# ASCII, and the header is gone.
+#
+# Two more things the first walk showed a transcript needs:
+#
+#   * **Which copy of the app is this?** Printed on every new pid, from the kernel (`lsof`'s txt
+#     mapping, falling back to `ps`), with a warning if it is not `/Applications`. NOT from the
+#     unified log: `log show`'s `processImagePath` is resolved through a cache keyed by the binary's
+#     UUID, and on 2026-09-18 it attributed the installed app to a DerivedData folder that no longer
+#     existed (`CONSTRAINTS.md` §1).
+#   * **Was it watching when the thing happened?** A change-only log cannot show that it covered an
+#     event which changed nothing — item 1.3 selects a drive and expects NO line. So a heartbeat line
+#     is printed every `--heartbeat` seconds (default 60) whether or not anything changed.
+#
 # WHAT IT DOES TO THE MACHINE
 #
 # Nothing. It reads `pmset -g assertions` in a loop. No sudo, no drive, no writes — it does not
 # even need the app to be running when it starts; it waits, and it keeps running across a relaunch.
 #
 # Usage:
-#   scripts/sleep-assertion-watch.sh [--for <seconds>] [--interval <seconds>] [--name <process>]
+#   scripts/sleep-assertion-watch.sh [--for <s>] [--interval <s>] [--heartbeat <s>] [--name <process>]
 #
-#     --for       stop after this many seconds and print the summary (default: until Ctrl-C)
-#     --interval  seconds between samples (default: 0.25)
-#     --name      process to watch (default: USBDriveTester)
+#     --for        stop after this many seconds and print the summary (default: until Ctrl-C)
+#     --interval   seconds between samples (default: 0.25)
+#     --heartbeat  seconds between "still watching" lines when nothing changes (default: 60; 0 = off)
+#     --name       process to watch (default: USBDriveTester)
 #
-# Ctrl-C prints the summary too — that is the ordinary way to end it.
+# Ctrl-C prints the summary too — that is the ordinary way to end it. Paste the summary with the
+# transcript: its start and end times are what show the transcript covered the walk.
 #
 set -uo pipefail
 
 INTERVAL=0.25
 DURATION=0
+HEARTBEAT=60
 PROCESS_NAME="USBDriveTester"
+INSTALLED_PREFIX="/Applications/USBDriveTester.app/"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --for)      DURATION="${2:-}"; shift 2 ;;
-        --interval) INTERVAL="${2:-}"; shift 2 ;;
-        --name)     PROCESS_NAME="${2:-}"; shift 2 ;;
-        -h|--help)  sed -n '2,42p' "$0"; exit 0 ;;
-        *)          echo "unknown argument: $1" >&2; exit 2 ;;
+        --for)       DURATION="${2:-}"; shift 2 ;;
+        --interval)  INTERVAL="${2:-}"; shift 2 ;;
+        --heartbeat) HEARTBEAT="${2:-}"; shift 2 ;;
+        --name)      PROCESS_NAME="${2:-}"; shift 2 ;;
+        -h|--help)   sed -n '2,70p' "$0"; exit 0 ;;
+        *)           echo "unknown argument: $1" >&2; exit 2 ;;
     esac
 done
 
 # The two strings the gate greps for. Kept here as data so the summary can say which one it saw:
 # holding the DISPLAY one instead would satisfy every unit test in the project and fail the
-# requirement (BUILD-PLAN Step 13 step 3), and it is visible only here.
+# requirement (BUILD-PLAN Step 13 step 3), and it is visible only here — mutation m8 of Step 13
+# chunk 4's round passes all 1,323 tests.
 WANTED_TYPE="PreventUserIdleSystemSleep"
 DISPLAY_TYPE="PreventUserIdleDisplaySleep"
 
@@ -68,37 +96,57 @@ CHANGES=0
 MAX_HELD=0
 EVER_HELD=0
 SAW_DISPLAY=0
+SAW_ELSEWHERE=0
+SAW_AMBIGUOUS=0
 LAST_KEY="<start>"
 LAST_PID=""
 STARTED_AT="$(date '+%Y-%m-%d %H:%M:%S')"
+LAST_PRINT_AT=$(date +%s)
+
+# The executable behind a pid, from the kernel. `lsof`'s first txt mapping is the main executable's
+# vnode; `ps -o comm=` (argv[0]) is the fallback. Never the unified log — see the header.
+executable_of() {
+    local path
+    path="$(/usr/sbin/lsof -a -p "$1" -d txt -Fn 2>/dev/null | /usr/bin/sed -n 's/^n//p' | head -1)"
+    [[ -z "$path" ]] && path="$(/bin/ps -o comm= -p "$1" 2>/dev/null)"
+    echo "${path:-(unknown)}"
+}
 
 summarise() {
     echo
-    echo "── summary ──────────────────────────────────────────────────────────────────"
-    echo "  watched          ${PROCESS_NAME} from ${STARTED_AT} to $(date '+%H:%M:%S')"
+    echo "== summary ======================================================================"
+    echo "  watched          ${PROCESS_NAME} from ${STARTED_AT} to $(date '+%Y-%m-%d %H:%M:%S')"
     echo "  samples          ${SAMPLES} at ${INTERVAL}s"
     echo "  changes          ${CHANGES}"
-    echo "  held at all      $( ((EVER_HELD)) && echo yes || echo "NO — nothing was ever held" )"
-    echo "  most at once     ${MAX_HELD}  (${WANTED_TYPE} only)"
+    echo "  held at all      $( ((EVER_HELD)) && echo yes || echo "NO - nothing was ever held" )"
+    echo "  most at once     held ${MAX_HELD}  (${WANTED_TYPE} only)"
     if (( MAX_HELD > 1 )); then
-        echo "                   ⚠️  MORE THAN ONE AT A TIME. Gate item 3 fails on this transcript."
+        echo "                   !! MORE THAN ONE AT A TIME. Gate item 3 fails on this transcript."
     fi
     if (( SAW_DISPLAY )); then
-        echo "                   ⚠️  a ${DISPLAY_TYPE} was held by this pid."
-        echo "                       BUILD-PLAN Step 13 step 3 says display sleep must not be prevented."
+        echo "                   !! a ${DISPLAY_TYPE} was held by this pid."
+        echo "                      BUILD-PLAN Step 13 step 3 says display sleep must not be prevented."
+    fi
+    if (( SAW_AMBIGUOUS )); then
+        echo "                   !! for part of the watch more than one ${PROCESS_NAME} was running, and"
+        echo "                      nothing was read while they were ('held ?'). The maximum above"
+        echo "                      does not cover those lines."
+    fi
+    if (( SAW_ELSEWHERE )); then
+        echo "                   !! at least one pid watched was NOT the installed app under"
+        echo "                      ${INSTALLED_PREFIX} - see the 'exe' lines above. Readings taken"
+        echo "                      from another copy are about another build."
     fi
     echo
-    echo "  Paste this whole transcript into progress/step-13-human-checklist.md's walk record."
+    echo "  Paste the whole transcript AND this summary into the checklist's walk record."
     exit 0
 }
-trap summarise INT TERM
+trap summarise INT TERM HUP
 
-echo "sleep-assertion-watch — ${PROCESS_NAME}, sampling every ${INTERVAL}s"
-echo "  reading the 'Listed by owning process:' section only; the system-wide summary line is"
-echo "  a flag held by powerd and is never consulted. Ctrl-C to stop."
+echo "sleep-assertion-watch: ${PROCESS_NAME}, sampling every ${INTERVAL}s, heartbeat every ${HEARTBEAT}s"
+echo "  Reads only the 'Listed by owning process:' section. The system-wide summary line is a"
+echo "  flag powerd holds while the display is on, and is never consulted. Ctrl-C to stop."
 echo
-printf '%-8s  %-6s  %-5s  %s\n' "time" "pid" "held" "assertions this pid owns"
-printf '%-8s  %-6s  %-5s  %s\n' "--------" "------" "-----" "------------------------"
 
 END_AT=0
 if [[ "$DURATION" != "0" ]]; then
@@ -110,20 +158,24 @@ while true; do
     # longer exists is not evidence about the app now on screen.
     PIDS="$(/usr/bin/pgrep -x "$PROCESS_NAME" 2>/dev/null || true)"
     PID_COUNT="$(wc -w <<< "$PIDS" | tr -d ' ')"
+    PID_SHOWN="-"
+    HELD_SHOWN=""
 
     if [[ -z "$PIDS" ]]; then
         KEY="not running"
         HELD=0
         DETAIL="(${PROCESS_NAME} is not running)"
-        PID_SHOWN="—"
     elif (( PID_COUNT > 1 )); then
         # Two copies of the app — /Applications and a DerivedData build, say. Which one holds the
-        # assertion is exactly the question, so refuse to average them. Same trap as the daemon's
-        # "which copy did launchctl start" check in Step 12's checklist.
-        KEY="ambiguous"
-        HELD=0
+        # assertion is exactly the question, so refuse to average them.
         PID_SHOWN="$(tr '\n' ',' <<< "$PIDS" | sed 's/,$//')"
-        DETAIL="⚠️  ${PID_COUNT} processes named ${PROCESS_NAME}; quit the one you are not testing"
+        KEY="ambiguous:${PID_SHOWN}"
+        # No reading is taken, so none is printed: `held ?`, never `held 0`. The first version of
+        # this branch printed 0 — the very defect this rewrite exists to remove.
+        HELD=0
+        HELD_SHOWN="?"
+        SAW_AMBIGUOUS=1
+        DETAIL="!! ${PID_COUNT} processes named ${PROCESS_NAME}; quit the one you are not testing"
     else
         PID="$PIDS"
         PID_SHOWN="$PID"
@@ -132,14 +184,8 @@ while true; do
 
         if [[ -z "$LINES" ]]; then
             HELD=0
-            DETAIL="—"
+            DETAIL="(owns no assertions)"
         else
-            # **Counted by TYPE, not by line.** A pid can own assertions this gate is not about: the
-            # smoke test of this script against `powerd` showed it holding a
-            # `PreventUserIdleSystemSleep` AND an `ExternalMedia` at once, and this app is in the
-            # business of mounting and unmounting external media. Counting lines would have reported
-            # "2 held — gate item 3 fails" for a machine behaving perfectly. Everything the pid owns
-            # is still printed; only the count is narrowed.
             # The type is the last token before ` named: "`, and the name is what follows in
             # quotes. Parsed with awk rather than a regex for the probe's reason: a wrong regex
             # here fails silently to an empty result, which reads exactly like an assertion that
@@ -151,29 +197,51 @@ while true; do
                     name = $2; sub(/".*$/, "", name);
                     printf "%s \"%s\"  ", type, name;
                 }' <<< "$LINES")"
+            # **Counted by TYPE, not by line.** A pid can own assertions this gate is not about:
+            # the first smoke test of this script, against `powerd`, showed it holding a
+            # `PreventUserIdleSystemSleep` AND an `ExternalMedia` at once, and this app is in the
+            # business of mounting and unmounting external media. Counting lines would have
+            # reported "held 2 — gate item 3 fails" for a machine behaving perfectly. Everything the
+            # pid owns is still printed; only the count is narrowed.
             HELD="$(/usr/bin/grep -c -- "$WANTED_TYPE" <<< "$LINES" || true)"
         fi
         KEY="${PID}:${DETAIL}"
     fi
+    [[ -z "$HELD_SHOWN" ]] && HELD_SHOWN="$HELD"
 
+    NOW=$(date +%s)
     if [[ "$KEY" != "$LAST_KEY" ]]; then
         (( CHANGES++ ))
-        MARK=" "
         (( HELD > MAX_HELD )) && MAX_HELD=$HELD
         (( HELD > 0 )) && EVER_HELD=1
-        (( HELD > 1 )) && MARK="!"
         [[ "$DETAIL" == *"$DISPLAY_TYPE"* ]] && SAW_DISPLAY=1
-        if [[ -n "$LAST_PID" && -n "${PID_SHOWN:-}" && "$PID_SHOWN" != "$LAST_PID" && "$PID_SHOWN" != "—" ]]; then
-            printf '%-8s  %-6s  %-5s  %s\n' "$(date '+%H:%M:%S')" "$PID_SHOWN" "" \
-                   "── pid changed (${LAST_PID} → ${PID_SHOWN}): the app was relaunched"
+
+        # A new pid: say which copy of the app it is before saying anything about what it holds.
+        if [[ "$PID_SHOWN" != "-" && "$PID_SHOWN" != *,* && "$PID_SHOWN" != "$LAST_PID" ]]; then
+            EXE="$(executable_of "$PID_SHOWN")"
+            printf '%s  pid %s  exe %s\n' "$(date '+%H:%M:%S')" "$PID_SHOWN" "$EXE"
+            if [[ "$EXE" != "$INSTALLED_PREFIX"* ]]; then
+                SAW_ELSEWHERE=1
+                printf '%s  pid %s  !! NOT THE INSTALLED APP. Quit it and launch %s\n' \
+                       "$(date '+%H:%M:%S')" "$PID_SHOWN" "${INSTALLED_PREFIX%/}"
+            fi
         fi
-        printf '%-8s  %-6s  %s%-4s  %s\n' "$(date '+%H:%M:%S')" "$PID_SHOWN" "$MARK" "$HELD" "$DETAIL"
+
+        FLAG=""
+        (( HELD > 1 )) && FLAG="  !! MORE THAN ONE"
+        printf '%s  pid %s  held %s  %s%s\n' "$(date '+%H:%M:%S')" "$PID_SHOWN" "$HELD_SHOWN" "$DETAIL" "$FLAG"
         LAST_KEY="$KEY"
         LAST_PID="$PID_SHOWN"
+        LAST_PRINT_AT=$NOW
+    elif (( HEARTBEAT > 0 )) && (( NOW - LAST_PRINT_AT >= HEARTBEAT )); then
+        # Unchanged, and said so — this is what shows the transcript was watching during an event
+        # that was supposed to change nothing.
+        printf '%s  pid %s  held %s  (unchanged)\n' "$(date '+%H:%M:%S')" "$PID_SHOWN" "$HELD_SHOWN"
+        LAST_PRINT_AT=$NOW
     fi
 
     (( SAMPLES++ ))
-    if (( END_AT )) && (( $(date +%s) >= END_AT )); then
+    if (( END_AT )) && (( NOW >= END_AT )); then
         summarise
     fi
     sleep "$INTERVAL"

@@ -18,7 +18,10 @@ test target fixed to the designated scratch device with disk images removed as a
 > chunks done and all four gate items ticked on real hardware, eight cable pulls on two drives;
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
 > IN PROGRESS — planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
-> one acquire/release path) done 2026-09-12.** Step 12's
+> one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
+> 2026-09-13, and 5 (the hardware walk) under way: item 0 passed 2026-09-13, and chunk 1's first
+> walk, 2026-09-18, is not a pass — the watcher could not show its reading, and was rewritten.
+> ⚠️ A kickstart is owed first (`PROGRESS.md`, cold start).** Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
 > five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
@@ -224,7 +227,11 @@ are **process**, not history.
 **The build environment**
 
 - Full Xcode 26.5 is at **`/Applications/Development/Xcode.app`** and is **not** the selected
-  developer dir. `build.sh` / `test.sh` pin `DEVELOPER_DIR` themselves; anything else you run by
+  developer dir. ⚠️ **2026-09-18: that path has held Xcode 27.0 (27A266a) since 2026-09-15**, installed
+  over 26.5, and it is the only Xcode on the machine. So `build.sh` and `test.sh` now build with
+  Xcode 27, and every build recorded before that date was made with 26. Xcode 27 has also left
+  uncommitted project edits, one of which removes the `ARCHS = arm64` below; that is a user decision
+  (`PROGRESS.md`, *Toolchain*). `build.sh` / `test.sh` pin `DEVELOPER_DIR` themselves; anything else you run by
   hand must export it. **Do not run `sudo xcode-select`.**
 - App target: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which makes even plain value types,
   protocols, C-callback functions, file-scope `Logger`s and extensions on standard-library types
@@ -493,7 +500,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Only the hardware walk remains.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is under way: item 0 passed 2026-09-13, and chunk 1's first walk, 2026-09-18, is not a pass — the watcher could not show its reading, and was rewritten.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -505,7 +512,10 @@ simulation-first still applies wherever the plan calls for it.
 > `/Applications`)**, its helper byte-identical to the one reinstalled 2026-09-10 from `2086090`.
 > ⚠️ **BTM was re-parented then and did not stay so**: the 2026-09-09 15:34 test run re-pointed it
 > at DerivedData, which the running daemon does not feel and the next kickstart would — so none is
-> to be run until the record reads `/Applications` again (`CONSTRAINTS.md` §1). **Chunk 3
+> to be run until the record reads `/Applications` again (`CONSTRAINTS.md` §1). ⚠️ **2026-09-18:
+pid 89541 is gone** — it ended with the reboot into macOS 27.0 on 2026-09-16, and the daemon since
+is Xcode 27's DerivedData build, pid 12059. BTM's log has the record back on `/Applications` since
+10:26:52 that day, and a kickstart is owed and handed over (`PROGRESS.md`, cold start). **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash
@@ -1970,6 +1980,13 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 > held at once. ⚠️ It counts `PreventUserIdleSystemSleep` **by type**: its own smoke test against
 > `powerd` reported *"2 held"* for a correct machine, because `powerd` holds an `ExternalMedia`
 > assertion beside its sleep one — and this app mounts and unmounts external media.
+>
+> ⚠️ **Rewritten 2026-09-18, after checklist chunk 1's first walk.** The first version printed *held*
+> only in a header row, so the item's `held 0` was on no line, and a person asked for it could not
+> find it. Every line now reads `pid N  held N  …`; each new pid is named with its executable, taken
+> from the kernel and flagged if it is not `/Applications`; a heartbeat once a minute shows the
+> transcript was watching during an event that should change nothing; and two copies of the app
+> print `held ?` rather than a number nobody read.
 
 ### Risks / gotchas
 - The most common bug is a **leaked assertion** on an error path — route acquire/release exclusively through the state machine so every exit releases it.
