@@ -903,6 +903,13 @@ and `powerd`'s own assertion is also why a person checking that the Mac *actuall
 to let the **display** sleep first: until it does, the machine will not idle-sleep whether or not
 this app holds anything.
 
+**And `powerd` is not the only other owner — measured 2026-09-18, macOS 27.0.** During Step 13's
+chunk 1 walk the type was also held by `sharingd` ("Handoff", for minutes) and by `bluetoothd` and
+`useractivityd` (seconds, on timeouts), and the Claude desktop app held a `NoIdleSleepAssertion`
+named "Electron". With two owners the summary still read 1. None of it reaches a reading matched on
+our pid; all of it stands between a person and *"the Mac actually idle-sleeps"*, so that is read off
+the owner list at the moment it is tested, never assumed from an earlier look.
+
 *This is the same shape as the error channel firing 17 false positives per test run: the instrument
 was the defect. Here it was found before the gate was walked rather than after.*
 

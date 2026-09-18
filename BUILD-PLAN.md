@@ -19,8 +19,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
 > IN PROGRESS — planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
-> 2026-09-13, and 5 (the hardware walk) under way: item 0 passed 2026-09-13, and chunk 1's first
-> walk, 2026-09-18, is not a pass — the watcher could not show its reading, and was rewritten.
+> 2026-09-13, and 5 (the hardware walk) under way: item 0 passed 2026-09-13, and chunk 1 passed
+> 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten.
 > The daemon was kickstarted 2026-09-18 13:06:19 and runs the installed helper from `/Applications`
 > again (`PROGRESS.md`, cold start).** Step 12's
 > chunks 0–6 built it and chunk 7 proved it
@@ -501,7 +501,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is under way: item 0 passed 2026-09-13, and chunk 1's first walk, 2026-09-18, is not a pass — the watcher could not show its reading, and was rewritten.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is under way: item 0 passed 2026-09-13, and chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on

@@ -1,9 +1,10 @@
 # Step 13 — the human checklist
 
 > **STATUS, 2026-09-18: IN PROGRESS at chunk 5. Item 0 PASSED 2026-09-13; its daemon row LAPSED on
-> 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 was walked once, on
-> 2026-09-18, and is NOT passed — the watcher could not show the reading its items asked for, and has
-> been rewritten. Chunks 1, 2 and 3 are owed.** Written at **chunk 4**, alongside the mutation round rather than after
+> 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
+> 14:47–14:53, on its third walk: the first, that morning, could not show its readings and the
+> watcher was rewritten; the second's paste ended before the selection. Chunks 2 and 3 are owed.**
+> Written at **chunk 4**, alongside the mutation round rather than after
 > it, against commit `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash
 > **`e19b0b3c…`** (re-derived 2026-09-18, unmoved). The app was installed from **`af09416`** on
 > 2026-09-13 at 10:51 and **item 0.1 passed against it**; the build it replaced, `abc07e3`, predated
@@ -242,6 +243,11 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
   /usr/bin/pmset -g assertions | /usr/bin/grep -A 20 'Listed by owning process'
   ```
 
+  Measured during chunk 1's third walk, 2026-09-18 14:51: besides `powerd`, the idle-sleep type was
+  held by `sharingd`, `bluetoothd` and `useractivityd` — the last two on timeouts of seconds — and
+  **the Claude desktop app** held a `NoIdleSleepAssertion` named "Electron". Read the list at the
+  moment 3.4 starts, not before.
+
 ---
 
 ## Item 0 — which build am I looking at *(dry, run once before chunk 1)*
@@ -308,7 +314,9 @@ Start the watcher in its own terminal and leave it running for the whole chunk:
 ```
 
 **1.1 — at rest, the app holds nothing.** Launch USBDriveTester from `/Applications`. Do not select
-anything, do not start a run.
+anything, do not start a run. The app selects a drive by itself at launch — the first usable one
+(FR-DEV-3), which on 2026-09-18 was **the 22 TB Seagate**, `disk4` — and 1.1 is read with that
+selection in place: a selection is not a run.
 
 *Pass:* the watcher prints the app's pid with
 `exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester`, and then
@@ -322,24 +330,34 @@ anything, do not start a run.
 /usr/bin/pmset -g assertions | /usr/bin/grep -E "^ +PreventUserIdleSystemSleep +[0-9]|PreventUserIdleSystemSleep named"
 ```
 
-Two lines come back. The first is the system-wide summary, `PreventUserIdleSystemSleep   1`,
-reading 1 **right now** with the app holding nothing. The second is its owner:
+The first line back is the system-wide summary, `PreventUserIdleSystemSleep   1`, reading 1
+**right now** with the app holding nothing. Every line after it is one owner, and `powerd`'s is
+among them whenever the display is on:
 `pid NNN(powerd): … PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"`.
+Other owners come and go — on 2026-09-18, `sharingd` ("Handoff") for minutes, `bluetoothd` and
+`useractivityd` for seconds at a time — and the summary still reads 1: a flag, not a count.
 
-*Pass:* you have seen the 1 and that its owner is `powerd`, and no line names the app's pid. There is
+*Pass:* the summary reads 1, `powerd` is among the owners, and no line names the app's pid. There is
 nothing to fix; this item exists so that no later item is answered from that line.
 ⚠️ **Corrected 2026-09-18.** This item said `| head -12`, which prints the summary and cuts off the
-owner list the item asks you to read. The first walk could not find `powerd` from it.
+owner list the item asks you to read. The first walk could not find `powerd` from it. It also said
+*"Two lines come back"*: during the third walk there were two owners at 14:49:46 and four at
+14:51:13, and an item expecting exactly one reads a normal machine as a fault.
 
 **1.3 — selecting a drive holds nothing.** Select the 1 TB scratch T5 **by serial** in the device
 pane. Do not press Start.
 
-Then **wait for one `(unchanged)` line** — at most a minute — before pressing Ctrl-C. A change-only
-log cannot show it was watching during an event that changed nothing; the heartbeat can.
+Then **wait for a new `(unchanged)` line — one printed after you clicked.** One already on screen
+does not count; the next comes within a minute. A change-only log cannot show it was watching during
+an event that changed nothing; the heartbeat can. Then press Ctrl-C — **the summary exists only
+after Ctrl-C**, so copy the transcript after pressing it, not before.
 
 *Pass:* no `held 1` anywhere in the transcript, an `(unchanged)` line after the selection, and the
 summary reading `most at once     held 0`. Selection is not a run;
 `preventsIdleSleep(in: .idle)` is false and this is the observable half of it.
+⚠️ **Corrected 2026-09-18, after the second walk.** This said *"wait for one `(unchanged)` line"*.
+The one on screen was 25 seconds older than the selection, and the transcript was copied then, with
+the watcher still running — so it had no line after the selection and no summary.
 
 **First walk, 2026-09-18 10:26–10:34 — not recorded as a pass.** It ran against the installed
 `af09416` app, pid 24803 (the log's `processImageUUID` for that pid is the installed stub's LC_UUID,
@@ -349,9 +367,21 @@ and cut off its owner; the owner was confirmed headlessly afterwards as `powerd`
 the app logged selecting `disk8` — the scratch T5 by serial, `12345686DAA9` — at 10:28:57, and the
 transcript has no line after 10:26:52 and no end time, so it cannot show it was watching then. **What
 failed was the instrument, and it was fixed rather than argued with.** Re-walk owed, with the
-rewritten watcher. *Evidence in the Walk record, below.*
+rewritten watcher — *walked twice more that day, and passed on the third (below)*. *Evidence in
+the Walk record, below.*
 
-**Walked:** date ________ build ________ watcher transcript pasted below.
+**Second walk, 2026-09-18 13:23–13:27 — incomplete, not recorded as a pass.** Installed app, pid
+47700, and 1.1 read as it should. The app logged selecting `disk8` at 13:25:04; the pasted transcript
+ends at a 13:24:39 heartbeat, before it, and has no summary, because it was copied with the watcher
+still running. Nothing in it failed — it shows too little. The chunk was walked again.
+
+**Walked:** ✅ **PASSED 2026-09-18 14:47:50–14:53:41**, on the third walk. **Build:** the installed
+app from `af09416` (dylib `a8a0e932…`), pid **54729**, its `exe` under `/Applications`. **Watcher:**
+as committed in `a32001e`. **Drive:** `disk8`, serial `12345686DAA9`, selected at 14:48:25; the
+14:49:00 heartbeat follows it. 1.1 and 1.3 are the walker's transcript and summary; **1.2 was read
+headless by the assistant** at 14:49:46, during the walk, with the app idle and the T5 selected — the
+walker pasted no 1.2 reading. *What would invalidate it:* another install, or another macOS update.
+Evidence in the Walk record, below.
 
 ---
 
@@ -373,6 +403,8 @@ Start a fresh watcher for this chunk so its summary covers only this walk:
 
 **2.1 — Start takes exactly one, of the right type, with the right name.** Select the 1 TB scratch
 T5 by serial, acknowledge the warnings, press Start.
+⚠️ The app selects a drive by itself at launch, the first usable one (FR-DEV-3), and on 2026-09-18
+that was **the 22 TB Seagate**, `disk4`. Read the serial in the device pane before pressing Start.
 
 *Pass:* one watcher line, **held 1**, reading
 `PreventUserIdleSystemSleep "USB drive retention test in progress"`.
@@ -588,3 +620,64 @@ ends at the summary block.
 that no longer exists. That path is looked up through the binary's LC_UUID, and the log carries the
 UUID too: `EE5AD84B…`, the installed stub's. BTM resolved the same process's bundle to
 `/Applications` at 10:26:52.825. `CONSTRAINTS.md` §1 now says so.
+
+### Chunk 1, second walk — 2026-09-18 13:23, incomplete
+
+**Build:** installed app from `af09416`, pid 47700; daemon pid 46679 from `/Applications`, which
+chunk 1 does not read. **Watcher:** as committed in `a32001e`. As pasted:
+
+```
+13:23:24  pid -  held 0  (USBDriveTester is not running)
+13:23:39  pid 47700  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+13:23:39  pid 47700  held 0  (owns no assertions)
+13:24:39  pid 47700  held 0  (unchanged)
+```
+
+From the app's own log, headless: the default selection `disk4 (22.00 TB)` at 13:23:39 (FR-DEV-3),
+`selected disk8 (1.00 TB)` at **13:25:04**, and `terminate requested: runIsActive=false` at
+13:26:57. The one heartbeat pasted is 25 seconds older than the selection, and there is no summary:
+the watcher was still running at 13:26:48, after the paste. At that moment pid 47700 owned no
+assertions — a single headless reading, which is not the transcript the item asks for.
+
+### Chunk 1, third walk — 2026-09-18 14:47, PASSED
+
+**Build:** installed app from `af09416` (dylib `a8a0e932…`), pid 54729, started 14:48:00; daemon pid
+46679 from `/Applications`. **Watcher:** as committed in `a32001e`. **Drive:** `disk8` is serial
+`12345686DAA9` in the I/O registry, read at 14:51:39; `disk4` is the 22 TB Seagate,
+`00000000NT17XBRA`. As pasted — the transcript to 14:49:00, then the summary Ctrl-C printed:
+
+```
+14:47:50  pid -  held 0  (USBDriveTester is not running)
+14:48:00  pid 54729  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+14:48:00  pid 54729  held 0  (owns no assertions)
+14:49:00  pid 54729  held 0  (unchanged)
+```
+
+```
+== summary ======================================================================
+  watched          USBDriveTester from 2026-09-18 14:47:50 to 2026-09-18 14:53:41
+  samples          1084 at 0.25s
+  changes          2
+  held at all      NO - nothing was ever held
+  most at once     held 0  (PreventUserIdleSystemSleep only)
+```
+
+`changes 2` is the start and the launch, so nothing moved between 14:48:00 and 14:53:41, and the
+lines between the 14:49:00 heartbeat and the summary, which were not pasted, can only be heartbeats.
+From the app's own log: the default selection `disk4 (22.00 TB)` at 14:48:00.216, `selected disk8
+(1.00 TB)` at **14:48:25.907**, and no further line to 14:54:50 — no run was started. The 14:49:00
+heartbeat is 34 seconds after the selection.
+
+**1.2, read headless by the assistant at 14:49:46**, the app idle with the T5 selected:
+
+```
+   PreventUserIdleSystemSleep     1
+   pid 1029(sharingd): [0x0001ba5d00018910] 00:01:59 PreventUserIdleSystemSleep named: "Handoff"
+   pid 595(powerd): [0x0001ba3d00018903] 00:02:31 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"
+```
+
+At 14:51:13 the owners of that type were `sharingd`, `powerd`, `bluetoothd` (7 s left on a release
+timeout) and `useractivityd` (55 s), and the Claude desktop app held a `NoIdleSleepAssertion` named
+"Electron", taken at 14:49:16. None of it touches a reading here, since every reading is matched on
+the app's pid — but it is exactly what item 3.4's prerequisite is about, and it changes by the
+minute.
