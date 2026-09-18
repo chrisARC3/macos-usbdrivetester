@@ -218,7 +218,9 @@ are **process**, not history.
   the increment the chunk exists to test** — `/Applications` is only as current as the last
   `install-app.sh`, and running the suite does not update it. `strings` cannot settle it: the
   increment's literals were absent and so were the controls, so the test is inert. **Compare the
-  installed binary's mtime against the increment's commit.** Then
+  installed binary's mtime against the increment's commit.** *(2026-09-18: an mtime can show that an
+  install is stale, never that it is current — prove an install by content, as `PROGRESS.md`'s
+  Installed app row says.)* Then
   `sudo /bin/launchctl kickstart -k system/com.arc3solutions.USBDriveTester.Helper`, because
   `install-app.sh` replaces the helper binary underneath a running daemon and **nothing announces
   the mismatch when the helper source has not moved.**

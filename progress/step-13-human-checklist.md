@@ -214,6 +214,9 @@ there is nothing (measured 13:07; `CONSTRAINTS.md` §1).
 them until chunk 3 is walked.** The test host is the app run from DerivedData, and it pulls the
 record to itself (measured 2026-09-09). The running daemon would not feel it; any relaunch would —
 a kickstart, a crash, or a reboot, which is how this one happened.
+*(2026-09-18, later: with the walk paused, the move to Xcode 27 runs the suite on purpose in its
+chunk 2. Its chunk 3 reinstalls, relaunches the app from `/Applications` and kickstarts, so the
+record is back before the walk restarts at item 0 — where this warning applies again.)*
 
 **As written 2026-09-13, true then, and kept as the record of when it stopped being true:**
 

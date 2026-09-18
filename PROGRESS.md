@@ -34,11 +34,11 @@ could drift; the commit is the immutable, greppable one.
 > 2026-09-18 on its third walk** — the first could not show the reading its items asked for and the
 > watcher was rewritten that morning; the second's paste ended before the selection. Chunk 2 was
 > part-walked — 2.1–2.4 and 2.6 passed that afternoon — when the walk was **paused on 2026-09-18
-> for the move to Xcode 27** (user decision; four chunks, chunk 1 done — *The move to Xcode 27*,
-> below). It restarts at item 0 on the Xcode 27 install, and every pass so far lapses at that
-> install. The suite is **1323 / 157 / 0** on Xcode 26.6, floor **1323**, and has not yet run on
-> Xcode 27. The protocol is **v15** and the helper source hash is **`e19b0b3c…`**, unmoved since
-> chunk 7b on 2026-09-07.
+> for the move to Xcode 27** (user decision; four chunks, chunk 1 closed that day, **chunk 2
+> next** — *The move to Xcode 27*, below). It restarts at item 0 on the Xcode 27 install, and every
+> pass so far lapses at that install. The suite is **1323 / 157 / 0** on Xcode 26.6, floor
+> **1323**, and has not yet run on Xcode 27. The protocol is **v15** and the helper source hash is
+> **`e19b0b3c…`**, unmoved since chunk 7b on 2026-09-07.
 >
 > ⚠️ **The daemon was kickstarted 2026-09-18 13:06:19 and came up from `/Applications`** — pid
 > **46679**, running the installed helper `7590b920…`. From the reboot into macOS 27.0 on 2026-09-16
@@ -68,6 +68,7 @@ could drift; the commit is the immutable, greppable one.
 
 | | |
 |---|---|
+| **Now: the move to Xcode 27** | **Four chunks from 2026-09-18, user decision; Step 13's walk is paused for it.** (1) the project file, ✅ **closed 2026-09-18** — `b8015c7`, `14d2f79`; **(2) build and test headless — NEXT, approved 2026-09-18 to run in a fresh session**; (3) install and kickstart; (4) the hardware gates, `render-ui.sh` and `window-fit-check.sh`. Each chunk is reported before the next starts, and the next needs the user's go. What each must show is in *The move to Xcode 27*, below |
 | **Step 13** | **in progress — five chunks, 1–4 done (1–3 on 2026-09-12, 4 on 2026-09-13).** (1) the instrument, ✅ done — `tools/sleep-assertion-probe` + `scripts/sleep-assertion-check.sh`, findings in `CONSTRAINTS.md` §1 *Idle-sleep assertions*; (2) the rule and the seam, ✅ done — `RunControlPolicy.preventsIdleSleep(in:)`, `IdleSleepPreventing` / `IdleSleepPreventer` in `RunControl/SleepPrevention.swift`, and `CountingIdleSleepPrevention` in the test target for chunk 3 to inject; (3) the one acquire/release path, ✅ done — `report(_:)` and `apply(_:movingTo:)` both go through a private `move(to:)`, the sole assignment to `state`, which asks the rule about the destination; init parameter `sleepPrevention` **with a default** (Step 12 chunk 6: one without a default breaks `ui-probe` and only `build-tools.sh` finds it), and **`RunControllerWiring` is deliberately unchanged** — the composition root has no automated cover (m17), so nothing there is required for the assertion to work; (4) mutation round + `progress/step-13-human-checklist.md`, ✅ done — **17 mutations, 13 killed, 4 survived, all four declared in advance**, no unexpected survivor and no inconclusive row; the checklist was written alongside the round rather than after it, so its items are built around measured holes; **`scripts/sleep-assertion-watch.sh` is new** — the gate asks a person to press Pause and then read `pmset`, which is a race they cannot win, so the walk gets a 4 Hz change-log instead; (5) hardware walk and the gate, **paused 2026-09-18 for the move to Xcode 27** — item 0 passed 2026-09-13, its daemon row lapsed 2026-09-16 and was restored by the kickstart at 2026-09-18 13:06:19; chunk 1 passed 2026-09-18 14:47–14:53 on its third walk (the first could not show its reading and the watcher was rewritten; the second's paste stopped short of the selection); chunk 2 part-walked 15:04–15:07 (2.1–2.4 and 2.6 passed; 2.5 was a cycle short, and its threshold, one short since it was written, is corrected). The walk restarts at item 0 on the Xcode 27 install; every pass here is a fact about the Xcode 26 build `af09416` and lapses at that install. **No chunk touches `Helper/` or `Shared/`**, so the helper hash does not move and the four gates recorded against it do not lapse — owed items (a) and (b) therefore stay owed. ⚠️ **From 2026-09-16 until the kickstart at 2026-09-18 13:06:19 the running daemon was an Xcode 27 build no gate had run against; since then it is the installed helper, `7590b920…`** — see *Installed app*. Objective, four detailed steps, three gate items and the one named risk are in `BUILD-PLAN.md` |
 | **Step 13's one scoping decision** | **The assertion is held while `state == .running` and in no other state — user decision 2026-09-12.** BUILD-PLAN says `Running`; NFR-REL-9 says *"actively executing"*, and `.pausing`/`.stopping` are states where the helper is still finishing a chunk (bounded by one call of at most `maximumBytesPerCall` = 1 GiB), so the two documents differ on two states. `.running` alone was chosen because pressing Pause or Stop is HID input, which resets the idle timer for the whole settle that press begins; because an item whose reading depends on *when* you look is a bad gate item; and because holding iff `.running` makes the release happen on the transition **out of** running — so `.finished` is never the release site and the leaked-assertion risk `BUILD-PLAN.md` names cannot reach it. The one exit with no HID input in front of it is device loss → `.finishing`, where the drive is already gone. ⚠️ **Corrected 2026-09-12 at chunk 3:** that risk was handed over named as `releaseCannotBeConfirmed`, and measurement says otherwise — *that* path reaches `.finished` synchronously. The state a run can sit in indefinitely is **`.finishing`**, by the opposite path: a release that can be confirmed and is never answered. See the annotation under *What Step 13 inherits* |
 | **Verified** | **1323 tests, 0 failures, 157 suites** (floor `scripts/.test-floor` = **1323**, ratcheted at Step 13 chunk 3 — the floor raises itself), run green **2026-09-13 10:29** with Xcode 26.6 on macOS 26, zero Swift warnings in the build and the test build. ⚠️ **Not yet run on Xcode 27** — that is the move's chunk 2. **`test.sh` raises the floor only on a green run since 2026-09-18**; until then the raise came before the failure check, so a red run could raise it (seven cases, old script against new, with a stand-in `xcodebuild`: only *red with a higher count* differs). **Chunk 4's mutation round ran the suite 17 more times** — every run complete at 1323, no incomplete run and no inconclusive row. **14/14** gate clients type-check. ⚠️ `scripts/build-tools.sh` is what catches those: the app build does not compile `tools/`, so a new `RunController` parameter without a default breaks `ui-probe` and nothing else would find it — that happened at Step 12 chunk 6 |
@@ -246,6 +247,51 @@ with no build, no Run and no prompt. `project.pbxproj` came back byte-identical 
 which is per-user and ignored. Nothing was built or run: no app or helper log line since 15:47, the
 DerivedData app unchanged since 2026-09-16, and the daemon still pid 46679. **A different Xcode
 version invalidates this**; the check is `git status` after opening the project.
+
+**Chunk 2, build and test headless — NEXT; approved 2026-09-18, to run in a fresh session.** No
+GUI, no drive, no `sudo`. The method is BUILD-PLAN's *Verifying a step*: DerivedData wiped before
+each of `scripts/build.sh Debug`, `scripts/build.sh Release` and `scripts/test.sh` — the scripts use
+the default location, `~/Library/Developer/Xcode/DerivedData/USBDriveTester-*` — and
+`scripts/build-tools.sh` after them. What must come out:
+
+- **zero Swift warnings** in all three builds. The 2026-09-16 Debug build had none; a new one comes
+  from the new compiler, and is read and reported before any source is changed;
+- **every project source compiled**, in Debug and in Release — count the sources, not the tasks;
+- **a Release app that is arm64 only**: `lipo -archs` on each Mach-O in its `Contents/MacOS` — the
+  executable and the embedded helper — prints `arm64` alone. That is what chunk 1's `ARCHS`
+  decision is for, and no Debug build can show it;
+- **14/14** gate clients from `build-tools.sh`;
+- **1323 tests, 157 suites, 0 failures**, read from the xcresult, with `scripts/.test-floor` read
+  before the run. **Any other count is a finding, not a new floor**: no test changed, so a different
+  total means the toolchain runs or counts something differently. `test.sh` writes a higher count
+  itself on a green run, so a raise has to be explained before it is kept;
+- **no link failure in the test target.** Chunk 1 took `DEAD_CODE_STRIPPING = YES`; a test reaching
+  a symbol the app itself never uses is the first suspect if one appears, and what to do about it
+  is the user's decision, not a revert on the spot.
+
+⚠️ **The test run points BTM record #11 at DerivedData**, as every test run does. The daemon — pid
+46679 from `/Applications` when chunk 1 closed, 2026-09-18 15:59 — will not feel it, but **any
+relaunch would**: a reboot, a crash or a kickstart. So none until chunk 3, which puts the record
+back. Read the pid before chunk 2 starts; if it has changed, something relaunched the daemon.
+
+**Chunk 3, install — after chunk 2 is reported and approved.** Quit the app, run
+`scripts/install-app.sh`, and prove the install by content (*Installed app*, above): grep
+`Contents/MacOS/USBDriveTester.debug.dylib`, `diff -rq` against the build products taken *after*
+the install, and the helper binary's hash. The user launches the installed app from
+`/Applications`, which moves BTM's record back, and runs the kickstart `install-app.sh` prints —
+`sudo`, so it is handed over. The `xpcproxy` resolve line (the checklist's *The daemon*) must then
+name `/Applications`. **An install retires the old build everywhere it is named as current** — grep
+for `af09416`, `a8a0e932` and `7590b920` — and every pass in the Step 13 checklist lapses with it.
+
+**Chunk 4, re-verify — after chunk 3 is approved.** The four hardware gates, on the 1 TB scratch T5
+only — found by serial `12345686DAA9` on the day, because its `diskN` moves, and never the 22 TB
+Seagate. Last run 2026-09-07 against `e19b0b3c…` and protocol v15, in `progress/step-12.md`'s
+table: `metrics-check.sh` 128 assertions / 0 failures, `xpc-concurrency-check.sh` 0 failures,
+`retention-cycle-check.sh` 15 checks / 0 failures, `run-control-check.sh` 14 assertions / 0
+failures. The source has not moved since; the binary has. Then `render-ui.sh` and
+`window-fit-check.sh`, because a new SDK can move SwiftUI layout. Then decide with the user whether
+any Step 11 or 12 checklist item needs re-walking on the new build. **Then Step 13's walk restarts
+at item 0.**
 
 ---
 
