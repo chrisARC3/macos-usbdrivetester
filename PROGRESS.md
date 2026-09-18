@@ -240,8 +240,12 @@ Debug build on 2026-09-16 compiled the app and helper with zero Swift warnings (
 untracked, and `test.sh` made to raise the floor only on a green run — shown by running the old and
 new script through seven cases with a stand-in `xcodebuild`: only *red with a higher count* differs,
 and the old one raised the floor on it. No source changed, so the helper source hash does not move.
-**Open until the user has done it:** open and close the project once in Xcode 27, without building
-or running, and the project file must come back unchanged.
+**Closed 2026-09-18 15:58, against `b8015c7`:** the user opened the project in Xcode 27.0 and quit,
+with no build, no Run and no prompt. `project.pbxproj` came back byte-identical (`08e715de…`) and
+`git status` was clean. The only file written in the bundle was `UserInterfaceState.xcuserstate`,
+which is per-user and ignored. Nothing was built or run: no app or helper log line since 15:47, the
+DerivedData app unchanged since 2026-09-16, and the daemon still pid 46679. **A different Xcode
+version invalidates this**; the check is `git status` after opening the project.
 
 ---
 

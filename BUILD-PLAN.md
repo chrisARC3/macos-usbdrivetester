@@ -242,7 +242,9 @@ are **process**, not history.
   **Release resolves to `arm64 x86_64`**, because the macOS 27 SDK still lists `x86_64`. Debug stays
   `arm64` through `ONLY_ACTIVE_ARCH = YES`, so no Debug build and no test run would ever have shown
   the change. Restored, every target resolves to `arm64` in both configurations. **If a later
-  Xcode's "update to recommended settings" offers the removal again, refuse it.**
+  Xcode's "update to recommended settings" offers the removal again, refuse it.** Checked
+  2026-09-18 against `b8015c7`: Xcode 27.0 opens and closes the project with no prompt, and
+  `project.pbxproj` comes back unchanged. A new Xcode version needs the check again.
 - App target: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which makes even plain value types,
   protocols, C-callback functions, file-scope `Logger`s and extensions on standard-library types
   main-actor-isolated. Mark them `nonisolated`, or the test target cannot use them.
