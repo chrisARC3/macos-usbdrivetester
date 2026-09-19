@@ -48,6 +48,11 @@ struct AppModelReportTests {
 
         /// A finished 1 GiB run with nothing wrong. Only the fields these tests read are
         /// interesting; the rest are a plausible run so the report builds.
+        ///
+        /// `@MainActor` because the initializer it calls is. `RunReport` is `nonisolated`, but its
+        /// `init?(reply:…)` sits in a plain extension, which takes the app target's MainActor
+        /// default. Xcode 27 warns on the call without this (2026-09-18); Xcode 26.6 did not.
+        @MainActor
         static func report() -> RunReport {
             let reply = RunCycleOutcome(runOutcomeCode: RunOutcomeCode.completed.rawValue,
                                         interruptedAtBlock: 0,
