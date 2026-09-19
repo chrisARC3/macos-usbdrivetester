@@ -53,10 +53,13 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and holding the display-sleep assertion instead of the system one, each pass all 1,323 tests.
 > That is what [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for,
 > and walking it is the only chunk left. **The walk is paused, since 2026-09-18, for the move to
-> Xcode 27**, which had replaced Xcode 26.6 under the project three days before; it restarts at
-> item 0 on the Xcode 27 build. Before the pause, item 0 passed on 2026-09-13 and chunk 1 on
-> 2026-09-18, on its third walk — the first could not show the reading it was asked for, and the
-> instrument was rewritten — and chunk 2 was part-walked. The engine, the privilege plumbing, the
+> Xcode 27**, which had replaced Xcode 26.6 under the project three days before. Three of the
+> move's four chunks are done: the project file, a clean build and test run, and — on 2026-09-19 —
+> the Xcode 27 build installed, with its daemon running from `/Applications`. The hardware gates
+> come next, and then the walk restarts at item 0. Before the pause, item 0 passed on 2026-09-13 and
+> chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
+> and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
+> Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege plumbing, the
 > safety guards, metrics, reporting, run control, device-loss handling and the pre-run warnings all
 > exist and are exercised on real hardware. Sleep prevention, logging consolidation and
 > notarization do not yet.

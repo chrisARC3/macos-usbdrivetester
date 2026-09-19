@@ -1,24 +1,29 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-18: IN PROGRESS at chunk 5 — and PAUSED since 2026-09-18 for the move to
-> Xcode 27 (user decision). The walk restarts at item 0 on the Xcode 27 install, and every pass in
-> this file — item 0, chunk 1, 2.1–2.4 and 2.6 — is a fact about the Xcode 26 build `af09416` and
-> lapses at that install. Before the pause: item 0 PASSED 2026-09-13; its daemon row LAPSED on
-> 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
+> **STATUS, 2026-09-19: IN PROGRESS at chunk 5 — and PAUSED since 2026-09-18 for the move to
+> Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
+> pass this file had made — item 0, chunk 1, 2.1–2.4 and 2.6, each a fact about the Xcode 26 build
+> `af09416` — LAPSED at that install. Item 0 was re-run against the new install that morning and
+> PASSED. The walk restarts after the move's chunk 4, the hardware gates and the UI renders: item 0
+> re-checked, then chunk 1 from the top. Before the pause: item 0 PASSED 2026-09-13; its daemon row
+> LAPSED on 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
 > 14:47–14:53, on its third walk: the first, that morning, could not show its readings and the
 > watcher was rewritten; the second's paste ended before the selection. Chunk 2 was PART-WALKED: its
 > first walk, 15:04–15:07, passed 2.1–2.4 and 2.6 and did two of 2.5's three cycles, which 2.5's
 > threshold — one short since it was written, now corrected — let read as enough.**
 > Written at **chunk 4**, alongside the mutation round rather than after
 > it, against commit `ad1ee28`, suite **1323 / 157 / 0**, protocol **v15**, helper source hash
-> **`e19b0b3c…`** (re-derived 2026-09-18, unmoved). The app was installed from **`af09416`** on
+> **`e19b0b3c…`** (re-derived 2026-09-19, unmoved). The app was installed from **`af09416`** on
 > 2026-09-13 at 10:51 and **item 0.1 passed against it**; the build it replaced, `abc07e3`, predated
 > every line of Step 13 and read 0. Re-checked 2026-09-18: the installed app is unchanged.
 > ⚠️ **What moved underneath it was the machine, not the code.** macOS **27.0** (26A428) was
 > installed and the Mac rebooted on **2026-09-16**, and the daemon that came up afterwards was an
 > **Xcode 27 build out of DerivedData** (pid 12059, helper `32a647da…`), not the installed
-> `7590b920…`. **Kickstarted 2026-09-18 13:06:19**: the daemon is now pid **46679**, resolved from
-> `/Applications`, running `7590b920…`. See *The daemon*, below.
+> `7590b920…`. **Kickstarted 2026-09-18 13:06:19**: the daemon became pid **46679**, resolved from
+> `/Applications`, running `7590b920…`.
+> **Since 2026-09-19 the installed app is Xcode 27's build** of `bcde5f5`'s sources, installed
+> 10:22:50 — dylib `422c89d3…`, helper `ac4d5208…` — and **the daemon is pid 95762**, kickstarted
+> 10:32:47, resolved from `/Applications`, running `ac4d5208…`. See *The daemon*, below.
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -124,7 +129,48 @@ live in the dylib beside it. Grepping the stub returns 0 for every product strin
 exactly like a failed install (measured 2026-09-08, after that false negative was taken at face
 value for one command).
 
-### The daemon — kickstarted 2026-09-18 13:06:19, from `/Applications`
+### The daemon — kickstarted 2026-09-19 10:32:47, from `/Applications`
+
+**Kickstarted 2026-09-19 by the user, at the move to Xcode 27's chunk 3 — after the Xcode 27 build
+was installed and the record was read — and it came up from `/Applications`.** Headless readings,
+except the two commands the user ran. The daemon's rows were read again at 10:43 and had not moved:
+
+| | |
+|---|---|
+| install | **10:22:50**, by `scripts/install-app.sh` as committed in `ba97c0e`: exit 0, and its stale-daemon warning printed for pid 46679. The 09:46:27 install, by the script before that fix, installed the same bytes and exited 141 before the warning |
+| record moved | the user launched the installed app, and BTM logged `10:27:22.666 _bundleURLForAuditToken: updating item uuid=226468B0-…, name=USBDriveTester, type=app, …` from DerivedData to `/Applications` — the only move since chunk 2 of the move ran the suite, at 09:24:02 |
+| record, 10:27:44 | `sfltool dumpbtm`, run by the user. Record **#11** (in the UID −2 section, uuid `226468B0-…`, listing the helper under `Embedded Item Identifiers`): `URL: /Applications/USBDriveTester.app`, generation `710330143423605896`. Daemon record #12: `[enabled, allowed, notified]`, uuid `FF3ADEC2-…`, generation 131. The two other records naming the app, #6 and #50, name `/Applications` too. **None of the dump's 1,183 lines names DerivedData** |
+| kickstart | run by the user. pid 46679 ended on `Terminated: 15`; `runs = 3`, `immediate reason = non-ipc demand` |
+| resolve line | `10:32:47.800 xpcproxy[95762]: Resolved (…, FF3ADEC2-…) to program: /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper` |
+| daemon | pid **95762**, root, ppid 1, started **2026-09-19 10:32:47**. Its own line at 10:32:47.860: *"helper started as uid 0; listening on com.arc3solutions.USBDriveTester.Helper; protocol v15; …"* |
+| helper binary | **`ac4d5208…`** at that path — the installed helper that item 0 names |
+| record since | no `_bundleURLForAuditToken` line for this app after 10:27:22.666, read to 10:43 |
+
+*What would invalidate it:* a relaunch of the daemon — a crash, a kickstart or a reboot — after
+something has pulled the record elsewhere, and the test suite or an Xcode run of the project does
+exactly that; or another install, which leaves this daemon running the previous binary. **Before
+chunks 2 and 3, check the pid is still 95762:**
+
+```bash
+/bin/launchctl print system/com.arc3solutions.USBDriveTester.Helper | /usr/bin/grep -E '^[[:space:]]+pid = '
+```
+
+If it is not, read the resolve line again (the recipe below) before walking.
+
+**Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
+before the 10:27:22 move, so that line is the first one back, and it is the check that the query
+works; **any line after it is a move**:
+
+```bash
+/usr/bin/log show --style compact --start '2026-09-19 10:27:00' --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "_bundleURLForAuditToken" AND eventMessage CONTAINS "USBDriveTester"'
+```
+
+*Added 2026-09-19, and checked that day: it printed the 10:27:22.666 line and nothing after it.
+Nothing but the header means the query is broken, not that the record stayed. The unified log
+rotates, so once the 10:27:22 line has aged out, the next record read starts from a `sfltool
+dumpbtm` instead.*
+
+### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
 **Kickstarted 2026-09-18 by the user, after the record was read, and it came up from
 `/Applications`.** Headless readings, except the two commands the user ran:
@@ -140,13 +186,9 @@ value for one command).
 
 *What would invalidate it:* a relaunch of the daemon — a crash, a kickstart or a reboot — after
 something has pulled the record elsewhere, and the test suite or an Xcode run of the project does
-exactly that. **Before chunks 2 and 3, check the pid is still 46679:**
-
-```bash
-/bin/launchctl print system/com.arc3solutions.USBDriveTester.Helper | /usr/bin/grep -E '^[[:space:]]+pid = '
-```
-
-If it is not, read the resolve line again (the recipe below) before walking.
+exactly that. Before chunks 2 and 3 the check was that the pid was still 46679. **Invalidated
+2026-09-19** by the Xcode 27 install, which left pid 46679 running the previous helper, and by the
+kickstart that ended it — above.
 
 **Written 2026-09-18 before the kickstart — why one was owed, and the recipe, corrected where
 marked:**
@@ -219,6 +261,9 @@ chunk 2. Its chunk 3 reinstalls, relaunches the app from `/Applications` and kic
 record is back before the walk restarts at item 0 — where this warning applies again.)*
 *(2026-09-19: chunk 2 ran it. The record is on DerivedData since 09:24:02, until chunk 3; the
 daemon is still pid 46679 from `/Applications`.)*
+*(2026-09-19, later: the move's chunk 3 put the record back on `/Applications` at 10:27:22, and
+the daemon has been pid 95762 from there since 10:32:47 — see* The daemon*, above. This warning
+applies again, until this walk's chunk 3 is walked.)*
 
 **As written 2026-09-13, true then, and kept as the record of when it stopped being true:**
 
@@ -247,8 +292,10 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
 * **The app installed from a build containing Step 13.** Item 0.1 below.
 
 * **For chunks 2 and 3, the daemon running the installed helper** — resolved from `/Applications`.
-  From 2026-09-16 it was not; since the kickstart at **2026-09-18 13:06:19** it is, as pid
-  **46679**. Check the pid before each of those chunks — the command is in *The daemon*, above.
+  From 2026-09-16 it was not; from the kickstart at 2026-09-18 13:06:19 it was, as pid 46679,
+  until the Xcode 27 install of 2026-09-19 left that one running the previous helper; since the
+  kickstart at **2026-09-19 10:32:47** it is, as pid **95762**, running `ac4d5208…`. Check the pid
+  before each of those chunks — the command is in *The daemon*, above.
 
 * **Nothing else holding the machine awake.** A `caffeinate` left running from another session, or
   a video playing, does not break any item here — every reading is matched on the app's pid — but it
@@ -283,7 +330,25 @@ until chunk 5 installs.
 (`theAssertionNamesItselfInTheWordsTheGateLooksFor`) precisely so that an edit to it breaks a test
 rather than this instruction — mutation **m9** of chunk 4's round confirms the test kills it.
 
-**Record:** ✅ **PASSED 2026-09-13 10:51**, headless, at chunk 5.
+**Record:** ✅ **PASSED 2026-09-19**, headless, at the move to Xcode 27's chunk 3 — the install
+proved at 10:23:09, the daemon row after the user's kickstart at 10:32:47, both read again at 10:43.
+
+| | |
+|---|---|
+| installed from | `bcde5f5`'s sources, Debug, via `scripts/install-app.sh` as committed in `ba97c0e`, built by **Xcode 27.0** (`DTXcode 2700`, `27A266a`), installed **10:22:50** — byte-identical to the 09:46:27 install by the script before that fix |
+| item 0.1 greps | **1** |
+| installed dylib | `422c89d3…` (was `a8a0e932…`), byte-identical to the build products taken after the install (`diff -rq`: **0** differ); `codesign --verify --deep --strict` OK |
+| installed helper binary | `ac4d5208…` (was `7590b920…`) — Xcode 27's build of the unmoved source `e19b0b3c…` |
+| daemon | pid **95762**, root, ppid 1, started **2026-09-19 10:32:47**, resolved from `/Applications`, running `ac4d5208…` — see *The daemon* |
+| kickstart | **owed, and run.** The helper binary changed and `install-app.sh` printed its warning for pid 46679; the user ran the kickstart at 10:32:47 |
+| instrument | the 2026-09-18 re-run of `scripts/sleep-assertion-check.sh`, below, stands: it measures macOS, not this app, and its own footer says it does not lapse when the app's commit moves. macOS is still 27.0 (26A428) |
+
+*What would invalidate it:* another install; a relaunch of the daemon after something has moved
+BTM's record (*The daemon*); a macOS update, for the instrument row; a change to
+`IdleSleepPreventer.reason`, for 0.1.
+
+**Record:** ✅ **PASSED 2026-09-13 10:51**, headless, at chunk 5. ⚠️ *LAPSED 2026-09-19 at the
+Xcode 27 install — the record above.*
 
 | | |
 |---|---|
@@ -313,7 +378,9 @@ on the first read rather than 90 ms late. **Nothing in chunk 2 below should be w
 
 The 2026-09-13 instrument run lapsed with the update, as that script's own footer says it would; this
 is its re-run. **Item 0.1 did not lapse**: the installed app is the same bytes. *What would invalidate
-this re-check:* another install, or another macOS update.
+this re-check:* another install, or another macOS update. *(2026-09-19: lapsed by another install —
+except its instrument row, which only a macOS update lapses. See the record at the top of this
+item.)*
 
 ---
 
@@ -396,7 +463,8 @@ as committed in `a32001e`. **Drive:** `disk8`, serial `12345686DAA9`, selected a
 14:49:00 heartbeat follows it. 1.1 and 1.3 are the walker's transcript and summary; **1.2 was read
 headless by the assistant** at 14:49:46, during the walk, with the app idle and the T5 selected — the
 walker pasted no 1.2 reading. *What would invalidate it:* another install, or another macOS update.
-Evidence in the Walk record, below.
+Evidence in the Walk record, below. ⚠️ *LAPSED 2026-09-19 at the Xcode 27 install: chunk 1 is owed
+in full, from 1.1, on the new build.*
 
 ---
 
@@ -405,10 +473,13 @@ Evidence in the Walk record, below.
 This is gate items 1, 2 and 3 for every ending a person can produce with a button. Chunk 3 covers
 the one they cannot.
 
-⚠️ **Only against the daemon the kickstart brought up** — pid **46679**, from `/Applications`,
-since 2026-09-18 13:06:19. This chunk runs a real test through the helper, and from 2026-09-16 until
-that kickstart the helper was a binary no gate had run against. Check the pid first (*The daemon*,
-above); if it has changed, read the resolve line before going on.
+⚠️ **Only against the daemon the kickstart brought up** — pid **95762**, from `/Applications`,
+since 2026-09-19 10:32:47, running the installed Xcode 27 helper `ac4d5208…`. This chunk runs a real
+test through the helper, so its passes are about whichever helper the daemon is running. Check the
+pid first (*The daemon*, above); if it has changed, read the resolve line before going on.
+*(Until 2026-09-19 this named pid 46679, from the kickstart of 2026-09-18 13:06:19; from 2026-09-16
+until that kickstart the helper was a binary no gate had run against. So is `ac4d5208…` until the
+move's chunk 4 re-runs the four hardware gates, which comes before this walk restarts.)*
 
 Start a fresh watcher for this chunk so its summary covers only this walk:
 
@@ -517,6 +588,7 @@ But the log has **two** Resumes, not three — Start, two cycles, Stop — and 2
 written read that as enough (corrected at 2.5). **Owed: 2.5, 2.7 and 2.8**, against the same build
 and daemon. *Evidence in the Walk record, below.* *(2026-09-18, later: not against this build after
 all — the walk was paused for the move to Xcode 27, and restarts at item 0 on the new install.)*
+⚠️ *(2026-09-19: 2.1–2.4 and 2.6 LAPSED at the Xcode 27 install. Chunk 2 is owed in full.)*
 
 **Walked:** date ________ build ________ drive `12345686DAA9`, transcript and summary pasted below.
 

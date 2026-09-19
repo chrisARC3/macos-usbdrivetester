@@ -459,7 +459,10 @@ Apple and both were found only because someone pressed the button.
     `/Applications` and no record on DerivedData, and the kickstart at 13:06:19 resolved **to
     program: `/Applications/USBDriveTester.app/Contents/MacOS/…Helper`** (pid 46679), replacing a
     DerivedData daemon that had run since 2026-09-16. Launching the installed app is enough to fix
-    the record; only a relaunch of the daemon fixes the daemon.
+    the record; only a relaunch of the daemon fixes the daemon. *(Again end to end 2026-09-19, at
+    the move to Xcode 27's chunk 3: launching the installed app moved the record from DerivedData at
+    10:27:22.666, a dump at 10:27:44 named DerivedData nowhere, and the kickstart at 10:32:47
+    resolved to `/Applications` — pid 95762.)*
   - **⚠️ `log show`'s `processImagePath` is not provenance either — measured 2026-09-18.** The
     unified log looks the path up through the binary's LC_UUID, so two copies of one binary share one
     path in it. All 167 lines from the installed app's pid 24803 were attributed to
@@ -497,6 +500,9 @@ Measured with Xcode 26.6, unchanged since 2026-06-26:
   **synthesized** overrides for build-only runs, not only for test runs.
 - All 21 helper object files carry `__llvm_prf_cnts`, and both helpers installed since chunk 7b
   carry the counters: `7590b920…` today, and `ab4b6957…` in its own `nm` output of 2026-09-07.
+  *(2026-09-19: `7590b920…` was the installed helper until that day's Xcode 27 install. Its
+  successor `ac4d5208…` carries them too — one `__llvm_prf_cnts` section by `otool -l` and 661
+  `___profc_` symbols by `nm` — and so does the installed Debug dylib, with 1,181.)*
 
 What it changes, and what it does not:
 
