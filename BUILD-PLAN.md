@@ -587,7 +587,7 @@ simulation-first still applies wherever the plan calls for it.
 > ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, complete at 1323 in all seventeen runs of chunk 4's mutation round, and **green on Xcode 27.0 on 2026-09-19** against `d1ac7a6`), protocol **v15** (chunk 3, 2026-09-05),
-> zero source warnings from three clean builds (on Xcode 27.0: Debug and Release 2026-09-18, the test build 2026-09-19), **14/14** gate clients type-checking against v15 (re-run 2026-09-19) —
+> zero source warnings from three clean builds (on Xcode 27.0: Debug and Release 2026-09-18, the test build 2026-09-19), **14/14** gate clients type-checking against v15 **with zero warnings** (re-run 2026-09-19; `build-tools.sh` had never shown warnings, and the commit after `2b66945` made it show them and fixed the three it found in `run-control-probe`) —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
 > the app build does not compile the tools, so nothing else would have found those two call sites.

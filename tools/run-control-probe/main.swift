@@ -122,7 +122,12 @@ let startBlockBytes: UInt64 = 64 << 30      // 64 GiB in
 
 // MARK: - Clock
 
-func nowNanoseconds() -> UInt64 { clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) }
+/// `@Sendable`, like `proxy(on:_:)` and `emit(_:)` below: all three are called from closures that
+/// run concurrently with this top-level code — the daemon's replies and the `asyncAfter` busy
+/// attempt — and a top-level function used that way must say it is safe to be: a warning under
+/// `-swift-version 5`, an error in Swift 6 mode. None of the three touches shared state. Found
+/// 2026-09-19 in `run-control-check.sh`'s own build output; `build-tools.sh` did not show warnings.
+@Sendable func nowNanoseconds() -> UInt64 { clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW) }
 
 func millisecondsBetween(_ start: UInt64, _ end: UInt64) -> Double {
     end >= start ? Double(end - start) / 1_000_000 : -1
@@ -153,7 +158,7 @@ func makeConnection(_ label: String) -> NSXPCConnection {
 let runConnection = makeConnection("run")
 let controlConnection = makeConnection("control")
 
-func proxy(on connection: NSXPCConnection, _ label: String) -> TesterControl {
+@Sendable func proxy(on connection: NSXPCConnection, _ label: String) -> TesterControl {
     let remote = connection.remoteObjectProxyWithErrorHandler { error in
         FileHandle.standardError.write(
             Data("\(label) transport error: \(error.localizedDescription)\n".utf8))
@@ -165,7 +170,7 @@ func proxy(on connection: NSXPCConnection, _ label: String) -> TesterControl {
     return tester
 }
 
-func emit(_ line: String) {
+@Sendable func emit(_ line: String) {
     print(line)
     fflush(stdout)
 }

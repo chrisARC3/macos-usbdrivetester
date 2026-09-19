@@ -82,8 +82,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > build and no notarized release; every build so far runs on the author's machine.
 >
 > Current verified state, on Xcode 27.0 since 2026-09-19: **1323 tests / 157 suites / 0 failures**
-> (floor 1323), zero source warnings from three clean builds, **14/14** gate clients type-checking,
-> all four hardware gates passing against the Xcode 27 helper, XPC protocol v15. See
+> (floor 1323), zero source warnings from three clean builds, **14/14** gate clients type-checking
+> and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 
@@ -247,8 +247,8 @@ Alongside it:
 
 | | |
 |---|---|
-| [`scripts/build-tools.sh`](scripts/build-tools.sh) | Type-checks all 13 command-line gate clients in [`tools/`](tools/), so an XPC protocol bump cannot leave one silently uncompilable |
-| [`scripts/render-ui.sh`](scripts/render-ui.sh) | Renders 37 UI states headlessly through [`tools/ui-probe`](tools/ui-probe) |
+| [`scripts/build-tools.sh`](scripts/build-tools.sh) | Type-checks all 14 command-line gate clients in [`tools/`](tools/), so an XPC protocol bump cannot leave one silently uncompilable, and shows their compiler warnings |
+| [`scripts/render-ui.sh`](scripts/render-ui.sh) | Renders 40 UI states headlessly through [`tools/ui-probe`](tools/ui-probe) |
 | [`scripts/window-fit-check.sh`](scripts/window-fit-check.sh) | Holds the window to a committed 700 pt budget across a range of display sizes |
 | The hardware gates | Run against real drives, resolving their target by serial — see the *Test hardware* section of [`BUILD-PLAN.md`](BUILD-PLAN.md) |
 

@@ -1707,8 +1707,9 @@ including window class names.
   `.onAppear { model.refreshHelperAvailability() }` at `ContentView`'s call site in
   `USBDriveTesterApp.swift` — a file `render-ui.sh`, `window-fit-check.sh` and `build-tools.sh` all
   exclude **by name**, and which no unit test builds. That placement is deliberate: it is what keeps
-  this machine's live `SMAppService` status out of all 36 renders. The cost is that **two mutations
-  survive by construction** and both were declared in advance: **M4**, the `.sheet` modifier deleted,
+  this machine's live `SMAppService` status out of all 36 renders *(40 since 2026-09-06, and it
+  still does — noted 2026-09-19)*. The cost is that **two mutations survive by construction** and
+  both were declared in advance: **M4**, the `.sheet` modifier deleted,
   and **M12**, the trigger never called. Chunk 13 is the whole of their cover, and the
   `helper gate:` log lines are what make it readable rather than a judgement about a dialog.
 

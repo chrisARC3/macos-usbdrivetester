@@ -990,7 +990,10 @@ was the defect. Here it was found before the gate was walked rather than after.*
   screen height while the scene declared no `.defaultSize`. `sips -c <h> <w>` centre-crops reliably, but **`--cropOffset` is
   measured to be silently unreliable** — ignored when the crop fits, and once returning the source
   image unchanged, with no error either time.
-- **36 view cases, and FOUR of them render a state this machine cannot produce** — `empty` (no
+- **36 view cases, and FOUR of them render a state this machine cannot produce** *(⚠️ 2026-09-19:
+  **40** — `helper-gate-busy` made it 37 on 2026-09-01 and Step 12 chunk 5's three
+  `report-device-lost*` cases 40 on 2026-09-06, and this count moved at neither. The FOUR are as
+  written; the four new cases were not assessed against them)* — `empty` (no
   drives), `devices-unmounted`, and `devices-unusable` (a drive with a `geometryProblem`, which no
   drive here has). Each exists because *a state nobody can observe is a state nobody has checked*;
   the third was added in Step 14 for a row that had never been rendered in either appearance.
@@ -1017,7 +1020,13 @@ was the defect. Here it was found before the gate was walked rather than after.*
   with exit 2 and omitting all six `content-*` run states; and again on 2026-08-23, when the script
   still said 34 against the probe's 31 after the Restart removal deleted three. Re-derive the list,
   never hand-edit it; the one-line `grep` is in the script's header. **Three drifts is the number
-  that says this will drift again.**
+  that says this will drift again.** *(⚠️ 2026-09-19: **it did, a fourth time.** Step 12 chunk 5
+  (`4b72d13`, 2026-09-06) added three cases to the probe and to neither the script's list nor the
+  probe's own "unknown view" message. `2086090` (2026-09-09) put them in the list and left the
+  script's "37 cases" standing twice, and the message named 37 of 40 until the move to Xcode 27's
+  chunk 4 found both. **Re-deriving fixed the list and reached nothing else**: the one-liner
+  generates the list, and the count beside it and the message in the probe are still typed by
+  hand.)*
 - **A render cannot see the live metrics panel or sheet modality — and the report body turns out to
   be a smaller blind spot than this entry claimed.** The panel polls a real helper, so offscreen it
   always shows the unavailable state whatever the run state is; and a window-modal sheet answers ⌘Q
@@ -1038,7 +1047,11 @@ was the defect. Here it was found before the gate was walked rather than after.*
 - **`tools/ui-probe` is a gate client and belongs in the list rebuilt after a protocol bump.** It
   went uncompilable for three increments because v10 → v11 rebuilt `metrics-probe` and
   `mount-guard-client` and not it. `scripts/build-tools.sh` now type-checks all 13 in seconds, and
-  found `tools/nocache-probe` broken since Step 9 on its first run.
+  found `tools/nocache-probe` broken since Step 9 on its first run. *(⚠️ 2026-09-19: **14** since
+  Step 13 chunk 1 added `sleep-assertion-probe`, 2026-09-12. And it showed errors only: each log
+  was deleted unread on success, so three Swift 6 warnings in `run-control-probe` went unseen until
+  the move to Xcode 27's chunk 4. It now shows, counts and names warnings, and does not fail on
+  them.)*
 - **Dynamic Type is NOT checkable here, and the axis that would have checked it was built and then
   deleted.** `.dynamicTypeSize` applied to an offscreen `NSHostingView` changes nothing on macOS —
   measured, and discriminated with two controls before it was believed. Confirmed independently at
@@ -1253,10 +1266,13 @@ was the defect. Here it was found before the gate was walked rather than after.*
   The launch-time helper gate uses this deliberately: the **trigger** is there, the `.sheet`
   **modifier** is on `ContentView`. The presentation therefore type-checks in all three harnesses
   while every one of the 36 renders is provably free of it, because nothing in a render writes
-  `helperAvailability`. Had the trigger gone in `ContentView.onAppear`, every `content-*` render
-  would read this machine's live `SMAppService.status` and issue a real XPC call — the ambient-state
-  leak recorded twice in section 1. The alternative was a fourth injected dependency on
-  `AppModel.init`.
+  `helperAvailability`. *(2026-09-19: 40 renders now, and still none writes it. Its one writer,
+  `AppModel.setHelperAvailability(_:)`, is reached only through `refreshHelperAvailability()`,
+  whose callers are `USBDriveTesterApp.swift` and `performHelperGateAction(_:)` — the gate's own
+  buttons, which a render never presents — and the probe names none of the three.)* Had the
+  trigger gone in `ContentView.onAppear`, every `content-*` render would read this machine's live
+  `SMAppService.status` and issue a real XPC call — the ambient-state leak recorded twice in
+  section 1. The alternative was a fourth injected dependency on `AppModel.init`.
   **What it costs is stated rather than discovered: logic in that file has no automated cover at
   all.** `build.sh` and `test.sh` compile it, so a compile error is caught; a wiring defect is not.
   Two of increment 9's mutations survive there by construction and were declared in advance. Put a

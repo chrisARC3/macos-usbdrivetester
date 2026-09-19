@@ -67,6 +67,12 @@ done < <(find "$APP_DIR" -name '*.swift' -print0)
 passed=0
 failed=()
 skipped=()
+# Warnings are shown, counted and named, and do not fail the run. Until 2026-09-19 this loop
+# printed `ok` and deleted each log unread, so it said nothing about warnings at all: three Swift 6
+# warnings sat in `run-control-probe` unseen, printed on every run by its own gate into a
+# transcript nobody reads for warnings (the move to Xcode 27's chunk 4).
+warned=()
+warnings=0
 
 for dir in "$TOOLS"/*/; do
     name="$(basename "$dir")"
@@ -93,7 +99,19 @@ for dir in "$TOOLS"/*/; do
     esac
 
     if [[ $? -eq 0 ]]; then
-        printf "  \033[32mok\033[0m    %s\n" "$name"
+        # ': warning: ' is the diagnostic's own line. The source excerpt under it repeats the text
+        # after "`- warning: ", which this pattern does not match, so each warning counts once.
+        n="$(grep -c ': warning: ' "$log")"
+        if [[ "$n" -eq 0 ]]; then
+            printf "  \033[32mok\033[0m    %s\n" "$name"
+        else
+            printf "  \033[33mok\033[0m    %s — %d warning(s)\n" "$name" "$n"
+            while IFS= read -r line; do
+                printf "          %s\n" "${line#"$REPO_ROOT/"}"
+            done < <(grep ': warning: ' "$log")
+            warned+=("$name")
+            warnings=$((warnings + n))
+        fi
         passed=$((passed + 1))
     else
         printf "  \033[31mFAIL\033[0m  %s\n" "$name"
@@ -104,8 +122,9 @@ for dir in "$TOOLS"/*/; do
 done
 
 echo
-echo "${passed} type-checked, ${#failed[@]} failed, ${#skipped[@]} skipped"
+echo "${passed} type-checked, ${#failed[@]} failed, ${#skipped[@]} skipped; ${warnings} warning(s)"
 [[ ${#skipped[@]} -gt 0 ]] && printf "  skipped: %s\n" "${skipped[*]}"
+[[ ${#warned[@]} -gt 0 ]] && printf "  warnings in: %s\n" "${warned[*]}"
 
 if [[ ${#failed[@]} -gt 0 ]]; then
     echo

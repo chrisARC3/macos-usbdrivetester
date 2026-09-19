@@ -1203,8 +1203,9 @@ func makeRootView(_ name: String) -> NSView {
             content, content-starting, content-running, content-paused, content-finished, \
             content-stop-on-error, content-no-selection, content-quit-pending, \
             content-selection-below-fold, \
-            report, report-failures, report-stopped, report-stopped-by-user, report-qualified, \
-            report-unidentified, report-empty, \
+            report, report-failures, report-stopped, report-stopped-by-user, \
+            report-device-lost, report-device-lost-paused, report-device-lost-silent, \
+            report-qualified, report-unidentified, report-empty, \
             helper-gate-not-found, helper-gate-not-registered, helper-gate-requires-approval, \
             helper-gate-unreachable, helper-gate-version-mismatch, helper-gate-busy, \
             warnings, warnings-ticked, warnings-confirm or warnings-unidentified\n
