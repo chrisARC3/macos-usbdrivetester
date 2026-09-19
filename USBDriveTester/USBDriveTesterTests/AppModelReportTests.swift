@@ -135,7 +135,14 @@ struct AppModelReportTests {
         /// What the menu rule said at the instant the report was produced. `nil` until a run ends.
         private(set) var mayRaiseWhenTheReportArrived: Bool?
 
-        init(reportFromTheRun: RunReport? = Fixture.report()) {
+        /// The usual bench, whose run produces `Fixture.report()`. A convenience init rather than
+        /// a default argument: a default argument is checked as nonisolated, and `report()` is
+        /// main-actor isolated, so the compiler refused the call there (2026-09-19).
+        convenience init() {
+            self.init(reportFromTheRun: Fixture.report())
+        }
+
+        init(reportFromTheRun: RunReport?) {
             model = AppModel(suppressionStore: InMemoryPreRunWarningSuppression(),
                              deviceSource: StubDeviceSource(devices: [DeviceFixtures.testDrive]))
             model.terminateAction = {}
