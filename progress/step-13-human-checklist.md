@@ -4,7 +4,10 @@
 > Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
 > pass this file had made — item 0, chunk 1, 2.1–2.4 and 2.6, each a fact about the Xcode 26 build
 > `af09416` — LAPSED at that install. Item 0 was re-run against the new install that morning and
-> PASSED. The walk restarts after the move's chunk 4, the hardware gates and the UI renders: item 0
+> PASSED. The move's chunk 4 ran 2026-09-19: the four hardware gates PASSED against `ac4d5208…`,
+> and the chunk stays OPEN on the window-fit probe, which is chunk 4b. The walk restarts after 4b
+> and after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
+> pulls are not re-walked on their own, because this file's item 3.7 carries them: item 0
 > re-checked, then chunk 1 from the top. Before the pause: item 0 PASSED 2026-09-13; its daemon row
 > LAPSED on 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
 > 14:47–14:53, on its third walk: the first, that morning, could not show its readings and the
@@ -478,8 +481,9 @@ since 2026-09-19 10:32:47, running the installed Xcode 27 helper `ac4d5208…`. 
 test through the helper, so its passes are about whichever helper the daemon is running. Check the
 pid first (*The daemon*, above); if it has changed, read the resolve line before going on.
 *(Until 2026-09-19 this named pid 46679, from the kickstart of 2026-09-18 13:06:19; from 2026-09-16
-until that kickstart the helper was a binary no gate had run against. So is `ac4d5208…` until the
-move's chunk 4 re-runs the four hardware gates, which comes before this walk restarts.)*
+until that kickstart the helper was a binary no gate had run against. So was `ac4d5208…` until the
+move's chunk 4 re-ran the four hardware gates against it on 2026-09-19: all four passed, against
+pid 95762.)*
 
 Start a fresh watcher for this chunk so its summary covers only this walk:
 
@@ -666,6 +670,46 @@ run, confirm **held 0** (2.3), then pull the cable.
 *Pass:* held 0 throughout — no blip to 1. The assertion went at the pause; the loss has nothing to
 release. This is the one ending where route (b) *does* end the run directly, and it is worth walking
 because the two paths differ in the code.
+
+**3.7 — Step 12's cable-pull items, carried by 3.5 and 3.6** *(added 2026-09-19, user decision)*.
+Every pass in `progress/step-12-human-checklist.md` was made on macOS 26 with an Xcode 26.6 build.
+Its dry chunks 1 and 2 are re-walked on their own; its pulls are not, because 3.5 and 3.6 already
+pull the cable on this build and can take these readings at no extra cost. Each is named by its
+Step 12 number so the pass can be recorded there too.
+
+After **3.5's** pull — a *running* run:
+
+* **(a)** The GUI does not crash or hang, and the window stays usable *(Step 12, 3.4)*.
+* **(b)** A **report** appears — **not** the alert *(3.7)*. A reply came back on this path, so there
+  is a document, and the report is the message.
+* **(c)** The report's outcome is device loss, and its account names **which detector** accounted
+  for it *(3.8)*.
+* **(d)** Its one device-loss sentence **matches the phase it names**, read against Step 12's
+  chunk 3 item 9, whose three rows are verbatim from `HonestFraming.swift` *(3.9)*. **Any phase
+  passes here.** Landing in `writingBack` was Step 12's job, and it was observed on 2026-09-09; what
+  this build owes is that sentence and phase still agree.
+* **(e)** **No Resume** is offered. Check the controls, not the report text *(3.10)*.
+* **(f)** Discovery re-runs by itself: the drive leaves the list without a click *(3.12)*. The
+  closure in `RunControllerWiring` that fires this has no cover but a person watching.
+
+Reconnecting the drive for 3.6 repeats Step 12's 3.13 and 3.14 on the way: the drive comes back,
+confirmed by serial, and the new run is accepted.
+
+After **3.6's** pull — a *paused* run:
+
+* **(g)** The run ends **at once**, not three seconds later *(Step 12, 4.4)*.
+* **(h)** The report's device-loss account is this sentence, word for word *(4.7)*:
+
+  > The run was **paused** when the drive left, so no chunk was part-way through anything and
+  > nothing was left half-written. Every chunk the run had reached was written back and verified
+  > before it stopped.
+
+  The pass is that sentence being on screen. A sentence saying a chunk *may hold partly written
+  data* in its place is the defect.
+* **(i)** Discovery re-runs, and the drive leaves the list *(4.8)*.
+
+*Pass:* all nine. A miss is a **Step 12 defect found on the Xcode 27 build**, and it is reported as
+one. It does not fail 3.5 or 3.6, whose subject is the assertion.
 
 **Walked:** date ________ build ________ drive `12345686DAA9`, transcript pasted below.
 

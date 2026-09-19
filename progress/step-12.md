@@ -338,6 +338,9 @@ on the 1 TB scratch T5, serial `12345686DAA9`:
 expected outcome, and it is not an argument that the re-run could have been skipped — it is what
 being able to say so costs. Three of the four assert the daemon's protocol version themselves, so
 v15 is established from inside the product and not only from a log line.
+*(⚠️ **Four**, not three — found 2026-09-19, when the move to Xcode 27's chunk 4 re-ran them: each
+of the four scripts has asserted the protocol since August, `xpc-concurrency-check.sh` since
+2026-08-06, so this was a miscount when written.)*
 
 ⚠️ **Counting assertions is an instrument, and it misread once here.** A first tally of
 `run-control-check.sh` gave **16**, against **14** in the record, with the script provably unchanged

@@ -952,6 +952,22 @@ was the defect. Here it was found before the gate was walked rather than after.*
   the max. Until this was fixed the **width argument was inert** — `content-starting` reported the
   same height at 640, 700 and 900 — and the figures the gate's own header quoted for it had never
   been produced by the gate.
+- ⚠️ **On Xcode 27.0 / macOS 27.0 the measured half returns 1 pt for every state, and `--limits`
+  silently becomes the declared minimum** (measured 2026-09-19, the move to Xcode 27's chunk 4).
+  `measuredMinimumHeight` rests on two things that held on Xcode 26.6 / macOS 26, where it measured
+  613, and do not hold here. **(1)** Clearing `contentMinSize` lets the window go below it: here
+  something puts the minimum back — it reads 524 again at the first test, after the function has
+  set it to 1 — so a window asked for 1 pt comes back 524 tall. The likely culprit is the probe's
+  own `sizingOptions`, which include `.minSize`; that is inferred, not yet tested. **(2)**
+  `rootView.subviews.first` is the laid-out content: here it is a **24 pt `KeyViewProxy`**, the
+  first of 11 subviews. Either alone gives `overflowAt=1`, because the
+  search sees no overflow at any height and bottoms out at its lower bound. `window-fit-check.sh`
+  then printed *"every state fits"* with a worst case of **556 pt** — the declared 524 plus the
+  title bar, the figure the bullet above says is 58 pt short — while renders at the declared heights
+  clip the list header. **A measurement that returns its own lower bound is a broken instrument,
+  the way a zero test total is**, and nothing in the gate knew to say so. Whether the OS or the SDK
+  changed cannot be separated here: Xcode 26.6 is gone from this machine. Until the probe is fixed,
+  the gate is inconclusive on this machine; `PROGRESS.md` says where that stands.
 - **Drive count is a render axis** (sixth argument, default 1). Until it existed, **every render
   this project had ever taken showed exactly one drive**, so `DeviceListView`'s list — which grows
   to a 260 pt cap with the number attached — had never been looked at near that cap. The first

@@ -18,6 +18,18 @@
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
 > through three chunks' walks and thirteen commits to this very file. It names no step, so the grep
 > for the five blocks that do never finds it — the tenth stale status block (`CLAUDE.md`).
+>
+> ⚠️ **2026-09-19: chunks 1 and 2 are OWED a re-walk on the Xcode 27 build, and chunks 3 and 4's
+> pulls are carried by Step 13's** (user decision, at the move to Xcode 27's chunk 4). Every pass
+> above was made with an Xcode 26.6 build on macOS 26. Chunks 1 and 2 are dry and take minutes: the
+> alert, induced through chunk 1's debug hook, and the report's device-loss face. Chunks 3 and 4 are
+> not re-walked on their own — Step 13's checklist pulls the cable twice on this build in its
+> chunk 3, and its item **3.7** takes this file's 3.4, 3.7–3.10 and 3.12 at the running pull and
+> 4.4, 4.7 and 4.8 at the paused one. Chunk 5 was discharged from logs and is not re-opened.
+> **Chunk 1's hook is installed to `/Applications` and taken out again**, so it goes before Step
+> 13's walk restarts, whose item 0 re-checks the install after it. Until each is walked, its pass
+> here is a fact about the Xcode 26 build only. **Each re-walk fills in its own Walked line and
+> edits this note.**
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the

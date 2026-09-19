@@ -7,6 +7,17 @@
 > passed on 2026-08-18 and was silently broken four days later by a change in another step, and
 > nobody noticed for thirteen days.
 
+> ⚠️ **2026-09-19: four parts of this file are OWED a re-walk on the Xcode 27 build** (user decision,
+> at the move to Xcode 27's chunk 4): **chunk 9**, the window's size; **chunk 11**, the report as a
+> sheet; **chunk 16**, ⌘Q under every modal; and **item 6.3**, Cancel and Quit. Every pass in this
+> file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
+> window sizing, sheet presentation, key equivalents under a modal — that no test and no render
+> reaches. Chunk 9 is also the calibration for `window-fit-check.sh`'s probe, which stopped
+> measuring on Xcode 27 / macOS 27 (`PROGRESS.md`, *The move to Xcode 27*, chunk 4). Until each is
+> re-walked, its pass here is a fact about the Xcode 26 build only. The rest of this file is covered
+> on the new build by the suite, the four hardware gates and the renders, or gets exercised again by
+> Step 13's walk. **Each re-walk fills in its own Walked line and edits this note.**
+
 > **The absolute paths in this file were rewritten on 2026-09-04.** This repository lives on a
 > **removable volume** and moved from `/Volumes/1TB_Samsung/…` to `/Volumes/1TB_UGreen/…`, which
 > silently turned two pasteable commands — checks **12.2** and **13.7** — into paths that do not
