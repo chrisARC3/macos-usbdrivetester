@@ -285,8 +285,13 @@ are **process**, not history.
   ```
 
   or unregister and re-register in the app's Step 3 panel, then confirm with **Check version**.
-  `install-app.sh` prints the kickstart line itself when it finishes. It refuses to overwrite a
-  running app — quit it first.
+  `install-app.sh` prints the kickstart line itself when it finishes, if the running daemon started
+  before the installed helper binary's mtime. *(It did not from `63a7ae2`, 2026-09-11, to
+  2026-09-19: its daemon lookup was a pipe that stopped reading early — see* Shell and scripting,
+  *below — and the script exited 141 after the install and before the warning, 97 runs in 100.
+  Fixed 2026-09-19, and proven that day by the script's own run against a stale daemon: exit 0,
+  warning printed. Any change to that lookup lapses the proof.)* It refuses to overwrite a running
+  app — quit it first.
 - This repo lives on an **external volume**, and macOS gates daemon access to removable volumes:
   anything the root helper must read has to live outside the repo (`/tmp`).
 
@@ -295,8 +300,17 @@ are **process**, not history.
 - Scripts are `#!/bin/bash` → **bash 3.2** on macOS. No associative arrays, no `mapfile`, no
   `${var,,}`; and `"${empty[@]}"` under `set -u` is an unbound-variable error — write
   `${arr[@]+"${arr[@]}"}`.
-- Under `set -euo pipefail`, `producer | grep -q` returns **non-zero when grep MATCHES**, and
-  `producer | head -1` can SIGPIPE the producer. Use `grep -m1`.
+- Under `set -euo pipefail`, `producer | grep -q` returns **non-zero when grep MATCHES**, and any
+  consumer that stops reading early — `head -1`, `grep -m1`, `awk '{…; exit}'` — can SIGPIPE the
+  producer and fail the pipeline on a successful match. Whether it does depends on how much the
+  producer still has to write, so measure a site rather than reason about it. **Capture the
+  producer's output first and read it from a here-string** (Step 6's fix). `grep -m1` is safe only
+  reading a file itself, as every `grep -m1` in `scripts/` does. *(Until 2026-09-19 this said "Use
+  `grep -m1`", with no such limit. Measured that day under `/bin/bash` 3.2 on
+  `ps -axo pid=,ppid=,uid=,comm=`, 103,962 bytes: `| grep -m1` exited 141 in 50 runs of 50, and
+  `| awk '{…; exit}'` — `install-app.sh`'s daemon lookup — in 97 of 100; the here-string in none of
+  100. `xcodebuild -showBuildSettings | awk '{…; exit}'`, in `install-app.sh` and `build.sh`, is OK
+  today and left alone: 20 runs of 20 exited 0 on its 42,788 bytes.)*
 - Bash arithmetic is **signed** 64-bit: `od -An -N8 -tu8` yields values above 2⁶³ that go negative
   through a modulo. Use 32 bits.
 - Invoke `log` as **`/usr/bin/log`** — the bare name gets mangled in this environment. *(It is zsh's

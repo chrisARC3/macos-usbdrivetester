@@ -76,8 +76,17 @@ HELPER_BIN="$DEST/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper"
 # EXECUTABLE. Not `pgrep -f`, which matches any process whose ARGUMENTS contain the name — an `nm`,
 # a `log` predicate, an editor — so `head -1` could time the wrong process and stay silent about a
 # stale daemon, the one thing this check exists to say. Found 2026-09-10.
-HELPER_PID="$(/bin/ps -axo pid=,ppid=,uid=,comm= | /usr/bin/awk -v want='MacOS/com.arc3solutions.USBDriveTester.Helper' '
-    $2 == 1 && $3 == 0 && substr($0, length($0) - length(want) + 1) == want { print $1; exit }')"
+#
+# `ps` is captured FIRST and awk reads it from a here-string. Piped straight into awk, the `exit`
+# closed the pipe at the daemon's row while `ps` still had rows to write: `ps` died of SIGPIPE,
+# `pipefail` failed the assignment, and `set -e` ended the script after the install and before
+# this check — silent about a stale daemon again, by way of the 2026-09-10 fix. 97 runs in 100
+# exited 141 on 2026-09-19, with 103,962 bytes of `ps` and the daemon's row ending at byte 96,694;
+# it depends on how much `ps` still has to write, so some runs pass. `grep -m1` from a pipe fails
+# the same way. The lesson is Step 6's, in `progress/step-06.md`.
+PS_ROWS="$(/bin/ps -axo pid=,ppid=,uid=,comm=)"
+HELPER_PID="$(/usr/bin/awk -v want='MacOS/com.arc3solutions.USBDriveTester.Helper' '
+    $2 == 1 && $3 == 0 && substr($0, length($0) - length(want) + 1) == want { print $1; exit }' <<< "$PS_ROWS")"
 if [[ -n "$HELPER_PID" && -f "$HELPER_BIN" ]]; then
     BIN_EPOCH="$(stat -f '%m' "$HELPER_BIN")"
     PID_START="$(ps -o lstart= -p "$HELPER_PID" 2>/dev/null || true)"
