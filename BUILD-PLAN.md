@@ -20,7 +20,9 @@ test target fixed to the designated scratch device with disk images removed as a
 > IN PROGRESS — planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
 > 2026-09-13, and 5 (the hardware walk) PAUSED 2026-09-18 for the move to Xcode 27 — four chunks,
-> chunk 1 done — to restart at item 0 on the Xcode 27 build. Before the pause, item 0 passed
+> 1 and 2 done (2 on 2026-09-19: the suite green on Xcode 27.0 with zero Swift warnings, once the
+> one warning it found was fixed in the test target), 3 next — to restart at item 0 on the Xcode 27
+> build. Before the pause, item 0 passed
 > 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
 > and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed).
 > The daemon was kickstarted 2026-09-18 13:06:19 and runs the installed helper from `/Applications`
@@ -41,8 +43,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > `abc07e3` — the evidence and what invalidates each is beside them. ⚠️ **7f
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
-> partitioned drive ended its run ten milliseconds after the claim. The suite is **1323 / 157 / 0**,
-> floor 1323. **The protocol is v15** (chunk 3,
+> partitioned drive ended its run ten milliseconds after the claim. The suite is **1323 / 157 / 0**
+> on Xcode 27.0 (2026-09-19, `d1ac7a6`), floor 1323. **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -167,7 +169,11 @@ are **process**, not history.
   per *module*, each consuming a full `.SwiftFileList`), **test 148**. A Release count of 2 looks
   alarming and is not; a Debug count of 2 would be the real thing to worry about.
   **Re-measured 2026-09-07 at Step 12 chunk 7: Debug 92, Release 2, test 182** — the project has
-  grown; the shape has not.
+  grown; the shape has not. **Xcode 27.0, 2026-09-18: Debug 95, Release 4, test 188 — not
+  comparable with the figures above.** Xcode 27 prints one more `SwiftCompile normal arm64 (in
+  target '…' from project 'USBDriveTester')` line per target, naming no file — Release's 4 is its 2
+  plus one per target. The sources were complete in all three, 71, 71 and 134, which is the count
+  below that matters.
 - **But count the SOURCES, not the tasks — the task count cannot detect a cached Release.** This
   was found by taking the note above at face value and then not believing the reading: Release
   emits 2 tasks whether it compiled seventy files or two, so for that configuration the number is
@@ -514,7 +520,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — four chunks, chunk 1 done — to restart at item 0 on the Xcode 27 build. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed).** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — four chunks, 1 and 2 done (2 on 2026-09-19: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target), 3 next — to restart at item 0 on the Xcode 27 build. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed).** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -554,8 +560,8 @@ simulation-first still applies wherever the plan calls for it.
 > surviving all 1301 tests and killed by one new test. **The step is CLOSED**: all four gate items
 > ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
-> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, and complete at 1323 in all seventeen runs of chunk 4's mutation round), protocol **v15** (chunk 3, 2026-09-05),
-> zero source warnings from three clean builds, **14/14** gate clients type-checking against v15 —
+> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, complete at 1323 in all seventeen runs of chunk 4's mutation round, and **green on Xcode 27.0 on 2026-09-19** against `d1ac7a6`), protocol **v15** (chunk 3, 2026-09-05),
+> zero source warnings from three clean builds (on Xcode 27.0: Debug and Release 2026-09-18, the test build 2026-09-19), **14/14** gate clients type-checking against v15 (re-run 2026-09-19) —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
 > the app build does not compile the tools, so nothing else would have found those two call sites.

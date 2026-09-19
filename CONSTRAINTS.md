@@ -515,8 +515,9 @@ What it changes, and what it does not:
   which instrumentation is an **untested** candidate.
 - **Not fit to distribute.** The counters' names embed absolute source paths —
   `___profc_/Volumes/1TB_UGreen/…/InMemoryBlockDevice.swift:…` — and a `build.sh Release` build is
-  instrumented too (from the settings; no Release binary was on disk to inspect). Step 16 must
-  build without it.
+  instrumented too (from the settings; no Release binary was on disk to inspect). **Measured
+  2026-09-18**, on the Xcode 27 move's clean Release build: `__llvm_prf_cnts` in both the app and
+  the helper, with 1132 and 653 `___profc_` symbols. Step 16 must build without it.
 
 **Left as it is — user decision 2026-09-11.** Changing it then would have put a different binary
 under Step 12's checklist chunks 4 and 5 than chunks 1–3 ran on — chunk 4 was walked on the

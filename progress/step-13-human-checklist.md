@@ -217,6 +217,8 @@ a kickstart, a crash, or a reboot, which is how this one happened.
 *(2026-09-18, later: with the walk paused, the move to Xcode 27 runs the suite on purpose in its
 chunk 2. Its chunk 3 reinstalls, relaunches the app from `/Applications` and kickstarts, so the
 record is back before the walk restarts at item 0 — where this warning applies again.)*
+*(2026-09-19: chunk 2 ran it. The record is on DerivedData since 09:24:02, until chunk 3; the
+daemon is still pid 46679 from `/Applications`.)*
 
 **As written 2026-09-13, true then, and kept as the record of when it stopped being true:**
 
