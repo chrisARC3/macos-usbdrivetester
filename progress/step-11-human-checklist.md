@@ -12,8 +12,11 @@
 > sheet; **chunk 16**, ⌘Q under every modal; and **item 6.3**, Cancel and Quit. Every pass in this
 > file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
 > window sizing, sheet presentation, key equivalents under a modal — that no test and no render
-> reaches. Chunk 9 is also the calibration for `window-fit-check.sh`'s probe, which stopped
-> measuring on Xcode 27 / macOS 27 (`PROGRESS.md`, *The move to Xcode 27*, chunk 4). Until each is
+> reaches. **Chunk 9 is also the calibration for `window-fit-check.sh`'s probe**, which stopped
+> measuring on Xcode 27 / macOS 27 at the move's chunk 4 and was fixed at **chunk 4b** the same
+> evening: it measures **613 pt** again, by driving an `NSHostingView` in a probe window, and chunk 9
+> is the only thing that can say whether the shipped `Window` scene agrees (`PROGRESS.md`, *The move
+> to Xcode 27*). Until each is
 > re-walked, its pass here is a fact about the Xcode 26 build only. The rest of this file is covered
 > on the new build by the suite, the four hardware gates and the renders, or gets exercised again by
 > Step 13's walk. **Each re-walk fills in its own Walked line and edits this note.**

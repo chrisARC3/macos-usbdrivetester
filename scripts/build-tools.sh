@@ -121,6 +121,63 @@ for dir in "$TOOLS"/*/; do
     rm -f "$log"
 done
 
+# ---------------------------------------------------------------------------
+# `ui-probe`'s case list, which is hand-maintained in THREE places
+# ---------------------------------------------------------------------------
+#
+# `makeRootView`'s `switch` is authoritative. Two other lists name the same cases and **neither is
+# checkable by a compiler**: the probe's own "unknown view" message, and the header list in
+# `scripts/render-ui.sh`. They have drifted from the switch four times (that script's header has the
+# full account). The fourth drift is why this check exists: three cases added on 2026-09-06 reached
+# the list on 2026-09-09 and the message not at all, and the count beside the list stayed at 37
+# until 2026-09-19 — found by a person rendering all 40 by hand, not by any check.
+#
+# **Re-deriving the list, which is the fix history prescribes, only ever fixed the list.** The
+# one-liner generates it; the count and the message are typed. So they are compared here, in the
+# script that already type-checks `ui-probe` and runs on every protocol change.
+#
+# The message is read out of the source rather than by running the binary, because this script
+# type-checks and never links. That extraction was validated on 2026-09-19 against what the built
+# probe actually prints — the same 40 names, no more and no fewer.
+PROBE_SOURCE="$TOOLS/ui-probe/main.swift"
+RENDER_SCRIPT="$REPO_ROOT/scripts/render-ui.sh"
+case_drift=0
+
+# Not `sort -u`: two `case` labels with the same name is a real defect (one is unreachable), and it
+# should show up here as a disagreement rather than be collapsed.
+switch_cases="$(grep -oE '^    case "[a-z0-9-]+":' "$PROBE_SOURCE" | sed 's/.*"\(.*\)":/\1/' | sort)"
+# Everything after "expected " in the message is names, commas, line continuations and one "or";
+# `\n` ends it, which is where the `n` comes from.
+message_cases="$(awk '/ui-probe: unknown view/,/warnings-unidentified/' "$PROBE_SOURCE" \
+    | sed 's/.*expected //' | tr -cs 'a-z0-9-' '\n' | grep -E '^[a-z]' | grep -vxE 'or|n' | sort -u)"
+header_cases="$(awk '/CASE LIST BEGINS/{f=1;next} /CASE LIST ENDS/{f=0} f' "$RENDER_SCRIPT" \
+    | tr -cs 'a-z0-9-' '\n' | grep -E '^[a-z]' | sort -u)"
+
+echo
+# An extraction that comes back EMPTY is a broken check, not agreement — the same reading this
+# project gives a zero test total. Anchors move; a silent pass would be the worse failure.
+if [[ -z "$switch_cases" || -z "$message_cases" || -z "$header_cases" ]]; then
+    printf "  \033[31mFAIL\033[0m  ui-probe case list: an extraction came back EMPTY "
+    printf "(switch=%s message=%s header=%s names) — this check is broken, not passing\n" \
+        "$(grep -c . <<< "$switch_cases")" "$(grep -c . <<< "$message_cases")" \
+        "$(grep -c . <<< "$header_cases")"
+    case_drift=1
+elif [[ "$switch_cases" != "$message_cases" || "$switch_cases" != "$header_cases" ]]; then
+    printf "  \033[31mFAIL\033[0m  ui-probe case list: the three lists disagree\n"
+    for pair in "the probe's own message:$message_cases" "render-ui.sh's header list:$header_cases"; do
+        label="${pair%%:*}"
+        list="${pair#*:}"
+        missing="$(comm -23 <(echo "$switch_cases") <(echo "$list") | tr '\n' ' ')"
+        extra="$(comm -13 <(echo "$switch_cases") <(echo "$list") | tr '\n' ' ')"
+        [[ -n "$missing" ]] && printf "          %s is MISSING: %s\n" "$label" "$missing"
+        [[ -n "$extra" ]] && printf "          %s names cases the switch does not have: %s\n" "$label" "$extra"
+    done
+    case_drift=1
+else
+    printf "  \033[32mok\033[0m    ui-probe case list: %s cases, and both hand-maintained copies name the same ones\n" \
+        "$(grep -c . <<< "$switch_cases")"
+fi
+
 echo
 echo "${passed} type-checked, ${#failed[@]} failed, ${#skipped[@]} skipped; ${warnings} warning(s)"
 [[ ${#skipped[@]} -gt 0 ]] && printf "  skipped: %s\n" "${skipped[*]}"
@@ -130,5 +187,18 @@ if [[ ${#failed[@]} -gt 0 ]]; then
     echo
     echo "FAILED: ${failed[*]}"
     echo "A gate client that does not compile is a gate that cannot run. Fix before the bump lands."
+    exit 1
+fi
+
+if [[ $case_drift -ne 0 ]]; then
+    cat <<'EOF'
+
+FAILED: ui-probe's case list.
+
+The probe's `switch` is authoritative. Re-derive render-ui.sh's header list from it — the one-liner
+is in that script's header, between the CASE LIST sentinels — and extend the probe's own "unknown
+view" message in the same edit. A case the message does not name is a case nobody can discover from
+an error, and a list that disagrees with the switch is a render nobody runs.
+EOF
     exit 1
 fi

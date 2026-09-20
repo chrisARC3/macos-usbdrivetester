@@ -19,14 +19,16 @@ test target fixed to the designated scratch device with disk images removed as a
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
 > IN PROGRESS — planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
-> 2026-09-13, and 5 (the hardware walk) PAUSED 2026-09-18 for the move to Xcode 27 — four chunks,
-> 1–3 done (2 on 2026-09-19: the suite green on Xcode 27.0 with zero Swift warnings, once the one
-> warning it found was fixed in the test target; 3 the same day: the Xcode 27 build installed and
-> proved by content, and the daemon kickstarted from `/Applications`), 4 run the same day and
-> still OPEN — the four hardware gates passed against the Xcode 27 helper and the renders are whole,
-> but `window-fit-check.sh` is inconclusive because its probe stopped measuring on Xcode 27 /
-> macOS 27, so 4b, the probe fix, is next when the user approves it; then the Step 11 and 12
-> re-walks the user chose on 2026-09-19, and then the walk restarts at item 0. Before the pause, item 0 passed
+> 2026-09-13, and 5 (the hardware walk) PAUSED 2026-09-18 for the move to Xcode 27 — **that move is
+> COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0
+> with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode
+> 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the
+> four hardware gates passed against the Xcode 27 helper and the renders are whole, but
+> `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27;
+> 4b: that probe fixed and the gate back to **613 pt**, the Xcode 26.6 figure, with an INCONCLUSIVE
+> verdict of its own so it can never again print a declared minimum as a fit). Next are the Step 11
+> and 12 re-walks the user chose on 2026-09-19, which need a person at the keyboard, and then the
+> walk restarts at item 0. Before the pause, item 0 passed
 > 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
 > and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one
 > of those passes lapsed at the Xcode 27 install, and item 0 passed again against it. The daemon
@@ -543,7 +545,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — four chunks, 1–3 done (2 on 2026-09-19: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3 the same day: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`), 4 run the same day and still OPEN — the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` is inconclusive because its probe stopped measuring on Xcode 27 / macOS 27, so 4b, the probe fix, is next when the user approves it; then the Step 11 and 12 re-walks the user chose on 2026-09-19, and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt**, with an INCONCLUSIVE verdict of its own). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work, and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -660,12 +662,15 @@ simulation-first still applies wherever the plan calls for it.
 >
 > **`window-fit-check.sh` worst case is 613 pt** against a committed 700 pt budget, with
 > `.window-fit-exceptions` empty; **37** render cases.
-> ⚠️ **2026-09-19: 613 is the last *conclusive* figure** — 2026-09-03 at `05b7ea7`, Xcode 26.6 on
-> macOS 26. The gate's run on Xcode 27 / macOS 27, at the move to Xcode 27's chunk 4, printed 556
-> and is **inconclusive**: the probe's measured half returns 1 pt for every state there, so the
-> gate fell back to the declared minimum, which is 58 pt short (`PROGRESS.md`, *The move to Xcode
-> 27*; `CONSTRAINTS.md` §1). Chunk 4b fixes the probe and expects 613 again. And the probe has had
-> **40** cases since 2026-09-06, when Step 12 chunk 5 added the three `report-device-lost*`.
+> ⚠️ **2026-09-19: 613 has been measured twice, and once it was nearly lost.** The figure was
+> 2026-09-03 at `05b7ea7`, Xcode 26.6 on macOS 26. The gate's first run on Xcode 27 / macOS 27, at
+> the move to Xcode 27's chunk 4, printed **556 and was inconclusive**: the probe's measured half
+> returned 1 pt for every state there, so the gate fell back to the declared minimum, which is 58 pt
+> short. **Chunk 4b fixed the probe that evening and the re-run measured 613 again** — same worst
+> state, `content-starting` at six drives — and the gate now exits **2, INCONCLUSIVE** rather than
+> reporting a declared minimum as a fit (`PROGRESS.md`, *The move to Xcode 27*; `CONSTRAINTS.md` §1).
+> 613 is now a fact about Xcode 27.0 / macOS 27.0 as well. And the probe has had **40** cases since
+> 2026-09-06, when Step 12 chunk 5 added the three `report-device-lost*`.
 >
 > **The repository has a remote as of 2026-09-02** — private
 > [`chrisARC3/macos-usbdrivetester`](https://github.com/chrisARC3/macos-usbdrivetester), branch

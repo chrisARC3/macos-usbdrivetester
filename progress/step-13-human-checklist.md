@@ -4,9 +4,10 @@
 > Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
 > pass this file had made — item 0, chunk 1, 2.1–2.4 and 2.6, each a fact about the Xcode 26 build
 > `af09416` — LAPSED at that install. Item 0 was re-run against the new install that morning and
-> PASSED. The move's chunk 4 ran 2026-09-19: the four hardware gates PASSED against `ac4d5208…`,
-> and the chunk stays OPEN on the window-fit probe, which is chunk 4b. The walk restarts after 4b
-> and after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
+> PASSED. The move's chunk 4 ran 2026-09-19: the four hardware gates PASSED against `ac4d5208…`, and
+> it was OPEN for six hours on the window-fit probe — **chunk 4b fixed that probe the same evening,
+> the gate measures 613 pt again, and chunk 4 CLOSED with it, so THE MOVE IS COMPLETE.** The walk
+> restarts after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
 > pulls are not re-walked on their own, because this file's item 3.7 carries them: item 0
 > re-checked, then chunk 1 from the top. Before the pause: item 0 PASSED 2026-09-13; its daemon row
 > LAPSED on 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18

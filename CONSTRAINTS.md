@@ -957,17 +957,41 @@ was the defect. Here it was found before the gate was walked rather than after.*
   `measuredMinimumHeight` rests on two things that held on Xcode 26.6 / macOS 26, where it measured
   613, and do not hold here. **(1)** Clearing `contentMinSize` lets the window go below it: here
   something puts the minimum back — it reads 524 again at the first test, after the function has
-  set it to 1 — so a window asked for 1 pt comes back 524 tall. The likely culprit is the probe's
-  own `sizingOptions`, which include `.minSize`; that is inferred, not yet tested. **(2)**
+  set it to 1 — so a window asked for 1 pt comes back 524 tall. It is the probe's own
+  `sizingOptions`, which include `.minSize` *(⚠️ chunk 4b **tested** this the same evening, where
+  chunk 4 wrote "the likely culprit … inferred, not yet tested": drop `.minSize` from the search's
+  options and the same ask of 1 pt returns 1 pt with `contentMinSize` reading 0)*. **(2)**
   `rootView.subviews.first` is the laid-out content: here it is a **24 pt `KeyViewProxy`**, the
-  first of 11 subviews. Either alone gives `overflowAt=1`, because the
-  search sees no overflow at any height and bottoms out at its lower bound. `window-fit-check.sh`
+  first of 11 subviews. `window-fit-check.sh`
   then printed *"every state fits"* with a worst case of **556 pt** — the declared 524 plus the
   title bar, the figure the bullet above says is 58 pt short — while renders at the declared heights
   clip the list header. **A measurement that returns its own lower bound is a broken instrument,
   the way a zero test total is**, and nothing in the gate knew to say so. Whether the OS or the SDK
-  changed cannot be separated here: Xcode 26.6 is gone from this machine. Until the probe is fixed,
-  the gate is inconclusive on this machine; `PROGRESS.md` says where that stands.
+  changed cannot be separated here: Xcode 26.6 is gone from this machine.
+
+  ⚠️ **This bullet said *"either alone gives `overflowAt=1`"* until 2026-09-19, and the 2×2 matrix
+  chunk 4b ran that evening refutes it.** Measured at `content-starting`, 640 pt, one drive: both
+  breaks together give 1; **(1) alone gives 24** — the search escapes the clamp and then bottoms out
+  on the focus proxy; and **(2) alone gives the right answer, 570**, because a clamped window's
+  content still overflows its own bounds, so `tallest > bounds` is true at the clamp and the search
+  converges above it. The claim was an inference written in the voice of a measurement, and only one
+  of the two breaks was ever load-bearing.
+
+  ✅ **Fixed 2026-09-19, the move's chunk 4b — and the instrument now reports its own failure.**
+  `measuredMinimumHeight` returns `.measured(CGFloat)` or `.unmeasurable(String)`; it clears
+  `contentMinSize` **and** `minSize`, runs the search with `sizingOptions` of
+  `[.maxSize, .intrinsicContentSize]`, compares the **tallest** subview against the root's bounds,
+  and records the first height the window refused to shrink to. Refused → `min=<w>xunmeasured`,
+  `measurement=UNMEASURABLE(<why>)`, **exit 3**; the gate has **exit 2, INCONCLUSIVE**, raised
+  either by that or by a measured height below the declared one — impossible for these states while
+  the measurement works, since each has fixed chrome above and below the list. **It measures 613 pt
+  again**, the 2026-09-03 figure. macOS 27's inventory here, for anyone reading the same trace
+  later: 2× `KeyViewProxy` 24 pt, `AppKitPlatformViewHost` for `MainWindowCloseGuardInstaller` (it
+  tracks the content height), `TableSelectionPolicy` and `OutlineListRepresentable`, a
+  `PlatformContainer` — the flexible list pane, **104 pt at every ask from 24 to 570** — and 5×
+  `_FocusRingView` 24 pt. **`fittingSize` is not a shortcut**: it returns the ideal size, 1197×716,
+  not the minimum at a width, so the binary search is still necessary. `PROGRESS.md`, *The move to
+  Xcode 27*, has the mutations that hold the two detectors up.
 - **Drive count is a render axis** (sixth argument, default 1). Until it existed, **every render
   this project had ever taken showed exactly one drive**, so `DeviceListView`'s list — which grows
   to a 260 pt cap with the number attached — had never been looked at near that cap. The first
@@ -1744,3 +1768,34 @@ Every defect this project has produced came from trusting a substitute for the r
   a change that cannot alter a single thing the daemon does. Record it anyway — the recipe is
   defined by path and the binary really is different — but know which kind of move it was before
   concluding a gate result lapsed for a substantive reason.
+
+- **AN INSTRUMENT THAT CAN ONLY RETURN ITS OWN LOWER BOUND IS BROKEN, AND ITS GATE HAS TO BE ABLE TO
+  SAY "I COULD NOT MEASURE".** `ui-probe --limits` finds the window's minimum height by binary
+  search: drive the window down, ask *"does the content overflow?"*. On macOS 27 both premises of
+  that question stopped holding — the window refused to shrink (the probe's own `sizingOptions`
+  carry `.minSize`, which re-imposes the minimum a moment after the search clears it), and the
+  subview it read as "the content" became a 24 pt focus proxy. Either way the answer is **no at
+  every height**, so the search returns the bottom of its own range, `--limits` falls back to the
+  declared minimum, and `window-fit-check.sh` printed *"every state fits"* with a worst case **57 pt
+  below** the one the fixed probe measures. Nothing in the chain looked wrong: exit 0, a full 14-row
+  table, a plausible number.
+  **A search's lower bound is not a measurement, and neither is a fallback.** Three rules, and the
+  third is the one that generalizes past this probe:
+  **make the measuring function return "I could not measure" as a value, with the reason inside it**
+  — `MeasuredMinimum.unmeasurable(String)`, which the gate prints verbatim, rather than a number no
+  caller can tell apart from a real one; **give the gate a third verdict** — exit 2, INCONCLUSIVE, no
+  worst case printed and an explicit instruction not to record a figure from that run, which is the
+  zero-test-total rule applied to a measurement; and **build the detector from an invariant the
+  product supplies, not from the bug you just watched happen.** Here the invariant is that every
+  state in the gate's list has fixed chrome above and below a scrollable list, so a measured minimum
+  *below* the declared one cannot happen while the measurement works — and that catches the
+  wrong-subview failure without the gate knowing anything about subviews. Two independent detectors,
+  and the mutation round shows they are independent: re-breaking either half is caught, by a
+  different one each time. Measured and fixed 2026-09-19, the move to Xcode 27's chunks 4 and 4b;
+  the 2×2 matrix and the four mutations are in `PROGRESS.md`.
+  One more was paid for the same evening. **Chunk 4's account said *"two breaks, each enough
+  alone"*, and the matrix refuted it** — one of the two, alone, still yields the right answer. It was
+  an inference written in the voice of a measurement, in the same paragraph as real measurements,
+  which is exactly where that is hardest to see. **When an account mixes the two, mark which is
+  which** — chunk 4 did this correctly one sentence later (*"the likely culprit … inferred, not yet
+  tested"*), and that sentence is the reason the test got run at all.

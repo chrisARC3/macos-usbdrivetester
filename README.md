@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5 done, the walk paused for the move to Xcode 27)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5 done; the move to Xcode 27 is complete and the walk resumes with a set of re-walks)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -55,11 +55,13 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and walking it is the only chunk left. **The walk is paused, since 2026-09-18, for the move to
 > Xcode 27**, which had replaced Xcode 26.6 under the project three days before. Three of the
 > move's four chunks are done: the project file, a clean build and test run, and — on 2026-09-19 —
-> the Xcode 27 build installed, with its daemon running from `/Applications`. The fourth ran the
-> same day and is still open: the four hardware gates passed on the Xcode 27 build and the UI
-> renders are whole, but the window-size check's probe has stopped measuring on Xcode 27, so it
-> proved nothing, and fixing it is next. After that, a chosen set of Step 11 and 12 checklist items
-> is re-walked on the new build, and then the walk restarts at item 0. Before the pause, item 0 passed on 2026-09-13 and
+> the Xcode 27 build installed, with its daemon running from `/Applications`. The fourth ran the same
+> day: the four hardware gates passed on the Xcode 27 build and the UI renders are whole, but the
+> window-size check's probe had stopped measuring on Xcode 27 and proved nothing. **That probe was
+> fixed the same evening** — it was measuring the wrong subview, and it now says so instead of
+> guessing when it cannot measure at all — and the check is back to the figure it gave on Xcode 26.
+> **The move is complete.** Next, a chosen set of Step 11 and 12 checklist items is re-walked on the
+> new build, and then the walk restarts at item 0. Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
 > Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege plumbing, the
@@ -83,7 +85,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 >
 > Current verified state, on Xcode 27.0 since 2026-09-19: **1323 tests / 157 suites / 0 failures**
 > (floor 1323), zero source warnings from three clean builds, **14/14** gate clients type-checking
-> and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15. See
+> and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15,
+> and the main window measured at **613 pt** against its committed 700 pt budget. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 

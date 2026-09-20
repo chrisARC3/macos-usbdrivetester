@@ -85,7 +85,21 @@ in a place the previous fix had not thought of; the ninth, twelfth and thirteent
   2026-09-18, while writing up the walk that followed them.
 
 **Four files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
-and `BUILD-PLAN.md` (twice). That is five blocks, and the grep has to find all five.
+and `BUILD-PLAN.md` (**three times** — the block under the title, the *"Status, …"* block under
+`## Sequence overview`, and the gates-and-figures annotation ~120 lines below it). That is **six**
+blocks, and the grep has to find all six.
+
+⚠️ **This said "`BUILD-PLAN.md` (twice) … five blocks" until 2026-09-19.** There were always three
+in that file: the `## Sequence overview` status block, 500 lines down, still said *"4 run the same
+day and still OPEN … 4b, the probe fix, is next when the user approves it"* after the other five had
+been updated for chunk 4b. **It was caught before the commit, by grepping the claims being retired**
+— *"still OPEN"* and *"is next"* — and not afterwards, which is the first time the rule has worked as
+designed rather than after a lapse. The list of places is a hint; **the grep is the instrument**, and
+a count in a rule is itself a status claim.
+
+**The live checklists' status lines count too** — `progress/step-11-human-checklist.md`,
+`step-12-human-checklist.md` and `step-13-human-checklist.md` each carry one about themselves (the
+tenth lapse). Chunk 4b had to edit two of the three.
 
 ---
 

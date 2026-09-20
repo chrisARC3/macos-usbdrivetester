@@ -38,7 +38,22 @@
 #   scripts/window-fit-check.sh --verbose  # also print the intrinsic and maximum sizes
 #
 # Exit 0 when every state fits the committed budget, or misses it by no more than the amount
-# recorded in scripts/.window-fit-exceptions. Exit 1 otherwise.
+# recorded in scripts/.window-fit-exceptions. Exit 1 when a state is too tall. **Exit 2 when the
+# probe could not measure**, which is not a pass and not a failure.
+#
+# ## Why exit 2 exists (2026-09-19)
+#
+# On macOS 27 both halves of `ui-probe`'s measurement broke at once and `--limits` returned an
+# overflow height of 1 pt for every state. `min=` is the larger of the declared and measured
+# numbers, so this script silently fell back to the DECLARED minimum — 46 pt short of what the
+# content needs with one drive, 57 pt short with six — and printed "every state fits" with a worst
+# case of 556 pt where the last conclusive run had said 613. It had been reporting the wrong number
+# for nineteen days, and nothing in its output said so.
+#
+# The probe now refuses to print a number it cannot stand behind: `min=<w>xunmeasured` plus
+# `measurement=UNMEASURABLE(<why>)`. This script reports that as INCONCLUSIVE, per state and in the
+# summary, and exits 2. **A gate that has not measured cannot report anything** — `CONSTRAINTS.md`
+# §2 — and "it printed a number" is not the same as "it measured one".
 #
 # ## The width matters, and 640 is not arbitrary
 #
@@ -170,6 +185,7 @@ echo
 printf "  %-24s %7s %8s %8s   %s\n" "state" "drives" "content" "window" "verdict"
 
 FAILED=0
+INCONCLUSIVE=0
 WORST=0
 WORST_STATE=""
 
@@ -182,6 +198,48 @@ for view in "${VIEWS[@]}"; do
         if [[ -z "$line" ]]; then
             echo "error: ui-probe produced no output for view=$view drives=$drives" >&2
             exit 1
+        fi
+
+        # The probe says so itself when its measurement is invalid, and says why. Checked BEFORE
+        # the height is parsed: an unmeasurable line carries `min=<w>xunmeasured`, and a parse that
+        # cannot fail would otherwise be the thing standing between a broken instrument and a
+        # verdict.
+        if [[ "$line" == *"measurement=UNMEASURABLE"* ]]; then
+            why="$(sed -E 's/.*measurement=UNMEASURABLE\((.*)\)$/\1/' <<< "$line")"
+            printf "  %-24s %7s %8s %8s   %s\n" "$view" "$drives" "—" "—" "INCONCLUSIVE — ${why}"
+            [[ $VERBOSE -eq 1 ]] && echo "      $line"
+            INCONCLUSIVE=1
+            continue
+        fi
+
+        # ## The second check, and the one that would have caught the OTHER half (2026-09-19)
+        #
+        # Two things broke in the probe that day. The clamp says so itself, above. The other — it
+        # measured the wrong subview, and came back with that subview's own 24 pt height — produces
+        # a perfectly well-formed line whose measured number is simply too small, and `min=` then
+        # takes the declared one and reads as a pass.
+        #
+        # For the states in VIEWS there is an invariant to lean on: every one of them carries fixed
+        # chrome above and below a scrollable drive list — a header, the selected-device pane, the
+        # controls — and that chrome cannot compress. So the height at which the content stops
+        # overflowing is at or above what SwiftUI declares: measured on macOS 27 at 570 with one
+        # drive and 581 with six, both against a declared 524, and at 581 against 524 on macOS 26.
+        # **A measurement BELOW the declaration here
+        # means the measurement stopped working**, not that the window got smaller.
+        #
+        # This is not true of every view `--limits` accepts: `report` and `devices` are a scroll
+        # region end to end and legitimately bottom out far below their declared minimum — 24 pt
+        # against 560 for `report`. Which is why this check lives in the gate, next to the list of
+        # states it holds for, and not in the probe.
+        declared_h="$(sed -E 's/.* declared=[0-9]+x([0-9]+) .*/\1/' <<< "$line")"
+        overflow_h="$(sed -E 's/.* overflowAt=([0-9]+) .*/\1/' <<< "$line")"
+        if [[ "$declared_h" =~ ^[0-9]+$ ]] && [[ "$overflow_h" =~ ^[0-9]+$ ]] \
+           && (( overflow_h < declared_h )); then
+            printf "  %-24s %7s %8s %8s   %s\n" "$view" "$drives" "—" "—" \
+                "INCONCLUSIVE — measured ${overflow_h} pt, below the declared ${declared_h}: this state's fixed chrome cannot compress that far, so the measurement is broken"
+            [[ $VERBOSE -eq 1 ]] && echo "      $line"
+            INCONCLUSIVE=1
+            continue
         fi
 
         content_h="$(sed -E 's/.* min=[0-9]+x([0-9]+) .*/\1/' <<< "$line")"
@@ -223,6 +281,22 @@ for view in "${VIEWS[@]}"; do
 done
 
 echo
+if [[ $INCONCLUSIVE -eq 1 ]]; then
+    cat <<'EOF'
+? window-fit-check INCONCLUSIVE.
+
+At least one state was not measured: either `ui-probe --limits` said so itself, or its measured
+number came back below the declaration, which for these states cannot happen while the measurement
+works. No worst case is printed and no verdict is reached: `min=` would then be the DECLARED
+minimum, short of the height the content can actually occupy, so a number here would be wrong in
+the direction that reads as safe.
+
+Fix the probe — `measuredMinimumHeight` in tools/ui-probe/main.swift, whose reasons are worded to
+be printed above — and run this again. Do NOT record a figure from a run that says this.
+EOF
+    exit 2
+fi
+
 echo "Worst case: ${WORST_STATE} at ${WORST} pt."
 for scaling in "${SCALINGS[@]}"; do
     IFS='|' read -r name points budget <<< "$scaling"

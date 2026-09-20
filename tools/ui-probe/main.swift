@@ -54,6 +54,14 @@
 //      is describing when it says the height argument behaves as "a floor, not a ceiling";
 //    * the **intrinsic** size, which is what a scene with no declared size opens at.
 //
+//  **And it says when it could not answer** (2026-09-19). The enforced minimum is *measured*, not
+//  declared, because the declaration is short — `content-starting` declares 524 pt and needs 570
+//  with one drive and 581 with six, measured on macOS 27 — and that
+//  measurement has now failed once: on macOS 27 both of its mechanisms broke at the same time and
+//  it returned 1 pt for every state, which the gate printed as *"every state fits"* for nineteen
+//  days. It now prints `min=<w>xunmeasured` with `measurement=UNMEASURABLE(<why>)` and exits 3
+//  rather than produce a number it cannot stand behind. See `measuredMinimumHeight`.
+//
 //  `scripts/window-fit-check.sh` is the gate built on this. Prefer it to calling `--limits`
 //  by hand — it carries the screen budget, and a number without a budget beside it is
 //  just a number.
@@ -1286,6 +1294,20 @@ if let appearance = window.appearance {
     }
 }
 
+/// What `measuredMinimumHeight` found, or why it found nothing.
+///
+/// **A measurement that cannot say it failed is worse than no measurement.** Until 2026-09-19 this
+/// function returned a bare `CGFloat`, and when both of its mechanisms broke on macOS 27 it
+/// returned `1` for every state — a number the gate then quietly discarded in favour of the
+/// declared minimum, printing *"every state fits"* off a worst case of 556 pt where the real figure
+/// is 613. The failure was
+/// invisible because the type had no way to be.
+enum MeasuredMinimum {
+    case measured(CGFloat)
+    /// The reason, worded for a gate to print verbatim.
+    case unmeasurable(String)
+}
+
 /// The smallest content height at which SwiftUI's laid-out content still fits the space it is
 /// given — the number a user finds by dragging the window's edge up until it stops.
 ///
@@ -1295,39 +1317,86 @@ if let appearance = window.appearance {
 ///
 /// ## How "does it fit" is decided
 ///
-/// `NSHostingView` lays its SwiftUI content out into a single child view. When the content cannot
-/// compress into the height it was handed, that child is **taller than the hosting view's bounds**
-/// and the excess is what gets clipped on screen. Comparing the two is therefore the same question
-/// the eye asks of a render, asked arithmetically.
+/// When SwiftUI's content cannot compress into the height the hosting view was handed, the child
+/// carrying that content is **taller than the hosting view's bounds**, and the excess is what gets
+/// clipped on screen. Comparing the two is the question the eye asks of a render, asked
+/// arithmetically.
 ///
-/// The child is measured rather than walked for. Every depth from 1 to 5 was checked on 2026-08-20
-/// and reported the identical height at every candidate — nested scroll content is not exposed as a
-/// taller `NSView` here — so a depth-limited walk would add a tunable with nothing to tune.
+/// **The child is the TALLEST of them, not the first (corrected 2026-09-19).** On macOS 26 an
+/// `NSHostingView` had a single subview and `subviews.first` was the content. On macOS 27 it has
+/// eleven for `content-starting`, measured: two 24 pt `KeyViewProxy`, five 24 pt `_FocusRingView`,
+/// three `AppKitPlatformViewHost<…>` wrapping this app's own representables, and a
+/// `PlatformContainer` holding the flexible pane. `subviews.first` was a 24 pt focus proxy, so the
+/// answer became "24 pt is enough for the whole window" — and, with the clamp below, `1`.
 ///
-/// ## Why the advertised minimum has to be cleared first
+/// Taking the maximum cannot under-report: any child taller than the hosting view is content being
+/// clipped, whichever child it is. It can over-report by the height of those proxies, so a view
+/// whose true minimum is under 24 pt reads as 24 — `report` did exactly that on macOS 26, against a
+/// declared 560, and the `max` with the declared number is what makes it harmless.
+///
+/// ## Why the advertised minimum has to be cleared first — and why clearing it is not enough
 ///
 /// `contentMinSize` is exactly what is under suspicion, and while it stands the window refuses to
 /// go below it — the search would bottom out at the wrong answer and confirm it. Measured: asking
 /// for 420 pt with the advertised minimum in place returns 485 and overflow, which reads as
 /// "485 does not fit" without ever testing anything smaller.
 ///
+/// **On macOS 27, clearing it does not hold: `sizingOptions` contains `.minSize`, and the hosting
+/// view re-imposes the minimum on the next layout pass** — asked for 1 pt, the window came back
+/// 524 (measured 2026-09-19, and the cause tested rather than inferred: dropping `.minSize` for
+/// the search makes the window take every height it is asked for, 1 pt included). So the search
+/// drops `.minSize` first. `.maxSize` and `.intrinsicContentSize` stay: the maximum and the
+/// intrinsic size have already been read by the caller, and neither constrains a shrink.
+///
+/// The declared minimum is read by the caller **before** this runs, so dropping the option cannot
+/// change the number this is compared against.
+///
+/// ## And the search says when it was lied to
+///
+/// Every probe of a height checks that the window actually took it. A window that refuses to
+/// shrink makes every answer below the clamp a fiction, so the first refusal ends the measurement
+/// with `.unmeasurable` rather than a number. That is the check that would have caught the macOS 27
+/// breakage on the day the SDK changed instead of nineteen days later.
+///
 /// Nothing is restored afterwards. `--limits` exits at the end of this pass, and a mode that
 /// captures nothing has no state worth putting back.
 func measuredMinimumHeight(window: NSWindow,
                            rootView: NSView,
                            width: CGFloat,
-                           ceiling: CGFloat) -> CGFloat {
+                           ceiling: CGFloat) -> MeasuredMinimum {
+    if let hosting = rootView as? any SizingOptionsSettable {
+        hosting.sizingOptions = [.maxSize, .intrinsicContentSize]
+    }
     window.contentMinSize = NSSize(width: 1, height: 1)
     window.minSize = NSSize(width: 1, height: 1)
+
+    /// The first height the window refused to shrink to, if it refused one.
+    var refused: (asked: CGFloat, got: CGFloat)?
 
     func overflows(at height: CGFloat) -> Bool {
         window.setContentSize(NSSize(width: width, height: height))
         window.layoutIfNeeded()
         rootView.layoutSubtreeIfNeeded()
-        let laidOut = rootView.subviews.first?.frame.height ?? 0
+        // Only a refusal to SHRINK invalidates the search. A refusal to grow is what the ceiling
+        // guard below reports, and an offscreen window asked for sixteen times a screen height may
+        // legitimately not get it.
+        if rootView.bounds.height > height + 0.5, refused == nil {
+            refused = (height, rootView.bounds.height)
+        }
+        let laidOut = rootView.subviews.map(\.frame.height).max() ?? 0
         // Half a point of slack: these are CGFloats off a layout pass, and an exact `>` would turn
         // a rounding artefact into a one-point difference in the answer.
         return laidOut > rootView.bounds.height + 0.5
+    }
+
+    func verdict(_ height: CGFloat) -> MeasuredMinimum {
+        if let refused {
+            return .unmeasurable("""
+                the window would not shrink to the height it was asked for — asked \(Int(refused.asked)) pt, \
+                got \(Int(refused.got)) pt, so every height below that was never tested
+                """)
+        }
+        return .measured(height)
     }
 
     var high = ceiling
@@ -1339,16 +1408,16 @@ func measuredMinimumHeight(window: NSWindow,
     // A view that will not fit at sixteen times a comfortable height is broken in a way this
     // function cannot describe. Report the ceiling rather than loop, and let the number be absurd
     // enough to be noticed.
-    guard !overflows(at: high) else { return high }
+    guard !overflows(at: high) else { return verdict(high) }
 
     var low: CGFloat = 1
-    guard overflows(at: low) else { return low }
+    guard overflows(at: low) else { return verdict(low) }
 
     while high - low > 1 {
         let mid = ((low + high) / 2).rounded()
         if overflows(at: mid) { low = mid } else { high = mid }
     }
-    return high
+    return verdict(high)
 }
 
 /// Reaches `NSHostingView.sizingOptions` without naming the generic's `Content` parameter.
@@ -1433,22 +1502,40 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
         //
         // So the enforced minimum is **at least both**, and neither can overstate it. Taking the
         // larger is right for the same reason on both sides rather than by luck.
-        let measured = measuredMinimumHeight(window: window,
-                                             rootView: rootView,
-                                             width: width,
-                                             ceiling: max(intrinsic.height, 1_200))
-        let enforced = max(advertised.height, measured)
+        let measurement = measuredMinimumHeight(window: window,
+                                                rootView: rootView,
+                                                width: width,
+                                                ceiling: max(intrinsic.height, 1_200))
+
+        // The enforced minimum is the larger of the two numbers, so there is no enforced minimum to
+        // print when one of them is missing. It prints `unmeasured` rather than falling back to the
+        // declaration, because a gate reading this line must not be able to mistake the one for the
+        // other — which is exactly what happened on 2026-09-19, silently, for nineteen days.
+        let enforcedText: String
+        let overflowText: String
+        var measurementNote = ""
+        switch measurement {
+        case .measured(let measured):
+            enforcedText = pt(max(advertised.height, measured))
+            overflowText = pt(measured)
+        case .unmeasurable(let why):
+            enforcedText = "unmeasured"
+            overflowText = "unmeasured"
+            measurementNote = " measurement=UNMEASURABLE(\(why.replacingOccurrences(of: "\n", with: " ")))"
+        }
 
         print("""
               ui-probe: limits view=\(viewName) drives=\(driveCount) atWidth=\(Int(width)) \
-              min=\(pt(advertised.width))x\(pt(enforced)) \
+              min=\(pt(advertised.width))x\(enforcedText) \
               declared=\(pt(advertised.width))x\(pt(advertised.height)) \
-              overflowAt=\(pt(measured)) \
+              overflowAt=\(overflowText) \
               max=\(pt(maximum.width))x\(pt(maximum.height)) \
               intrinsic=\(pt(intrinsic.width))x\(pt(intrinsic.height)) \
-              appearance=\(appearanceName)
+              appearance=\(appearanceName)\(measurementNote)
               """)
-        exit(0)
+        // A failed measurement is a failed run, so a hand call cannot read as a success. The gate
+        // reads the line either way — it captures output with `|| true` for exactly this reason.
+        exit(measurementNote.isEmpty ? 0 : 3)
     }
 
     guard let content = window.contentView,
