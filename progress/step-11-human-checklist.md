@@ -902,6 +902,17 @@ That was not why they were deleted; it is what deleting them bought.
 7 pt is thin, and `scripts/window-fit-check.sh` reports all three scalings on every run, so the
 next row added to that pane will say so rather than quietly reintroducing the non-goal.
 
+> ⚠️ **It is 5 pt, not 7 — measured on the shipped window 2026-09-22** by chunk 9's re-walk, which
+> found it pushed to **615 pt** at Start where the gate models 613. Every scaling still fits; the
+> tightest does so by five points, and "thin" is the right word for it.
+>
+> ⚠️ **And these two paragraphs are the lapse their own commit had just finished warning about.**
+> The chunk 9 write-up grepped the claim as *"7 pt to spare"* and *"with 7 pt"* and corrected it in
+> six places. It said the same thing here in two more wordings — *"the tightest by 7 pt"* and *"7 pt
+> is thin"* — **in the same file the walk was being written into**, and the grep sailed past both.
+> CLAUDE.md's rule is *grep each noun in the claim*; the number is a noun, and one spelling of it is
+> not the claim. Found 2026-09-22 while laying out chunk 11, one commit later.
+
 
 ### Chunk 12 — the link speed before the run (2026-08-23) *(items 1–6 are dry; 7 and 8 need a run)*
 
