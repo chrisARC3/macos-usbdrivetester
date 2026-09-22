@@ -61,7 +61,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > fixed the same evening** — it was measuring the wrong subview, and it now says so instead of
 > guessing when it cannot measure at all — and the check is back to the figure it gave on Xcode 26.
 > **The move is complete.** Next, a chosen set of Step 11 and 12 checklist items is re-walked on the
-> new build, and then the walk restarts at item 0. Before the pause, item 0 passed on 2026-09-13 and
+> new build, and then the walk restarts at item 0. **The first of those re-walks — the window's size
+> — passed on 2026-09-22**, and it confirmed the fixed probe against the real window for the first
+> time: they agree to two points. Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
 > Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege plumbing, the
@@ -86,7 +88,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Current verified state, on Xcode 27.0 since 2026-09-19: **1323 tests / 157 suites / 0 failures**
 > (floor 1323), zero source warnings from three clean builds, **14/14** gate clients type-checking
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15,
-> and the main window measured at **613 pt** against its committed 700 pt budget. See
+> and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
+> measured on the shipped window itself, 2026-09-22**, which is the first time the two have been
+> compared. See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 

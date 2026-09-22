@@ -992,6 +992,28 @@ was the defect. Here it was found before the gate was walked rather than after.*
   `_FocusRingView` 24 pt. **`fittingSize` is not a shortcut**: it returns the ideal size, 1197×716,
   not the minimum at a width, so the binary search is still necessary. `PROGRESS.md`, *The move to
   Xcode 27*, has the mutations that hold the two detectors up.
+
+  ✅ **Calibrated against the shipped window 2026-09-22, by Step 11's chunk 9 — it holds to 2 pt.**
+  The probe models a `Window` scene with an `NSHostingView` in a probe window, and nothing had ever
+  compared the two. It turns out to report **two** quantities where the gate keeps one: **`declared=`
+  is the floor a user can drag the window to, and `overflowAt=` is the height AppKit pushes the
+  window to** when the content grows underneath it. Both were confirmed at the keyboard — the idle
+  floor is a **542 pt** frame against `declared=510` **exactly**, the running floor **557** against
+  `starting`'s declared 524, and at Start the window is pushed to **615**, untouched, against
+  `overflowAt`'s 613, and *stays* there rather than settling back. `min=` is the larger of the two,
+  so the gate's worst case is the push height — the conservative choice for a screen budget, and
+  **2 pt optimistic**: 5 pt of spare at 1152×720, not 7.
+- **`.defaultSize` sizes the window's *frame* on macOS 27, not its content** (measured 2026-09-22,
+  Step 11's chunk 9, Xcode 27.0 27A266a / macOS 27.0 26A428). `.defaultSize(width: 720, height: 700)`
+  opens a **720 × 700 frame** — 668 pt of content, short by exactly the 32 pt title bar. Same family
+  as the `sizingOptions` change above: a sizing API whose meaning moved under the move, silently,
+  with nothing failing and no warning. **Read a window's size from AppKit's own autosave** —
+  `NSWindow Frame main`, fourth field, always the frame, no Accessibility permission needed — rather
+  than from accessibility scripting, whose number is *also* a frame but does not say so; that
+  unstated 32 pt is the whole difference between "the declared minimum, met exactly" and "32 pt above
+  it". ⚠️ **The autosave reads stale**: a drag that changes nothing leaves the old value in place,
+  which is indistinguishable from never having dragged, so make the window obviously taller first and
+  confirm the read follows it.
 - **Drive count is a render axis** (sixth argument, default 1). Until it existed, **every render
   this project had ever taken showed exactly one drive**, so `DeviceListView`'s list — which grows
   to a 260 pt cap with the number attached — had never been looked at near that cap. The first

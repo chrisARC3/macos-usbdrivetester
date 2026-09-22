@@ -8,15 +8,18 @@
 > nobody noticed for thirteen days.
 
 > ⚠️ **2026-09-19: four parts of this file are OWED a re-walk on the Xcode 27 build** (user decision,
-> at the move to Xcode 27's chunk 4): **chunk 9**, the window's size; **chunk 11**, the report as a
-> sheet; **chunk 16**, ⌘Q under every modal; and **item 6.3**, Cancel and Quit. Every pass in this
+> at the move to Xcode 27's chunk 4): ✅ **chunk 9**, the window's size — **walked 2026-09-21/22,
+> passed, see its own box**; **chunk 11**, the report as a sheet; **chunk 16**, ⌘Q under every modal;
+> and **item 6.3**, Cancel and Quit. **Three remain.** Every pass in this
 > file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
 > window sizing, sheet presentation, key equivalents under a modal — that no test and no render
-> reaches. **Chunk 9 is also the calibration for `window-fit-check.sh`'s probe**, which stopped
+> reaches. **Chunk 9 was also the calibration for `window-fit-check.sh`'s probe**, which stopped
 > measuring on Xcode 27 / macOS 27 at the move's chunk 4 and was fixed at **chunk 4b** the same
 > evening: it measures **613 pt** again, by driving an `NSHostingView` in a probe window, and chunk 9
-> is the only thing that can say whether the shipped `Window` scene agrees (`PROGRESS.md`, *The move
-> to Xcode 27*). Until each is
+> was the only thing that could say whether the shipped `Window` scene agrees (`PROGRESS.md`, *The move
+> to Xcode 27*). ✅ **It agrees to 2 pt** — the shipped window is pushed to **615 pt** at Start, against
+> the probe's 613 — **and the calibration also found that the probe reports two different quantities
+> and the gate uses only the larger.** See chunk 9's box. Until each is
 > re-walked, its pass here is a fact about the Xcode 26 build only. The rest of this file is covered
 > on the new build by the suite, the four hardware gates and the renders, or gets exercised again by
 > Step 13's walk. **Each re-walk fills in its own Walked line and edits this note.**
@@ -535,6 +538,61 @@ report, would pass 1–6.
 > deleted item is not owed; it is gone. Corrected alongside two other stale status lines in this
 > file found the same day.
 
+> ✅ **RE-WALKED ON THE XCODE 27 BUILD AND PASSED IN FULL — 9.1–9.6, 2026-09-21 and 2026-09-22.**
+> Against the app installed 2026-09-19 10:22:50 from `bcde5f5`'s sources (Xcode 27.0 27A266a,
+> `DTXcode 2700`, dylib `422c89d3…`), helper `ac4d5208…`, daemon pid 95762 on protocol v15, and
+> `ui-probe` / `window-fit-check.sh` at `d98b658`, re-run 2026-09-21 08:42 to confirm the gate had
+> not moved. Five drives attached for 9.1–9.5, two for 9.6. **Invalidated by** any edit to a view
+> source, to `WindowMetrics` or to the probe, and by any new Xcode or macOS.
+>
+> **The figures below replace the ones in items 2 and 3**, which were measured 2026-08-20 and went
+> stale two days later — the refusal lines under the run buttons were deleted on 2026-08-22, taking
+> the worst case from 638 to 613 pt (`progress/step-11.md`). They were never re-walked, so this
+> chunk carried pre-deletion numbers for a month. Window **frames** at 640 pt wide, five drives,
+> content in the second column:
+>
+> | | frame | content | what predicts it |
+> |---|---|---|---|
+> | idle floor | **542** | 510 | `ui-probe`'s `declared=510` — exact |
+> | running floor | **557** | 525 | `starting`'s `declared=524` — 1 pt out |
+> | idle floor again, run finished | **542** | 510 | back to `declared=510` — exact |
+> | at Start, **pushed, not dragged** | **615** | 583 | `overflowAt=581` → 613 — 2 pt out |
+>
+> **Finding 1 — `--limits` reports two different quantities, and the gate keeps only the larger.**
+> `min=` is the max of `declared=` and `overflowAt=`, and this walk shows those answer different
+> questions. **`declared=` is the floor a user can drag to. `overflowAt=` is the height AppKit
+> pushes the window to** when the content grows underneath it. Both were confirmed against the
+> shipped window, to 1 pt and 2 pt. Items 2 and 3 ask for drag floors and are therefore checked
+> against `declared=`; the push height is a separate reading, which 9.3 now takes.
+>
+> **Finding 2 — the worst case is confirmed on hardware for the first time, and it is 2 pt worse
+> than the gate says.** 613 predicted, **615 measured**, so every spare figure is 2 pt generous:
+> 1440×900 has 185 pt and not 187, 1280×800 has 85 and not 87, and **1152×720 has 5 and not 7**.
+> It still fits. **The gate is unchanged and 613 is still its number** — this is a hardware reading
+> recorded beside it, not a new floor.
+>
+> **Finding 3 — `.defaultSize` sizes the frame on macOS 27, not the content.** 9.1 opened at a
+> **720 × 700 frame**, which is 668 pt of content against the 700 that
+> `WindowMetrics.defaultContentHeight` declares and the 732 pt frame that would deliver it. The
+> comment above that constant — *"set to the comfortable height… so nothing scrolls on opening at one
+> attached drive"* — is written against a height the app no longer opens at.
+>
+> **The instrument changed mid-walk, which is why only the second half of it is recorded here.** The
+> first readings came from `osascript` against System Events: it needs Accessibility permission, and
+> nothing in its answer says whether the number is a frame or a content box — the 32 pt that decides
+> whether 542 means *the declared minimum, met exactly* or *32 pt above it*. The readings that stand
+> come from AppKit's own autosave, whose fourth field is always the frame and needs no permission:
+>
+> ```
+> /usr/bin/defaults read /Users/<you>/Library/Preferences/com.arc3solutions.USBDriveTester "NSWindow Frame main"
+> ```
+>
+> ⚠️ **It reads stale, and it did.** A drag that changes nothing leaves the previous value in place,
+> which is indistinguishable from never having dragged — one round produced three identical readings
+> and was recorded INCONCLUSIVE rather than as a measurement. **Drag the window obviously taller
+> first and confirm the read follows it**, and every reading after that is known to be live. The two
+> instruments agreeing on 542 is also what proved the accessibility number was a frame all along.
+
 **Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either, and
 every check here is idle except 9.3.
 
@@ -572,12 +630,24 @@ the same file and must still be there — if they have gone, the wrong thing was
    render can see this: a render is given a size, and the question here is what size the app *asks*
    for.
 
+   ✅ **2026-09-21: 720 × 700 — and that is the frame**, so 668 pt of content, 32 pt short of what
+   `.defaultSize` was told. The item passes as written, since what it checks is that the window opens
+   small rather than screen-height; the missing 32 pt is finding 3 above, and it is a defect against
+   `WindowMetrics`'s own comment rather than against this item.
+
 2. **Drag the bottom edge up as far as it will go.** It should stop at **563–574 pt** tall
    depending on how many drives are attached, and at that height **nothing is cut off** — the drive list, the selected-device pane and the metrics
    panel each shrink and scroll rather than clipping. Watch which one gives way first: **the drive
    list should shrink before the selected-device pane does**. That ordering is a deliberate
    decision (2026-08-19) — the list is a picker you have finished with by then, the detail is what
    stands between you and testing the wrong drive.
+
+   ⚠️ **563–574 was measured 2026-08-20 and stopped being true on 2026-08-22**, when the refusal
+   lines under the run buttons were deleted. Nothing re-walked this item, so it carried a
+   pre-deletion criterion for a month. ✅ **2026-09-21/22 on macOS 27: it stops at a 542 pt frame**
+   — 510 pt of content, five drives, which is `ui-probe`'s `declared=` for this state hit exactly —
+   and **nothing was cut off**. The drive list gave way before the selected-device pane, as decided.
+   **Drag from the bottom-right corner, not the bottom edge**; see the observation after item 6.
 
 3. **Start a run and, while it is running, drag the window down to its minimum again.** The live
    metrics panel must **scroll**, not clip. This is the defect reported on 2026-08-19: the bottom
@@ -588,6 +658,17 @@ the same file and must still be there — if they have gone, the wrong thing was
    Note the window will refuse to go quite as small as it did in 9.2 — `running` needs **613–624**
    against idle's 563–574, and `starting` briefly needs the most at **627–638**. That is expected:
    the window grows a little at the moment you press Start and settles back when the run begins.
+
+   ⚠️ **All three ranges are pre-2026-08-22 and all three are wrong now — and the sentence after them
+   is wrong in kind, not only in number.** ✅ **2026-09-22: the metrics panel scrolled perfectly**,
+   heading pinned, figures moving under it, nothing clipped — which is the whole point of the item
+   and is what passed. The heights: `running`'s floor is a **557 pt** frame against idle's 542, so
+   the window gives up 15 pt of range while a run is on, and **takes it back when the run finishes**
+   — dragged to 542 again afterwards, checked. And at the moment you press Start the window is
+   **pushed to 615 pt on its own, untouched**, and *stays* there. It does not settle back: what
+   settles back is the floor, not the height. **That 615 is this chunk's most valuable single
+   reading** — it is the shipped window doing what the gate's worst case says it does, within 2 pt,
+   and nothing before 2026-09-22 had ever checked it (finding 2 above).
 
 4. **With two drives attached, at a comfortable window height, check the idle metrics panel is
    exactly its two lines of copy** — no empty box beneath them — and that the spare height has gone
@@ -607,6 +688,8 @@ the same file and must still be there — if they have gone, the wrong thing was
    At a very tall window (1200 pt+) the *selected-device* pane holds the leftover height instead,
    since it is the remaining flexible pane. That is known and is not a defect to report.
 
+   ✅ **Passed 2026-09-22** on the Xcode 27 build, with five drives attached rather than two.
+
 5. **Stop the run. Resize the window taller and shorter a few times.** Nothing should jump, flicker,
    or leave a pane stranded at the wrong size, and the three panes should give and take height
    smoothly rather than one absorbing everything.
@@ -617,6 +700,8 @@ the same file and must still be there — if they have gone, the wrong thing was
    the whole drag means the selection was never in danger, which is equally correct. What would be
    a defect is the list scrolling somewhere the selection is *not*, or scrolling while the window
    is not being resized at all.
+
+   ✅ **Passed 2026-09-22** on the Xcode 27 build, five drives, resized with the corner handle.
 
 6. **Click the *last* drive in the list, then drag the window down to its minimum.** The list must
    scroll so the selected drive stays **fully** visible — both of its lines, not the top half of
@@ -633,6 +718,33 @@ the same file and must still be there — if they have gone, the wrong thing was
    mechanism is wrong; with two it is a few points, and only a correct implementation finds them.
    That is measured rather than supposed — the one-run-loop-turn deferral in `scrollToSelection`
    exists *because* six drives passed without it and two did not.
+
+   ✅ **Passed 2026-09-22** on the Xcode 27 build, with **two** drives, down to the 542 pt floor.
+
+> ⚠️ **OPEN, UNREPRODUCED — the bottom edge would not shrink the window (2026-09-21, reported
+> 2026-09-22).** Noticed while the readings above were being taken: dragging the **bottom edge** up
+> did not shrink the main window at all, while the **bottom-right corner** handle worked perfectly
+> throughout. Not reproducible later the same day, and **not chased further** (user decision,
+> 2026-09-22) with the chunk half walked.
+>
+> **It is not a procedural footnote — it cost a whole round of this walk.** The round that returned
+> three identical 615 pt readings was diagnosed as *the drag did not register*. The drag did
+> register; the window genuinely did not move. **Detector:** a drag that leaves `NSWindow Frame main`
+> unchanged is either this or a window already sitting on its floor, and those two are told apart by
+> whether the reading is *at* the floor for that state — 542 idle, 557 running.
+>
+> **Hypothesis — inference, not measurement.** The one session it bit was the one in which the window
+> was sitting at a height *AppKit had pushed it to* at Start (615 pt) rather than one that had been
+> dragged there. If the refusal only follows a push, that is checkable in a single step next time:
+> press Start, let the window be pushed, then try the edge.
+>
+> **If it recurs it is a defect against NFR-USE-9, not a cosmetic one.** That requirement exists so
+> the window fits a 13.3-inch screen, and a 542 pt floor is worth nothing to a user whose bottom edge
+> will not take them to it — the corner handle is not the control most people reach for. Three checks
+> separate platform from product, cheapest first: **the bottom edge dragged *down*** (does it grow?),
+> **the top edge dragged down**, and **the app's own *Privileged Helper & Diagnostics* window** —
+> same process, same SwiftUI, different content, no scrolling panes. A TextEdit window is the outside
+> control if those three do not separate it.
 
 > **9.7 was deleted on 2026-08-22 rather than passed.** It counted the refusal sentences under the
 > run buttons, and those sentences no longer exist: the block was removed outright (user decision),

@@ -101,6 +101,13 @@ a count in a rule is itself a status claim.
 `step-12-human-checklist.md` and `step-13-human-checklist.md` each carry one about themselves (the
 tenth lapse). Chunk 4b had to edit two of the three.
 
+**And a measured figure is a status claim, in places that name no step at all.** Step 11's chunk 9
+re-walk (2026-09-22) retired *"7 pt to spare at the tightest"*, which lives in
+`nonfunctional-requirements-usb-drive-tester.md` — a document none of the six blocks reaches and no
+step-name grep finds. It was caught by grepping **the number**. When a measurement moves, grep the
+figure as well as the sentence; and leave the archived `progress/step-NN.md` copies alone, because
+those are records of what was true.
+
 ---
 
 ## How work is done here

@@ -672,6 +672,14 @@ simulation-first still applies wherever the plan calls for it.
 > 613 is now a fact about Xcode 27.0 / macOS 27.0 as well. And the probe has had **40** cases since
 > 2026-09-06, when Step 12 chunk 5 added the three `report-device-lost*`.
 >
+> ⚠️ **2026-09-22: 613 has now been checked against the shipped window, and it is 2 pt optimistic.**
+> Step 11's chunk 9 re-walk — the calibration 4b was waiting on — found the real window **pushed to
+> 615 pt** at Start, untouched, against the probe's 613. The model holds; the spare at 1152x720 is
+> **5 pt and not 7**. It also found that `--limits` reports two quantities and `min=` keeps only the
+> larger: `declared=` is the floor a user can drag to (542 pt idle, confirmed exactly) and
+> `overflowAt=` is the height AppKit pushes the window to. **The gate is unchanged and 613 is still
+> its number** (`PROGRESS.md`, *Chunk 9's calibration*).
+>
 > **The repository has a remote as of 2026-09-02** — private
 > [`chrisARC3/macos-usbdrivetester`](https://github.com/chrisARC3/macos-usbdrivetester), branch
 > `main`. Nothing about the distribution decision below changes: source only, and Step 16 is still

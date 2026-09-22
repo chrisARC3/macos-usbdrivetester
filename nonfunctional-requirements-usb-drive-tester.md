@@ -335,6 +335,12 @@ starting."* That was true when written. Deleting the refusal lines under the run
 allows 620 — so every state now fits **every** 13.3-inch scaling this machine offers, `starting`
 included, with 7 pt to spare at the tightest. The stated non-goal has nothing left to state.
 
+⚠️ **Measured on the shipped window for the first time on 2026-09-22, and the margin is 5 pt, not
+7.** Step 11's chunk 9 re-walk found the real window pushed to **615 pt** at Start where the gate
+models 613 — so 1152x720 still fits outright, by five points. Every figure in this section comes from
+`window-fit-check.sh`, which measures an `NSHostingView` in a probe window; that model is now known
+to be accurate to 2 pt, and to be 2 pt optimistic. The gate is unchanged.
+
 **The drive-count dependency is back, and it is small.** Increment 7 recorded the window's minimum
 as independent of how many drives are attached. That was an artefact of the declared number, which
 ignored drive count too. Measured honestly it swings **11 pt** between one drive and six, because
