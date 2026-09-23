@@ -786,6 +786,7 @@ need a real run; 8–10 do not.
 > **Chunk 11 needs neither.** It is about a sheet: no unmount rollback, no second volume, no link
 > speed. The prerequisite line above was inherited from the step-wide list at the top of this file,
 > where the T5 EVO is there for *other* chunks.
+> *⚠️ Replaced for this walk by (5), below — the same day, user decision.*
 >
 > **(2) Item 6's recorded sheet size is pre-2026-08-22.** *"Rendered at 616x461 … the sheet at the
 > window's minimum"* was the sheet at the **517 pt** declared minimum of the time: 485 pt of content
@@ -807,6 +808,76 @@ need a real run; 8–10 do not.
 > off the report that run leaves standing. A second serves items 5 and 9 together — check the Window
 > menu is greyed while it runs (5), then raise the diagnostics window with ⇧⌘D and leave it in front
 > as the run finishes (9). Item 8 is a third *start*, aborted. Items 1 and 11 are dry.
+>
+> ⚠️ **FIVE MORE, THE SAME DAY — from the headless check before the walk, after the four above
+> were committed.** Two are user decisions; three are things the four missed. None is a defect in
+> the app.
+>
+> **(5) The walk runs on the 125.8 MB thumb, not the 1 TB scratch T5** — user decision, 2026-09-23:
+> *"We can use that for shorter testing."* General UDisk, serial `2211190533300386001515`, role
+> `multislice` in `scripts/lib/device-identity.sh` — `/dev/disk12` on the day, 245,760 × 512 B,
+> `Slice_A` mounted and the second slice without a volume, exactly as recorded on 2026-09-11. A
+> whole-device run on it takes about **40 s** — 30/30 chunks in 39 s at item 7.5 (2026-09-01), 40.0 s
+> of I/O at chunk 15's item 5 (2026-09-03) — so every start in this chunk fits one sitting, where a
+> finished run on the scratch T5 takes hours. This replaces (1)'s drive for this walk and nothing
+> else in it. Step 11 has used the thumb this way before: 7.5 and 15.5 ran on it, 14.6 names it as
+> *"the one that finishes quickly"*, and 16.4 calls it *"the cheapest fixture"* for the same
+> induction as item 8.
+>
+> **Unchanged:** the 22 TB Seagate is never a target. The app selects a drive by itself at launch —
+> the Seagate, on 2026-09-18 — so select the thumb before **every** Start, and **read its serial off
+> the pre-run dialog before every Proceed**: the dialog prints model, capacity and serial. Leave
+> *Don't show this warning again* unticked; it persists, and items 8 and 11 need the dialog.
+>
+> ⚠️ Step 13's item 2.7 says the opposite — *"No other drive may be substituted"* — because the thumb
+> is *"reserved for Step 12's item 4.9"*. That reservation was spent when 4.9 was walked on
+> 2026-09-11. Whether this decision reaches 2.7 is a Step 13 question, and it is **not** settled here.
+>
+> **(6) Item 10's log strings are wrong, and always were.** A refused call logs `no run report: the
+> helper refused the call, so no run took place — …` (`RunReportLog.noReportForRefusedCall`), and
+> has since `15dbc40` on 2026-08-09, before item 10 was written. The only message containing `no
+> report:` is `device loss with no report: …` — a drive lost with nothing to report, which here
+> would mean the thumb dropped mid-run. A search for `run report:` also matches `no run report:`, so
+> count messages that **begin** `run report: `. And item 8's abort is **not** a refused call: it logs
+> `run aborted before any write: …`, raises the failure alert, and never reaches the report path.
+> So this walk expects **two** messages beginning `run report: `, **none** containing `no run
+> report:` or `device loss with no report:`, **one** `run aborted before any write:`, and one
+> `pre-run prompt raised:` per Start — **four**, each naming serial `2211190533300386001515` — with
+> one more report and one more prompt if item 9 has to be re-run. The app shares category `io` with
+> the helper, so match on `process == "USBDriveTester"`; and run no test suite during the walk,
+> because the test host has that name too.
+>
+> **(7) Item 7 is walked last.** It needs a report on screen and ends by quitting, and nothing above
+> places it. It uses run 2's report, after item 8: only a start that gets as far as claiming the
+> drive clears the last report (`onRunBegan()`, in `RunController`'s `.ready` branch), and item 8's
+> start aborts before that.
+>
+> **(8) How item 6 is walked and read this time.**
+>
+> * **The first shrink is the bottom edge** — user decision, 2026-09-23, and the one-step test that
+>   the open observation under chunk 9 asks for. After run 1 the window sits at the height AppKit
+>   pushed it to at Start (615 pt on 2026-09-22), the only state the refusal has been seen in. If
+>   the edge does not move it, **stop**: that is the observation reproduced, and nothing else is
+>   touched until the frame has been read.
+> * **Sizes are read from the window server**, because (2) predicts a size that nothing could read:
+>   the sheet is a window of its own and has no autosave. `CGWindowListCopyWindowInfo`, filtered to
+>   this app's pid, gives the bounds of each of its windows, live — so it does not share the
+>   autosave's staleness — and front to back, which is also item 9's reading. It is checked against
+>   `NSWindow Frame main` before anything it says is used: at launch both must give the restored
+>   frame. Where the two disagree later, both numbers are recorded and neither wins. The lister's
+>   source goes into the walk's record.
+> * **Prediction:** the sheet is the content less 24 pt each way, and the content is the frame less
+>   the 32 pt title bar, so a *W* × *H* frame carries a (*W* − 24) × (*H* − 56) sheet — **616 × 559**
+>   at the pushed 615, **616 × 486** at the 542 idle floor. The same offset at both sizes would be the
+>   sheet window's own chrome; different offsets are a finding. Chunk 9's floors were measured with
+>   five drives attached and six are attached today, so a floor that moves is reported, not adopted.
+>
+> **(9) Two wordings the four above missed.** The chunk's heading — *"writes for items 1–7; the rest
+> are dry"* — is (4)'s mis-sort in other words; it is rewritten when this walk's status goes into
+> it. And (1) gives the T5 EVO's second job as *"the link-speed question"*. `device-identity.sh`
+> gives it as the reserve discriminator for the unexplained mid-gate de-enumeration, and records the
+> EVO's 5 Gb/s ceiling as settled — *"DO NOT RE-DIAGNOSE THIS."* (1)'s conclusion stands: chunk 11
+> needs the EVO for nothing.
 
 1. **Menus first, before any run.** The Window menu has a *View Last Run Report* item with **⇧⌘R** on it,
    and **only one**. SwiftUI adds a permanent Window-menu entry for every `Window` scene, titled
@@ -902,6 +973,9 @@ need a real run; 8–10 do not.
 
 10. **Log check, across the whole chunk.** `run report: …` appears once per finished run, and
     `no report: …` for a refused call. Neither should appear twice for one press.
+
+    > ⚠️ **The strings are wrong** — a refused call logs `no run report:`. See correction (6) above
+    > item 1 (2026-09-23) for the real messages and what this walk expects of each.
 
 11. **With the pre-run dialog up, press ⇧⌘R. Then Cancel the dialog and wait.** *(Dry — press
     Start and answer nothing.)* Nothing should appear: not while the dialog is up, and **not when
