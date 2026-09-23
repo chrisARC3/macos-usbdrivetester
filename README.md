@@ -63,7 +63,11 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **The move is complete.** Next, a chosen set of Step 11 and 12 checklist items is re-walked on the
 > new build, and then the walk restarts at item 0. **The first of those re-walks — the window's size
 > — passed on 2026-09-22**, and it confirmed the fixed probe against the real window for the first
-> time: they agree to two points. Before the pause, item 0 passed on 2026-09-13 and
+> time: they agree to two points. **The second — the run report, shown as a sheet on the main
+> window — was walked on 2026-09-23 and did not pass.** Ten of its eleven checks passed. The one
+> that failed: when the window is short, the report is taller than the window and hangs below its
+> bottom edge, by 20 points at the smallest size. It stays owed until that is found and fixed.
+> Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
 > Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege plumbing, the

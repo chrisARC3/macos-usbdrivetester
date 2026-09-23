@@ -9,8 +9,10 @@
 
 > ⚠️ **2026-09-19: four parts of this file are OWED a re-walk on the Xcode 27 build** (user decision,
 > at the move to Xcode 27's chunk 4): ✅ **chunk 9**, the window's size — **walked 2026-09-21/22,
-> passed, see its own box**; **chunk 11**, the report as a sheet; **chunk 16**, ⌘Q under every modal;
-> and **item 6.3**, Cancel and Quit. **Three remain.** Every pass in this
+> passed, see its own box**; ❌ **chunk 11**, the report as a sheet — **walked 2026-09-23 and NOT
+> passed: ten of eleven items pass, item 6 failed and is owed, see its own box**; **chunk 16**, ⌘Q
+> under every modal; and **item 6.3**, Cancel and Quit. **Chunk 16 and item 6.3 remain unwalked, and
+> chunk 11's item 6 is owed.** Every pass in this
 > file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
 > window sizing, sheet presentation, key equivalents under a modal — that no test and no render
 > reaches. **Chunk 9 was also the calibration for `window-fit-check.sh`'s probe**, which stopped
@@ -58,6 +60,11 @@ removed the same day. See that chunk's own heading.
 the only cover that surface has at all: no test drives a SwiftUI view, and the two lines telling the
 model a run produced a report live in a file that needs a helper and a drive to construct. **11.11
 found a defect**, since fixed and re-checked.
+
+> ⚠️ **2026-09-23: that pass is a fact about the Xcode 26 build, and the Xcode 27 re-walk did not
+> repeat it.** Ten of the eleven items pass on the new build. **Item 6 failed**: below about 600 pt
+> the sheet is taller than the window leaves room for, and at the 542 pt idle floor it hangs 20 pt
+> below the window's bottom edge. Owed, by user decision; see the chunk's own box.
 
 **CHUNK 13 PASSED IN FULL — ALL EIGHT ITEMS, 2026-08-27/09-01.** Added 2026-08-27 by increment 9, for the launch-time helper gate.
 It is the only cover the gate's *presentation* has: two mutations survive the whole suite by
@@ -745,6 +752,16 @@ the same file and must still be there — if they have gone, the wrong thing was
 > **the top edge dragged down**, and **the app's own *Privileged Helper & Diagnostics* window** —
 > same process, same SwiftUI, different content, no scrolling panes. A TextEdit window is the outside
 > control if those three do not separate it.
+>
+> ⚠️ **2026-09-23: NOT REPRODUCED, from a pushed window, in both states the hypothesis could mean** —
+> chunk 11's re-walk on the Xcode 27 build, where correction (8) made the bottom edge the first
+> shrink. After run 1 had finished, the edge took the window from the 615 pt AppKit had pushed it to
+> at Start down to the 542 pt idle floor (12:37:29). During run 2, pushed to 615 at Start again, it
+> took it to the 557 pt running floor (15:43:36). Both were read off the window server and the
+> autosave together. **The one-step test above was run, and the edge worked**, so the hypothesis is
+> not supported. The edge also made every drag in that walk's item 6, up and down.
+> **This box stays OPEN and unreproduced** — it was seen once, on 2026-09-21 — and its detector
+> stands.
 
 > **9.7 was deleted on 2026-08-22 rather than passed.** It counted the refusal sentences under the
 > run buttons, and those sentences no longer exist: the block was removed outright (user decision),
@@ -764,12 +781,152 @@ Kept as a heading rather than deleted silently, because *"chunk 10 passed"* and 
 exist"* are different facts and a reader of this file is entitled to know which one applies. If a
 Restart control is ever built again, its checks are in commit `0f65be4`.
 
-### Chunk 11 — the report as a sheet (increment 8) *(writes for items 1–7; the rest are dry)*
+### Chunk 11 — the report as a sheet (increment 8) — ❌ **RE-WALKED ON XCODE 27 2026-09-23, NOT PASSED: ITEM 6 OWED** *(two finished runs cover 2–7 and 9; 8 starts one that aborts; 1, 10 and 11 are dry)*
 
 The report was a `Window` from Step 10 until increment 8 and is now a **sheet on the main window**
 (user decision 2026-08-19). Nothing in the suite can see any of this: no test drives a SwiftUI view,
 and `RunControllerWiring.live` needs a privileged helper and a drive to construct, so even the two
 lines that tell the model a run produced a report are reachable only by a person.
+
+> ❌ **RE-WALKED ON THE XCODE 27 BUILD 2026-09-23 — NOT PASSED. Ten of the eleven items pass; item 6
+> FAILED and is owed** (user decision, 2026-09-23: recorded as walked and not as passed, and the
+> chunk stays on the re-walk list for item 6 alone until the finding is diagnosed and fixed).
+> 12:22–16:09 at the keyboard, against the app installed 2026-09-19 10:22:50 from `bcde5f5`'s
+> sources (Xcode 27.0 27A266a, `DTXcode 2700`, dylib `422c89d3…` — re-proved by content at 11:05 that
+> morning: item 0.1 greps 1, codesign OK), helper `ac4d5208…`, and daemon pid 95762 on protocol v15
+> throughout, on macOS 27.0 (26A428). The app was pid 46926 from 12:22:48 to the ⌘Q at 16:00:37, then
+> pid 70736 for item 7's second half. Six drives attached. **Every Start was on the 125.8 MB thumb**,
+> serial `2211190533300386001515`, read off the pre-run dialog before each answer (correction (5)) —
+> four dialogs: item 11's, cancelled; runs 1 and 2, about 40 s each; and item 8's, aborted. The app
+> selected **the 22 TB Seagate** by itself at both launches and again when the thumb was pulled for
+> item 8, and nothing was ever started against it. **Invalidated by** any edit to a view source or to
+> `AppModel`, `QuitPolicy`, `AppLifecycleDelegate`, `WindowMetrics` or `DevicePreparation`; by a
+> different installed build; and by any new Xcode or macOS.
+>
+> **Item 6 — the sheet against the window, at every size taken.** Bounds are the window server's, in
+> points; the prediction is correction (8)'s (*W* − 24) × (*H* − 56).
+>
+> | main window | how it got there | sheet | predicted | too tall by | sheet's bottom edge |
+> |---|---|---|---|---|---|
+> | 714 × 1040 | restored at launch (item 1) | 690 × 984 | 690 × 984 | 0 | 24 pt inside |
+> | 640 × 615 | pushed at run 1's Start and at run 2's finish; restored at the relaunch | 616 × 559 | 616 × 559 | 0 | 24 pt inside |
+> | **640 × 542** | bottom edge up to the idle floor — 12:42, and again at 15:01 | **616 × 530** | 616 × 486 | **44 pt** | **20 pt below the window** |
+> | 640 × 580 | bottom edge down from 542 — 14:37 | **616 × 539** | 616 × 524 | **15 pt** | 9 pt inside |
+> | 2512 × 1410 | Window ▸ Zoom — 14:42 | 2488 × 1354 | 2488 × 1354 | 0 | 24 pt inside |
+> | 640 × 600 | Window ▸ Zoom again — 14:44 | 616 × 544 | 616 × 544 | 0 | 24 pt inside |
+> | 640 × 677 | bottom edge down from 542 — 15:34 | 616 × 621 | 616 × 621 | 0 | 24 pt inside |
+>
+> Every sheet sat at the window's *x* + 12, *y* + 32 — centred, directly under the title bar — and
+> every width was exact. **Only the height was wrong, and only below 600 pt.** At the idle floor the
+> sheet's bottom edge was at *y* = 612 and the window's at 592, and the user confirmed it by eye with
+> the sheet up: *"Yes, it overhangs."* The same 616 × 530 came back at 15:01, after three other sizes.
+> The rest of item 6 passed: at the floor, *"all three visible"* — the headline, a body that scrolls,
+> **Export report…** and **Done** — and at the zoomed size, *"fills with the margin as predicted"*.
+> The sheet never ran off the screen.
+>
+> **What the readings rule out.** *Not the drag*: the bottom edge dragged down to 677 gave an exact
+> sheet. *Not a minimum height*, in the content or in the sheet: a floor would give the same sheet at
+> both short sizes, and they gave 530 and 539. *Not the window's own minimum*: after Zoom returned
+> 600, the bottom edge still took the window to 542. What is left is **the height itself** — exact at
+> 600 pt and above however the window got there, restored, pushed, zoomed or dragged, and too tall
+> below it, with the onset between 580 and 600. The line through the two too-tall readings — *sheet ≈
+> 0.237 H + 401.6* — meets *H* − 56 at 600, the exact reading there. That is arithmetic, not a
+> mechanism.
+>
+> **Candidate, not tested:** the `contentSize` that `ContentView`'s `onGeometryChange` stores, and that
+> `reportSheetSize` takes the margin off, reads taller than the window's content area below about
+> 600 pt. The sheet would come out at 530 if it read 554 against a 510 pt content area, and at 539 if
+> it read 563 against 548. The app does not log `contentSize`, so the walk could not tell. **No gate
+> and no render can see any of this**: `render-ui.sh` lays the report out at a size it is handed,
+> `window-fit-check.sh` sizes the main window, and the sheet's real size can only be read off the
+> running app, as this walk read it. **Three app-source comments state the premise this breaks**:
+> `reportSheetSize`'s *"it can never exceed a screen the window itself fits"*,
+> `WindowMetrics.reportSheetMargin`'s, in the same words, and `RunReportView`'s header, *"this view's
+> floor **is** the main window's floor"*. **Two instrument comments lean on it**: `ui-probe`'s
+> `RunReportHost`, and `render-ui.sh`'s header, *"these renders show what a user sees"*. All five
+> are left as they are (`PROGRESS.md`, Owed (f)).
+>
+> **Two observations, neither of them an item, both for the same diagnosis as item 6** (user
+> decision, 2026-09-23):
+>
+> * **At run 2's finish the window was pushed from 557 to 615 pt by itself** — the height it is pushed
+>   to at Start — and the report came up on it at 616 × 559. Before the run it had been dragged to the
+>   542 pt floor; it was pushed to 615 at Start, as chunk 9 recorded; then the bottom edge took it to
+>   the 557 pt running floor. Chunk 9 could not have seen a push at the finish: its window was never
+>   below 615 when a run ended.
+> * **Window ▸ Zoom, chosen a second time, returned the window to 600 pt, not the 580 it had been
+>   zoomed from** (14:44:33). The app logged nothing and no drive came or went. 600 is also where item
+>   6's error stops. Noticed, not tested.
+>
+> **Two of this checklist's own instructions were wrong, and are annotated below rather than
+> rewritten.** Correction (7) missed that **closing the main window is a quit**, so item 7 was walked
+> in two parts across a relaunch. And item 8's note says preparation *"goes ahead against that
+> captured drive"*: it did not, because a guard stopped it first. The outcome was as expected in both.
+>
+> **The instrument.** A sheet is a window of its own with no autosave, so correction (8) read sizes
+> from the **window server**: `CGWindowListCopyWindowInfo`, on-screen windows only, filtered to the
+> app's pid. It reads live, lists front to back — which is also item 9's reading — and needs no
+> permission. It was checked against `NSWindow Frame main` before anything it said was used: at
+> 12:24:22 both gave 714 × 1040, the restored frame, and the two agreed at every later reading of the
+> main window. **A sheet window has no chrome**: its bounds are the SwiftUI frame it was given. It was
+> used in three forms: `winlist <pid>` for single readings, whose source follows; a sampler through
+> run 2 and item 8, which ran `winlist` and read the autosave every 0.5 s and wrote a block only when
+> either changed; and `winwatch <pid> <seconds>`, the same call every 20 ms, for item 7. The log was
+> read with `process == "USBDriveTester" AND subsystem BEGINSWITH "com.arc3solutions"`, and item 10
+> counted with `process == "USBDriveTester"` and one `eventMessage` clause per string, the report
+> line's as `BEGINSWITH`. No test suite ran during the walk (correction (6)).
+>
+> ```swift
+> // winlist — list ONE process's on-screen windows, front to back, with their bounds.
+> //
+> // Usage: winlist <pid>
+> //
+> // It refuses to run without a pid. An unfiltered listing prints every app's window titles, and
+> // those are nobody's business but the person at the keyboard.
+> //
+> // `z` is the window's index among ALL on-screen windows, front to back, so two of this app's
+> // windows can be ordered against each other without naming anything else on screen. Bounds are
+> // the window server's, read live: a frame, in points, origin top-left of the main display.
+> import CoreGraphics
+> import Foundation
+>
+> guard CommandLine.arguments.count == 2, let want = Int(CommandLine.arguments[1]), want > 0 else {
+>     FileHandle.standardError.write(Data("usage: winlist <pid>\n".utf8))
+>     exit(2)
+> }
+>
+> let options: CGWindowListOption = [.optionOnScreenOnly, .excludeDesktopElements]
+> guard let windows = CGWindowListCopyWindowInfo(options, kCGNullWindowID) as? [[String: Any]] else {
+>     print("NO LIST")
+>     exit(1)
+> }
+>
+> func number(_ any: Any?) -> String {
+>     guard let n = any as? NSNumber else { return "?" }
+>     return n.doubleValue == n.doubleValue.rounded() ? String(Int(n.doubleValue)) : n.stringValue
+> }
+>
+> var shown = 0
+> for (z, window) in windows.enumerated() {
+>     guard (window[kCGWindowOwnerPID as String] as? Int) == want else { continue }
+>     let id = window[kCGWindowNumber as String] as? Int ?? -1
+>     let layer = window[kCGWindowLayer as String] as? Int ?? -1
+>     let name = window[kCGWindowName as String] as? String ?? "<no name>"
+>     let b = window[kCGWindowBounds as String] as? [String: Any] ?? [:]
+>     print("z\(z)\twin \(id)\tlayer \(layer)\t\(number(b["Width"])) x \(number(b["Height"]))"
+>           + " at (\(number(b["X"])), \(number(b["Y"])))\t\(name)")
+>     shown += 1
+> }
+> print("pid \(want): \(shown) window(s), of \(windows.count) on screen")
+> ```
+>
+> Built on 2026-09-23 with the pinned Xcode 27.0, from the directory holding the source:
+>
+> ```
+> DEVELOPER_DIR=/Applications/Development/Xcode.app/Contents/Developer /usr/bin/xcrun swiftc -O -o winlist winlist.swift
+> ```
+>
+> It prints window names, and the sheet's is empty.
 
 **The 4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`) attached, and the log stream running. Items 1–7
 need a real run; 8–10 do not.
@@ -793,6 +950,8 @@ need a real run; 8–10 do not.
 > less the 24 pt `reportSheetMargin` on each axis. Chunk 9 measured the floor at **542 pt** on
 > 2026-09-22 — 510 pt of content — so expect roughly **616 × 486**, which is 25 pt *more* room than
 > that note describes, not less. A reading near 461 means something else has moved.
+> *⚠️ Measured 2026-09-23: **616 × 530**, 44 pt taller than this predicts, and hanging 20 pt below
+> the window. Item 6 failed on it; see the re-walk box above.*
 >
 > **(3) Item 7's ✅ is an Xcode 26 fact and lapsed at the 2026-09-19 install.** It reads *"RE-WALKED
 > AND PASSED 2026-09-04"*, which is exactly the shape CLAUDE.md's 6.3 example warns about: a date
@@ -851,6 +1010,13 @@ need a real run; 8–10 do not.
 > places it. It uses run 2's report, after item 8: only a start that gets as far as claiming the
 > drive clears the last report (`onRunBegan()`, in `RunController`'s `.ready` branch), and item 8's
 > start aborts before that.
+> *⚠️ 2026-09-23, found during the walk: (7) missed that **a close is a quit**.* Closing the main
+> window with no run active quits the app (user decision 2026-08-06; `QuitPolicy`'s
+> `allowCloseAndQuit`). So item 7's *"work once it is gone"* cannot be seen without ending the
+> session. Item 7 was walked in two parts: first ⌘Q with run 2's report up, then a relaunch. After
+> the relaunch ⇧⌘R raises the empty state, because `lastRunReport` is kept in memory only
+> (FR-RPT-5), and the close button was tried under that sheet and after it. The prediction above
+> held: run 2's report survived item 8's aborted start.
 >
 > **(8) How item 6 is walked and read this time.**
 >
@@ -871,6 +1037,9 @@ need a real run; 8–10 do not.
 >   at the pushed 615, **616 × 486** at the 542 idle floor. The same offset at both sizes would be the
 >   sheet window's own chrome; different offsets are a finding. Chunk 9's floors were measured with
 >   five drives attached and six are attached today, so a floor that moves is reported, not adopted.
+>   *⚠️ 2026-09-23: 616 × 559 at 615, exact, and **616 × 530 at 542** — different offsets, so by
+>   this bullet's own test a finding. It is not chrome: a sheet window's bounds are its content.
+>   Item 6 failed on it. The floor did not move with six drives: 542.*
 >
 > **(9) Two wordings the four above missed.** The chunk's heading — *"writes for items 1–7; the rest
 > are dry"* — is (4)'s mis-sort in other words; it is rewritten when this walk's status goes into
@@ -892,16 +1061,31 @@ need a real run; 8–10 do not.
    > The empty state had **no footer at all** as a window, because the title bar closed it. Mutation
    > R11 takes it away again and passes every test.
 
+   ✅ **Re-walked 2026-09-23 on the Xcode 27 build and passed** (12:22–12:25, before any run): one
+   *View Last Run Report*, with ⇧⌘R; the sheet read *"No run has finished yet"* with **Done** under a
+   divider; Escape closed it, and so did Done — *"All yes"*. The empty state measured **690 × 984** on
+   the restored 714 × 1040 frame, which is (*W* − 24) × (*H* − 56) exactly.
+
 2. **Start a run and let it finish.** The report appears **by itself**, as a sheet, without the
    Window menu being touched. The headline and the figures are this run's.
+
+   ✅ **Passed 2026-09-23** (run 1, the thumb, 12:33–12:34): *"Report is up by itself, headline
+   Completed"*. It was 616 × 559 on the frame pushed to 615 at Start, exactly as predicted, in front
+   of the main window, with one message beginning `run report: `.
 
 3. **While the report is up, try to start another run.** You cannot: the sheet is window-modal, so
    Start, Pause, Stop and the drive list are all unreachable. **That is the whole point of the
    change** — a run beginning clears the previous run's report, and on hardware that emptied a
    report window somebody was reading.
 
+   ✅ **Passed 2026-09-23**: with run 1's report up, clicks in the strips of the main window around
+   the sheet reached nothing, and no pre-run dialog appeared — *"as expected"*.
+
 4. **Press Done, then ⇧⌘R.** The same report comes back, with the same content. Dismissing does not
    discard it; only a new run does.
+
+   ✅ **Passed 2026-09-23**: Done, then ⇧⌘R, brought run 1's report back — *Completed*, with the same
+   figures.
 
 5. **Start a second run and, while it is running, look at the Window menu.** *View Last Run Report* is
    **greyed out**, and ⇧⌘R does nothing. During a run there is nothing to show — the report was
@@ -909,6 +1093,10 @@ need a real run; 8–10 do not.
 
    > Mutation R12 removes the disabling and passes all tests; `AppModel` still answers correctly,
    > and what the mutation deletes is the menu asking.
+
+   ✅ **Passed 2026-09-23** (run 2, 15:43:29–15:44:09): *View Last Run Report* was greyed and ⇧⌘R did
+   nothing — *"everything worked as expected"*. The window-server sampler saw the Window menu open at
+   15:43:47, and no sheet at any point in the run.
 
 6. **Resize the main window — small, then large — and raise the report at each size.** The sheet
    fills the window less a margin, never overhangs it, and never runs off the screen. At the
@@ -918,6 +1106,14 @@ need a real run; 8–10 do not.
    > Rendered at 616x461 before this was written, which is the sheet at the window's minimum, and
    > nothing was clipped. What a render cannot answer is whether the sheet really gets that size,
    > because a sheet has its own window.
+
+   ❌ **FAILED 2026-09-23 on the Xcode 27 build: the sheet overhangs the window below about 600
+   pt.** At the 542 pt idle floor it measured **616 × 530** against the predicted 616 × 486 and hung
+   **20 pt below the window's bottom edge** — *"Yes, it overhangs"* — and the same reading came back at
+   15:01. The rest passed: at the floor, *"all three visible"*; at the zoomed size, *"fills with the
+   margin as predicted"*; and the sheet never ran off the screen. **Owed**, by user decision. The
+   quoted note above is exactly the question: the sheet does **not** really get that size. The table,
+   what it rules out and the candidate are in the re-walk box at the top of this chunk.
 
 7. **Press ⌘Q while the report is up. The report goes and the app quits — one keystroke, both.**
    *Quit USBDriveTester* is **not** greyed here. Also try the close button: it should still be dead
@@ -946,6 +1142,28 @@ need a real run; 8–10 do not.
    > ✅ **RE-WALKED AND PASSED 2026-09-04.** One keystroke takes the report down and the app with
    > it. The question this item parked on 2026-08-21 is closed.
 
+   ✅ **Re-walked 2026-09-23 on the Xcode 27 build and PASSED**, in two parts because a close is a quit
+   (see the note under correction (7)). **With run 2's report up**, *Quit USBDriveTester* was not
+   greyed, and one ⌘Q took the report and the app — *"app quit in one keystroke. The Report sheet
+   closed right before the app quit."* A 20 ms watch of the window server agrees: the sheet slid out
+   16:00:37.516–.728, the main window stood alone at .781, and nothing of the app's was on screen at
+   .810. Nothing lingered. The log has `quit command: … report=true …` and `discarding the run report`
+   at .473, then `ending sheets: 3 window(s), 1 sheet(s), 0 with no parent; 1 still flagged
+   afterwards` at .746, then `terminate requested: runIsActive=false disposition=quitImmediately` at
+   .774, and no `refused` line. The 273 ms between the first line and `ending sheets` is the
+   slide-out, inside one synchronous call: `dismissForQuit`, then `AttachedSheets.endAll()`, which
+   logs after `endSheet` returns. The terminate came on the next turn, 28 ms later. This record cannot
+   tell whether SwiftUI's state change or `endSheet` moved the sheet. *"1 still flagged afterwards"*
+   is not a failure: `isSheet` stays true after `endSheet(_:)` returns, as `AttachedSheets`' own doc
+   comment says, and the test is that the terminate follows — it did.
+
+   **After a relaunch** (pid 70736), ⇧⌘R raised the empty state at 616 × 559, the same size as a full
+   report. Done removed it, and the close button then quit the app: `terminate requested: …
+   quitImmediately` at 16:09:08.838, with no `quit command` line, because that path is the close and
+   not ⌘Q. **The close button is *disabled* while a sheet is up, not merely dead** — *"technically I
+   was not able to click it"* (user). There is no click for it to ignore, so *"it should still be
+   dead"* is met by its being greyed. The daemon was still pid 95762 after both quits.
+
 8. **Ask for a run that cannot start.** Select a drive, press **Start**, and **while the pre-run
    dialog is up, unplug that drive.** Then press Proceed. Preparation aborts and the failure is
    reported — **and no report sheet appears.** A sheet reading "No run has finished yet" straight
@@ -967,15 +1185,46 @@ need a real run; 8–10 do not.
    > is what stops the prompt naming one drive while the run writes another. It is a defect in this
    > item, which had gone stale without anything noticing.
 
+   ✅ **Passed 2026-09-23** (15:51:32–15:51:51). The thumb was pulled with the dialog up
+   (15:51:37.081) and Proceed pressed at 15:51:45.441. Preparation aborted — `run aborted before any
+   write: …`, then `starting → idle on startAborted` — the failure alert came up, and there was **no
+   report sheet at any point**: *"No report sheet"*, and the sampler agrees. The alert's text is the
+   abort's reason, which `RunControlsView` passes straight through; the user summarised it as *"the
+   device was no longer on the bus"*.
+
+   ⚠️ **The note above describes a mechanism that did not happen on 2026-09-23.** Preparation did not
+   go ahead against the captured drive. The moment the thumb went, discovery moved the selection to
+   **the 22 TB Seagate** (15:51:37.291: *"the first usable drive (FR-DEV-3), because the selected one
+   has gone"*). The guard `selectionStillNamesTheDrive()` (`DevicePreparation.swift`, in since
+   `1a10438`, 2026-08-18) then stopped the start before anything was unmounted: *"The drive this run
+   was authorised for is no longer the selected drive — it was disconnected or replaced while the
+   confirmation was open. Nothing has been unmounted and no drive has been written to."* The start was
+   the thumb's, captured by serial at the press, so the Seagate was never its target. The outcome is
+   the one this item expects; only the note's account of how it comes about is wrong. Whether that
+   account was also wrong on 2026-09-04 is not recorded.
+
 9. **Open the diagnostics window (⇧⌘D), leave it in front, and finish a run.** The **main window
    comes forward** with the report on it. A sheet on a window behind another one is a dialog nobody
    sees, which would read as a run that finished and said nothing.
+
+   ✅ **Passed 2026-09-23** (run 2's finish, 15:44:09). The diagnostics window was raised with ⇧⌘D and
+   left in front. At the finish the main window came forward with the report on it — *"main window
+   came forward with report on top"* — and the sampler's first reading after the finish lists the
+   sheet, then the main window, then diagnostics. The report was 616 × 559, on a window just pushed
+   from 557 to 615 pt: see the first observation in the re-walk box.
 
 10. **Log check, across the whole chunk.** `run report: …` appears once per finished run, and
     `no report: …` for a refused call. Neither should appear twice for one press.
 
     > ⚠️ **The strings are wrong** — a refused call logs `no run report:`. See correction (6) above
     > item 1 (2026-09-23) for the real messages and what this walk expects of each.
+
+    ✅ **Passed 2026-09-23**, against correction (6)'s expectations exactly, 12:20–16:15. There were
+    **2** messages beginning `run report: `, **0** containing `no run report:`, **0** `device loss
+    with no report:`, **1** `run aborted before any write:` and **4** `pre-run prompt raised:`, and
+    every one names serial `2211190533300386001515`. The quits and the relaunch changed none of them,
+    and the same predicate finds both launches' `registration manager initialised`, so the search was
+    live.
 
 11. **With the pre-run dialog up, press ⇧⌘R. Then Cancel the dialog and wait.** *(Dry — press
     Start and answer nothing.)* Nothing should appear: not while the dialog is up, and **not when
@@ -1000,6 +1249,13 @@ need a real run; 8–10 do not.
     > builder with no environment to read a view's state. `reportRequestedFromMenu()` re-checks the
     > rule rather than trusting the item's `.disabled`, because mutation **S3** shows what a rule
     > living only in a view modifier is worth: the menu setting the flag itself passes every test.
+
+    ✅ **Re-walked 2026-09-23 on the Xcode 27 build and passed** (12:27:51–12:28:39, before any run,
+    on the thumb's dialog). *View Last Run Report* was greyed while the dialog was up, and ⇧⌘R raised
+    nothing. Nothing appeared when the dialog was cancelled, or in the 44 s after — *"everything
+    worked as expected"*, and the window server found no sheet at 12:29:23. The log has `pre-run
+    prompt raised: full warnings; drive serial 2211190533300386001515`, then `pre-run prompt
+    dismissed: cancel; run issued: false`, and no report line.
 
 **No longer known, and worth recording as resolved:** a 13.3-inch Mac at its *smallest* scaling
 (1152x720) has 620 pt for a window, and until 2026-08-22 `starting` needed 638 — a stated non-goal

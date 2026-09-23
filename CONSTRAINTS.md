@@ -925,7 +925,9 @@ was the defect. Here it was found before the gate was walked rather than after.*
 - **A SwiftUI sheet or alert gets its own window and can never be captured in place.** Those surfaces
   need a person, permanently. The mitigation is to build each dialog as a **standalone `View` with
   its own render case**, put the *decision* in a pure type a mutation can reach, and log the route
-  taken — so the only thing left to a human is *"did a dialog appear"*.
+  taken — so the only thing left to a human is *"did a dialog appear"*. *(⚠️ 2026-09-23: a sheet's
+  **size**, though, can be read headlessly once a person has brought it up — see the window-server
+  bullet below. Its pixels still cannot be captured.)*
 - **Appearance is pinned** (`light` default, `dark` selectable as a fifth argument, an unrecognised
   value refused). Renders used to inherit the machine's current setting, which made the instrument
   silently report **fewer elements than exist** depending on the time of day.
@@ -1014,6 +1016,21 @@ was the defect. Here it was found before the gate was walked rather than after.*
   it". ⚠️ **The autosave reads stale**: a drag that changes nothing leaves the old value in place,
   which is indistinguishable from never having dragged, so make the window obviously taller first and
   confirm the read follows it.
+- **A sheet's size can be read live from the window server, with no permission** (measured
+  2026-09-23, Step 11's chunk 11 re-walk, Xcode 27.0 27A266a / macOS 27.0 26A428). A sheet is a
+  window of its own with no autosave, and a render lays one out at a size it is handed, so neither
+  instrument above can say what size a sheet actually came up at.
+  `CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID)`,
+  filtered to the app's pid, can: every window the app has on screen, front to back, with its
+  bounds. It was checked against the autosave before it was trusted — 714 × 1040 from both — and
+  agreed at every later reading of the main window. On macOS 27 **a sheet window has no chrome**, so
+  its bounds are the SwiftUI frame it was given, and a window-modal sheet sits at its parent's
+  *x* + 12, *y* + 32, directly under the title bar. The same call every 20 ms timed which window left
+  the screen first on ⌘Q. **Filter by pid before printing anything**: an unfiltered listing carries
+  every app's window titles. Its first use found the report sheet **44 pt taller than its own sizing
+  predicts at the 542 pt idle floor, hanging 20 pt below the window**, which no gate and no render
+  here could have seen (`PROGRESS.md`, *Chunk 11's walk*). The source, `winlist.swift`, is in
+  `progress/step-11-human-checklist.md`'s chunk 11 box.
 - **Drive count is a render axis** (sixth argument, default 1). Until it existed, **every render
   this project had ever taken showed exactly one drive**, so `DeviceListView`'s list — which grows
   to a 260 pt cap with the number attached — had never been looked at near that cap. The first
