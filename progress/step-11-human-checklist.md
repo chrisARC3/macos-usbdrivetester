@@ -774,6 +774,40 @@ lines that tell the model a run produced a report are reachable only by a person
 **The 4 TB T5 EVO** (serial `00000S7CLNJ0WC02266P`) attached, and the log stream running. Items 1–7
 need a real run; 8–10 do not.
 
+> ⚠️ **FOUR CORRECTIONS TO THIS CHUNK, made 2026-09-23 while laying the re-walk out and before any
+> of it was walked.** None is a defect in the app; three are stale text and one is this chunk
+> inheriting a step-wide prerequisite it does not need.
+>
+> **(1) Run it on the 1 TB scratch T5, not the 4 TB T5 EVO** (user's standing rule: the scratch T5
+> is the only write target, and the 22 TB Seagate never is). `scripts/lib/device-identity.sh` says
+> the same thing in the repository's own words — the scratch T5 is *"THE designated scratch device:
+> every write gate in this project targets this drive"*, while the T5 EVO is the **`fixture`** role,
+> erasable, whose two jobs are the multi-volume unmount-rollback checks and the link-speed question.
+> **Chunk 11 needs neither.** It is about a sheet: no unmount rollback, no second volume, no link
+> speed. The prerequisite line above was inherited from the step-wide list at the top of this file,
+> where the T5 EVO is there for *other* chunks.
+>
+> **(2) Item 6's recorded sheet size is pre-2026-08-22.** *"Rendered at 616x461 … the sheet at the
+> window's minimum"* was the sheet at the **517 pt** declared minimum of the time: 485 pt of content
+> less the 24 pt `reportSheetMargin` on each axis. Chunk 9 measured the floor at **542 pt** on
+> 2026-09-22 — 510 pt of content — so expect roughly **616 × 486**, which is 25 pt *more* room than
+> that note describes, not less. A reading near 461 means something else has moved.
+>
+> **(3) Item 7's ✅ is an Xcode 26 fact and lapsed at the 2026-09-19 install.** It reads *"RE-WALKED
+> AND PASSED 2026-09-04"*, which is exactly the shape CLAUDE.md's 6.3 example warns about: a date
+> that reads like a property. It is in scope for this re-walk.
+>
+> **(4) *"Items 1–7 need a real run; 8–10 do not"* mis-sorts three items.** **Item 1 needs no run at
+> all** — it checks the empty-state report *before* any run, which is the only time that state
+> exists. **Item 8 needs a run that is started and aborted**, not a finished one. **Item 9 needs a
+> finished run**, so it is not covered by *"8–10 do not"*. And item 11, added after that line was
+> written, is dry.
+>
+> **Two finished runs cover this chunk, not three.** One serves items 2, 3, 4 and 6, which all hang
+> off the report that run leaves standing. A second serves items 5 and 9 together — check the Window
+> menu is greyed while it runs (5), then raise the diagnostics window with ⇧⌘D and leave it in front
+> as the run finishes (9). Item 8 is a third *start*, aborted. Items 1 and 11 are dry.
+
 1. **Menus first, before any run.** The Window menu has a *View Last Run Report* item with **⇧⌘R** on it,
    and **only one**. SwiftUI adds a permanent Window-menu entry for every `Window` scene, titled
    with the window's title — measured on a scene probe in 2026-08-05 and recorded in
