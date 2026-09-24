@@ -58,7 +58,11 @@ How to grep:
   hash — and treat a grep that finds nothing for *every* pattern as a broken instrument, the way a
   zero test total is.
 - **One file can hold several status blocks**, each wording the same state differently; editing the
-  one in front of you is not the check.
+  one in front of you is not the check. `BUILD-PLAN.md` has shipped this twice:
+  - **2026-09-05** — it held two known status blocks, 400 lines apart (a third turned up
+    2026-09-19), and Step 12's chunks 1 and 2 updated only the lower one.
+  - **2026-09-13**, found 2026-09-18 — the same again: Step 13's chunk 4 updated the lower block
+    and not the top one, which words the chunks differently from the sentence the grep was for.
 - **Grep the sources too, doc comments included** — a claim about what the code does is also
   written on the code.
 - **An install retires the old build's hash everywhere it is named as current** — grep for the
