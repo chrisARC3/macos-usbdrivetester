@@ -46,67 +46,45 @@ has not been re-run cannot report anything.*
 
 **A status block that disagrees with the body is worse than no status block.** When one is edited,
 every other status block in the repository is edited in the same commit — `grep -rn` is the check,
-and this project has now paid for skipping it **thirteen** times. **Grep for the claim, not for the
+and this project has skipped it more than a dozen times. **Grep for the claim, not for the
 filename.** Snapshot blocks are the exception: correct them by annotating with a date, never by
 rewriting them to match today.
 
-From the sixth on they are the shape of the problem. The sixth, seventh, eighth and tenth were each
-in a place the previous fix had not thought of; the ninth, twelfth and thirteenth were not:
+How to grep:
 
-- **Sixth, 2026-09-05** — `BUILD-PLAN.md` holds **two** status blocks, 400 lines apart, and Step 12's
-  chunks 1 and 2 updated only the lower one.
-- **Seventh, 2026-09-06** — `PROGRESS.md`'s cold-start block, three chunks and a protocol bump
-  stale, in the file whose entire job is to say where the work is. **The first one outside
-  `BUILD-PLAN.md`.**
-- **Eighth, 2026-09-07** — `README.md` said *"Step 12 … is next and is not yet started"*, wrong for
-  seven chunks. Nobody thought of the README as a place where the current step is named. **It is.**
-- **Ninth, 2026-09-10** — `README.md` and `PROGRESS.md`'s cold start, **both already on the list**,
-  said *"chunk 3 must be re-walked from the top"* through all six of chunk 3's commits. Each commit
-  added *"chunk 3 CLOSED"* to the blocks it was looking at, and none grepped for the sentence it was
-  making false. **Grep for the claim being retired, not the one being added** — knowing where the
-  five blocks are does not help when the grep is for the new sentence. **And the fix for it had the same
-  gap**: `6be81e1` grepped for *"must be re-walked"* and missed three sites saying the same thing in
-  other words — PROGRESS's Owed row (*"owed a re-walk from item 1"*), its reading list (*"chunks 3,
-  4 and 5 are not walked"*) and BUILD-PLAN's *"so chunk 3's re-walk can tell"*. A claim has several
-  wordings: **grep each noun in it**, and treat a grep that finds nothing for *every* pattern as a
-  broken instrument, the way a zero test total is.
-- **Tenth, found 2026-09-10** — `progress/step-12-human-checklist.md`'s own header said *"STATUS:
-  UNWALKED … Nothing here has been run"* through three chunks' walks and thirteen commits to that
-  file. It names no step, so the grep for the five blocks below never reaches it. **A checklist's
-  status line is a status block about itself**: the commit that fills in a **Walked** line edits it
-  too.
-- **Eleventh to thirteenth, 2026-09-13** — all three in commits written knowing this rule. The
-  eleventh was a claim corrected in two documents and left standing in the doc comment of the rule it
-  described. The **twelfth was the sixth again**: chunk 4 updated `BUILD-PLAN.md`'s lower block and
-  not its top one, which words the chunks differently from the sentence the grep was for. The
-  **thirteenth** was an install whose commit touched only the checklist, so `PROGRESS.md`'s
-  *Installed app* row went on naming the old build for five days. **An install retires the old
-  build's hash everywhere it is named as current — grep for the hash.** The last two were found on
-  2026-09-18, while writing up the walk that followed them.
+- **Grep for the claim being retired, not the one being added.** The new sentence is where you put
+  it; the old one is wherever nobody was looking.
+- **A claim has several wordings: grep each noun in it** — the step, the chunk, the figure, the
+  hash — and treat a grep that finds nothing for *every* pattern as a broken instrument, the way a
+  zero test total is.
+- **One file can hold several status blocks**, each wording the same state differently; editing the
+  one in front of you is not the check.
+- **Grep the sources too, doc comments included** — a claim about what the code does is also
+  written on the code.
+- **An install retires the old build's hash everywhere it is named as current** — grep for the
+  hash.
 
-**Four files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
+Each of these was paid for by a stale claim that shipped; the incidents are in the documents'
+dated notes and in this file's git history.
+
+**Three files name the current step**: `README.md`, `PROGRESS.md` (cold start *and* Current state)
 and `BUILD-PLAN.md` (**three times** — the block under the title, the *"Status, …"* block under
 `## Sequence overview`, and the gates-and-figures annotation ~120 lines below it). That is **six**
 blocks, and the grep has to find all six.
 
-⚠️ **This said "`BUILD-PLAN.md` (twice) … five blocks" until 2026-09-19.** There were always three
-in that file: the `## Sequence overview` status block, 500 lines down, still said *"4 run the same
-day and still OPEN … 4b, the probe fix, is next when the user approves it"* after the other five had
-been updated for chunk 4b. **It was caught before the commit, by grepping the claims being retired**
-— *"still OPEN"* and *"is next"* — and not afterwards, which is the first time the rule has worked as
-designed rather than after a lapse. The list of places is a hint; **the grep is the instrument**, and
-a count in a rule is itself a status claim.
+The list of places is a hint; **the grep is the instrument**, and a count in a rule is itself a
+status claim.
 
-**The live checklists' status lines count too** — `progress/step-11-human-checklist.md`,
-`step-12-human-checklist.md` and `step-13-human-checklist.md` each carry one about themselves (the
-tenth lapse). Chunk 4b had to edit two of the three.
+**A checklist's status line is a status block about itself** —
+`progress/step-11-human-checklist.md`, `step-12-human-checklist.md` and `step-13-human-checklist.md`
+each carry one. It names no step, so a step-name grep never reaches it: the commit that fills in a
+**Walked** line edits it too.
 
-**And a measured figure is a status claim, in places that name no step at all.** Step 11's chunk 9
-re-walk (2026-09-22) retired *"7 pt to spare at the tightest"*, which lives in
-`nonfunctional-requirements-usb-drive-tester.md` — a document none of the six blocks reaches and no
-step-name grep finds. It was caught by grepping **the number**. When a measurement moves, grep the
-figure as well as the sentence; and leave the archived `progress/step-NN.md` copies alone, because
-those are records of what was true.
+**A measured figure is a status claim too, including in documents that name no step** —
+`nonfunctional-requirements-usb-drive-tester.md` carries several that none of the six blocks
+reaches. When a measurement moves, grep the bare number and unit, not a phrase around it, as well
+as the sentence; and leave the archived `progress/step-NN.md` copies alone, because those are
+records of what was true.
 
 ---
 

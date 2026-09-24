@@ -70,6 +70,10 @@ test target fixed to the designated scratch device with disk images removed as a
 > at the end of this block already warns about it. **There are two status blocks in BUILD-PLAN.md.
 > `grep -n "protocol is v" BUILD-PLAN.md` finds both.**
 >
+> ⚠️ **Corrected 2026-09-24: there are three, and that grep finds only this one** — and did on the
+> day this was written: the Sequence overview block writes `protocol **v15**`, which the pattern
+> misses. `CLAUDE.md` lists all three.
+>
 > ⚠️ **The repository moved on 2026-09-04** to
 > `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester` — still a **removable volume**,
 > so builds still go outside it, and any absolute path written down before that date is wrong.

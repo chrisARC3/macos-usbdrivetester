@@ -1669,6 +1669,10 @@ Every defect this project has produced came from trusting a substitute for the r
   to check"*. The `grep -rn` rule in `CLAUDE.md` is written per **repository**, and the habit it
   builds is per **file**: open the file, edit the block, move on. **Grep for the claim, not for the
   filename** — `grep -n "protocol is v" BUILD-PLAN.md` finds both in one line of effort.
+
+  ⚠️ **Corrected 2026-09-24: `BUILD-PLAN.md` holds three, and that grep finds only the top one**
+  — and did on the day this was written: the Sequence overview block writes `protocol **v15**`,
+  which the pattern misses. `CLAUDE.md` names all six blocks in the repository.
 - **THE NARROW BUILD IS THE ONE THAT CAN FAIL, WHICH IS THE WHOLE REASON TO KEEP IT.**
   `scripts/device-probe.sh` runs the app's real discovery headlessly by compiling
   `Discovery/*.swift` plus one `Shared` file and **nothing else**. On 2026-09-05 a new type was put
