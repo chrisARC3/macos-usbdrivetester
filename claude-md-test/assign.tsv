@@ -1,0 +1,10 @@
+run	arm	wave
+r07	C	1
+r04	A	1
+r02	B	1
+r05	C	2
+r01	A	2
+r09	B	2
+r08	B	3
+r06	C	3
+r03	A	3

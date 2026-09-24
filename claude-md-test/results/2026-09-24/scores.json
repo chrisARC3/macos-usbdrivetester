@@ -1,0 +1,528 @@
+[
+ {
+  "run": "r02",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "53d0608 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass, recorded as the user reported them"
+  ],
+  "calls": 43,
+  "greps": 10,
+  "edits": 12,
+  "G1_wide_retired": 3,
+  "G2_wide_nouns": 4,
+  "G3_wide_verify_after_last_edit": 2,
+  "G4_grep_new_date": 0,
+  "cost": 1.5901893999999999,
+  "turns": 44,
+  "secs": 249,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"ps -o pid,lstart,etime,command -ax | grep -i -E 'usbdrivetester' | grep -v grep; echo -"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -ax -o pid,lstart,etime,command | grep -i usbdrivetester | grep -v grep\", \"descripti"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -ax -o pid,lstart,etime,command\", \"description\": \"List running processes with start "
+   ],
+   [
+    "Bash",
+    "{\"command\": \"shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debug.dyli"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"log show --start \\\"2026-09-24 09:34:00\\\" --end \\\"2026-09-24 09:39:00\\\" --predicate 'sub"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"sw_vers; find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USB"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `53d0608`; nothing was pushed. Chunk 16 (all nine items, 09:12–09:31) and item 6.3 (09:34–09:38) are both recorded as passed against the 2026-09-19 10:22:50 install and daemon pid 95762, as you reported them.\n\n**What I could and couldn't check from here:**\n- **Checked:** the daemon is still pid 95762, so item 16.3's Login Items toggle didn't restart it. The helper source hash is still `e19b0b3c…`, and it didn't move with these edits.\n- **Not checked:** this session isn't allowed to read `/Applications` or the unified log. So the install wasn't re-proved by content today; the last proof is from chunk 11's walk, 2026-09-23 11:05. Neither log line from 6.3 could be confirmed either.\n\n**Gaps in the record, all written down as gaps:**\n- Chunk 16 item 7 asks you to copy the whole line. Without the paste, its sheet count, class name and `state=` aren't on record for this build; the pass only says the line read as expected.\n- You named the thumb for item 4's run, but not the drive for the runs in items 5–7. If you remember which drive it was, I'll add it.\n- 6.3 was walked in its plain form, pressed mid-run. That's not the harder form from 2026-09-04, where the report was raised behind the confirmation.\n\n**One note annotated, not rewritten:** item 16.4's note says preparation \"aborts against the drive captured at the press\". Chunk 11's walk found yesterday that this isn't what happens: the selection moves to another drive and `selec"
+ },
+ {
+  "run": "r04",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "af7f8d2 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass"
+  ],
+  "calls": 49,
+  "greps": 12,
+  "edits": 14,
+  "G1_wide_retired": 2,
+  "G2_wide_nouns": 2,
+  "G3_wide_verify_after_last_edit": 2,
+  "G4_grep_new_date": 0,
+  "cost": 1.8610577999999998,
+  "turns": 50,
+  "secs": 209,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"date; pgrep -lf -i usbdrivetester; sudo -n true 2>&1 | head -1; launchctl print system "
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -o pid,lstart,command -p 86350,95762\", \"description\": \"Show start times of app and h"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:05:00' --end '2026-09-24 09:45:00' --predicate"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `af7f8d2`. It's docs only and not pushed.\n\n**What went in:**\n- **Chunk 16** passed all nine items as written, 2026-09-24 09:12–09:31, with item 4's run on the 125.8 MB thumb.\n- **Item 6.3** passed 09:34–09:38 on the thumb. It stopped at a chunk boundary, released the drive and quit, and both log lines appeared.\n- Both are recorded as you reported them, with a note that the pastes weren't kept.\n- Each record names the build it ran against: the 2026-09-19 10:22:50 install from `bcde5f5`, helper `ac4d5208…`, daemon pid 95762 on protocol v15, macOS 27.0.\n\n**What I checked while recording:**\n- I re-hashed the installed files and they match: dylib `422c89d3…` and helper `ac4d5208…`.\n- No app source has changed since `bcde5f5`.\n- Pid 95762 is still running.\n- The helper source hash is still `e19b0b3c…`.\n- I tried to read this morning's log to back up your report, but that command needed approval, so it didn't run. The record says the log wasn't read back.\n\n**Things you should know:**\n- **Chunk 16's item 7 has no reading on record for this build.** It asks you to copy one log line, and without the paste there's nothing to write down. The only reading on file is still the one from 2026-09-04.\n- **Fixing chunk 11's item 6 will undo both of today's passes.** That fix changes the report a stopped run puts on screen, which is exactly what 6.3's own note says to re-walk after. I wrote this into both records and into Owed (f), so whoever "
+ },
+ {
+  "run": "r07",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "030b354 Step 11 chunk 16 and item 6.3 re-walked on Xcode 27: both pass — recorded as reported, pastes not kept"
+  ],
+  "calls": 44,
+  "greps": 7,
+  "edits": 15,
+  "G1_wide_retired": 3,
+  "G2_wide_nouns": 4,
+  "G3_wide_verify_after_last_edit": 1,
+  "G4_grep_new_date": 0,
+  "cost": 1.7648818,
+  "turns": 45,
+  "secs": 234,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"A=/Applications/USBDriveTester.app/Contents/MacOS; shasum -a 256 $A/USBDriveTester.debu"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -axo pid,lstart,comm\", \"description\": \"List processes with start times\"}"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"log show --start '2026-09-24 09:10:00' --end '2026-09-24 09:45:00' --predicate 'subsyst"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `030b354`. Nothing was pushed.\n\n**What's recorded:** chunk 16 passed in full (all nine items, 09:12–09:31) and item 6.3 passed (09:34–09:38), both on the 125.8 MB thumb. Both are marked as your report, and the record says the pastes weren't kept, so there's no log reading from this walk on file. Chunk 16 item 7's sheet inventory is still the 2026-09-04 one.\n\n**Build check:** at 12:09 today the installed dylib (`422c89d3…`) and helper (`ac4d5208…`) had the same hashes as the 2026-09-19 install, and the daemon was still pid 95762. So nothing in the walk relaunched the daemon, including item 3's Login Items toggle. I couldn't read the log for 09:34–09:38 because `log show` needed a permission I didn't have. The unified log may still hold the two 6.3 lines if you ever want them on file.\n\n**Status after this:** all four Step 11 re-walks have now been walked, and chunk 11's item 6 is the only thing still owed. The remaining re-walks are Step 12's two dry chunks, 1 and 2.\n\n**Two things to know:**\n- **Chunk 16 item 4 had a wrong sentence.** It says *\"Preparation aborts against the drive captured at the press\"*. Yesterday's walk of 11.8 showed that isn't what happens: the selection moves to the 22 TB Seagate and a guard stops the start first. 11.8's copy of the sentence was annotated yesterday, but 16.4's wasn't. I've added a note there rather than rewriting it. Your pass stands, because the item checks the outcome (the alert, Quit "
+ },
+ {
+  "run": "r01",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "3c30f77 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass, recorded as the user reported them"
+  ],
+  "calls": 44,
+  "greps": 10,
+  "edits": 13,
+  "G1_wide_retired": 2,
+  "G2_wide_nouns": 3,
+  "G3_wide_verify_after_last_edit": 1,
+  "G4_grep_new_date": 1,
+  "cost": 1.6029853999999997,
+  "turns": 45,
+  "secs": 221,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"date; shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debu"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"date; shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debu"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:05:00' --end '2026-09-24 09:45:00' --predicate"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:05:00' --end '2026-09-24 09:45:00' --predicate"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriv"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `3c30f77` (not pushed). Both are recorded as passed on 2026-09-24:\n\n- **Chunk 16**: 09:12–09:31, all nine items passed; item 4 was on the 125.8 MB thumb.\n- **Item 6.3**: 09:34–09:38, also on the thumb.\n\nBoth name the installed build they ran against: the 2026-09-19 10:22:50 install from `bcde5f5`, with helper `ac4d5208…` and daemon pid 95762 on protocol v15. At 12:25 today I checked that the installed files and daemon still match those. I couldn't read this morning's log, because the log command needed an approval that wasn't given. So the record is your report alone.\n\nEach record also says what would make it stale. The main thing: **a fix for chunk 11's item 6 would invalidate both passes.** It changes the report sheet, which chunk 16's item 6 raises and which a stopped run puts on screen. Item 6.3's own rule says to walk it again after that.\n\nI updated every status block that said these two were unwalked: the checklist's header note, chunk 16's box and item 6.3; four places in `PROGRESS.md`; two blocks in `BUILD-PLAN.md`; and `README.md`. I also added a dated note to `BUILD-PLAN.md`'s 2026-09-05 paragraph saying the checklist is complete with nothing owed, since item 6 is owed again. A grep for the retired wordings afterwards found nothing stale.\n\n**What the record says it doesn't have:**\n- **Log lines:** none are quoted, so chunk 16 item 7's reading (`state=` and the sheet count) isn't on record.\n- **Item 8's scan:** it "
+ },
+ {
+  "run": "r05",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 3,
+  "should": 3,
+  "sites": {
+   "M1": "annotated",
+   "M2": "ok",
+   "M3": "annotated",
+   "M4": "annotated",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "dd6f5c4 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass, as reported — the pastes were not kept"
+  ],
+  "calls": 47,
+  "greps": 10,
+  "edits": 14,
+  "G1_wide_retired": 3,
+  "G2_wide_nouns": 4,
+  "G3_wide_verify_after_last_edit": 3,
+  "G4_grep_new_date": 0,
+  "cost": 1.9247615999999999,
+  "turns": 48,
+  "secs": 279,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTest"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -o pid,lstart,command -p 95762\", \"description\": \"Show the daemon process and its sta"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTest"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTest"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `dd6f5c4`. Nothing was pushed.\n\n**What's recorded:**\n- **Chunk 16:** passed on 2026-09-24, 09:12–09:31, all nine items as written. Item 4's run was on the 125.8 MB thumb.\n- **Item 6.3:** passed on 2026-09-24, 09:34–09:38, also on the thumb. The run stopped at a chunk boundary, released the drive and quit, and both log lines appeared.\n- **What they ran against:** the app installed 2026-09-19 10:22:50 from `bcde5f5`, helper `ac4d5208…`, protocol v15, macOS 27.0. Each record also says what would invalidate it.\n- **The pastes:** both passes are marked as recorded from your report, with no pastes kept. I added a note at chunk 16's item 7 saying the reading printed there is still the Xcode 26 build's, because no Xcode 27 reading is on file.\n- **6.3's scope:** the record says you walked it as written, answering the confirmation mid-run. It doesn't claim the harder form from 2026-09-04, where the report is raised behind the confirmation.\n\n**Checked from here:**\n- The installed dylib still hashes to `422c89d3…`.\n- No app source has changed since `bcde5f5`.\n\n**One thing I couldn't confirm: the daemon's pid.** My `ps` check needed an approval it didn't get, so pid 95762 is recorded as you reported it and marked unconfirmed. There's a reason to doubt it. Chunk 16's item 3 turns the app off and on under *Allow in the Background*, and nobody has measured here whether that ends the running daemon. If it does, items 4–9 and 6.3 ran against"
+ },
+ {
+  "run": "r09",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "81b9b21 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass, as the walker reported them"
+  ],
+  "calls": 38,
+  "greps": 8,
+  "edits": 11,
+  "G1_wide_retired": 2,
+  "G2_wide_nouns": 2,
+  "G3_wide_verify_after_last_edit": 1,
+  "G4_grep_new_date": 0,
+  "cost": 1.6906877999999996,
+  "turns": 39,
+  "secs": 209,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"pgrep -lf 'USBDriveTester.Helper'; for p in $(pgrep -f 'USBDriveTester.Helper'); do ps "
+   ],
+   [
+    "Bash",
+    "{\"command\": \"pgrep -lf 'USBDriveTester.Helper'; ps -axo pid,ppid,user,lstart,command | grep -i 'USBD"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -o pid,lstart -p 95762; date '+%Y-%m-%d %H:%M:%S'\", \"description\": \"Show daemon star"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `81b9b21`. Nothing was pushed. Chunk 16 and item 6.3 are written down as passing on 2026-09-24, on the 2026-09-19 10:22:50 install with daemon pid 95762. Both the checklist and PROGRESS say this is your report and that the pastes weren't kept, so no log text or times from the walk are on record. That also means chunk 16 item 7's alert reading still stands as the one from 2026-09-04.\n\n**One check of my own:** at 12:26 today `pgrep` still showed the daemon as pid 95762, so no gate result has lapsed.\n\n**What I updated:**\n- **The checklist:** the note at the top, chunk 16's heading plus a new box with what it ran against and what would invalidate it, and a note under item 6.3.\n- **PROGRESS.md:** the index row, the cold-start block, the Now row, the re-walk list, and a short new section.\n- **BUILD-PLAN.md:** the block under the title and the Sequence overview status block.\n- **README.md:** the re-walk paragraph.\n\nThe gates-and-figures annotation in BUILD-PLAN says nothing about re-walks, so I left it alone. Every Step 11 re-walk has now been done; Step 12's chunks 1–2 are what's left, and chunk 11's item 6 is still owed. The helper source hash is still `e19b0b3c…`.\n\n**Two notes in chunk 16's box.** Neither changes your result:\n- **The heading is wrong about which items need a run.** It says only item 4 needs one, but items 5, 6 and 7 each need a run, and item 4 is a start that must fail. Your report named the thumb for item 4 on"
+ },
+ {
+  "run": "r03",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 5,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "annotated",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "annotated"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "b4a3dd1 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass, as the user reported them"
+  ],
+  "calls": 50,
+  "greps": 10,
+  "edits": 18,
+  "G1_wide_retired": 3,
+  "G2_wide_nouns": 2,
+  "G3_wide_verify_after_last_edit": 1,
+  "G4_grep_new_date": 1,
+  "cost": 2.0294917999999997,
+  "turns": 51,
+  "secs": 275,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"ps -axo pid,ppid,user,lstart,comm | grep -i 'USBDriveTester' | grep -v grep; echo ---; "
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -axo pid,ppid,user,lstart,comm | grep -i 'USBDriveTester' | grep -v grep\", \"descript"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:10:00' --end '2026-09-24 09:40:00' --style com"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"diskutil list external physical\", \"description\": \"List attached external drives and par"
+   ]
+  ],
+  "final": "I've recorded the walk in `b4a3dd1` on `main`, not pushed. Chunk 16 and item 6.3 are both recorded as passed on the 2026-09-19 install, daemon pid 95762, protocol v15, macOS 27.0, with your times and the 125.8 MB thumb. The record says they're taken from your report and that the pastes weren't kept.\n\n**What I could check headlessly (2026-09-24 12:31), which backs up your report:**\n- The installed build is still the 2026-09-19 one: the app's code (dylib) hashes to `422c89d3…` and the helper to `ac4d5208…`.\n- The daemon is still pid 95762. That was worth checking, because chunk 16's item 3 turns the Login Items toggle off and on, and that could have relaunched it. It didn't.\n\n**What I couldn't check:** I don't have permission to run `log show` or `diskutil` in this session, so I didn't read back the two 6.3 log lines or chunk 16's `quit command:` lines. The record says so.\n\n**Two things to look at:**\n- **Item 6.3 also asks for \"EFI not mounted\".** You reported \"released the drive\", so I recorded that and noted the EFI clause wasn't reported separately. If you saw it, or the thumb has no EFI partition, I can take that note out.\n- **Item 4's instructions have the same stale explanation found at 11.8 yesterday.** They say preparation stops against the drive picked at the press. On 2026-09-23 what actually happened was that the selection moved to the 22 TB Seagate and a safety check (`selectionStillNamesTheDrive()`) stopped the start. The result is the same either way. I noted this"
+ },
+ {
+  "run": "r06",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "1570e57 Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass — the Step 11 re-walks are all walked"
+  ],
+  "calls": 50,
+  "greps": 12,
+  "edits": 14,
+  "G1_wide_retired": 3,
+  "G2_wide_nouns": 4,
+  "G3_wide_verify_after_last_edit": 2,
+  "G4_grep_new_date": 0,
+  "cost": 2.0485752000000006,
+  "turns": 51,
+  "secs": 276,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"cd \\\"$(git rev-parse --show-toplevel)\\\"; echo \\\"--- daemon\\\"; pgrep -lf USBDriveTesterH"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"pgrep -lf USBDriveTester; echo ---; ps -o pid,lstart,command -p 95762\", \"description\": "
+   ],
+   [
+    "Bash",
+    "{\"command\": \"stat -f '%Sm %N' -t '%Y-%m-%d %H:%M:%S' /Applications/USBDriveTester.app /Applications/"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"log show --start \\\"2026-09-24 09:10:00\\\" --end \\\"2026-09-24 09:40:00\\\" --predicate 'sub"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"for f in $(git ls-files '*.md' | grep -v -E '^progress/step-(0[0-9]|10|11|12|14)\\\\.md$'"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `1570e57`; nothing was pushed. It's recorded as you reported it: chunk 16 passed, all nine items, 09:12–09:31, and item 6.3 passed, 09:34–09:38. Both were against the 2026-09-19 10:22:50 install and daemon pid 95762. The record says the pastes weren't kept, so it carries no log text.\n\nI couldn't check anything myself. The sandbox blocked reading the daemon's process, the app in `/Applications` and this morning's log. What I could confirm is that no app source has changed since `bcde5f5`, the sources the install was built from. The helper source hash is still `e19b0b3c…`, so this commit doesn't lapse anything.\n\nI updated every status block that said chunk 16 and item 6.3 were unwalked, in all four files. A search for those wordings now finds only the new sentence, which says Step 12's chunks 1–2 are left. I also added a dated note to `BUILD-PLAN.md`'s 2026-09-05 \"checklist is complete, nothing owed\" block. Chunk 11's item 6 has been owed since yesterday, and that block never said so.\n\n**Gaps the record names but can't fill** — tell me if you have any of these:\n1. **Which drive items 5–7 ran on.** Those three need a real run, and you only named item 4's drive, the 125.8 MB thumb.\n2. **Item 7's reading.** It asks for the whole log line, including the sheet count and window class name. The only one on file is still from the Xcode 26 build.\n3. **When you read pid 95762.** Item 3 turns \"Allow in the Background\" off and back on. N"
+ },
+ {
+  "run": "r08",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 6,
+  "should": 3,
+  "sites": {
+   "M1": "ok",
+   "M2": "ok",
+   "M3": "ok",
+   "M4": "ok",
+   "M5": "ok",
+   "M6": "ok",
+   "S1": "ok",
+   "S2": "ok",
+   "S3": "ok",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [
+   "BUILD-PLAN.md",
+   "PROGRESS.md",
+   "README.md",
+   "progress/step-11-human-checklist.md"
+  ],
+  "commits": [
+   "c58e1de Step 11 chunk 16 and item 6.3 walked on Xcode 27: both pass"
+  ],
+  "calls": 45,
+  "greps": 10,
+  "edits": 13,
+  "G1_wide_retired": 3,
+  "G2_wide_nouns": 2,
+  "G3_wide_verify_after_last_edit": 1,
+  "G4_grep_new_date": 0,
+  "cost": 2.0939772000000003,
+  "turns": 46,
+  "secs": 228,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"date; pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -o pid,lstart,command -p $("
+   ],
+   [
+    "Bash",
+    "{\"command\": \"date; pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -axo pid,lstart,command | g"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:10:00' --end '2026-09-24 09:40:00' --style com"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -o pid=,lstart=,command= -p 95762\", \"description\": \"Show the daemon's start time\"}"
+   ]
+  ],
+  "final": "I've recorded the walk and committed it to `main` as `c58e1de` (not pushed). Chunk 16 passed all nine items, 09:12–09:31, with item 4's run on the 125.8 MB thumb. Item 6.3 passed, 09:34–09:38, also on the thumb: Cancel and Quit stopped at a chunk boundary, released the drive and quit, and both log lines appeared.\n\n**What it was recorded against:** the 2026-09-19 10:22:50 install and daemon pid 95762, on protocol v15 and macOS 27.0. The record says plainly that it's written from your report, because the pastes weren't kept.\n\n**What I checked myself** (about 12:30, read-only):\n- The installed app and helper binaries are unchanged since the 09-19 install: dylib `422c89d3…`, helper `ac4d5208…`.\n- The daemon is still pid 95762.\n- The helper source hash is still `e19b0b3c…`.\n\nI also tried to read this morning's log lines and the daemon's start time, but those commands needed your approval. I didn't retry them, so nothing from the log is in the record.\n\n**Two things I added that you should know about:**\n- **Chunk 16's item 4 wording may be wrong.** It says preparation aborts *\"against the drive captured at the press\"*. Yesterday chunk 11's item 8 found that doesn't happen: a guard stopped the start first. Your report doesn't say which one happened today, so I added a note to that item saying so rather than rewriting it. The outcome was right either way.\n- **Fixing the report sheet will undo both of today's passes.** That's the item 6 failure still owed from chunk 11, listed under \"O"
+ }
+]

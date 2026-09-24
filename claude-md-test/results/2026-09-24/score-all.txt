@@ -1,0 +1,269 @@
+=== r02  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=43  greps=10  edits=12  G1_wide_retired=3  G2_wide_nouns=4  G3_wide_verify_after_last_edit=2  G4_grep_new_date=0
+        3 before  grep  repo   6.3,rewalk             [Cc]hunk 16|6\.3|re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba
+        8 before  grep  file                          Walked|^### (Chunk )?6|^### 6|^## Chunk 6|^### Chunk 11|^### Chunk 9  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-US
+       11 before  grep  file                          selectionStillNamesTheDrive|captured at the press|16\.4  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/
+       12 before  grep  file                          ^3\. |Login Items  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/s
+       13 before  grep  repo                          ps -o pid,lstart,etime,command -ax | grep -i -E 'usbdrivetester' | grep -v grep; echo ---; for p in 95762; do ps -o pid,lstart,command -p $p; done
+       15 before  grep  repo                          ps -ax -o pid,lstart,etime,command | grep -i usbdrivetester | grep -v grep
+       21 before  grep  repo   retired,c16,6.3,rewalk unwalked|[Tt]wo left|chunk 16 and item 6\.3|[Cc]hunk 16, ⌘Q|6\.3, Cancel and Quit|item 6\.3|remaining re-walks|three Step 11|Step 11 parts|re-walks ne
+       23 before  grep  repo   c16,6.3,rewalk         chunk 16|Cancel and Quit|6\.3|re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65
+       27 between edit                                progress/step-11-human-checklist.md
+       28 between edit                                progress/step-11-human-checklist.md
+       29 between edit                                progress/step-11-human-checklist.md
+       30 between edit                                progress/step-11-human-checklist.md
+       31 between edit                                PROGRESS.md
+       32 between edit                                PROGRESS.md
+       33 between edit                                PROGRESS.md
+       34 between edit                                PROGRESS.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                BUILD-PLAN.md
+       37 between edit                                BUILD-PLAN.md
+       38 between edit                                README.md
+       39 after   grep  repo   retired,6.3,rewalk     rg -n -U --glob '!progress/step-1[0-2].md' --glob '!progress/step-0*.md' -e 'remain\s+unwalked' -e 'left\s+unwalked' -e 'Two\s+left' -e 'remaining\s+r
+       40 after   grep  repo   retired,rewalk         rg -n -U --glob '!progress/step-1[0-2].md' -e 'Step 12.s\s+chunks\s+1.2' -e 'last\s+re-walk' -e 'unwalked' . | cut -c1-220
+    cost=$1.5901893999999999  turns=44  secs=249  denials=[('Bash', '{"command": "ps -o pid,lstart,etime,command -ax | grep -i -E \'usbdrivetester\' | grep -v grep; echo -'), ('Bash', '{"command": "ps -ax -o pid,lstart,etime,command | grep -i usbdrivetester | grep -v grep", "descripti'), ('Bash', '{"command": "ps -ax -o pid,lstart,etime,command", "description": "List running processes with start '), ('Bash', '{"command": "shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debug.dyli'), ('Bash', '{"command": "log show --start \\"2026-09-24 09:34:00\\" --end \\"2026-09-24 09:39:00\\" --predicate \'sub'), ('Bash', '{"command": "sw_vers; find USBDriveTester/com.arc3solutions.USBDriveTester.Helper USBDriveTester/USB')]
+=== r04  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=49  greps=12  edits=14  G1_wide_retired=2  G2_wide_nouns=2  G3_wide_verify_after_last_edit=2  G4_grep_new_date=0
+        2 before  grep  file   6.3                    ^#|STATUS|6\.3|[Cc]hunk 16  [path=progress/step-11-human-checklist.md]
+        6 before  grep  file                          Walked|daemon pid|pid 95762|Login Items  [path=progress/step-11-human-checklist.md]
+       11 before  grep  repo                          date; pgrep -lf -i usbdrivetester; sudo -n true 2>&1 | head -1; launchctl print system 2>/dev/null | grep -i arc3 | head
+       15 before  grep  repo   retired,c16,6.3,rewalk (chunk|Chunk) 16|6\.3|Cancel and Quit|unwalked|re-walks? (next|owed)|still owed|remain(s)? (un|owed)  [path=. glob=!progress/step-[0-9][0-9].md]
+       17 before  grep  file   rewalk                 ^#|re-walk  [path=PROGRESS.md]
+       20 before  grep  file   rewalk                 re-walk|item 6|chunk 11|Chunk 11  [path=README.md]
+       21 before  grep  file   retired,rewalk         re-walk|item 6 (failed|FAILED|is owed)|chunk 11's  [path=BUILD-PLAN.md]
+       25 before  grep  file                          grep -n "" BUILD-PLAN.md | sed -n '540,548p;550,560p;636,660p' | cut -c1-400
+       29 between edit                                progress/step-11-human-checklist.md
+       30 between edit                                progress/step-11-human-checklist.md
+       31 between edit                                progress/step-11-human-checklist.md
+       32 between edit                                progress/step-11-human-checklist.md
+       33 between grep  repo                          (class|struct|enum) (AppLifecycleDelegate|QuitSequence|QuitPolicy)\b  [path=USBDriveTester/USBDriveTester]
+       34 between edit                                PROGRESS.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                PROGRESS.md
+       37 between edit                                PROGRESS.md
+       38 between edit                                PROGRESS.md
+       39 between edit                                README.md
+       40 between edit                                BUILD-PLAN.md
+       41 between edit                                python3 - <<'EOF'
+p='BUILD-PLAN.md'
+t=open(p).read()
+old="its chunk 11 was walked 2026-09-23 and did **not** pass, item 6 owed — and then the walk res
+       42 between edit                                BUILD-PLAN.md
+       43 between edit                                BUILD-PLAN.md
+       44 after   grep  repo   retired,c16,6.3,rewalk unwalked|Two left|remaining re-walks|16 and (item )?6\.3|6\.3 remain|chunk 16, ⌘Q|re-walks? — chunk 16|then Step 12's chunks|Step 11's (four|remaining
+       45 after   grep  repo   rewalk                 Step 11.{0,80}(re-walk|owed)|(re-walk|owed).{0,80}Step 11  [path=progress glob=*-human-checklist.md]
+       47 after   grep  repo                          git diff --stat && git diff -U0 | grep '^[+-]' | grep -v '^+++\|^---' | cut -c1-260
+    cost=$1.8610577999999998  turns=50  secs=209  denials=[('Bash', '{"command": "date; pgrep -lf -i usbdrivetester; sudo -n true 2>&1 | head -1; launchctl print system '), ('Bash', '{"command": "ps -o pid,lstart,command -p 86350,95762", "description": "Show start times of app and h'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:05:00\' --end \'2026-09-24 09:45:00\' --predicate')]
+=== r07  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=44  greps=7  edits=15  G1_wide_retired=3  G2_wide_nouns=4  G3_wide_verify_after_last_edit=1  G4_grep_new_date=0
+        4 before  grep  file   c16,6.3,rewalk         ^#+ |6\.3|chunk 16|Chunk 16|Walked|re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e
+        8 before  grep  repo                          A=/Applications/USBDriveTester.app/Contents/MacOS; shasum -a 256 $A/USBDriveTester.debug.dylib $A/com.arc3solutions.USBDriveTester.Helper | cut -c1-16
+       15 before  grep  repo                          captured|selectionStillNamesTheDrive  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-
+       17 before  grep  repo   retired,c16,6.3,rewalk (?i)(chunk 16|item 6\.3|6\.3,|unwalked|left unwalked|remain(s)? unwalked|two left|16 and item|re-walks next|remaining re-walks|chunk 16 and)  [path=/p
+       18 before  grep  repo   retired,c16,6.3,rewalk (?i)(chunk 16|item 6\.3|unwalked|re-walks next|remaining re-walks|16 and item)  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code
+       19 before  grep  repo   6.3,rewalk             (?i)(re-walk|chunk 11|item 6 owed|Cancel and Quit)  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b370
+       26 between edit                                progress/step-11-human-checklist.md
+       27 between edit                                progress/step-11-human-checklist.md
+       28 between edit                                progress/step-11-human-checklist.md
+       29 between edit                                progress/step-11-human-checklist.md
+       30 between edit                                progress/step-11-human-checklist.md
+       31 between edit                                PROGRESS.md
+       32 between edit                                PROGRESS.md
+       33 between edit                                PROGRESS.md
+       34 between edit                                PROGRESS.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                PROGRESS.md
+       37 between edit                                PROGRESS.md
+       38 between edit                                README.md
+       39 between edit                                BUILD-PLAN.md
+       40 between edit                                BUILD-PLAN.md
+       41 after   grep  repo   retired,6.3            (?i)(left\s+unwalked|remain\s+unwalked|two\s+left\s+unwalked|chunk\s+16\s+and\s+item\s+6\.3,\s+then|chunk\s+16,\s+item\s+6\.3\s+and)  [path=/private/t
+    cost=$1.7648818  turns=45  secs=234  denials=[('Bash', '{"command": "A=/Applications/USBDriveTester.app/Contents/MacOS; shasum -a 256 $A/USBDriveTester.debu'), ('Bash', '{"command": "ps -axo pid,lstart,comm", "description": "List processes with start times"}'), ('Bash', '{"command": "log show --start \'2026-09-24 09:10:00\' --end \'2026-09-24 09:45:00\' --predicate \'subsyst')]
+=== r01  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=44  greps=10  edits=13  G1_wide_retired=2  G2_wide_nouns=3  G3_wide_verify_after_last_edit=1  G4_grep_new_date=1
+        2 before  grep  repo   c16,6.3                chunk 16|Chunk 16|6\.3  [path=. glob=!progress/step-0*]
+        6 before  grep  file   6.3                    ^### Chunk|^6\.|^   \*\*6\.3|Walked|Xcode 27  [path=progress/step-11-human-checklist.md]
+       13 before  grep  repo   newdate                /usr/bin/log show --start '2026-09-24 09:05:00' --end '2026-09-24 09:45:00' --predicate 'subsystem BEGINSWITH "com.arc3solutions"' --style compact 2>&
+       15 before  grep  repo   retired,c16,6.3,rewalk unwalked|not yet walked|remaining re-walks|re-walks? (next|remain)|chunk 16|Chunk 16|item 6\.3|6\.3,|Cancel and Quit|under every modal|four parts|re-w
+       16 before  grep  repo   rewalk                 re-walk|rewalk|item 6|Xcode 27  [path=. glob={README.md,BUILD-PLAN.md}]
+       21 before  grep  file                          chunk 11  [path=BUILD-PLAN.md]
+       25 between edit                                progress/step-11-human-checklist.md
+       26 between edit                                progress/step-11-human-checklist.md
+       27 between edit                                progress/step-11-human-checklist.md
+       28 between edit                                progress/step-11-human-checklist.md
+       29 between edit                                PROGRESS.md
+       30 between edit                                PROGRESS.md
+       31 between edit                                PROGRESS.md
+       32 between edit                                PROGRESS.md
+       33 between edit                                PROGRESS.md
+       34 between edit                                BUILD-PLAN.md
+       35 between edit                                python3 - <<'EOF'
+p='BUILD-PLAN.md'
+t=open(p).read()
+old="Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** 
+       37 between edit                                BUILD-PLAN.md
+       38 between edit                                README.md
+       39 after   grep  repo   retired,c16,6.3,rewalk unwalked|Two left|remaining re-walks|chunk 16 and item 6\.3, then|Chunk 16 and item 6\.3 remain|four parts of this file are OWED|16, ⌘Q|6\.3, Cancel|n
+       40 after   grep  repo                          git diff --stat; git diff | grep -c '^+'
+       41 after   grep  file   rewalk                 re-walk|Step 11's (chunk|item)  [path=progress/step-13-human-checklist.md]
+       42 after   grep  file                          Step 11|Xcode 27  [path=progress/step-12-human-checklist.md]
+    cost=$1.6029853999999997  turns=45  secs=221  denials=[('Bash', '{"command": "date; shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debu'), ('Bash', '{"command": "date; shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debu'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:05:00\' --end \'2026-09-24 09:45:00\' --predicate'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:05:00\' --end \'2026-09-24 09:45:00\' --predicate'), ('Bash', '{"command": "shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriv')]
+=== r05  date=2026-09-24  verdict=scored  must 3/6  should 3/3  X1=STALE
+    sites: M1=annotated  M2=ok  M3=annotated  M4=annotated  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=47  greps=10  edits=14  G1_wide_retired=3  G2_wide_nouns=4  G3_wide_verify_after_last_edit=3  G4_grep_new_date=0
+        2 before  grep  file   c16,6.3                ^#|Walked|6\.3|Chunk 16|chunk 16  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796
+        7 before  grep  multi  retired,c16,6.3,rewalk cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scratchpad/w/r05/USBDri
+       20 before  grep  repo                          (?i)(allow in the background|login items).{0,200}(daemon|pid|bootout|kill|exit)|(daemon|pid).{0,120}(login items|allow in the background)  [path=/priv
+       21 before  grep  multi                         grep -rn -i -E "toggle|requiresApproval" CONSTRAINTS.md progress/step-11.md | grep -i -E "daemon|pid|launchd|exit|running|kill" | cut -c1-300 | head -
+       23 before  grep  repo                          cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scratchpad/w/r05/USBDri
+       24 before  grep  repo                          grep -rnE "QuitSequence" . | head -3; ls Quit
+       25 between edit                                progress/step-11-human-checklist.md
+       26 between edit                                progress/step-11-human-checklist.md
+       27 between edit                                progress/step-11-human-checklist.md
+       28 between edit                                progress/step-11-human-checklist.md
+       29 between edit                                progress/step-11-human-checklist.md
+       30 between grep  repo                          CommandGroup\(replacing: \.appTermination|Quit USBDriveTester|\.appTermination  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code
+       31 between edit                                progress/step-11-human-checklist.md
+       33 between edit                                PROGRESS.md
+       34 between edit                                PROGRESS.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                PROGRESS.md
+       37 between edit                                PROGRESS.md
+       38 between edit                                BUILD-PLAN.md
+       39 between edit                                BUILD-PLAN.md
+       40 between edit                                README.md
+       41 after   grep  repo   retired,c16,6.3,rewalk cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scratchpad/w/r05/USBDri
+       42 after   grep  repo   retired,c16,6.3,rewalk (?i)left unwalked|remain unwalked|two left|chunk 16 and item 6\.3|chunk 16, item 6\.3|6\.3, then|remaining re-walks|unwalked  [path=/private/tmp/claud
+       44 after   grep  repo   6.3                    Checklist 6\.3 passed  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5ca
+    cost=$1.9247615999999999  turns=48  secs=279  denials=[('Bash', '{"command": "cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTest'), ('Bash', '{"command": "ps -o pid,lstart,command -p 95762", "description": "Show the daemon process and its sta'), ('Bash', '{"command": "cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTest'), ('Bash', '{"command": "cd /private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTest')]
+=== r09  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=38  greps=8  edits=11  G1_wide_retired=2  G2_wide_nouns=2  G3_wide_verify_after_last_edit=1  G4_grep_new_date=0
+        4 before  grep  file   c16,6.3,rewalk         ^#|6\.3|Chunk 16|chunk 16|Walked|re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4
+       10 before  grep  repo                          selectionStillNamesTheDrive|captured drive|captured at the press  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDri
+       13 before  grep  repo                          pgrep -lf 'USBDriveTester.Helper'; ps -axo pid,ppid,user,lstart,command | grep -i 'USBDriveTester' | grep -v grep; date
+       17 before  grep  multi  retired,c16,6.3,rewalk git grep -n -i -E 'unwalked|6\.3|chunk 16|remaining re-walks|re-walks next|re-walks the user|Two left|two left|three Step 11|four parts|re-walk list' 
+       18 before  grep  multi  rewalk                 sed -n 1,60p BUILD-PLAN.md; echo ======; grep -n 'Status, ' BUILD-PLAN.md | head; echo =====; grep -n -i -E 're-walk|chunk 11' README.md
+       19 before  grep  repo                          Sequence overview|^> \*\*Status|613 and its spare|say nothing about the sheet|chunk 11 was walked|chunk 11 walked|did \*\*not\*\* pass|NOT pass|not pa
+       24 before  grep  repo   rewalk                 Step 11|re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scr
+       25 between edit                                progress/step-11-human-checklist.md
+       26 between edit                                progress/step-11-human-checklist.md
+       27 between edit                                progress/step-11-human-checklist.md
+       28 between edit                                PROGRESS.md
+       29 between edit                                PROGRESS.md
+       30 between edit                                PROGRESS.md
+       31 between edit                                PROGRESS.md
+       32 between edit                                PROGRESS.md
+       33 between edit                                BUILD-PLAN.md
+       34 between edit                                BUILD-PLAN.md
+       35 between edit                                README.md
+       36 after   grep  multi  retired,c16,6.3,rewalk git grep -n -i -E 'unwalked|remain unwalked|Two left|remaining re-walks|chunk 16 and item 6\.3, then' -- PROGRESS.md BUILD-PLAN.md README.md progress/
+    cost=$1.6906877999999996  turns=39  secs=209  denials=[('Bash', '{"command": "pgrep -lf \'USBDriveTester.Helper\'; for p in $(pgrep -f \'USBDriveTester.Helper\'); do ps '), ('Bash', '{"command": "pgrep -lf \'USBDriveTester.Helper\'; ps -axo pid,ppid,user,lstart,command | grep -i \'USBD'), ('Bash', '{"command": "ps -o pid,lstart -p 95762; date \'+%Y-%m-%d %H:%M:%S\'", "description": "Show daemon star')]
+=== r03  date=2026-09-24  verdict=scored  must 5/6  should 3/3  X1=annotated
+    sites: M1=ok  M2=ok  M3=annotated  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=annotated
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=50  greps=10  edits=18  G1_wide_retired=3  G2_wide_nouns=2  G3_wide_verify_after_last_edit=1  G4_grep_new_date=1
+        2 before  grep  file   6.3                    ^#+ |6\.3|Walked|STATUS  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5
+        7 before  grep  file                          Login Items|selectionStillNamesTheDrive|^8\. |^3\.   [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b37
+       10 before  grep  repo                          ps -axo pid,ppid,user,lstart,comm | grep -i 'USBDriveTester' | grep -v grep; echo ---; A=/Applications/USBDriveTester.app/Contents; shasum -a 256 "$A/
+       11 before  grep  repo                          ps -axo pid,ppid,user,lstart,comm | grep -i 'USBDriveTester' | grep -v grep
+       14 before  grep  repo   newdate                /usr/bin/log show --start '2026-09-24 09:10:00' --end '2026-09-24 09:40:00' --style compact --predicate 'process == "USBDriveTester" AND subsystem BEG
+       16 before  grep  multi  retired,c16,6.3,rewalk git grep -n -i -E 'chunk 16|item 6\.3|6\.3,|unwalked|left unwalked|remain(ing)? re-walk|two left|re-walks? (of|next)|the Step 11 and 12 re-walks|remai
+       17 before  grep  multi  retired,rewalk         git grep -n -i -E 're-walk|item 6 (failed|is owed)|chunk 11' -- README.md BUILD-PLAN.md progress/step-12-human-checklist.md progress/step-13-human-che
+       27 between edit                                progress/step-11-human-checklist.md
+       28 between edit                                progress/step-11-human-checklist.md
+       29 between edit                                progress/step-11-human-checklist.md
+       30 between edit                                progress/step-11-human-checklist.md
+       31 between edit                                progress/step-11-human-checklist.md
+       33 between edit                                PROGRESS.md
+       34 between edit                                PROGRESS.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                PROGRESS.md
+       37 between edit                                PROGRESS.md
+       38 between edit                                PROGRESS.md
+       39 between grep  repo                          (struct|class|enum) (QuitSequence|QuitPolicy|AppLifecycleDelegate)\b  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-US
+       40 between grep  repo                          var reportSheetSize|func reportSheetSize  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4
+       41 between edit                                PROGRESS.md
+       42 between edit                                progress/step-11-human-checklist.md
+       43 between edit                                PROGRESS.md
+       44 between edit                                README.md
+       45 between edit                                BUILD-PLAN.md
+       46 between edit                                BUILD-PLAN.md
+       47 between edit                                BUILD-PLAN.md
+       48 after   grep  repo   retired,c16,6.3,rewalk git grep -n -i -E 'remain unwalked|left unwalked|two left|remaining re-walks|chunk 16 and item 6\.3, then|chunk 16, item 6\.3|16 and 6\.3 (remain|are 
+    cost=$2.0294917999999997  turns=51  secs=275  denials=[('Bash', '{"command": "ps -axo pid,ppid,user,lstart,comm | grep -i \'USBDriveTester\' | grep -v grep; echo ---; '), ('Bash', '{"command": "ps -axo pid,ppid,user,lstart,comm | grep -i \'USBDriveTester\' | grep -v grep", "descript'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:10:00\' --end \'2026-09-24 09:40:00\' --style com'), ('Bash', '{"command": "diskutil list external physical", "description": "List attached external drives and par')]
+=== r06  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=50  greps=12  edits=14  G1_wide_retired=3  G2_wide_nouns=4  G3_wide_verify_after_last_edit=2  G4_grep_new_date=0
+        0 before  grep  multi  c16,6.3                git log --oneline -8 && ls progress && wc -l PROGRESS.md progress/step-11-human-checklist.md && grep -n "Chunk 16\|chunk 16\|6\.3" progress/step-11-hu
+        6 before  grep  file   rewalk                 ^### |Walked|re-walk box|RE-WALK  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796
+       10 before  grep  file   rewalk                 grep -n "^#\|re-walk\|Re-walk" PROGRESS.md | head -80
+       17 before  grep  file                          ^\| \*\*Helper  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scra
+       20 before  grep  repo                          git grep -l -E "struct QuitSequence|class QuitSequence|enum QuitPolicy|struct QuitPolicy|AttachedSheets|class AppLifecycleDelegate|CommandGroup\(repla
+       21 before  grep  multi  retired,c16,6.3,rewalk git grep -n -i -E "unwalked|left unwalked|remain unwalked|chunk 16|item 6\.3|6\.3,|16 and item|remaining re-walks|two left|Two left|Cancel and Quit" -
+       22 before  grep  multi  rewalk                 git grep -n -i -E "re-walk|chunk 11|item 6 " -- README.md BUILD-PLAN.md CONSTRAINTS.md progress/step-12-human-checklist.md progress/step-13-human-chec
+       28 before  grep  file                          awk 'NR>=1361 && NR<=1530' progress/step-11-human-checklist.md | grep -n -i -E "toggle|pid|daemon|kickstart|login items|BTM" | head -40
+       30 before  grep  repo                          git grep -n -i -E "allow in the background|login items toggle|toggle.{0,40}(daemon|pid)|(daemon|pid).{0,60}toggle" -- '*.md' | cut -c1-400
+       31 between edit                                progress/step-11-human-checklist.md
+       32 between edit                                progress/step-11-human-checklist.md
+       33 between edit                                progress/step-11-human-checklist.md
+       34 between edit                                progress/step-11-human-checklist.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                PROGRESS.md
+       37 between edit                                PROGRESS.md
+       38 between edit                                PROGRESS.md
+       39 between edit                                PROGRESS.md
+       40 between edit                                PROGRESS.md
+       41 between edit                                BUILD-PLAN.md
+       42 between edit                                BUILD-PLAN.md
+       43 between edit                                BUILD-PLAN.md
+       44 between edit                                README.md
+       45 after   grep  multi  retired,c16,6.3,rewalk for f in $(git ls-files '*.md' | grep -v -E '^progress/step-(0[0-9]|10|11|12|14)\.md$'); do tr '\n' ' ' < "$f" | sed 's/> / /g; s/  */ /g' | grep -o -
+       46 after   grep  repo   retired,6.3,rewalk     remain\s+unwalked|left\s+unwalked|Two\s+left|remaining\s+re-walks|chunk\s+16\s+and\s+item\s+6\.3,\s+then|Chunk\s+16,\s+item\s+6\.3\s+and|chunk\s+16,\s
+       48 after   grep  repo                          git diff --stat && git diff --check && git diff -U0 | grep '^[-+]' | grep -v '^+++\|^---' | cut -c1-200 | head -80
+    cost=$2.0485752000000006  turns=51  secs=276  denials=[('Bash', '{"command": "cd \\"$(git rev-parse --show-toplevel)\\"; echo \\"--- daemon\\"; pgrep -lf USBDriveTesterH'), ('Bash', '{"command": "pgrep -lf USBDriveTester; echo ---; ps -o pid,lstart,command -p 95762", "description": '), ('Bash', '{"command": "stat -f \'%Sm %N\' -t \'%Y-%m-%d %H:%M:%S\' /Applications/USBDriveTester.app /Applications/'), ('Bash', '{"command": "log show --start \\"2026-09-24 09:10:00\\" --end \\"2026-09-24 09:40:00\\" --predicate \'sub'), ('Bash', '{"command": "for f in $(git ls-files \'*.md\' | grep -v -E \'^progress/step-(0[0-9]|10|11|12|14)\\\\.md$\'')]
+=== r08  date=2026-09-24  verdict=scored  must 6/6  should 3/3  X1=STALE
+    sites: M1=ok  M2=ok  M3=ok  M4=ok  M5=ok  M6=ok  S1=ok  S2=ok  S3=ok  X1=STALE
+    changed: BUILD-PLAN.md, PROGRESS.md, README.md, progress/step-11-human-checklist.md   commits: 1
+    process: calls=45  greps=10  edits=13  G1_wide_retired=3  G2_wide_nouns=2  G3_wide_verify_after_last_edit=1  G4_grep_new_date=0
+        5 before  grep  file   6.3,rewalk             ^#|STATUS|Walked|6\.3|re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2
+       11 before  grep  repo                          date; pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -axo pid,lstart,command | grep '[c]om.arc3solutions.USBDriveTester.Helper'; shasum -a 256 
+       16 before  grep  repo                          captured (at the press|drive)|against the drive captured  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester
+       17 before  grep  file                          Preparation aborts|pre-run dialog is up  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a
+       19 before  grep  repo   retired,6.3            [Cc]hunk 16|6\.3|unwalked|left unwalked|remain unwalked|Two left|two left  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-fold
+       20 before  grep  repo   rewalk                 re-walk  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scratchpad/
+       23 before  grep  repo   retired,rewalk         chunk 11 was walked|chunk 11 — the report|did \*\*not\*\* pass|did not pass|NOT passed|NOT PASSED|item 6 owed|item 6 is owed|is owed|remaining re-walk
+       28 between edit                                progress/step-11-human-checklist.md
+       29 between edit                                progress/step-11-human-checklist.md
+       30 between grep  repo                          ^(struct|enum|final class|class|@MainActor final class|@MainActor struct|@MainActor enum) (QuitSequence|AttachedSheets|QuitPolicy|AppLifecycleDelegate
+       31 between grep  repo                          (enum|struct|class) QuitPolicy  [path=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e
+       32 between edit                                progress/step-11-human-checklist.md
+       33 between edit                                progress/step-11-human-checklist.md
+       34 between edit                                PROGRESS.md
+       35 between edit                                PROGRESS.md
+       36 between edit                                PROGRESS.md
+       37 between edit                                PROGRESS.md
+       38 between edit                                PROGRESS.md
+       39 between edit                                PROGRESS.md
+       40 between edit                                BUILD-PLAN.md
+       41 between edit                                BUILD-PLAN.md
+       42 between edit                                README.md
+       43 after   grep  multi  retired,c16,6.3,rewalk git grep -n -i -E "unwalked|two left|chunk 16 and item 6\.3, then|chunk 16, item 6\.3|remaining re-walks" -- README.md PROGRESS.md BUILD-PLAN.md CONST
+    cost=$2.0939772000000003  turns=46  secs=228  denials=[('Bash', '{"command": "date; pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -o pid,lstart,command -p $('), ('Bash', '{"command": "date; pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -axo pid,lstart,command | g'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:10:00\' --end \'2026-09-24 09:40:00\' --style com'), ('Bash', '{"command": "ps -o pid=,lstart=,command= -p 95762", "description": "Show the daemon\'s start time"}')]
+
+=== by arm (INCONCLUSIVE runs excluded)
+  A: n=3  must 5.67/6  should 3.00/3  G1 2.3  G2 2.3  G3 1.3  G4 0.7  X1 ok 1/3  cost $1.83  [r04:6/6,3/3  r01:6/6,3/3  r03:5/6,3/3]
+  B: n=3  must 6.00/6  should 3.00/3  G1 2.7  G2 2.7  G3 1.3  G4 0.0  X1 ok 0/3  cost $1.79  [r02:6/6,3/3  r09:6/6,3/3  r08:6/6,3/3]
+  C: n=3  must 5.00/6  should 3.00/3  G1 3.0  G2 4.0  G3 2.0  G4 0.0  X1 ok 0/3  cost $1.91  [r07:6/6,3/3  r05:3/6,3/3  r06:6/6,3/3]

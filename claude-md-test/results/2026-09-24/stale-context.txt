@@ -1,0 +1,34 @@
+--- r04 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 5
+    +92: > ⚠️ **2026-09-24: *"nothing owed"* above is a fact about the Xcode 26 build.** Four parts of that
+    +93: > checklist were re-walked on the Xcode 27 build: chunk 9 passed 2026-09-22, chunk 16 and item 6.3
+    +94: > passed 2026-09-24, and **chunk 11's item 6 failed 2026-09-23 and is owed** (`PROGRESS.md`,
+    +95: > Owed (f)). The sentence is annotated rather than rewritten.
+    +96: >
+--- r01 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 5
+    +92: > ⚠️ **2026-09-24: that paragraph is a fact about the Xcode 26 build.** Four parts of the checklist
+    +93: > were owed a re-walk on the Xcode 27 build from 2026-09-19. Chunk 9 passed 2026-09-22, and chunk 16
+    +94: > and item 6.3 passed 2026-09-24. **Chunk 11's item 6 failed on 2026-09-23 and is owed**
+    +95: > (`PROGRESS.md`, Owed (f)).
+    +96: >
+--- r03 M3 claim still at PROGRESS.md:574; lines added within 40 after it: 0
+--- r03 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 3
+    +84: > expectations increment 12 changed. *(⚠️ True of the Xcode 26 build. On the Xcode 27 build, four
+    +85: > parts were owed a re-walk from 2026-09-19. Chunks 9 and 16 and item 6.3 have passed, the last two
+    +86: > on 2026-09-24. Chunk 11's item 6 failed 2026-09-23 and is owed. Annotated 2026-09-24.)* **Step 10's three hardware gates are not owed** — `metrics-check.sh`,
+--- r02 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 0
+--- r09 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 0
+--- r08 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 0
+--- r07 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 0
+--- r05 M3 claim still at PROGRESS.md:576; lines added within 40 after it: 0
+--- r05 M4 claim still at progress/step-11-human-checklist.md:16; lines added within 40 after it: 5
+    +17: > until 2026-09-24.)* Every pass in this
+    +42: > ✅ **2026-09-24: item 6.3 was re-walked on the Xcode 27 build and passed** — the one item of chunks
+    +43: > 1–7 chosen for that re-walk. The rest of those passes are facts about the Xcode 26 build. See the
+    +44: > item.
+    +45: 
+--- r05 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 0
+--- r06 X1 claim still at BUILD-PLAN.md:82; lines added within 40 after it: 4
+    +92: > ⚠️ **2026-09-24: "nothing owed" above is a fact about the Xcode 26 build.** Four parts of that
+    +93: > checklist were re-walked on the Xcode 27 install of 2026-09-19: chunks 9 and 16 and item 6.3
+    +94: > passed, and **chunk 11's item 6 failed on 2026-09-23 and is owed** (`PROGRESS.md`, Owed (f)).
+    +95: >
