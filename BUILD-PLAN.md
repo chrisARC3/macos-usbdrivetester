@@ -12,6 +12,8 @@ Step 12; the report gets its own `Window`), with the matching inherited notes on
 Previously 2026-08-01 — Steps 6 and 7 (measured exclusivity semantics, Full Disk Access), and the
 test target fixed to the designated scratch device with disk images removed as an option (see
 "Test hardware")
+⚠️ **2026-09-24: "Last amended" was not kept after 2026-08-14.** 71 later commits changed this file,
+through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the record.
 
 > **Step 11 is COMPLETE (2026-09-05) — twelve increments gated, the 16-chunk checklist walked, its
 > own gate re-run against v14. STEP 12 (DEVICE-LOSS HANDLING) IS COMPLETE (2026-09-11) — all nine
@@ -82,7 +84,8 @@ test target fixed to the designated scratch device with disk images removed as a
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which now holds only
 > the settled-decision table. **No increment is planned right now.**
 >
-> **The human checklist is complete — 16 chunks, nothing owed.** Chunk 16 (⌘Q under every modal)
+> **At Step 11's close on 2026-09-05 the human checklist was complete — 16 chunks, nothing owed.**
+> Chunk 16 (⌘Q under every modal)
 > was written and walked on 2026-09-04, all nine items, and 6.1, 11.7 and 6.3 were re-walked at
 > expectations increment 12 changed. **Step 10's three hardware gates are not owed** — `metrics-check.sh`,
 > `xpc-concurrency-check.sh` and `retention-cycle-check.sh` all passed 2026-09-03, and increment 12
@@ -91,6 +94,12 @@ test target fixed to the designated scratch device with disk images removed as a
 > passed: 14 assertions, 0 failures, all four I/O sizes settled at a chunk boundary with the correct
 > resume point. That discharges items 2, 3 and the helper-side half of 5 in Step 11's verification
 > gate, so **all five stand against v14, and Step 11 closed on 2026-09-05.**
+>
+> ⚠️ **Corrected 2026-09-24: this paragraph opened *"The human checklist is complete — 16 chunks,
+> nothing owed"*, undated, and that was false from 2026-09-19**, when the move to Xcode 27 reopened
+> four parts of the checklist for re-walks (user decision) — and one of them, chunk 11, did not pass
+> on 2026-09-23 (item 6). Where they stand is carried by this block's first paragraph and the checklist's
+> 2026-09-19 note, not repeated here. The rest of the paragraph is a record of 2026-09-05.
 >
 > ⚠️ **This block said "increment 10 next … protocol is v12 … the human checklist is complete"
 > until 2026-09-03, and increment 10 had landed on 2026-09-02.** It survived a docs cold-start pass
@@ -647,6 +656,11 @@ simulation-first still applies wherever the plan calls for it.
 > run back to zeros, where the CONTENT check is the only thing between that and a vacuous pass.
 > **Keep the file.**
 >
+> ⚠️ **2026-09-24: the checklist has not been complete since 2026-09-19**, when the move to Xcode 27
+> reopened four parts of it for re-walks (user decision); one of them, chunk 11, did not pass on
+> 2026-09-23 (item 6). The Status paragraph above and the checklist's 2026-09-19 note carry where they stand.
+> The next three paragraphs are records of 2026-09-04 and 2026-09-03.
+>
 > **Complete again as of 2026-09-04**: increment 12 added chunk 16 and changed 6.1 and 11.7, and
 > all four were walked the same day. What follows was true up to 2026-09-03.
 >
@@ -723,7 +737,7 @@ simulation-first still applies wherever the plan calls for it.
 > [CONSTRAINTS.md](CONSTRAINTS.md) section 2, which supersedes it.
 >
 > **Read [PROGRESS.md](PROGRESS.md) first** — it holds the step in progress and what that step
-> inherits (Step 12, as of 2026-09-05). For *why* something was
+> inherits (Step 13, since 2026-09-11). For *why* something was
 > done the way it was, `progress/step-NN.md` has the archived history of that step; this table is the
 > map, not the tracker.
 
@@ -1554,6 +1568,10 @@ React to classified failures per the user-selected mode, and conclude every run 
 > Its two companion files stay outside the archive because they are still consulted: the
 > increment-plans file holds settled decisions that bind Step 12, and the human checklist is the
 > record of what only a person could check.
+>
+> ⚠️ **2026-09-24: *"walked and passed in full"* is a record of 2026-09-05.** The move to Xcode 27
+> reopened four parts of the checklist for re-walks on 2026-09-19; its own 2026-09-19 note carries
+> where they stand.
 
 > **Inherited from Step 8 (2026-08-03).** Protocol v7 has `runRetentionCycle(startBlock:blockCount:ioSizeBytes:)`,
 > **capped at `TesterProtocol.maximumBytesPerCall` (1 GiB)**, and `digestRange` under the same
