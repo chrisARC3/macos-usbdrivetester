@@ -40,12 +40,20 @@
 //      | scaling on a 13.3"  | points | usable after menu bar + Dock |
 //      |---------------------|--------|------------------------------|
 //      | 1440x900 (default)  |  900   |  800                         |
-//      | 1280x800            |  800   |  700                         |
-//      | 1152x720            |  720   |  620                         |
+//      | 1280x800            |  800   |  700   the budget            |
+//      | 1152x720            |  720   |  620   not a target          |
 //
-//  The enforced minimum measures **531–542 pt of content** depending on how many drives are
-//  attached — a 563–574 pt window — which clears the 700 pt budget by more than 120 pt. The
-//  `starting` state is the tallest at 638, and it clears it by 62.
+//  1152x720 was the target for one day and a standing claim after it ("fits outright", 2026-08-24).
+//  **It is not maintained after 2026-09-24** (NFR-USE-9's amendment of that date): keeping a
+//  second, tighter figure true was costing more than that scaling is worth, and nothing checks it.
+//
+//  The window's minimum measures **556 pt of content with one drive and 568 with two or more** —
+//  a 588–600 pt window, which clears the 700 pt budget by 100 or more. The `starting` state is the
+//  tallest, at 582 of content and a 614 pt window, and clears it by 86. Measured with `ui-probe` on
+//  2026-09-24 against the Xcode 27.0 / macOS 27.0 build; a real window can read a few points
+//  taller, for reasons ``deviceListFloor`` gives. Since that date the height a user can drag the
+//  window to and the height its content fits are **the same number in every state** — the first
+//  was 46–57 pt below the second until then.
 //
 //  **Those are observations, not assertions**, and deliberately not constants here: writing one
 //  down would recreate exactly the literal this file exists to delete. `scripts/window-fit-check.sh`
@@ -62,6 +70,12 @@
 //
 //  The gate now measures the laid-out hierarchy rather than reading the declaration, so the figures
 //  above are the ones a user actually meets by dragging the window's edge.
+//
+//  **2026-09-24: on the Xcode 27 / macOS 27 build that last sentence was false**, and it is true
+//  again for a different reason. That build's window does not clamp at the table's floor: it drags
+//  down to the declaration, 46–57 pt short of the measured figures (not bisected — the SDK, the OS
+//  or both). The declaration has been raised onto the measurement instead; ``deviceListFloor`` has
+//  the account, and `window-fit-check.sh` now fails when the two part.
 //
 //  ## What scrolls, and in what order (user decision 2026-08-19)
 //
@@ -82,7 +96,9 @@
 //  2026-08-20, after chunk 9.3 found the chosen drive off screen altogether at the minimum, with
 //  the "Selected device" pane naming a drive the list was not showing. It costs no height at all,
 //  which is why ``deviceListFloor`` did not have to move for it: the selection capsule measures
-//  45 pt against the 46 pt floor, so one whole row already fits at the bottom of the range.
+//  45 pt against the 46 pt floor, so one whole row already fits at the bottom of the range. (The
+//  floor was 46 then. It is 104 since 2026-09-24, for a reason of its own; the fix still matters,
+//  because two rows are still fewer than the drives a list that small can be holding.)
 //
 //  `nonisolated` for the reason `RunControlState.swift` records: the app target compiles with
 //  SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor, which would otherwise make even these constants
@@ -99,49 +115,69 @@ nonisolated enum WindowMetrics {
 
     // MARK: - Floors for the panes that scroll
 
-    /// The drive list's floor: **one row** — as far as this file is concerned, which is not as far
-    /// as the list is concerned.
+    /// The drive list's floor: **the height below which the table behind it will not lay out** —
+    /// a measurement, asserted, which the header says is the kind of number this file exists to
+    /// delete. Why it is here anyway is the point of this comment.
     ///
-    /// - Warning: **the control does not honour it, and nothing announced that.** The `List` in
-    ///   `DeviceListView` is backed by an AppKit table, and that table will not lay out below
-    ///   roughly **104 pt** whatever `minHeight` it is handed. This constant is therefore a request
-    ///   that is accepted and has no effect below 104 — the exact shape CONSTRAINTS records under
-    ///   "SwiftUI modifiers fail silently" and "an API accepting a request is not the request
-    ///   having had its intended effect".
+    /// The `List` in `DeviceListView` is backed by an AppKit table, and that table will not lay out
+    /// below **the smaller of its own height and about 104 pt**, whatever `minHeight` it is handed.
+    /// `ui-probe` reads 103 against the Xcode 27.0 / macOS 27.0 build (2026-09-24) — the same with
+    /// 40 pt rows as with the real 46, so it is the table's own floor and not a count of rows — and
+    /// below the list's own height with one or two drives, where `DeviceListView.listHeight` is
+    /// under it. Hence `min(deviceListFloor, listHeight)` at the one use, which is what the table
+    /// does anyway: without it SwiftUI resolves the contradictory frame to the minimum, silently,
+    /// and a one-drive window's floor is 12 pt taller than it needs to be.
     ///
-    ///   It went unnoticed for a day because SwiftUI's own `contentMinSize` believes it: the
-    ///   declared window minimum came out **58 pt** below any height the content can occupy, the
-    ///   gate built on that number reported the window fitting screens it does not fit, and a
-    ///   render at the reported minimum clipped its header. Found on 2026-08-20 by resizing the
-    ///   shipped window with accessibility scripting; confirmed by setting this constant to 104,
-    ///   which moves the declared minimum onto the enforced one exactly.
+    /// **104 and not the probe's 103**, because the probe reads this table 1 pt short of a real
+    /// window and the real window is the one a user drags: 542 against the shipped app's 543 on
+    /// 2026-08-20, when setting this to 104 moved the declared minimum onto the enforced one
+    /// exactly; and 567 against the 568 of content a real window was returned to by Window > Zoom
+    /// on 2026-09-23, with a run finished and six drives attached, read off the window server.
+    /// Given 104, the probe measures the frame this asks for, and the two numbers agree.
     ///
-    ///   **It is left at 46 deliberately.** Raising it to 104 would make the declaration honest at
-    ///   the cost of *asserting* a number measured from today's AppKit, which is the kind of
-    ///   constant this whole file exists to delete — and it would change nothing on screen, because
-    ///   the table already refuses. `scripts/window-fit-check.sh` now measures the layout instead
-    ///   of trusting any floor, so the gap is covered rather than papered over.
+    /// **What would make it wrong, and what notices.** An SDK or OS that moves the table's floor.
+    /// Upward, and the window can again be dragged to a height its content does not fit —
+    /// `scripts/window-fit-check.sh` fails on exactly that, a state whose declared minimum is below
+    /// its measured one. Downward, and the window's minimum is a few points taller than it has to
+    /// be, which nothing checks and nothing needs to. With no drives attached the pane shows a
+    /// placeholder rather than the table and keeps this floor; that case is unmeasured, because
+    /// the probe's fleet is never empty.
     ///
-    /// 46 pt is `DeviceListView.rowHeight`'s value at the default text size.
+    /// The placeholder is also what the **first** layout sees, because `ContentView` enumerates
+    /// drives at `onAppear`. So for that moment the window's minimum is this floor's, and with one
+    /// drive attached a window restored below 600 pt can open 12 pt taller than the one-drive
+    /// minimum — nothing shrinks a window back. Seen in the probe, whose host has the same timing:
+    /// a one-drive render asked for 556 comes out 568, and 556 again when only the placeholder's
+    /// floor is put back to 46 (2026-09-24). Kept, knowingly: the placeholder's text does not
+    /// compress, so a lower floor there is a band where it is cut off.
     ///
-    /// **It does not scale with it, and that is worth stating rather than leaving to be assumed.**
-    /// `rowHeight` is `@ScaledMetric`; this is a plain constant, so at a larger text size the rows
-    /// grow past it and the floor stops being exactly one row. The consequence is bounded — the
-    /// list scrolls, so a floor slightly under one row costs a sliver of a row and not a feature —
-    /// and it is preferred to the alternative, which is a floor that grows the window's minimum
-    /// height on the machines least able to spare it.
+    /// ## 46 until 2026-09-24, knowingly ignored
     ///
-    /// It is also, today, moot: CONSTRAINTS section 1 records that Dynamic Type moves no font in
-    /// this app on macOS — measured offscreen, then confirmed at the keyboard with the System
-    /// Settings slider. `@ScaledMetric` here would be a lever that looks live and does nothing,
-    /// which is the specific trap the deleted `dynamicTypeSize` render axis was removed to avoid.
+    /// It was 46 pt — one row, `rowHeight` at the default text size — and known not to be
+    /// honoured. Found on 2026-08-20 by resizing the shipped window with accessibility scripting:
+    /// the table refused below roughly 104 pt, SwiftUI's `contentMinSize` believed the 46, and the
+    /// declared window minimum came out **58 pt** below any height the content could occupy — the
+    /// shape CONSTRAINTS records under "SwiftUI modifiers fail silently".
     ///
-    /// One row rather than two is a consequence of two user decisions taken together (2026-08-19):
-    /// cover every 13.3-inch scaling, and let the list yield before the detail pane. Two rows cost
-    /// 46 pt that the tightest scaling does not have. It applies only at the very bottom of the
-    /// window's range, where the list scrolls; at any ordinary height the list is at
-    /// `DeviceListView.listHeight` as before.
-    static let deviceListFloor: CGFloat = 46
+    /// It was left at 46 on two grounds: raising it would *assert* a number measured from that
+    /// day's AppKit, and it would change nothing on screen, **because the window clamped at the
+    /// table's floor anyway**. The second ground failed on the Xcode 27 / macOS 27 build, and
+    /// nothing announced that either: its window does not clamp there. It drags down to the
+    /// declaration, 46–57 pt short of where the content fits (not bisected — the SDK, the OS or
+    /// both). Everything found at the bottom of the window's range on 2026-09-23 and 2026-09-24
+    /// lived in that band: the drive-count heading under the title bar, the idle metrics box cut
+    /// off, and Step 11 chunk 11 item 6's report sheet overhanging the window's bottom edge by
+    /// 20 pt. Without the second ground the first is a price worth paying, and the gate's check is
+    /// what keeps the assertion honest.
+    ///
+    /// One row was also chosen, on 2026-08-19, so that the window could cover every 13.3-inch
+    /// scaling, 1152x720 included: two rows cost 46 pt that scaling did not have. That target was
+    /// dropped on 2026-09-24 (NFR-USE-9's amendment of that date), and 1280x800 has the room.
+    ///
+    /// `rowHeight` is `@ScaledMetric` and this is not, which is now simply right: the table's floor
+    /// is not a row. CONSTRAINTS section 1 records that Dynamic Type moves no font in this app on
+    /// macOS in any case.
+    static let deviceListFloor: CGFloat = 104
 
     /// The selected-device detail's floor: the identity line plus one row.
     ///
@@ -216,6 +252,10 @@ nonisolated enum WindowMetrics {
     /// axis, so it grows and shrinks with the window and can never exceed a screen the window
     /// itself fits (NFR-USE-9). What this decides is only whether the sheet reads as a sheet — a
     /// modal exactly covering its parent reads as the window having vanished.
+    ///
+    /// ("Can never exceed" was false on the Xcode 27 build until 2026-09-24, below about 600 pt:
+    /// what `ContentView` measures is the content, and the window could be dragged shorter than
+    /// it. That can no longer happen; see ``deviceListFloor`` and `ContentView.reportSheetSize`.)
     ///
     /// The report carried `minWidth: 620, minHeight: 560` while it was a window, chosen once for a
     /// surface the user could drag bigger. A sheet cannot be dragged, so the constant would have

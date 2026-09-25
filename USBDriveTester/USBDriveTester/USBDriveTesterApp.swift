@@ -109,11 +109,18 @@ struct USBDriveTesterApp: App {
                 // measuring two different fills in one day).
                 //
                 // Measured rather than arranged around: `USBDriveTesterApp.swift` is excluded **by
-                // name** from all three harnesses — `render-ui.sh:201`, `window-fit-check.sh:144`
-                // and `build-tools.sh:62`. A modifier applied at this call site is therefore not
-                // carried by the probe's bare `ContentView()`, so every render is provably free of
+                // name** from all three harnesses — `render-ui.sh`, `window-fit-check.sh` and
+                // `build-tools.sh` each skip the file of that basename when they gather the app's
+                // sources, because its `@main` clashes with the tool's top-level code. A modifier
+                // applied at this call site is therefore not carried by the probe's bare
+                // `ContentView()`, so every render is provably free of
                 // the gate while `ContentView` still *compiles* the sheet that presents it. Without
                 // this placement the alternative was a fourth injected dependency on `AppModel.init`.
+                //
+                // (Until 2026-09-24 this paragraph cited the three exclusions by line number. Two of
+                // them had moved within six hours of being checked on 2026-09-19. Any edit to a file
+                // invalidates a line number cited in a comment, and no grep catches that. So the
+                // exclusions are cited by what they match.)
                 //
                 // What it costs, stated rather than left to be discovered: this line is in the one
                 // file nothing automated compiles. `build.sh` and `test.sh` still compile it, so a

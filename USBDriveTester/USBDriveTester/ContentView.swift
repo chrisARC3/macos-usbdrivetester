@@ -209,6 +209,15 @@ struct ContentView: View {
     /// sheet cannot be dragged. Deriving it from the window means it can never exceed a screen the
     /// window itself fits, which is what NFR-USE-9 and `scripts/window-fit-check.sh` already
     /// guarantee, and it grows with however much room the user has given the app.
+    ///
+    /// - Important: `contentSize` is the root stack's measured size, which is the window's content
+    ///   area **only while the content fits in it**. When the content overflows, the stack is taller
+    ///   than the window and so was this sheet: Step 11 chunk 11 item 6 found it 44 pt too tall and
+    ///   20 pt past the window's bottom edge, with the window at 542 on the Xcode 27 build
+    ///   (2026-09-23). The sentence above was false there. It is true again since 2026-09-24,
+    ///   because the window can no longer be dragged shorter than its content —
+    ///   `WindowMetrics.deviceListFloor` — and `window-fit-check.sh` fails if that stops being so.
+    ///   Item 6's re-walk is what confirms it on a real window.
     private var reportSheetSize: CGSize {
         // Before the first geometry read there is nothing measured to take a margin off. The
         // scene's own default size is the honest stand-in: it is the size the window opens at.

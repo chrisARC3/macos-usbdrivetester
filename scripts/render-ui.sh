@@ -165,6 +165,12 @@
 #   every case in the family: measured both ways on 2026-08-21. `RunReportHost` now applies an
 #   exact frame of the requested size, which is exactly what `ContentView` hands the sheet, so
 #   these renders show what a user sees and any height is honoured — 461 pt included.
+#   (2026-09-24: not below about 600 pt on the Xcode 27 build, where the window could be dragged
+#   shorter than its content and the sheet came out taller than the window — Step 11 chunk 11
+#   item 6. True again since the window's floor was raised onto its content.)
+#   And one case of the height being a floor for the `content` family (2026-09-24): with ONE
+#   drive, anything asked for below 568 renders 568. The list is empty for the first layout, and
+#   its placeholder's floor is the table's; `WindowMetrics.deviceListFloor` says why that is kept.
 #   When a family ignores the height, centre-crop with `sips -c <h> <w>` (see below) rather than
 #   re-rendering at a smaller number that will be ignored again.
 #

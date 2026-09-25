@@ -987,8 +987,8 @@ was the defect. Here it was found before the gate was walked rather than after.*
   `measurement=UNMEASURABLE(<why>)`, **exit 3**; the gate has **exit 2, INCONCLUSIVE**, raised
   either by that or by a measured height below the declared one — impossible for these states while
   the measurement works, since each has fixed chrome above and below the list. **It measures 613 pt
-  again**, the 2026-09-03 figure. macOS 27's inventory here, for anyone reading the same trace
-  later: 2× `KeyViewProxy` 24 pt, `AppKitPlatformViewHost` for `MainWindowCloseGuardInstaller` (it
+  again**, the 2026-09-03 figure (614 since 2026-09-24, below). macOS 27's inventory here, for
+  anyone reading the same trace later: 2× `KeyViewProxy` 24 pt, `AppKitPlatformViewHost` for `MainWindowCloseGuardInstaller` (it
   tracks the content height), `TableSelectionPolicy` and `OutlineListRepresentable`, a
   `PlatformContainer` — the flexible list pane, **104 pt at every ask from 24 to 570** — and 5×
   `_FocusRingView` 24 pt. **`fittingSize` is not a shortcut**: it returns the ideal size, 1197×716,
@@ -1004,7 +1004,41 @@ was the defect. Here it was found before the gate was walked rather than after.*
   `starting`'s declared 524, and at Start the window is pushed to **615**, untouched, against
   `overflowAt`'s 613, and *stays* there rather than settling back. `min=` is the larger of the two,
   so the gate's worst case is the push height — the conservative choice for a screen budget, and
-  **2 pt optimistic**: 5 pt of spare at 1152×720, not 7.
+  **2 pt optimistic**: 5 pt of spare at 1152×720, not 7. *(2026-09-24: 1152×720 is not maintained
+  since NFR-USE-9's amendment of that date, and the gate's worst case is 614, below.)*
+
+  ⚠️ **2026-09-24: on this build the gap between the two numbers is a band a user can reach, and the
+  content is cut off inside it. It is closed by raising the declaration onto the measurement.**
+  This is chunk 9's finding read the other way. If `declared=` is the floor a user can drag to,
+  then every height between it and `overflowAt=` is a window the content does not fit. That gap was
+  46–57 pt in every `content-*` state. Everything found at the bottom of the window's range on
+  2026-09-23 and -24 was inside it:
+  - the drive-count heading sat under the title bar;
+  - the idle metrics box lost its bottom edge;
+  - Step 11 chunk 11 item 6's report sheet hung 20 pt past the window's bottom edge. The sheet
+    takes its size from the root stack, and in the band the root stack is taller than the window.
+
+  On the build of 2026-08-20 the window clamped at the table instead, so nobody could reach the
+  band. Whether the SDK or the OS changed cannot be separated. **`deviceListFloor` is 104 now.**
+  The two numbers are one number in all fourteen rows, and `window-fit-check.sh` fails when they
+  part. Three facts were measured on the way (`ui-probe`, Xcode 27.0 / macOS 27.0, 2026-09-24):
+  - **The table's floor is the smaller of its own height and about 103 pt** in the probe. A real
+    window reads it at 104, 1 pt above the probe: 543 against 542 on 2026-08-20, and 568 against
+    567 through Window > Zoom on 2026-09-23. The floor is the same with 40 pt rows as with 46, so it
+    belongs to the table and is not a count of rows. With one drive the list is 92 pt, and the table
+    sits at 92. The subview inventory above read the list pane at 104 at every ask, so the missing
+    point may belong to the overflow search and not to the table. That is a candidate, not a
+    measurement.
+  - **SwiftUI resolves a contradictory frame, `minHeight` above `maxHeight`, to the minimum, and
+    says nothing.** Measured by deleting the cap at the one use, `min(deviceListFloor,
+    listHeight)`. No line reached stderr, and a one-drive window's floor came out 12 pt taller than
+    its content, 568 against 556.
+  - **The first layout is not the layout the window is sized from afterwards.** `ContentView`
+    enumerates drives at `onAppear`, so the first pass lays out the empty-state placeholder, and
+    the window's minimum at that moment is the placeholder's. AppKit grows a window to a new minimum
+    and never shrinks it back. A one-drive render asked for 556 comes out 568. It comes out 556 again
+    when only the placeholder's floor is put back to 46. The probe's host has the same timing as the
+    app, so the probe shows this too.
 - **`.defaultSize` sizes the window's *frame* on macOS 27, not its content** (measured 2026-09-22,
   Step 11's chunk 9, Xcode 27.0 27A266a / macOS 27.0 26A428). `.defaultSize(width: 720, height: 700)`
   opens a **720 × 700 frame** — 668 pt of content, short by exactly the 32 pt title bar. Same family
@@ -1268,7 +1302,10 @@ was the defect. Here it was found before the gate was walked rather than after.*
   checks it, by measurement, against a screen budget — **the laid-out hierarchy, not SwiftUI's
   declared minimum**, which was wrong by 58 pt until 2026-08-20. The budget is **700 pt**: a
   13.3-inch at 1280x800 with the Dock (user decision, 2026-08-20, replacing a one-day commitment to
-  every scaling that was chosen from the broken figures).
+  every scaling that was chosen from the broken figures). **Since 2026-09-24, 1280x800 is the only
+  target** and 1152x720 is not maintained (NFR-USE-9's amendment of that date). The gate also fails
+  when the declared minimum and the laid-out one differ, because on the Xcode 27 build the declared
+  one is the height a user can drag the window to.
 - **POINTS, NOT PIXELS.** A 13.3-inch Apple Silicon Mac is 2560x1600 **pixels** and **1440x900
   points** at default scaling. Every window measurement in this project is in points. Reasoning from
   the pixel number inflates the budget by a factor of 1.8 and makes a window that does not fit look
@@ -1519,6 +1556,20 @@ Every defect this project has produced came from trusting a substitute for the r
   the app disagree, the app is the fact, and a gate that has never been calibrated against the
   running thing is an assertion wearing a measurement's clothes. Verify a floor by measuring what
   the layout does with it, never by reading it back.
+
+  ⚠️ **2026-09-24: "has no effect" was a platform fact, and it expired with the platform.** The
+  46 pt floor was kept on two grounds:
+  1. raising it would assert a number measured from that day's AppKit;
+  2. it would change nothing on screen, because the window clamped at the table anyway.
+
+  The second ground was a measurement of the Xcode 26 build, written down as a reason. On the Xcode
+  27 / macOS 27 build the window does not clamp at the table. It drags down to the declared number,
+  so the ignored request **did** have an effect: a 46–57 pt band in which the content was cut off.
+  Nothing announced the change. It surfaced as Step 11 chunk 11 item 6's report sheet overhanging
+  the window. `deviceListFloor` is 104 now, and `window-fit-check.sh` fails when the declaration and
+  the measurement part (`PROGRESS.md`, and NFR-USE-9's amendment of that date). **When a decision
+  rests on what the platform does today, record that as a measurement with its build, not as a
+  reason. A reason gives no sign when the build moves under it.**
 - **The bigger case is often the weaker test, and it is the one you will reach for.** Keeping the
   drive list scrolled to the selected row worked at six drives and failed at two. The reason is
   saturation: at six, the scroll runs into the end of the content and clamps — and a clamp does not

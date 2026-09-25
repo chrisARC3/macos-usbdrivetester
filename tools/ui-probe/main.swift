@@ -675,6 +675,13 @@ private struct RunReportHost: View {
             // `render-ui.sh … 700 1100 report` produced a 700x5167 image — measured both ways on
             // 2026-08-21. A floor was quietly doing a second job, which is this project's recurring
             // shape: a modifier believed to do one thing and never checked for the rest.
+            //
+            // (2026-09-24: "always laid out at a size imposed on it" was true; "the window's content
+            // area less a margin" was not, on the Xcode 27 build below about 600 pt. `ContentView`
+            // measures the content, the window could be dragged shorter than it, and the sheet came
+            // out taller than the window — Step 11 chunk 11 item 6. So a render here was not what a
+            // user saw at those heights. It is again, since the window cannot be dragged shorter
+            // than its content any more.)
             .frame(width: width, height: height)
     }
 
@@ -1300,7 +1307,7 @@ if let appearance = window.appearance {
 /// function returned a bare `CGFloat`, and when both of its mechanisms broke on macOS 27 it
 /// returned `1` for every state — a number the gate then quietly discarded in favour of the
 /// declared minimum, printing *"every state fits"* off a worst case of 556 pt where the real figure
-/// is 613. The failure was
+/// was 613 (614 since 2026-09-24, when `WindowMetrics.deviceListFloor` went to 104). The failure was
 /// invisible because the type had no way to be.
 enum MeasuredMinimum {
     case measured(CGFloat)
@@ -1474,6 +1481,10 @@ DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
         // the difference is exactly the 58 pt the list refuses to give up. It was found by
         // resizing the real window with accessibility scripting on 2026-08-20 and confirmed by
         // raising `deviceListFloor` to 104, which moves the advertised number to 543 on the nose.
+        //
+        // (2026-09-24: `deviceListFloor` IS 104 now, so the two numbers agree in every `content-*`
+        // state, and this note is the account of 2026-08-20. The measurement stays: it is what
+        // `window-fit-check.sh`'s third check holds the declaration to.)
         //
         // A render at the advertised number **clips**, which is what makes this the gate's
         // problem rather than a curiosity: `window-fit-check.sh` was answering "does it fit"

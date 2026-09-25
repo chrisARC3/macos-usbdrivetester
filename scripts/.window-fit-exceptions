@@ -15,6 +15,8 @@
 #   * the **instrument was wrong**. The gate read SwiftUI's declared minimum, which was 58 pt short
 #     in every state because `WindowMetrics.deviceListFloor` asks the drive list for 46 pt and the
 #     AppKit table backing it will not lay out below about 104. `starting` was really 718, not 661.
+#     (2026-09-24: it asks for 104 now, capped at the list's own height, and the gate fails if the
+#     declared and measured minimums part — see `window-fit-check.sh`'s third check.)
 #   * the **duplicate refusals were collapsed**, which is the fix this entry said was worth ~80 pt
 #     and deferred. It was: `starting` went 718 -> 638. In the four transient states the run state
 #     is itself the reason every control refuses, and the status line already says so, so one

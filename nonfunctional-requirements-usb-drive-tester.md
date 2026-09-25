@@ -84,7 +84,7 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-USE-6 | The honest-framing messaging shall be presented such that a clean pass cannot reasonably be mistaken for a health certificate. | M | PB What the Test Does and Does Not Prove; FR-WARN-3/4 |
 | NFR-USE-7 | The exported Markdown report shall be well-structured and human-readable (headings, a clear pass/fail outcome, and tabulated bad-block ranges and statistics). | S | FR-RPT-5 |
 | NFR-USE-8 | The GUI should follow macOS accessibility expectations on a best-effort basis — leveraging SwiftUI's built-in accessibility (Dynamic Type, sufficient color contrast) and, in particular, never conveying pass/fail status by color alone. A full accessibility audit is not a v1 release gate. **Screen-reader (VoiceOver) support is out of scope — removed 2026-08-11; see Amendments.** | S | Derived (macOS HIG); user decision 2026-06-25; **VoiceOver removed 2026-08-11** |
-| NFR-USE-9 | The main window shall fit a 13.3-inch Apple Silicon Mac at **1280x800 with the Dock showing** — a 700 pt window — without clipping content and without requiring the user to resize it. Its minimum size shall be **derived by measuring the laid-out view hierarchy**, rather than asserted as a constant or taken from a declared minimum that a control may not honour. | S | user decisions 2026-08-19 and 2026-08-20; Step 11 increment 7; see Amendments |
+| NFR-USE-9 | The main window shall fit a 13.3-inch Apple Silicon Mac at **1280x800 with the Dock showing** — a 700 pt window — without clipping content and without requiring the user to resize it. **1280x800 is the only scaling it is held to**; 1152x720 is not maintained after 2026-09-24. Its minimum size shall be **derived by measuring the laid-out view hierarchy**, rather than asserted as a constant or taken from a declared minimum that a control may not honour, **and the window shall not resize below it** — no height the user can drag the window to may cut its content off. | S | user decisions 2026-08-19, 2026-08-20 and **2026-09-24**; Step 11 increment 7; see Amendments |
 
 ## NFR-COMPAT — Platform & Device Compatibility
 
@@ -290,6 +290,76 @@ this tool works for them, and if that is ever revisited the work is larger than 
 this table: it would need the audit this amendment cancels, on every surface, with a person at the
 keyboard each time.
 
+### 2026-09-24 — NFR-USE-9: 1280x800 is the only target, and the window may not be dragged shorter than its content
+
+**Two user decisions, taken together on 2026-09-24, on one finding.** Step 11's chunk 11 re-walk
+failed item 6 on the Xcode 27 build on 2026-09-23. Below about 600 pt the run report sheet was
+taller than the window left room for, and at the idle floor it hung **20 pt** below the window.
+The next day's headless diagnosis found the fault outside the sheet. **The Xcode 27 / macOS 27
+build's window drags down to its declared minimum**, the `contentMinSize` that SwiftUI builds from
+each pane's `.frame(minHeight:)`. The build the 2026-08-20 amendment below was measured on stopped
+instead at the height the drive list's table would lay out at. The table still refused to go below
+about 104 pt, and the declaration still asked it for 46. So the window could be dragged into a band
+**46–57 pt tall** in which its content was cut off. In that band:
+
+- the drive-count heading sat under the title bar;
+- the idle metrics box lost its bottom edge;
+- the root stack, which the report sheet takes its size from, was taller than the window.
+
+Not bisected between Xcode, the SDK and the OS; all three moved together between 2026-09-15 and
+2026-09-19.
+
+**First: 1280x800 is the only target.** The requirement has named 1280x800 since 2026-08-20. But
+the 2026-08-24 note below kept 1152x720 alive as a standing claim, *"fits outright"*, and the gate
+kept a row for it. Every few points the worst case moved had to be argued again against a margin of
+5 pt, at a scaling nobody had committed to. **1152x720 is not maintained after 2026-09-24.** The
+gate's row for it is gone, and no figure for it is kept current. It happens to fit today, at 614 pt
+against 620, and nothing will notice when it stops.
+
+**Second: the window's minimum is the height its content fits.** `WindowMetrics.deviceListFloor`
+goes from one row (46 pt) to the table's own floor, **104**, capped at the list's own height. The
+declaration is now what the content needs, not a request the table ignores:
+
+| state — `ui-probe`, 2026-09-24, Xcode 27.0 / macOS 27.0 | 1 drive | 2–6 drives | window, 6 drives |
+|---|---|---|---|
+| idle, running, paused, finished, stop-on-error, no selection | 556 | 568 | 600 |
+| `starting` | 570 | 582 | **614** |
+
+Heights are content in points; the window adds the 32 pt title bar. Declared and measured are the
+same number in all fourteen rows `window-fit-check.sh` checks. Until this amendment the declaration
+was 510 pt (524 starting) in every row, 46–57 pt below the measurement. The worst case is `starting`
+with six drives, **614 pt**. That is one more than the 613 recorded since 2026-08-22, because 104 is
+the real window's figure and the probe reads the table at 103. It clears 1280x800 by **86 pt** and
+1440x900 by 186. With one drive nothing moves. With two or more, the window can no longer be dragged
+below 600 pt.
+
+**`window-fit-check.sh` gains a third check, and it fails the gate rather than warning**: a state
+whose declared minimum is below the height its content fits. Until now the gate read only the larger
+of the two numbers. That is the right number to hold against a budget and the wrong one to stop at,
+and the gate passed through the whole band. On 2026-09-24 a mutation put the floor back to 46. The
+new check failed all fourteen rows, and it was the only check that caught it: the budget verdict
+still read *fits*.
+
+**Function first at the floor (user, 2026-09-24).** *"It is acceptable to have minor cosmetic
+imperfections at the floor vertical size. The priority is function, not aesthetics."* A finding at
+the bottom of the window's range is therefore classed before anyone chases it:
+
+- **functional** when something a user needs becomes unreachable, such as a control off screen or
+  text a user must read that no scrolling reaches;
+- **cosmetic** otherwise.
+
+It is recorded here because it decides what the next walk of such an item accepts.
+
+**Given up, knowingly, and cosmetic.** The first layout happens before any drive is listed. It sees
+the empty-state placeholder, which keeps the 104 pt floor. So with one drive attached, a window
+restored below 600 pt opens up to 12 pt taller than it needs, and nothing shrinks it back.
+
+**Not yet shown on hardware.** Every figure above is the probe's. The shipped window has read 1–2 pt
+taller than the probe. During a run, its floor has read 15 pt above the probe's `running` figure
+and 1 pt above `starting`'s (Step 11 chunk 9, 2026-09-22, and again on 2026-09-23). The probe does
+not explain that. Step 11 chunk 11 item 6's re-walk confirms that the sheet sits inside the window
+again.
+
 ### 2026-08-20 — NFR-USE-9 corrected: the instrument was wrong, and the budget with it
 
 **The gate was answering "does it fit" with a height at which it demonstrably does not.**
@@ -303,6 +373,10 @@ Found by driving the shipped window with accessibility scripting: the real app c
 where the gate reported 517. Confirmed two further ways — a render at the declared minimum clips its
 header, and raising `deviceListFloor` to 104 moves the declared number to 543 exactly, which is what
 the app enforces.
+
+> *2026-09-24: on the Xcode 27 / macOS 27 build the shipped window does not clamp at the table. It
+> drags down to the declared number, and the content is cut off in the gap between the two. The
+> amendment of that date, above, raises `deviceListFloor` to 104 for that reason.*
 
 **The gate now measures the layout instead of the declaration.** `--limits` reports the larger of
 the declared minimum and the smallest height at which the laid-out content stops overflowing the
@@ -326,7 +400,9 @@ broken numbers*, which showed every state but one fitting it. None of them did: 
 and `paused` miss 620 by 4 pt with six drives attached, and `starting` missed it by 98. 700 is where
 the decision started before the wrong figures made a tighter target look free, and against it every
 state fits with at least **62 pt to spare** — with `scripts/.window-fit-exceptions` empty for the
-first time since it was created.
+first time since it was created. *(2026-09-24: **86 pt** since that day, against 614. It was 87
+from 2026-08-22, when `starting` went from 638 to 613, as the next amendment records. 62 is left as
+the figure of 2026-08-20.)*
 
 **Amended 2026-08-24 — 1152x720 now fits outright.** This paragraph used to end: *"A user at
 1152x720 gets a window that fits at rest and grows behind the Dock for the few seconds a run spends
@@ -341,11 +417,18 @@ models 613 — so 1152x720 still fits outright, by five points. Every figure in 
 `window-fit-check.sh`, which measures an `NSHostingView` in a probe window; that model is now known
 to be accurate to 2 pt, and to be 2 pt optimistic. The gate is unchanged.
 
+> ⚠️ **2026-09-24: 1152x720 is not maintained any more**, so neither paragraph above is a current
+> claim. The amendment of that date (above) retires the target, and `window-fit-check.sh` no longer
+> checks that scaling. The worst case is **614 pt** since `deviceListFloor` went to 104, not 613.
+> That still fits 620, but nothing checks it. Both paragraphs are kept as they were written.
+
 **The drive-count dependency is back, and it is small.** Increment 7 recorded the window's minimum
 as independent of how many drives are attached. That was an artefact of the declared number, which
 ignored drive count too. Measured honestly it swings **11 pt** between one drive and six, because
 the list's real floor tracks its content where its declared floor does not. The gate checks both
-ends, so the worst case is the one reported.
+ends, so the worst case is the one reported. *(2026-09-24: the swing is **12 pt** now, 556 against
+568, since `deviceListFloor` went to 104. The declared floor tracks the drive count too, through
+its cap at the list's own height.)*
 
 ### 2026-08-19 — NFR-USE-9 added: the main window has to fit the smallest supported Mac
 

@@ -229,8 +229,9 @@ struct DeviceListView: View {
                     // ## Keeping the chosen drive in view when the pane shrinks (2026-08-20)
                     //
                     // A `List` keeps its scroll offset when its frame changes, so a pane that can
-                    // fall to `deviceListFloor` — **one row** — shows whichever row that offset
-                    // lands on, and not necessarily the selected one. Reported at the keyboard on
+                    // fall to `deviceListFloor` — **one row** then, about two since 2026-09-24 —
+                    // shows whichever rows that offset lands on, and not necessarily the selected
+                    // one. Reported at the keyboard on
                     // 2026-08-20: at the window's minimum height the selected drive was off screen
                     // entirely, which for the pane that answers "which drive am I about to write
                     // to?" is the same class of problem NFR-USE-3 exists for.
@@ -285,7 +286,18 @@ struct DeviceListView: View {
         // (`deviceListFloor`…`listHeight`) and the detail's is not (`deviceDetailFloor`…∞), and a
         // `VStack` sizes its least flexible child first. `scripts/window-fit-check.sh` and the
         // `devices-*` renders check that this holds rather than trusting the reasoning.
-        .frame(minHeight: WindowMetrics.deviceListFloor,
+        //
+        // **Capped at `listHeight` since 2026-09-24**, when the floor went from one row to the
+        // table's own 104: with one drive `listHeight` is 92, and a minimum above the maximum is a
+        // contradictory frame. SwiftUI resolves that to the minimum and says nothing — measured by
+        // deleting the cap (mutation M2, 2026-09-24): no log line, and a one-drive window whose
+        // floor is 12 pt taller than its content needs. The cap is also what the table does unasked:
+        // measured, it sits at the smaller of the two.
+        //
+        // **Nothing automated notices the cap going**, knowingly: the declaration stays honest
+        // without it, so `window-fit-check.sh` passes, and the cost is 12 pt at one drive against a
+        // budget with 86 to spare.
+        .frame(minHeight: min(WindowMetrics.deviceListFloor, listHeight),
                idealHeight: listHeight,
                maxHeight: listHeight)
     }

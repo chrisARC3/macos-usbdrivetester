@@ -27,11 +27,13 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the
 > four hardware gates passed against the Xcode 27 helper and the renders are whole, but
 > `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27;
-> 4b: that probe fixed and the gate back to **613 pt**, the Xcode 26.6 figure, with an INCONCLUSIVE
-> verdict of its own so it can never again print a declared minimum as a fit). Next are the Step 11
-> and 12 re-walks the user chose on 2026-09-19, which need a person at the keyboard — Step 11's
-> chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass, item 6
-> owed — and then the walk restarts at item 0. Before the pause, item 0 passed
+> 4b: that probe fixed and the gate back to **613 pt**, the Xcode 26.6 figure — **614** since
+> 2026-09-24 — with an INCONCLUSIVE verdict of its own so it can never again print a declared
+> minimum as a fit). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, which need a
+> person at the keyboard — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked
+> 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapses both,
+> so both are owed again on the build that carries the fix — and then the walk restarts at item 0.
+> Before the pause, item 0 passed
 > 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
 > and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one
 > of those passes lapsed at the Xcode 27 install, and item 0 passed again against it. The daemon
@@ -559,7 +561,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt**, with an INCONCLUSIVE verdict of its own). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass, item 6 owed — and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapses both, so both are owed again on the build that carries the fix — and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -680,7 +682,7 @@ simulation-first still applies wherever the plan calls for it.
 > stale and were corrected 2026-09-03**, three of them since increment 10 — see that file's header.
 >
 > **`window-fit-check.sh` worst case is 613 pt** against a committed 700 pt budget, with
-> `.window-fit-exceptions` empty; **37** render cases.
+> `.window-fit-exceptions` empty; **37** render cases. *(614 since 2026-09-24, below.)*
 > ⚠️ **2026-09-19: 613 has been measured twice, and once it was nearly lost.** The figure was
 > 2026-09-03 at `05b7ea7`, Xcode 26.6 on macOS 26. The gate's first run on Xcode 27 / macOS 27, at
 > the move to Xcode 27's chunk 4, printed **556 and was inconclusive**: the probe's measured half
@@ -694,10 +696,10 @@ simulation-first still applies wherever the plan calls for it.
 > ⚠️ **2026-09-22: 613 has now been checked against the shipped window, and it is 2 pt optimistic.**
 > Step 11's chunk 9 re-walk — the calibration 4b was waiting on — found the real window **pushed to
 > 615 pt** at Start, untouched, against the probe's 613. The model holds; the spare at 1152x720 is
-> **5 pt and not 7**. It also found that `--limits` reports two quantities and `min=` keeps only the
-> larger: `declared=` is the floor a user can drag to (542 pt idle, confirmed exactly) and
-> `overflowAt=` is the height AppKit pushes the window to. **The gate is unchanged and 613 is still
-> its number** (`PROGRESS.md`, *Chunk 9's calibration*).
+> **5 pt and not 7** *(not maintained since 2026-09-24)*. It also found that `--limits` reports two
+> quantities and `min=` keeps only the larger: `declared=` is the floor a user can drag to (542 pt
+> idle, confirmed exactly) and `overflowAt=` is the height AppKit pushes the window to. **The gate
+> is unchanged and 613 is still its number** (`PROGRESS.md`, *Chunk 9's calibration*).
 >
 > ⚠️ **2026-09-23: below about 600 pt the report sheet does not stay inside the window.** This was
 > found by Step 11's chunk 11 re-walk, whose item 6 failed on it. The sheet takes its size from the
@@ -707,6 +709,20 @@ simulation-first still applies wherever the plan calls for it.
 > hangs 20 pt below the window**. Nothing here measures a sheet: `render-ui.sh` renders one at a size it is
 > handed, and this gate sizes the main window. So **613 and its spare figures are unaffected, and
 > they say nothing about the sheet.** Owed, not diagnosed (`PROGRESS.md`, *Chunk 11's walk*).
+>
+> ⚠️ **2026-09-24: diagnosed and fixed headlessly, and the worst case is 614 pt.** The window could
+> be dragged below the height its content fits: this build drags to the declared minimum, and
+> `WindowMetrics.deviceListFloor` asked the drive list's table for 46 pt where the table holds about
+> 104. In that band, 46–57 pt tall, the root stack overflowed the window and the sheet copied it.
+> The floor is now 104, capped at the list's own height, and the declared minimum equals the
+> measured one in all fourteen rows. **The gate now fails when they part** — a third check, and the
+> only one a mutation putting the floor back to 46 tripped. The worst case is `content-starting` at
+> six drives, **614 pt**: 1 pt above 613, because 104 is the real window's table and the probe had
+> read it at 103. **86 pt spare at 1280x800**. By user decision the same day, **1280x800 is
+> NFR-USE-9's only target**; the gate's 1152x720 row is gone and its spare is not kept. Not yet
+> shown on hardware: Step 11's chunk 9 and chunk 11 item 6 are the re-walks (`PROGRESS.md`, *Item
+> 6's diagnosis and fix*; `nonfunctional-requirements-usb-drive-tester.md`, the 2026-09-24
+> amendment).
 >
 > **The repository has a remote as of 2026-09-02** — private
 > [`chrisARC3/macos-usbdrivetester`](https://github.com/chrisARC3/macos-usbdrivetester), branch

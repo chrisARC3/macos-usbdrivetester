@@ -34,6 +34,11 @@
 //  rather than a second number that expires quietly. Increment 7's lesson applied to this view: the
 //  620x560 was chosen for a window the user could drag bigger, and a sheet cannot be dragged.
 //
+//  (2026-09-24: that held only while the window could not be dragged shorter than its content. On
+//  the Xcode 27 build it could, and below about 600 pt this view came out taller than the window —
+//  Step 11 chunk 11 item 6. It holds again since the window's floor was raised onto its content;
+//  `ContentView.reportSheetSize` has the account.)
+//
 //  ## What this view renders, and what it does not decide
 //
 //  It renders a `RunReport`. Every judgement — the outcome wording, the FR-TEST-9 qualification,

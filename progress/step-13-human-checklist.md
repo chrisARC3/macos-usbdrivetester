@@ -6,7 +6,8 @@
 > `af09416` — LAPSED at that install. Item 0 was re-run against the new install that morning and
 > PASSED. The move's chunk 4 ran 2026-09-19: the four hardware gates PASSED against `ac4d5208…`, and
 > it was OPEN for six hours on the window-fit probe — **chunk 4b fixed that probe the same evening,
-> the gate measures 613 pt again, and chunk 4 CLOSED with it, so THE MOVE IS COMPLETE.** The walk
+> the gate measures 613 pt again (614 since 2026-09-24, Step 11's item 6 fix), and chunk 4 CLOSED
+> with it, so THE MOVE IS COMPLETE.** The walk
 > restarts after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
 > pulls are not re-walked on their own, because this file's item 3.7 carries them: item 0
 > re-checked, then chunk 1 from the top. Before the pause: item 0 PASSED 2026-09-13; its daemon row
@@ -268,6 +269,9 @@ daemon is still pid 46679 from `/Applications`.)*
 *(2026-09-19, later: the move's chunk 3 put the record back on `/Applications` at 10:27:22, and
 the daemon has been pid 95762 from there since 10:32:47 — see* The daemon*, above. This warning
 applies again, until this walk's chunk 3 is walked.)*
+*(2026-09-24: Step 11 item 6's test runs moved the record to DerivedData at 13:44:34.894, by BTM's
+own log; the daemon is still pid 95762 from `/Applications`. Launching the installed app moves it
+back — read it before item 0.)*
 
 **As written 2026-09-13, true then, and kept as the record of when it stopped being true:**
 

@@ -38,8 +38,10 @@
 #   scripts/window-fit-check.sh --verbose  # also print the intrinsic and maximum sizes
 #
 # Exit 0 when every state fits the committed budget, or misses it by no more than the amount
-# recorded in scripts/.window-fit-exceptions. Exit 1 when a state is too tall. **Exit 2 when the
-# probe could not measure**, which is not a pass and not a failure.
+# recorded in scripts/.window-fit-exceptions. Exit 1 when a state is too tall — or, since
+# 2026-09-24, when a state's declared minimum is below the height its content fits, so the window
+# can be dragged shorter than its content. **Exit 2 when the probe could not measure**, which is
+# not a pass and not a failure.
 #
 # ## Why exit 2 exists (2026-09-19)
 #
@@ -88,6 +90,13 @@
 # 543 exactly. The gate now reports 542 for the same state — one point under the shipped clamp,
 # which is AppKit rounding and is recorded rather than papered over.
 #
+# **2026-09-24: `deviceListFloor` is 104 now**, the table's floor asserted, and the two numbers are
+# the same in every state here. 104 rather than the 103 the probe reads for the table itself,
+# because of that same point: the probe reads the table 1 pt under a real window. And a gap
+# between the two is a failure now rather than a footnote, because the Xcode 27 / macOS 27 build's
+# window drags down to the declaration instead of clamping at the table — so a gap is a band a
+# user can reach, with the content cut off in it. The third check in the loop below says so.
+#
 # The overflow measurement alone is not enough either, and in the opposite direction: a view whose
 # whole body is a scroll region never overflows, so `report` bottoms out at 24 pt against a
 # declared 560. Hence the max.
@@ -122,10 +131,13 @@ mkdir -p "$BUILD_DIR"
 TITLE_BAR=32
 
 # name|points tall|budget after menu bar and a default bottom Dock
+#
+# "13.3\" @ 1152x720|720|620" was a row here until 2026-09-24, and is not maintained after it:
+# NFR-USE-9's amendment of that date makes 1280x800 the only target. A row printed here reads as a
+# claim somebody keeps true, and nobody does any longer.
 SCALINGS=(
     "13.3\" @ 1440x900 (default)|900|800"
     "13.3\" @ 1280x800|800|700"
-    "13.3\" @ 1152x720|720|620"
 )
 
 # What the project commits to covering: **1280x800 with the Dock showing** (user decision,
@@ -143,6 +155,11 @@ SCALINGS=(
 # look free. Against it every state fits with at least 62 pt to spare, `.window-fit-exceptions` is
 # empty, and NFR-USE-9 is a requirement the app meets rather than one carrying a standing
 # allowance. A 1152x720 user gets a window that mostly fits and grows past the Dock during a run.
+#
+# (2026-09-24: 1152x720 is not maintained — see SCALINGS above. And the spare against 700 is 86 pt,
+# not 62: 62 was 700 less the 638 that `starting` measured that day, and went stale on 2026-08-22,
+# when it measured 613. Both sentences are left as the account of 2026-08-20 they were, not as
+# claims about today.)
 COMMITTED_BUDGET=700
 
 EXCEPTIONS="$REPO_ROOT/scripts/.window-fit-exceptions"
@@ -185,6 +202,7 @@ echo
 printf "  %-24s %7s %8s %8s   %s\n" "state" "drives" "content" "window" "verdict"
 
 FAILED=0
+DRAGGABLE=0
 INCONCLUSIVE=0
 WORST=0
 WORST_STATE=""
@@ -227,14 +245,25 @@ for view in "${VIEWS[@]}"; do
         # **A measurement BELOW the declaration here
         # means the measurement stopped working**, not that the window got smaller.
         #
+        # (2026-09-24: those figures are from before `deviceListFloor` was raised. The declaration
+        # is 570 and 582 now, the same as the measurement. The invariant is unchanged, and the third
+        # check below is its other half: this one catches the measurement falling under the
+        # declaration, that one the declaration falling under the measurement.)
+        #
         # This is not true of every view `--limits` accepts: `report` and `devices` are a scroll
         # region end to end and legitimately bottom out far below their declared minimum — 24 pt
         # against 560 for `report`. Which is why this check lives in the gate, next to the list of
         # states it holds for, and not in the probe.
         declared_h="$(sed -E 's/.* declared=[0-9]+x([0-9]+) .*/\1/' <<< "$line")"
         overflow_h="$(sed -E 's/.* overflowAt=([0-9]+) .*/\1/' <<< "$line")"
-        if [[ "$declared_h" =~ ^[0-9]+$ ]] && [[ "$overflow_h" =~ ^[0-9]+$ ]] \
-           && (( overflow_h < declared_h )); then
+        # The probe prints both on every line it measured, so failing to read either is this
+        # script's fault and it stops. Until 2026-09-24 an unreadable pair skipped this check
+        # silently — tolerable while it was the only one, not once the third check reads them too.
+        if ! [[ "$declared_h" =~ ^[0-9]+$ && "$overflow_h" =~ ^[0-9]+$ ]]; then
+            echo "error: could not read declared= and overflowAt= heights from: $line" >&2
+            exit 1
+        fi
+        if (( overflow_h < declared_h )); then
             printf "  %-24s %7s %8s %8s   %s\n" "$view" "$drives" "—" "—" \
                 "INCONCLUSIVE — measured ${overflow_h} pt, below the declared ${declared_h}: this state's fixed chrome cannot compress that far, so the measurement is broken"
             [[ $VERBOSE -eq 1 ]] && echo "      $line"
@@ -271,6 +300,30 @@ for view in "${VIEWS[@]}"; do
         fi
 
         printf "  %-24s %7s %8s %8s   %s\n" "$view" "$drives" "$content_h" "$window_h" "$verdict"
+
+        # ## The third check: can the window be dragged shorter than its content? (2026-09-24)
+        #
+        # `min=` is the larger of the two numbers, which is the right one to hold against a budget
+        # and the wrong one to stop at: it says how tall the window has to be, not how short a user
+        # can make it. That is the DECLARED number — SwiftUI hands it to the window as
+        # `contentMinSize` — and the Xcode 27 / macOS 27 build's window honours it even where the
+        # content does not fit. (The build of 2026-08-20 clamped at the content instead, which is
+        # why nobody had to check this.) A declaration under the measurement is a band a user can
+        # drag into, with the content cut off in it.
+        #
+        # It was 46–57 pt wide in every state here until `deviceListFloor` was raised to the
+        # table's real floor, and everything found at the bottom of the window's range on 2026-09-23
+        # and -24 was inside it: the drive-count heading under the title bar, the idle metrics box
+        # cut off, and Step 11 chunk 11 item 6's report sheet overhanging the window's bottom edge.
+        # This script passed through all of it, because it only ever read `min=`.
+        #
+        # A failure rather than a warning: NFR-USE-9 asks for a minimum derived from the laid-out
+        # hierarchy, and a declaration the hierarchy does not honour is not that. On its own line,
+        # so that a state which is also too tall reports both.
+        if (( declared_h < overflow_h )); then
+            echo "      ✖ DRAGS SHORTER THAN ITS CONTENT — declared ${declared_h}, content fits at ${overflow_h}: a $(( overflow_h - declared_h )) pt band where it is cut off"
+            DRAGGABLE=1
+        fi
         [[ $VERBOSE -eq 1 ]] && echo "      $line"
 
         if (( window_h > WORST )); then
@@ -308,13 +361,32 @@ for scaling in "${SCALINGS[@]}"; do
 done
 
 echo
-if [[ $FAILED -eq 0 ]]; then
-    echo "✔ window-fit-check: every state fits, or misses by no more than its recorded allowance."
+if [[ $FAILED -eq 0 && $DRAGGABLE -eq 0 ]]; then
+    echo "✔ window-fit-check: every state fits, or misses by no more than its recorded allowance;"
+    echo "  and in every state the window's declared minimum is the height its content fits."
     exit 0
 fi
 
+echo "✖ window-fit-check FAILED."
+
+if [[ $DRAGGABLE -eq 1 ]]; then
+    cat <<'EOF'
+
+A state's declared minimum is below the height its content fits, so the window can be dragged
+into a band where the content is cut off — on the Xcode 27 / macOS 27 build nothing stops it. The
+declaration is the sum of the `.frame(minHeight:)` each pane asks for, so some pane is asking for
+less than its control will actually go down to. `WindowMetrics.deviceListFloor` records the one
+found so far, and why it is asserted rather than derived; find the pane, and raise its floor to
+what the control does. `ui-probe --limits <view> 640 <drives>` prints both numbers.
+
+Closing the band by making the content need less is fine. Closing it by adjusting the probe until
+the two numbers agree is not: the measurement is what the content actually does.
+EOF
+fi
+
+[[ $FAILED -eq 0 ]] && exit 1
+
 cat <<'EOF'
-✖ window-fit-check FAILED.
 
 A state is taller than the committed budget and has no recorded allowance, or has grown past
 the allowance it had. Either:

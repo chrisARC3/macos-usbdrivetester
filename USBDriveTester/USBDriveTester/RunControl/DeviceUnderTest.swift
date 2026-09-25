@@ -90,9 +90,10 @@
 //  Because it reads `ReportedDevice`, and `Discovery` must not depend on `Report`. That is not a
 //  matter of taste: `scripts/device-probe.sh` runs the app's **real** discovery headlessly by
 //  compiling `Discovery/*.swift` plus one Shared file and nothing else, and it is one of the
-//  thirteen clients `build-tools.sh` type-checks. Putting this type in `Discovery` broke it
-//  immediately, with an error the full app build could not produce because the app target has
-//  every file in it.
+//  clients `build-tools.sh` type-checks — which prints how many there are. (This said
+//  *thirteen* until 2026-09-24; there were fourteen from 2026-09-12.) Putting this type in
+//  `Discovery` broke it immediately, with an error the full app build could not produce because
+//  the app target has every file in it.
 //
 //  The narrower build is the one that can fail, which is the point of keeping it. `DisappearedDisk`
 //  — the *event* — stays in `Discovery` next to the watcher that produces it; the *question asked

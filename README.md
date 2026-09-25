@@ -66,7 +66,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > time: they agree to two points. **The second — the run report, shown as a sheet on the main
 > window — was walked on 2026-09-23 and did not pass.** Ten of its eleven checks passed. The one
 > that failed: when the window is short, the report is taller than the window and hangs below its
-> bottom edge, by 20 points at the smallest size. It stays owed until that is found and fixed.
+> bottom edge, by 20 points at the smallest size. **Found and fixed on 2026-09-24, not yet
+> re-walked:** the window could be dragged shorter than its own content, and now it cannot. The fix
+> lapses both re-walks' passes, so both are owed again on the build that carries it. The same day
+> the smallest screen this app is held to became 1280x800 alone.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -94,7 +97,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15,
 > and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
 > measured on the shipped window itself, 2026-09-22**, which is the first time the two have been
-> compared. See
+> compared. *(2026-09-24: **614 pt**, re-measured on the report fix, and the suite green again at
+> 1323 / 157 / 0 on its tree; the shipped window is not yet re-measured.)* See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 
