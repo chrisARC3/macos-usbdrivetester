@@ -290,6 +290,22 @@ this tool works for them, and if that is ever revisited the work is larger than 
 this table: it would need the audit this amendment cancels, on every surface, with a person at the
 keyboard each time.
 
+### 2026-09-25 — NFR-USE-9's worst case is the shipped window's 615 pt (no wording change)
+
+**User decision, 2026-09-25:** *"Change the running height spec from 614 to 615."* Step 11's re-walk
+that day read the shipped window's running floor at **615 pt**: 1 pt above the probe's worst case,
+`starting` at six drives, 614, and 15 above its `running`, the relation the old build's 557 had
+(2026-09-22 and 2026-09-23). The probe does not explain it. The window's worst case of record is now
+**615**, and it clears 1280x800 by **85 pt**.
+
+`window-fit-check.sh` is unchanged. It measures the probe, prints 614 and holds that against the
+700 pt budget; it has no 614 of its own to change. The shipped window keeps its 2 pt allowance over
+the probe, so the gate's 614 and the real window's 615 agree.
+
+*Shown on* the app installed 2026-09-24 18:01:53 from `77275be`, on macOS 27.0 (26A428). *What
+would move 615:* any edit to a view source, `WindowMetrics` or the probe; another install; a new
+Xcode or macOS.
+
 ### 2026-09-24 — NFR-USE-9: 1280x800 is the only target, and the window may not be dragged shorter than its content
 
 **Two user decisions, taken together on 2026-09-24, on one finding.** Step 11's chunk 11 re-walk
@@ -366,7 +382,7 @@ drives and with two and at **588** with one, pushed to **614** at Start, and hol
 run was on: 15 pt above the probe's `running` window again, and 1 above `starting`'s. So the shipped
 window's worst case is 615, and it clears 1280x800 by **85 pt**, not 86. The sheet sat 24 pt inside
 the window at every size taken. The 615 is recorded beside the probe's 614, not adopted: the gate's
-figure is still 614.)*
+figure is still 614.)* *(Adopted later the same day, by user decision: the amendment above.)*
 
 ### 2026-08-20 — NFR-USE-9 corrected: the instrument was wrong, and the budget with it
 
@@ -410,7 +426,8 @@ the decision started before the wrong figures made a tighter target look free, a
 state fits with at least **62 pt to spare** — with `scripts/.window-fit-exceptions` empty for the
 first time since it was created. *(2026-09-24: **86 pt** since that day, against 614. It was 87
 from 2026-08-22, when `starting` went from 638 to 613, as the next amendment records. 62 is left as
-the figure of 2026-08-20.)*
+the figure of 2026-08-20.)* *(2026-09-25: **85 pt**, against the shipped window's 615, the worst
+case of record since that day by user decision.)*
 
 **Amended 2026-08-24 — 1152x720 now fits outright.** This paragraph used to end: *"A user at
 1152x720 gets a window that fits at rest and grows behind the Dock for the few seconds a run spends
@@ -427,8 +444,8 @@ to be accurate to 2 pt, and to be 2 pt optimistic. The gate is unchanged.
 
 > ⚠️ **2026-09-24: 1152x720 is not maintained any more**, so neither paragraph above is a current
 > claim. The amendment of that date (above) retires the target, and `window-fit-check.sh` no longer
-> checks that scaling. The worst case is **614 pt** since `deviceListFloor` went to 104, not 613.
-> That still fits 620, but nothing checks it. Both paragraphs are kept as they were written.
+> checks that scaling. The worst case is **614 pt** since `deviceListFloor` went to 104, not 613
+> *(615 since 2026-09-25, the shipped window's)*. That still fits 620, but nothing checks it. Both paragraphs are kept as they were written.
 
 **The drive-count dependency is back, and it is small.** Increment 7 recorded the window's minimum
 as independent of how many drives are attached. That was an artefact of the declared number, which

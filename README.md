@@ -105,7 +105,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > compared. *(2026-09-24: **614 pt**, re-measured on the report fix, and the suite green again at
 > 1323 / 157 / 0 on its tree; the shipped window is not yet re-measured.)* *(2026-09-25: the
 > shipped window re-measured on the build that carries the fix — **614 pt** as a run starts and
-> **615 pt** while it runs, 85 pt inside the budget. The 615 is recorded, not adopted.)* See
+> **615 pt** while it runs, 85 pt inside the budget. The 615 was recorded, not adopted, and became
+> the spec later that day, by user decision.)* See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 

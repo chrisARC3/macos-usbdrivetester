@@ -33,13 +33,14 @@
 > *(2026-09-24: the probe's 613 is **614** since item 6's fix, and 1152x720 is no longer
 > maintained — see below. 2026-09-25, on the build that carries the fix: the shipped window was
 > pushed to **614** at Start, the probe's figure exactly, and held at **615** while the run went on —
-> see chunk 9's box.)*
+> see chunk 9's box. Later that day **615 became the spec**, by user decision.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
 > the figures below read as predicted: 600, 588 and 614. The running floor read 615, the higher of
 > its two predictions, so on hardware the worst case is 615 while a run is on rather than 614 as it
-> starts — reported, not adopted. See chunk 9's and chunk 11's boxes.)* The
+> starts — reported, not adopted, and then adopted by user decision the same day. See chunk 9's
+> and chunk 11's boxes.)* The
 > window could be dragged **46–57 pt below the height its content fits**: `WindowMetrics`'s
 > `deviceListFloor` asked the drive list's table for 46 pt and the table held about 104, and on
 > Xcode 27 / macOS 27 the window drags to the declared minimum, where the Xcode 26 build had stopped
@@ -690,13 +691,16 @@ report, would pass 1–6.
 > is 614.** Its prediction came from the old build's 557 + 58 and was right to the point. At 1280×800
 > that leaves **85 pt**, not the gate's 86 — within the 2 pt this box allows for the shipped window
 > reading over the probe. The gate is unchanged and 614 is still its number; whether it moves is the
-> user's call.
+> user's call. ✅ **Decided later that day: 615 is the spec** — *"Change the running height spec
+> from 614 to 615."* The gate is still unchanged: it measures the probe, which reads 614, and this
+> box's 2 pt allowance for the shipped window over it stands.
 >
 > **Three things seen that no item asks for.** The pre-run dialog grew with the window at the push,
 > 470 × 528 to 470 × 542 in the same 50 ms sample. With one drive left, the window stayed at 600 when
 > the other went, and only the drag took it to 588: a window does not shrink when its floor drops
 > (`PROGRESS.md`'s E3). And when that drive came back, the window was **pushed** from 588 to 600 in
-> 78 ms, its top edge kept: a rising floor pushes, the way Start does.
+> 78 ms, its top edge kept: a rising floor pushes, the way Start does. *(User, 2026-09-25, on the
+> push and the dialog growing with it: "Agreed" — harmless and cosmetic, kept as they are.)*
 >
 > **For any later walk that needs fewer drives:** the **1 TB 990 EVO Plus**, serial `013117100578`,
 > holds this repository and Claude Code, so it is never unplugged and is in every such state; with it
@@ -1026,7 +1030,8 @@ lines that tell the model a run produced a report are reachable only by a person
 > list's own height, so the window's minimum is the content's — **600 pt** with two or more drives,
 > **588** with one. The walk's 600 pt knee and Zoom's return to 600 are both that height, 568 of
 > content plus the title bar; that is consistent, not shown. The probe did not reproduce the push
-> at run 2's finish, which stays open.
+> at run 2's finish, which stays open *(closed 2026-09-25, by user decision: see "No push at the
+> finish", below)*.
 >
 > **Re-walk predictions for item 6**, on the build that carries the fix, six drives:
 >
@@ -1076,7 +1081,8 @@ lines that tell the model a run produced a report are reachable only by a person
 > **No push at the finish**: the window sat at the 615 pt running floor when the run ended, and the
 > report came up without moving it. The 2026-09-23 push, from 557 to 615, cannot be seen on this
 > build, since the window can no longer be below 615 when a run ends — **inferred, not tested**, so
-> that observation stays open. The one-drive row is the **empty** report — *"No run has finished
+> that observation stays open. ✅ *Closed later that day, by user decision: "Let's close the push at
+> the end of the run issue."* The one-drive row is the **empty** report — *"No run has finished
 > yet"*, Done, no Export, by design — because the day's restart had emptied `lastRunReport`, which
 > lives in memory only (export is the only persistence, FR-RPT-5); the sheet's frame is
 > `reportSheetSize`, whatever it shows.
