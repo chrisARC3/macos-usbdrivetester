@@ -90,6 +90,9 @@ reaches. When a measurement moves, grep the bare number and unit, not a phrase a
 as the sentence; and leave the archived `progress/step-NN.md` copies alone, because those are
 records of what was true.
 
+**Leave `claude-md-test/` alone too**: its stale claims are a test's fixtures, and its `README.md`
+says what is live.
+
 ---
 
 ## How work is done here
