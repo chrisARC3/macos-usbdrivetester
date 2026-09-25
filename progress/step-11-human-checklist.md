@@ -8,14 +8,16 @@
 > nobody noticed for thirteen days.
 
 > ⚠️ **2026-09-19: four parts of this file are OWED a re-walk on the Xcode 27 build** (user decision,
-> at the move to Xcode 27's chunk 4): ⚠️ **chunk 9**, the window's size — **walked 2026-09-21/22 and
-> passed, then lapsed 2026-09-24** by its own clause, when item 6's fix moved every floor it
-> measured, see its own box; ❌ **chunk 11**, the report as a sheet — **walked 2026-09-23 and NOT
-> passed: ten of eleven items pass, item 6 failed; fixed headlessly 2026-09-24, which lapses the
-> ten by the chunk's own clause, see its own box**; **chunk 16**, ⌘Q under every modal; and **item
-> 6.3**, Cancel and Quit. **Chunk 16 and item 6.3 remain unwalked, and chunks 9 and 11 are owed
-> again, on the build that carries the fix — installed 2026-09-24 18:01:53 from `77275be` and
-> proved by content — which items is the user's call.** Every pass in this
+> at the move to Xcode 27's chunk 4): ✅ **chunk 9**, the window's size — **walked 2026-09-21/22 and
+> passed, lapsed 2026-09-24** by its own clause, when item 6's fix moved every floor it measured,
+> and **items 2, 3 and 6 re-walked and passed 2026-09-25**, see its own box; ✅ **chunk 11**, the
+> report as a sheet — **walked 2026-09-23: ten of eleven items passed and item 6 failed; fixed
+> headlessly 2026-09-24; item 6 re-walked and passed 2026-09-25**, see its own box; **chunk 16**, ⌘Q
+> under every modal; and **item 6.3**, Cancel and Quit. **Both re-walks of 2026-09-25 ran on the
+> build that carries the fix — installed 2026-09-24 18:01:53 from `77275be` and proved by content.
+> Chunk 16 and item 6.3 remain unwalked.** 9.1, 9.4 and 9.5, and chunk 11's other ten items, were
+> not re-walked on that build (user decision, 2026-09-25): their passes are facts about the build
+> installed 2026-09-19, and the fix changed only the two lines that set the list's floor. Every pass in this
 > file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
 > window sizing, sheet presentation, key equivalents under a modal — that no test and no render
 > reaches. **Chunk 9 was also the calibration for `window-fit-check.sh`'s probe**, which stopped
@@ -29,9 +31,15 @@
 > on the new build by the suite, the four hardware gates and the renders, or gets exercised again by
 > Step 13's walk. **Each re-walk fills in its own Walked line and edits this note.**
 > *(2026-09-24: the probe's 613 is **614** since item 6's fix, and 1152x720 is no longer
-> maintained — see below.)*
+> maintained — see below. 2026-09-25, on the build that carries the fix: the shipped window was
+> pushed to **614** at Start, the probe's figure exactly, and held at **615** while the run went on —
+> see chunk 9's box.)*
 
-> ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.** The
+> ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
+> *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
+> the figures below read as predicted: 600, 588 and 614. The running floor read 615, the higher of
+> its two predictions, so on hardware the worst case is 615 while a run is on rather than 614 as it
+> starts — reported, not adopted. See chunk 9's and chunk 11's boxes.)* The
 > window could be dragged **46–57 pt below the height its content fits**: `WindowMetrics`'s
 > `deviceListFloor` asked the drive list's table for 46 pt and the table held about 104, and on
 > Xcode 27 / macOS 27 the window drags to the declared minimum, where the Xcode 26 build had stopped
@@ -86,6 +94,9 @@ found a defect**, since fixed and re-checked.
 > below the window's bottom edge. Owed, by user decision; see the chunk's own box.
 > *2026-09-24: fixed headlessly — the window can no longer be dragged below the height its content
 > fits — and not re-walked. The fix lapses the other ten passes too, by the chunk's own clause.*
+> ✅ *2026-09-25: item 6 re-walked on the build that carries the fix and **passed** — the sheet 24 pt
+> inside the window at every size taken, 588 to 1304 pt. The other ten were not re-walked (user
+> decision), so their passes are facts about the build installed 2026-09-19.*
 
 **CHUNK 13 PASSED IN FULL — ALL EIGHT ITEMS, 2026-08-27/09-01.** Added 2026-08-27 by increment 9, for the launch-time helper gate.
 It is the only cover the gate's *presentation* has: two mutations survive the whole suite by
@@ -652,6 +663,49 @@ report, would pass 1–6.
 > less if the shipped window reads over it as it did. **1152×720 is not maintained after
 > 2026-09-24**, and no figure for it is kept (NFR-USE-9's amendment of that date).
 
+> ✅ **ITEMS 2, 3 AND 6 RE-WALKED AND PASSED 2026-09-25, on the build that carries item 6's fix**
+> (user decision: *"re-walk 11.6, 9.2, 9.3 and 9.6"*). Against the app installed 2026-09-24
+> 18:01:53 from `77275be` (`68bc16c` records it), re-hashed that morning and again after the day's
+> restart to the bytes proved by content the evening before — dylib `e6e6e884…`, stub `bf787e19…`,
+> helper `ac4d5208…`, its `deviceListFloor` reading 104.0 — on macOS 27.0 (26A428), protocol v15. The
+> app was pid 28582 until the user restarted the Mac at 12:13, then pid 1475; the daemon was pid
+> 95762, then 1477. Six drives for the idle floor and the run, two for 9.6, one for the one-drive
+> floor. **9.1, 9.4 and 9.5 were not re-walked** (user decision); their passes above are facts about
+> the build installed 2026-09-19. **Invalidated by** the same clause as the box above: any edit to a
+> view source, to `WindowMetrics` or to the probe; another install; any new Xcode or macOS.
+>
+> Frames, 640 pt wide, from a sampler built from chunk 11's `winlist` source — the window server
+> every 50 ms and the autosave every 0.5 s, a line only when either changed:
+>
+> | | predicted | read |
+> |---|---|---|
+> | idle floor, six drives | **600** | **600** — the corner, from 867 (11:16:30) |
+> | idle floor, two drives | **600** | **600** — four drags, from 1304, 736, 1079 and 1227, every one stopping there (11:50–11:51) |
+> | idle floor, one drive | **588** | **588** — the corner, from 600 (13:00:23) |
+> | at Start, **pushed** | **614–616** | **614**, 71 ms after `starting` — the probe's 582 + 32 exactly (11:29:29) |
+> | running floor | **~615, or 600** | **615**, 259 ms after `running`; the corner dragged during the run did not move it, so not 600 |
+> | idle floor again, run finished | **600** | **600** — the corner (11:30:54) |
+>
+> **Reported, not adopted: the shipped window's worst case is the running floor, 615, and the gate's
+> is 614.** Its prediction came from the old build's 557 + 58 and was right to the point. At 1280×800
+> that leaves **85 pt**, not the gate's 86 — within the 2 pt this box allows for the shipped window
+> reading over the probe. The gate is unchanged and 614 is still its number; whether it moves is the
+> user's call.
+>
+> **Three things seen that no item asks for.** The pre-run dialog grew with the window at the push,
+> 470 × 528 to 470 × 542 in the same 50 ms sample. With one drive left, the window stayed at 600 when
+> the other went, and only the drag took it to 588: a window does not shrink when its floor drops
+> (`PROGRESS.md`'s E3). And when that drive came back, the window was **pushed** from 588 to 600 in
+> 78 ms, its top edge kept: a rising floor pushes, the way Start does.
+>
+> **For any later walk that needs fewer drives:** the **1 TB 990 EVO Plus**, serial `013117100578`,
+> holds this repository and Claude Code, so it is never unplugged and is in every such state; with it
+> alone attached, the app selects it, and nothing is started. The **22 TB Seagate** may be unplugged
+> for a walk step, ejected first, but must be powered on, connected and all its volumes mounted again
+> **before midnight every evening**, when automated backups run (user, 2026-09-25). Its eject failed
+> EBUSY that day until a restart; `/usr/sbin/lsof /Volumes/Backup "/Volumes/Time Machine"` names what
+> holds it.
+
 **Two drives attached for 9.4 and 9.6** — any second USB drive; nothing is written to either, and
 every check here is idle except 9.3.
 
@@ -719,6 +773,13 @@ the same file and must still be there — if they have gone, the wrong thing was
    600 pt frame with two or more drives and 588 with one**, and at that height the heading and the
    box's bottom edge whole.
 
+   ✅ **2026-09-25, on the build that carries the fix: 600 with six drives, 600 with two, 588 with
+   one**, each read off the window server and the autosave together (chunk 9's 2026-09-25 box). At
+   six, the user's screenshot at the floor showed the "6 USB drives" heading whole, the idle metrics
+   box's bottom border whole with space below it, and two whole rows in the list; the list gave way
+   before the selected-device pane — *"Part A - everything looks good."* At one drive, the heading
+   and the box's bottom edge whole — *"Everything looked exactly like it should."*
+
 3. **Start a run and, while it is running, drag the window down to its minimum again.** The live
    metrics panel must **scroll**, not clip. This is the defect reported on 2026-08-19: the bottom
    three lines were cut off and unreachable by any means, which for FR-METR-2/4/5/6 is the
@@ -748,6 +809,13 @@ the same file and must still be there — if they have gone, the wrong thing was
    to 614–616 at Start and a running floor of ~615 or 600** — both declared under chunk 9's box.
    At ~615 this item's drag cannot move a window pushed to 615, and **the scrolling it checks
    happens at that height**.
+
+   ✅ **2026-09-25, on the build that carries the fix** — a run on the 125.8 MB thumb, serial
+   `2211190533300386001515` read off the pre-run dialog, completed in 39.9 s with 0 failing blocks.
+   The window was **pushed to 614** 71 ms after `starting` and to **615** 259 ms after `running`, and
+   the corner dragged up during the run did not move it, so the metrics box was scrolled at 615, as
+   predicted: to its end, heading pinned, nothing cut off — *"All 5 elements of part B completed."*
+   After the run the corner took the window to 600 again.
 
 4. **With two drives attached, at a comfortable window height, check the idle metrics panel is
    exactly its two lines of copy** — no empty box beneath them — and that the spare height has gone
@@ -805,6 +873,12 @@ the same file and must still be there — if they have gone, the wrong thing was
    about **4 pt**. That is still the "few points" this item is written for — it is what the Xcode 26
    build gave, since that build stopped at the table's floor too.*
 
+   ✅ **2026-09-25, on the build that carries the fix, with two drives** — the 22 TB Seagate and the
+   1 TB 990 EVO Plus. The EVO Plus, the last in the list, selected; the window then taken from
+   1304 pt to its minimum, and three times more from 736, 1079 and 1227 pt, every one stopping at
+   **600** — and by the user's eye nothing out of place: *"Part C done. Cosmetically, everything
+   looks good."*
+
 > ⚠️ **OPEN, UNREPRODUCED — the bottom edge would not shrink the window (2026-09-21, reported
 > 2026-09-22).** Noticed while the readings above were being taken: dragging the **bottom edge** up
 > did not shrink the main window at all, while the **bottom-right corner** handle worked perfectly
@@ -817,7 +891,9 @@ the same file and must still be there — if they have gone, the wrong thing was
 > unchanged is either this or a window already sitting on its floor, and those two are told apart by
 > whether the reading is *at* the floor for that state — 542 idle, 557 running. *(Those are the old
 > build's. From item 6's fix, 2026-09-24, predict 600 idle with two or more drives, 588 with one,
-> and ~615 or 600 running — see chunk 9's box.)*
+> and ~615 or 600 running — see chunk 9's box. ✅ 2026-09-25: read **600**, **588** and **615**. The
+> bottom and top edges were tried at the six-drive idle floor that day and left no reading, which
+> the detector puts down to the floor; the edge was not separately tested.)*
 >
 > **Hypothesis — inference, not measurement.** The one session it bit was the one in which the window
 > was sitting at a height *AppKit had pushed it to* at Start (615 pt) rather than one that had been
@@ -860,7 +936,7 @@ Kept as a heading rather than deleted silently, because *"chunk 10 passed"* and 
 exist"* are different facts and a reader of this file is entitled to know which one applies. If a
 Restart control is ever built again, its checks are in commit `0f65be4`.
 
-### Chunk 11 — the report as a sheet (increment 8) — ❌ **RE-WALKED ON XCODE 27 2026-09-23, NOT PASSED: ITEM 6 FIXED 2026-09-24, NOT YET RE-WALKED** *(two finished runs cover 2–7 and 9; 8 starts one that aborts; 1, 10 and 11 are dry)*
+### Chunk 11 — the report as a sheet (increment 8) — ✅ **RE-WALKED ON XCODE 27: TEN ITEMS PASSED 2026-09-23; ITEM 6 FAILED, WAS FIXED 2026-09-24 AND PASSED 2026-09-25 ON THE BUILD THAT CARRIES THE FIX, WHERE THE TEN WERE NOT RE-WALKED** *(two finished runs cover 2–7 and 9; 8 starts one that aborts; 1, 10 and 11 are dry)*
 
 The report was a `Window` from Step 10 until increment 8 and is now a **sheet on the main window**
 (user decision 2026-08-19). Nothing in the suite can see any of this: no test drives a SwiftUI view,
@@ -937,7 +1013,8 @@ lines that tell the model a run produced a report are reachable only by a person
 >   zoomed from** (14:44:33). The app logged nothing and no drive came or went. 600 is also where item
 >   6's error stops. Noticed, not tested.
 >
-> ⚠️ **2026-09-24 — diagnosed and fixed headlessly; not re-walked.** The candidate was right about
+> ⚠️ **2026-09-24 — diagnosed and fixed headlessly; not re-walked.** *(✅ 2026-09-25: re-walked and
+> passed — see the paragraph after the predictions below.)* The candidate was right about
 > the sheet and wrong about where the fault lay. `reportSheetSize` does take the root stack's
 > `contentSize`, and below about 600 pt that stack was taller than the window. Nothing misread it:
 > **the window could be dragged below the height its content fits.** This build's window drags down
@@ -967,6 +1044,42 @@ lines that tell the model a run produced a report are reachable only by a person
 > passes lapse by this box's clause**, since the fix edits `WindowMetrics` and a view source,
 > although nothing they check moved: the only code changed is the two lines that set the list's
 > floor. Which of them to re-walk is the user's call; item 6 is the one the fix is for.
+>
+> ✅ **ITEM 6 RE-WALKED AND PASSED 2026-09-25, on the build that carries the fix** — the build, pids
+> and drives chunk 9's 2026-09-25 box names: installed 2026-09-24 18:01:53 from `77275be`, dylib
+> `e6e6e884…`, helper `ac4d5208…`, protocol v15, macOS 27.0 (26A428). **The other ten items were not
+> re-walked** (user decision), so their passes are facts about the build installed 2026-09-19.
+> **Invalidated by** this chunk's clause: any edit to a view source or to `AppModel`, `QuitPolicy`,
+> `AppLifecycleDelegate`, `WindowMetrics` or `DevicePreparation`; a different installed build; any
+> new Xcode or macOS. Read off the window server, as the table above was:
+>
+> | main window | how it got there | sheet | predicted | sheet's bottom edge |
+> |---|---|---|---|---|
+> | 640 × 615 | held at the running floor; the report came up at the run's finish — six drives | 616 × 559 | 616 × 559 | 24 pt inside |
+> | **640 × 600** | the corner, to the idle floor after the run — six drives | **616 × 544** | 616 × 544 | 24 pt inside |
+> | 1027 × 1304 | the corner, outwards | 1003 × 1248 | 1003 × 1248 | 24 pt inside |
+> | **640 × 588** | the corner, to the idle floor — **one drive** | **616 × 532** | 616 × 532 | 24 pt inside |
+>
+> Every sheet sat at *x* + 12, *y* + 32 and every one was exact. The three predictions held:
+>
+> * **at the floor**, 616 × 544 on 640 × 600, with the headline, a scrolling body, **Export
+>   report…** and **Done** all on screen — *"All 5 elements of part B completed … Cosmetically, all
+>   UI elements of both windows passed"* — and 616 × 532 on 588 with one drive;
+> * **nothing below the floor was reachable**: every drag stopped at 600, or 588 with one drive, so
+>   none of the too-tall rows above could be reproduced;
+> * **a frame saved below the floor opened at the floor.** The autosave held a 615 pt frame, left by
+>   the 2026-09-24 run, not the 542 predicted as likely, so a 542 pt frame with the same top edge was
+>   seeded by path with the app quit — `106 862 640 542` — and the window opened at 640 × 600, its top
+>   edge kept, autosaved `106 804 640 600` a second after launch (user: *"Yes, the defaults command at
+>   02:55:53 was the 542 seed."*).
+>
+> **No push at the finish**: the window sat at the 615 pt running floor when the run ended, and the
+> report came up without moving it. The 2026-09-23 push, from 557 to 615, cannot be seen on this
+> build, since the window can no longer be below 615 when a run ends — **inferred, not tested**, so
+> that observation stays open. The one-drive row is the **empty** report — *"No run has finished
+> yet"*, Done, no Export, by design — because the day's restart had emptied `lastRunReport`, which
+> lives in memory only (export is the only persistence, FR-RPT-5); the sheet's frame is
+> `reportSheetSize`, whatever it shows.
 >
 > **Two of this checklist's own instructions were wrong, and are annotated below rather than
 > rewritten.** Correction (7) missed that **closing the main window is a quit**, so item 7 was walked
@@ -1230,6 +1343,12 @@ need a real run; 8–10 do not.
    build that carries the fix: 640 × 600 and a 616 × 544 sheet, its bottom edge 24 pt inside**, with
    six drives. The box at the top of this chunk has the account and the rest of the predictions.
    This item stays ❌ until it is walked on that build.
+
+   ✅ **PASSED 2026-09-25 on that build.** At the 600 pt floor with six drives, a 616 × 544 sheet
+   24 pt inside the window, with its headline, a scrolling body, **Export report…** and **Done** on
+   screen; 616 × 532 at the 588 pt floor with one drive; exact at 615 and at 1027 × 1304 as well; no
+   drag below the floor; never overhanging, never off the screen. The readings are in the box at the
+   top of this chunk.
 
 7. **Press ⌘Q while the report is up. The report goes and the app quits — one keystroke, both.**
    *Quit USBDriveTester* is **not** greyed here. Also try the close button: it should still be dead

@@ -354,11 +354,19 @@ It is recorded here because it decides what the next walk of such an item accept
 the empty-state placeholder, which keeps the 104 pt floor. So with one drive attached, a window
 restored below 600 pt opens up to 12 pt taller than it needs, and nothing shrinks it back.
 
-**Not yet shown on hardware.** Every figure above is the probe's. The shipped window has read 1–2 pt
+**Not yet shown on hardware.** *(Shown 2026-09-25 — below.)* Every figure above is the probe's. The shipped window has read 1–2 pt
 taller than the probe. During a run, its floor has read 15 pt above the probe's `running` figure
 and 1 pt above `starting`'s (Step 11 chunk 9, 2026-09-22, and again on 2026-09-23). The probe does
 not explain that. Step 11 chunk 11 item 6's re-walk confirms that the sheet sits inside the window
 again.
+
+*(2026-09-25: **shown on hardware**, on the build installed 2026-09-24 18:01:53. Step 11's re-walk of
+chunk 11's item 6 and chunk 9's items 2, 3 and 6 read the window stopping at **600 pt** with six
+drives and with two and at **588** with one, pushed to **614** at Start, and holding **615** while a
+run was on: 15 pt above the probe's `running` window again, and 1 above `starting`'s. So the shipped
+window's worst case is 615, and it clears 1280x800 by **85 pt**, not 86. The sheet sat 24 pt inside
+the window at every size taken. The 615 is recorded beside the probe's 614, not adopted: the gate's
+figure is still 614.)*
 
 ### 2026-08-20 — NFR-USE-9 corrected: the instrument was wrong, and the budget with it
 

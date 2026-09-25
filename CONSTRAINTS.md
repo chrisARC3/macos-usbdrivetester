@@ -462,7 +462,10 @@ Apple and both were found only because someone pressed the button.
     the record; only a relaunch of the daemon fixes the daemon. *(Again end to end 2026-09-19, at
     the move to Xcode 27's chunk 3: launching the installed app moved the record from DerivedData at
     10:27:22.666, a dump at 10:27:44 named DerivedData nowhere, and the kickstart at 10:32:47
-    resolved to `/Applications` — pid 95762.)*
+    resolved to `/Applications` — pid 95762.)* *(And 2026-09-25: the user's launch of the installed
+    app moved the record back from DerivedData at 02:56:15.630, and a restart of the Mac at 12:13 —
+    a relaunch of the daemon that nobody typed — resolved it to `/Applications` at 12:19:03.297,
+    pid 1477.)*
   - **⚠️ `log show`'s `processImagePath` is not provenance either — measured 2026-09-18.** The
     unified log looks the path up through the binary's LC_UUID, so two copies of one binary share one
     path in it. All 167 lines from the installed app's pid 24803 were attributed to
@@ -1039,6 +1042,15 @@ was the defect. Here it was found before the gate was walked rather than after.*
     and never shrinks it back. A one-drive render asked for 556 comes out 568. It comes out 556 again
     when only the placeholder's floor is put back to 46. The probe's host has the same timing as the
     app, so the probe shows this too.
+
+  *(2026-09-25: **shown closed on hardware**, by Step 11's re-walk of chunk 11's item 6 and chunk 9's
+  items 2, 3 and 6 on the build that carries the fix. The window stopped at **600 pt** with six drives
+  and with two and at **588** with one, and the report sheet sat 24 pt inside it at every size taken.
+  Both halves of the third fact showed on the real window. A floor that **rose** pushed it: a second
+  drive arriving took it from 588 to 600 in 78 ms, top edge kept, the way Start takes it to 614. A
+  floor that **fell** did not shrink it: with a drive gone it stayed at 600 until dragged. The running
+  floor read **615** — 1 pt above `starting`'s and 15 above `running`'s, the relation 2026-09-22's
+  557 had — and the probe still does not explain it.)*
 - **`.defaultSize` sizes the window's *frame* on macOS 27, not its content** (measured 2026-09-22,
   Step 11's chunk 9, Xcode 27.0 27A266a / macOS 27.0 26A428). `.defaultSize(width: 720, height: 700)`
   opens a **720 × 700 frame** — 668 pt of content, short by exactly the 32 pt title bar. Same family

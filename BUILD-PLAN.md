@@ -31,16 +31,22 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > 2026-09-24 — with an INCONCLUSIVE verdict of its own so it can never again print a declared
 > minimum as a fit). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, which need a
 > person at the keyboard — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked
-> 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapses both,
-> so both are owed again on the build that carries the fix, installed 2026-09-24 18:01:53 — and then
-> the walk restarts at item 0.
+> 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both.
+> ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and
+> PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and
+> with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the
+> window at every size taken. The running 615, 1 pt over the gate's 614, is reported and not
+> adopted; chunk 9's other three items and chunk 11's other ten were not re-walked. **Next: chunk 16
+> and item 6.3, then Step 12's chunks 1–2** — and then the walk restarts at item 0.
 > Before the pause, item 0 passed
 > 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
 > and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one
 > of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed
 > again at the 2026-09-24 install of item 6's fix. The daemon was kickstarted 2026-09-19 10:32:47
-> and runs the installed Xcode 27 helper from `/Applications`, pid 95762, unchanged by that install
-> (`PROGRESS.md`, cold start).** Step 12's
+> and ran the installed Xcode 27 helper from `/Applications` as pid 95762, unchanged by that install,
+> until the user restarted the Mac on 2026-09-25 at 12:13; since 12:19:03 it is **pid 1477** — the
+> same helper `ac4d5208…`, protocol v15, still from `/Applications` (`PROGRESS.md`, cold start).**
+> Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
 > five-chunk checklist walk — CLOSED 2026-09-11**: chunks 1 and 2 passed 2026-09-08, chunk 3
@@ -458,8 +464,8 @@ results with their numbers.
 | role | drive | **serial** | notes |
 |---|---|---|---|
 | **scratch** — every write gate | Samsung Portable SSD T5, 1 TB, 512 B blocks, one exFAT volume `Test_Drive` | **`12345686DAA9`** | Contents expendable. 1,953,525,168 blocks. |
-| **bulk** — read-only, by prior agreement | Seagate Expansion HDD, 22 TB | **`00000000NT17XBRA`** | Live HFS volume + Time Machine. **Never a write target.** 42,970,644,479 blocks. |
-| **source tree** — never tested | Samsung SSD 990 EVO Plus in a Ugreen enclosure | **`013117100578`** | Holds this repository. The serial belongs to the *enclosure*. |
+| **bulk** — read-only, by prior agreement | Seagate Expansion HDD, 22 TB | **`00000000NT17XBRA`** | Live HFS volume + Time Machine. **Never a write target.** 42,970,644,479 blocks. May be unplugged for a walk step, ejected first, but must be powered on, connected and all its volumes mounted again **before midnight every evening**, when automated backups run (user, 2026-09-25). |
+| **source tree** — never tested | Samsung SSD 990 EVO Plus in a Ugreen enclosure | **`013117100578`** | Holds this repository and Claude Code, so it is **never unplugged**: every walk state with fewer drives includes it (user, 2026-09-25). The serial belongs to the *enclosure*. |
 | **fixture** — multi-volume unmount tests; reserve discriminator | Samsung PSSD **T5 EVO**, **4 TB**, 512 B blocks | **`00000S7CLNJ0WC02266P`** | Contents expendable. 7,814,037,168 blocks — **above 2³²**. Built by `scripts/make-unmount-fixture.sh`; see the two roles below. |
 
 **The fixture drive, added 2026-08-09.** It carries two roles and they do not conflict:
@@ -563,7 +569,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapses both, so both are owed again on the build that carries the fix, installed 2026-09-24 18:01:53 — and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is reported and not adopted, and chunk 9's other three items and chunk 11's other ten were not re-walked. **Next: chunk 16 and item 6.3, then Step 12's chunks 1–2** — and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -582,7 +588,11 @@ simulation-first still applies wherever the plan calls for it.
 > **pid 46679**, the installed helper (`PROGRESS.md`, cold start). ⚠️ **2026-09-19:** the Xcode 27
 > install left pid 46679 running the previous helper, and the user's kickstart at **10:32:47**
 > replaced it — **pid 95762**, the installed Xcode 27 helper `ac4d5208…`, resolved from
-> `/Applications` (`PROGRESS.md`, cold start). **Chunk 3
+> `/Applications` (`PROGRESS.md`, cold start). ⚠️ **2026-09-25:** the user's restart at 12:13 ended
+> pid 95762, and since 12:19:03 the daemon is **pid 1477** — the same helper `ac4d5208…`, protocol
+> v15, from `/Applications`, where BTM's record had moved back at 02:56:15.630 when the user
+> launched the installed app. The helper bytes did not change, so no gate lapses with the pid.
+> **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
 > open is what makes the slices disappear. **Fixed at 7f**, killed by seven tests, helper hash
@@ -663,6 +673,8 @@ simulation-first still applies wherever the plan calls for it.
 > ⚠️ **2026-09-24: the checklist has not been complete since 2026-09-19**, when the move to Xcode 27
 > reopened four parts of it for re-walks (user decision); one of them, chunk 11, did not pass on
 > 2026-09-23 (item 6). The Status paragraph above and the checklist's 2026-09-19 note carry where they stand.
+> *(2026-09-25: item 6 passed on the fix's build, with chunk 9's items 2, 3 and 6; chunk 16 and
+> item 6.3 are still unwalked, so the checklist is still not complete.)*
 > The next three paragraphs are records of 2026-09-04 and 2026-09-03.
 >
 > **Complete again as of 2026-09-04**: increment 12 added chunk 16 and changed 6.1 and 11.7, and
@@ -722,9 +734,19 @@ simulation-first still applies wherever the plan calls for it.
 > six drives, **614 pt**: 1 pt above 613, because 104 is the real window's table and the probe had
 > read it at 103. **86 pt spare at 1280x800**. By user decision the same day, **1280x800 is
 > NFR-USE-9's only target**; the gate's 1152x720 row is gone and its spare is not kept. Installed
-> 2026-09-24 18:01:53 from `77275be`, proved by content, and not yet shown on hardware: Step 11's
+> 2026-09-24 18:01:53 from `77275be`, proved by content, and not yet shown on hardware *(shown
+> 2026-09-25 — the next paragraph)*: Step 11's
 > chunk 9 and chunk 11 item 6 are the re-walks (`PROGRESS.md`, *Item 6's diagnosis and fix*;
 > `nonfunctional-requirements-usb-drive-tester.md`, the 2026-09-24 amendment).
+>
+> ✅ **2026-09-25: shown on hardware.** Step 11's re-walk of item 6 and chunk 9's items 2, 3 and 6,
+> on that installed build, read the real window at **600 pt** idle with six drives and with two,
+> **588** with one, pushed to **614** at Start — the probe's figure exactly — and **615** while a run
+> is on, with the report sheet 24 pt inside the window at every size taken. So the shipped window's
+> worst case is the running floor, **615**, 1 pt over this gate's 614, which leaves **85 pt** at
+> 1280x800 rather than 86: within the 2 pt the checklist allows the shipped window over the probe.
+> **The gate is unchanged and 614 is still its number**; 615 is recorded beside it, not adopted —
+> that is the user's call (`PROGRESS.md`, *The re-walk of 2026-09-25*).
 >
 > **The repository has a remote as of 2026-09-02** — private
 > [`chrisARC3/macos-usbdrivetester`](https://github.com/chrisARC3/macos-usbdrivetester), branch

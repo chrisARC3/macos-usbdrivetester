@@ -66,11 +66,15 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > time: they agree to two points. **The second — the run report, shown as a sheet on the main
 > window — was walked on 2026-09-23 and did not pass.** Ten of its eleven checks passed. The one
 > that failed: when the window is short, the report is taller than the window and hangs below its
-> bottom edge, by 20 points at the smallest size. **Found and fixed on 2026-09-24, not yet
-> re-walked:** the window could be dragged shorter than its own content, and now it cannot. The fix
-> lapses both re-walks' passes, so both are owed again on the build that carries it, which was
-> installed that evening. The same day the smallest screen this app is held to became 1280x800
-> alone.
+> bottom edge, by 20 points at the smallest size. **Found and fixed on 2026-09-24:** the window
+> could be dragged shorter than its own content, and now it cannot. The fix lapsed both re-walks'
+> passes. The same day the smallest screen this app is held to became 1280x800 alone. **Walked
+> again on 2026-09-25, on the build that carries the fix, and passed:** the report sits 24 points
+> inside the window at every size tried, and the window stops at its floor with six drives, with two
+> and with one. Only the failed check and the three window-size checks the fix touches were walked
+> again; the rest remain passes of the earlier build. Next come the two quit checks not yet walked on
+> Xcode 27 — ⌘Q under every modal, and *Cancel and Quit* during a run — then Step 12's first two
+> chunks, and then the walk restarts at item 0.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -99,7 +103,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
 > measured on the shipped window itself, 2026-09-22**, which is the first time the two have been
 > compared. *(2026-09-24: **614 pt**, re-measured on the report fix, and the suite green again at
-> 1323 / 157 / 0 on its tree; the shipped window is not yet re-measured.)* See
+> 1323 / 157 / 0 on its tree; the shipped window is not yet re-measured.)* *(2026-09-25: the
+> shipped window re-measured on the build that carries the fix — **614 pt** as a run starts and
+> **615 pt** while it runs, 85 pt inside the budget. The 615 is recorded, not adopted.)* See
 > [`PROGRESS.md`](PROGRESS.md) for the step in flight and [`BUILD-PLAN.md`](BUILD-PLAN.md) for the
 > sequence and its gates.
 
