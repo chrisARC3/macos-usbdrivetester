@@ -16,9 +16,10 @@ the message of `c8ac81e`.
 **Status, 2026-09-24: moved here from the session scratchpad; no real session has run through the
 moved scripts.** That day they were checked headlessly, with a stand-in for the CLI. The copies
 come out with the same HEADs as the scored runs', the sandbox's controls pass, and the scorers
-reproduce `score-all.txt`, `scores.json` and `stale-context.txt` byte for byte. The account is in the message of the commit that
-added this file. An edit to any script here lapses that check. So does the first real session,
-which also retires this line.
+reproduce `score-all.txt`, `scores.json` and `stale-context.txt` byte for byte — only in the folder
+the runs were made in (*Re-scoring 2026-09-24*, below). The account is in the message of the commit
+that added this file. An edit to any script here lapses that check. So does the first real
+session, which also retires this line.
 
 ## Arms
 
@@ -51,7 +52,7 @@ would then take three old working agreements as its own.
 | `predictions.md` | the question, sites, predictions and scorer controls, declared 2026-09-24 11:21:13, before any run. Its `request.txt` is the body of `staged-request.txt`. It names CLI 2.1.246; 2.1.280 ran, and `c8ac81e` says why |
 | `score.py` | the declared scorer: the sites from each copy's final tree, the process from its stream |
 | `stale_context.py` | a reading aid written after the pilot: the lines a session added near a claim it left in place. It is not the declared scorer |
-| `results/2026-09-24/` | the first run: `score-all.txt`, `scores.json`, `stale-context.txt`, and `runs.tsv` — times, model, effort, CLI, base commit, `CLAUDE.md` and stream per run. Effort comes from `as-run/run_one.sh`, the rest from each run's outputs. `as-run/` holds the scripts as they ran |
+| `results/2026-09-24/` | the first run: `score-all.txt`, `scores.json`, `stale-context.txt`, and `runs.tsv` — times, model, effort, CLI, base commit, `CLAUDE.md` and stream per run. Effort comes from `as-run/run_one.sh`, the rest from each run's outputs. `as-run/` holds the scripts as they ran. `raw.tar.xz` holds the raw outputs, and `raw-manifest.tsv` lists them (*The raw outputs*, below) |
 
 ## Re-running it
 
@@ -154,11 +155,66 @@ here differ from them only as follows.
   reachable or not. The copy has no tags. This directory is not in it. It takes the committer from
   the base, where the as-run script had it written in, and the result is the same HEADs.
 
-## Not kept
+## The raw outputs
 
-The streams (2.0–2.8 MB each), the CLI debug logs, the profiles and the copies are not in this
-repository. On 2026-09-24 they were in the session scratchpad under `/private/tmp`. `runs.tsv`
-gives each stream's size and sha256, so a copy archived elsewhere can be identified.
+`results/2026-09-24/raw.tar.xz` holds what the committed results were made from: 154 files, 23 MB
+unpacked and 0.8 MB packed. It is compressed so that a grep of the repository does not find the
+sessions' text.
+
+| in it | what |
+|---|---|
+| `out/` | each run's stream (2.0–2.8 MB), CLI debug log, stderr, sandbox profile, base commit and times; the probe's; and the failed attempts', under `failed-session-limit/` and `failed-cli-2.1.246/` |
+| `bundles/` | each scored copy's one commit, as a git bundle on its base, and `heads.tsv`: run, base, head |
+| `tool-results/` | the two outputs the CLI saved in full, r01's and r08's. Their streams show only a preview |
+| `smoke/` | the CLI smoke tests, 11:02–11:03 |
+| `as-run/run_one.sh.v2146` | the script of the attempt on CLI 2.1.246. It differs from `as-run/run_one.sh` only in the CLI's path and version line |
+| `MANIFEST.tsv` | every other file's size and sha256. `raw-manifest.tsv`, beside the archive, is the same file |
+
+It leaves out the copies, which `make_clone.sh` and the bundles rebuild; the failed attempts'
+copies, which were clean at their base; the scorer controls' copies, which `score.py --ideal`
+regenerates; and the three files committed beside it. The streams match `runs.tsv`'s sizes and
+sha256s.
+
+### Re-scoring 2026-09-24
+
+`score.py` counts a grep as searching the repository, for G1–G3, only when its path lies under
+`$CMT_WORK/w/<run>/USBDriveTester`, and the streams hold the paths the sessions saw. The committed
+scores were made in place, so they stand, but they come back only in the folder the runs were made
+in: that day's session scratchpad. Scored anywhere else, G1 and G2 come out lower for five runs,
+all in arms B and C — r02, r05, r06, r07 and r08 — and G3 for three of them. Arm B's G1 average
+falls from 2.7 to 1.7, and C's from 3.0 to 1.3. Must, should and X1 do not move.
+
+The folder must not already hold `w/` or `out/`:
+
+```bash
+export CMT_WORK=/private/tmp/claude-501/-Volumes-1TB-UGreen-AI-Stuff-claude-code-folder-USBDriveTester/9b3706ab-cf2e-4a65-9796-e2d7dba5cabb/scratchpad
+```
+
+```bash
+mkdir -p $CMT_WORK && tar -xJf /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/results/2026-09-24/raw.tar.xz -C $CMT_WORK
+```
+
+Rebuild the nine copies, waves 1–3 of `assign.tsv`, each with its run's commit:
+
+```bash
+awk -F'\t' 'NR > 1 && $3 <= 3 { print $1, $2 }' /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/assign.tsv | while read run arm; do /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/make_clone.sh $run $arm && git -C $CMT_WORK/w/$run/USBDriveTester pull -q --ff-only $CMT_WORK/bundles/$run.bundle main || break; done
+```
+
+```bash
+python3 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/score.py --all > $CMT_WORK/out/score-all.txt
+```
+
+```bash
+python3 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/stale_context.py r04 r01 r03 r02 r09 r08 r07 r05 r06 > $CMT_WORK/out/stale-context.txt
+```
+
+**Checked 2026-09-24** against the archive whose sha256 begins `6ec5f15b631a4d31`: these five
+commands, run as written in that folder with the live copies moved aside, gave back
+`score-all.txt`, `scores.json` and `stale-context.txt` byte for byte. The same steps in another
+folder gave the differences above. *What would invalidate it:* an edit to `score.py`,
+`stale_context.py`, `make_clone.sh`, the archive, or `assign.tsv`'s first nine rows.
+
+## What a re-run inherits
 
 The limits of the 2026-09-24 run are listed in `c8ac81e`'s message. A re-run inherits three of
 them:
