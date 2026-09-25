@@ -4,8 +4,9 @@
 > Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
 > pass this file had made — item 0, chunk 1, 2.1–2.4 and 2.6, each a fact about the Xcode 26 build
 > `af09416` — LAPSED at that install. Item 0 was re-run against the new install that morning and
-> PASSED. The move's chunk 4 ran 2026-09-19: the four hardware gates PASSED against `ac4d5208…`, and
-> it was OPEN for six hours on the window-fit probe — **chunk 4b fixed that probe the same evening,
+> PASSED — ⚠️ and LAPSED 2026-09-24 18:01:53, at the install of Step 11's item 6 fix. The move's
+> chunk 4 ran 2026-09-19: the four hardware gates PASSED against `ac4d5208…`, and it was OPEN for
+> six hours on the window-fit probe — **chunk 4b fixed that probe the same evening,
 > the gate measures 613 pt again (614 since 2026-09-24, Step 11's item 6 fix), and chunk 4 CLOSED
 > with it, so THE MOVE IS COMPLETE.** The walk
 > restarts after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
@@ -26,9 +27,13 @@
 > **Xcode 27 build out of DerivedData** (pid 12059, helper `32a647da…`), not the installed
 > `7590b920…`. **Kickstarted 2026-09-18 13:06:19**: the daemon became pid **46679**, resolved from
 > `/Applications`, running `7590b920…`.
-> **Since 2026-09-19 the installed app is Xcode 27's build** of `bcde5f5`'s sources, installed
-> 10:22:50 — dylib `422c89d3…`, helper `ac4d5208…` — and **the daemon is pid 95762**, kickstarted
-> 10:32:47, resolved from `/Applications`, running `ac4d5208…`. See *The daemon*, below.
+> **From 2026-09-19 the installed app was Xcode 27's build** of `bcde5f5`'s sources, installed
+> 10:22:50 — dylib `422c89d3…`, helper `ac4d5208…`. **Since 2026-09-24 18:01:53 it is `77275be`'s**,
+> Step 11's item 6 fix — dylib `e6e6e884…`, the same helper — which **lapses item 0's pass of
+> 2026-09-19** by its first clause, *another install*; item 0 is re-run when the walk restarts,
+> as it was going to be. **The daemon is pid 95762**, kickstarted 2026-09-19 10:32:47, resolved
+> from `/Applications`, running `ac4d5208…` — no kickstart owed, the helper being unchanged. See
+> *The daemon*, below.
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -340,6 +345,10 @@ rather than this instruction — mutation **m9** of chunk 4's round confirms the
 
 **Record:** ✅ **PASSED 2026-09-19**, headless, at the move to Xcode 27's chunk 3 — the install
 proved at 10:23:09, the daemon row after the user's kickstart at 10:32:47, both read again at 10:43.
+⚠️ *LAPSED 2026-09-24 18:01:53, by its first clause: `77275be` was installed, Step 11's item 6 fix.
+Read headlessly the same evening, not as a record: item 0.1 greps 1, dylib `e6e6e884…`, the same
+helper, the daemon still pid 95762 — and BTM's record on DerivedData since 13:44:34.894, which the
+next launch of the installed app moves back (`PROGRESS.md`, *Installed app*).*
 
 | | |
 |---|---|

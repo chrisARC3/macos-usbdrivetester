@@ -68,8 +68,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > that failed: when the window is short, the report is taller than the window and hangs below its
 > bottom edge, by 20 points at the smallest size. **Found and fixed on 2026-09-24, not yet
 > re-walked:** the window could be dragged shorter than its own content, and now it cannot. The fix
-> lapses both re-walks' passes, so both are owed again on the build that carries it. The same day
-> the smallest screen this app is held to became 1280x800 alone.
+> lapses both re-walks' passes, so both are owed again on the build that carries it, which was
+> installed that evening. The same day the smallest screen this app is held to became 1280x800
+> alone.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the

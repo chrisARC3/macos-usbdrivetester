@@ -14,7 +14,8 @@
 > passed: ten of eleven items pass, item 6 failed; fixed headlessly 2026-09-24, which lapses the
 > ten by the chunk's own clause, see its own box**; **chunk 16**, ⌘Q under every modal; and **item
 > 6.3**, Cancel and Quit. **Chunk 16 and item 6.3 remain unwalked, and chunks 9 and 11 are owed
-> again, on the build that carries the fix — which items is the user's call.** Every pass in this
+> again, on the build that carries the fix — installed 2026-09-24 18:01:53 from `77275be` and
+> proved by content — which items is the user's call.** Every pass in this
 > file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
 > window sizing, sheet presentation, key equivalents under a modal — that no test and no render
 > reaches. **Chunk 9 was also the calibration for `window-fit-check.sh`'s probe**, which stopped
