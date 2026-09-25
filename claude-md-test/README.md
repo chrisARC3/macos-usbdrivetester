@@ -13,14 +13,15 @@ the message of `c8ac81e`.
 > under `results/` describe a walk that never happened. A grep for a retired claim will find them
 > here. They are fixtures, and editing one changes the test: leave them alone.
 
-**Status, 2026-09-24: moved here from the session scratchpad; no real session has run through the
-moved scripts.** That day they were checked headlessly, with a stand-in for the CLI. The copies
-come out with the same HEADs as the scored runs', the sandbox's controls pass, and the scorers
-reproduce `score-all.txt`, `scores.json` and `stale-context.txt` byte for byte — only in the folder
-the runs were made in (*Re-scoring 2026-09-24*, below). The account is in the message of the commit
-that added this file. An edit to any script here lapses that check. So does the first real
-session, which also retires this line. Arm D, declared the same day in `results/2026-09-24-D/`, has
-not run; declaring it changed one comment in `run_waves.sh` and no code.
+**Status, 2026-09-24 evening: the moved scripts have run real sessions, and on this machine the
+test no longer runs as designed.** Arm D's three sessions ran 18:14:49–18:16:47 through the scripts
+as committed at `6993096`. The probe, every session's sandbox controls and the wave worked, and each
+session ended with a clean result line. None recorded the walk. Two found that the installed app is
+no longer the build the staged request names, and stopped to ask; the third stopped to ask about
+the daemon's pid. Arm D's question is unanswered (*What a re-run inherits*, below; the full account
+is the message of the commit that added its results). The scorers still reproduce the first run's
+three files byte for byte in the folder it was made in (*Re-scoring 2026-09-24*). An edit to any
+script here lapses what this line says of them.
 
 ## Arms
 
@@ -55,7 +56,7 @@ would then take the arms' working agreements as its own.
 | `score.py` | the declared scorer: the sites from each copy's final tree, the process from its stream |
 | `stale_context.py` | a reading aid written after the pilot: the lines a session added near a claim it left in place. It is not the declared scorer |
 | `results/2026-09-24/` | the first run: `score-all.txt`, `scores.json`, `stale-context.txt`, and `runs.tsv` — times, model, effort, CLI, base commit, `CLAUDE.md` and stream per run. Effort comes from `as-run/run_one.sh`, the rest from each run's outputs. `as-run/` holds the scripts as they ran. `raw.tar.xz` holds the raw outputs, and `raw-manifest.tsv` lists them (*The raw outputs*, below) |
-| `results/2026-09-24-D/` | arm D's run, the evening of 2026-09-24: `predictions.md`, declared before any of its sessions |
+| `results/2026-09-24-D/` | arm D's run, 2026-09-24 18:14:49–18:16:47: `predictions.md`, declared before any of its sessions; `score-all.txt`, `scores.json`, `stale-context.txt` and `runs.tsv` as for the first run, scored in the folder the run was made in, with effort from each run's `.model`. `raw.tar.xz` holds the raw outputs, and `raw-manifest.tsv` lists them. There are no bundles, because no copy has a commit; `copies/heads.tsv` shows each copy at its base. No session recorded the walk |
 
 ## Re-running it
 
@@ -79,15 +80,16 @@ first=1; awk -F'\t' -v first=$first 'NR > 1 && $3 >= first { print $1, $2 }' /Vo
 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/make_clone.sh probe C
 ```
 
-The probe costs about $0.06 and checks the login, the session limit and the sandbox. It should
-print `probe (probe) rc=0 "result":"OK`:
+The probe checks the login, the session limit and the sandbox. On 2026-09-24 it cost $0.06 in the
+first run and $0.14 before arm D's. It should print `probe (probe) rc=0 "result":"OK`:
 
 ```bash
 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/run_one.sh probe --probe
 ```
 
-Then run the waves from `first` on. On 2026-09-24 a wave took four to five minutes, and the first
-run's nine sessions cost $16.61 API-equivalent against the subscription, $1.59–2.09 each:
+Then run the waves from `first` on. In the first run, on 2026-09-24, a wave took four to five
+minutes, and the nine sessions cost $16.61 API-equivalent against the subscription, $1.59–2.09
+each. Arm D's wave took two minutes and $3.12, because its sessions stopped early:
 
 ```bash
 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/run_waves.sh $first
@@ -229,3 +231,22 @@ them:
 - empty auto-memory;
 - sessions that can see where they are. That is `CMT_WORK`'s path and the names, though not the
   contents, of the other runs' copies.
+
+**Found by arm D's run, 2026-09-24: the installed app.** The sandbox lets a session read
+`/Applications/USBDriveTester.app`. The staged request says the walk ran on *"the 2026-09-19
+10:22:50 install"*, and in the first run that held: six of the nine sessions hashed the app and read
+the dylib's `422c89d3…`, the hash every record names for that install. At 18:01:53 the same day,
+`68bc16c`'s install put another build there. Its dylib hashes to `e6e6e884…`, while the helper is
+still `ac4d5208…`. Two of arm D's three sessions hashed it, found the difference, and stopped to ask
+which build the walk ran on. Until `/Applications` holds the build the request names, a run here is
+a different test. Each way back is a decision to make before spending on runs:
+- reinstall that build;
+- make the sandbox hide the app too. The first run had no such denial, so a clean comparison
+  needs new runs of every arm;
+- write a new request, which needs new sites and predictions.
+
+*What would invalidate this:* the installed dylib hashing to `422c89d3…` again.
+
+A session can also read the other runs' project and temp folders, under `~/.claude/projects` and
+`/private/tmp/claude-501`, since the sandbox denies only their copies. `CMT_DENY` can list an
+earlier run's, but not a running one's. No arm-D session named one.

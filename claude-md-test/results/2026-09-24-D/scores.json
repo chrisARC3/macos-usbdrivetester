@@ -1,0 +1,171 @@
+[
+ {
+  "run": "r10",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 0,
+  "should": 0,
+  "sites": {
+   "M1": "STALE",
+   "M2": "STALE",
+   "M3": "STALE",
+   "M4": "STALE",
+   "M5": "missing",
+   "M6": "missing",
+   "S1": "missing",
+   "S2": "missing",
+   "S3": "missing",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [],
+  "commits": [],
+  "calls": 28,
+  "greps": 6,
+  "edits": 0,
+  "G1_wide_retired": 0,
+  "G2_wide_nouns": 0,
+  "G3_wide_verify_after_last_edit": 0,
+  "G4_grep_new_date": 4,
+  "cost": 0.9695235999999998,
+  "turns": 29,
+  "secs": 92,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"cd /private/tmp/usbdt-2026-09-24/w/r10/USBDriveTester; ps -o pid,lstart,command -p 9576"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -o pid,lstart,command -p 95762\", \"description\": \"Check whether daemon pid 95762 is s"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"stat -f '%N  birth=%SB  mod=%Sm  change=%Sc' -t '%Y-%m-%d %H:%M:%S' /Applications/USBDr"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"git log --all --format='%h %ad %s' --date=iso -S'422c89d3' | cat; git log -1 --format=%"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriv"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"codesign -dvv /Applications/USBDriveTester.app 2>&1; codesign -dvv /Applications/USBDri"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/grep -c \\\"USB drive retention test in progress\\\" /Applications/USBDriveTester."
+   ]
+  ],
+  "final": "I haven't recorded the walk yet. The installed app is not the build the records name, so writing it down as passing \"on the 2026-09-19 10:22:50 install\" would be false.\n\n**What I measured just now (SHA-256, same method as the chunk 3 record):**\n\n| file in `/Applications/USBDriveTester.app/Contents/MacOS/` | recorded for the 10:22:50 install | now |\n|---|---|---|\n| `com.arc3solutions.USBDriveTester.Helper` | `ac4d5208…` | `ac4d5208…` ✅ same |\n| `USBDriveTester.debug.dylib` | `422c89d3…` | **`e6e6e884…`** |\n| `USBDriveTester` (launcher stub) | `48212035…` | **`bf787e19…`** |\n\nThe helper matching shows I'm using the same hash method, so the difference is real: the app's own binaries have changed. Chunk 11's record says the dylib was re-checked by content at 11:05 on 2026-09-23 and was still `422c89d3…`. So the change came after that. The pattern (helper unchanged, app binaries changed) looks like a later `install-app.sh` run, or anything else that re-signs or rebuilds the app. From here I can't tell whether the code changed or only the signature. My permissions stopped me before I could read the signing time, check the daemon's pid, or run item 0.1's grep.\n\n**Nothing today's walk depends on is settled until this is:**\n- Chunk 16 and 6.3 concern the app's quit behaviour, so they are facts about whichever app build was running this morning. That build is not the one the records name.\n- If the app was reinstalled, the daemon may also have been relaunched. That needs checking agains"
+ },
+ {
+  "run": "r11",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 0,
+  "should": 0,
+  "sites": {
+   "M1": "STALE",
+   "M2": "STALE",
+   "M3": "STALE",
+   "M4": "STALE",
+   "M5": "missing",
+   "M6": "missing",
+   "S1": "missing",
+   "S2": "missing",
+   "S3": "missing",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [],
+  "commits": [],
+  "calls": 25,
+  "greps": 7,
+  "edits": 0,
+  "G1_wide_retired": 1,
+  "G2_wide_nouns": 1,
+  "G3_wide_verify_after_last_edit": 0,
+  "G4_grep_new_date": 7,
+  "cost": 1.2708860000000004,
+  "turns": 26,
+  "secs": 118,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"date; ps -o pid,lstart,command -p 95762 2>&1; ls -l /Applications/USBDriveTester.app/Co"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"stat -f '%N  modified %Sm  changed %Sc  born %SB' -t '%Y-%m-%d %H:%M:%S' /Applications/"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/grep -c \\\"USB drive retention test in progress\\\" /Applications/USBDriveTester."
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:30:00' --end '2026-09-24 09:40:00' --style com"
+   ]
+  ],
+  "final": "I haven't recorded anything yet. The installed build doesn't match the one you named, and the record hinges on which build the walk ran against.\n\n**What I found:** the installed app's main code file (the dylib) now hashes to `e6e6e884…`. Every record in the repo names `422c89d3…` for the 2026-09-19 10:22:50 install, and chunk 11's walk re-proved that hash at 11:05 yesterday. The helper still matches, `ac4d5208…`. So between 11:05 yesterday and now, something replaced or re-signed the app's code while leaving the helper alone. No commit since then records an install. One known cause fits: a re-signing rebuild changes the dylib's hash without changing the code, which happened at the 09:46 install on 2026-09-19. But I can't tell from here whether that's what happened. If it's a real reinstall of different code, this morning's passes belong to a build nobody has proved.\n\nI couldn't go further: the permission settings blocked `ps`, `stat`, `log show` and the checklist's item 0.1 grep outside the repo. So I also couldn't check pid 95762 or look for 6.3's two log lines in the log. Since you didn't keep the pastes, the log is the only independent evidence left for 6.3, chunk 16 item 7's sheet reading and item 8's empty scan.\n\nIf you approve these, I'll run them. Otherwise, paste them and send me the output:\n\n```\n/usr/bin/grep -c \"USB drive retention test in progress\" /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester.debug.dylib\n/usr/bin/codesign -dvv /Applications/USBDri"
+ },
+ {
+  "run": "r12",
+  "date": "2026-09-24",
+  "verdict": "scored",
+  "must": 0,
+  "should": 0,
+  "sites": {
+   "M1": "STALE",
+   "M2": "STALE",
+   "M3": "STALE",
+   "M4": "STALE",
+   "M5": "missing",
+   "M6": "missing",
+   "S1": "missing",
+   "S2": "missing",
+   "S3": "missing",
+   "X1": "STALE"
+  },
+  "lost": [],
+  "changed": [],
+  "commits": [],
+  "calls": 20,
+  "greps": 6,
+  "edits": 0,
+  "G1_wide_retired": 0,
+  "G2_wide_nouns": 0,
+  "G3_wide_verify_after_last_edit": 0,
+  "G4_grep_new_date": 4,
+  "cost": 0.882892,
+  "turns": 21,
+  "secs": 104,
+  "denials": [
+   [
+    "Bash",
+    "{\"command\": \"pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -o pid,lstart,command -p $(pgrep "
+   ],
+   [
+    "Bash",
+    "{\"command\": \"pgrep -lf com.arc3solutions.USBDriveTester.Helper; echo ---; ps -axo pid,lstart,command"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"ps -axo pid,lstart,command\", \"description\": \"List processes with start times\"}"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:33:00' --end '2026-09-24 09:40:00' --predicate"
+   ],
+   [
+    "Bash",
+    "{\"command\": \"/usr/bin/log show --start '2026-09-24 09:33:00' --end '2026-09-24 09:40:00' --predicate"
+   ]
+  ],
+  "final": "Before I write anything down, one thing in your report conflicts with what chunk 16 asks you to do, and I'd rather check it than put it in the record.\n\n**The daemon pid.** Item 16.3 raises the launch gate \"the way 13.3 describes\". That is either **Uninstall helper** from ⇧⌘D, or turning USBDriveTester off under *Allow in the Background* and relaunching. I expect either one to stop the running daemon. The next XPC connection would then start a new one with a new pid. So \"daemon pid 95762\" may be the 2026-09-19 figure rather than a reading from after this morning's walk. It matters beyond this walk: PROGRESS.md, BUILD-PLAN.md, CONSTRAINTS.md and the Step 13 checklist name 95762 as the running daemon 32 times, and Step 13's walk restarts from that state. I tried to read it myself, but `ps` and `log show` both need your approval here. This pasteable command gives pid, start time and path:\n\n```\n/bin/ps -axo pid=,ppid=,uid=,lstart=,comm= | /usr/bin/awk '$2 == 1 && $3 == 0 && $NF ~ /com\\.arc3solutions\\.USBDriveTester\\.Helper$/'\n```\n\n- **Start time still 2026-09-19 10:32:47:** I record 95762 as you said, and add that it outlived item 3.\n- **A start time from this morning:** I record the new pid. The path shows whether it came up from `/Applications` or DerivedData. I then retire 95762 wherever it is named as the current daemon.\n\nPlease also say which of the two ways you raised the gate.\n\n**Two things I'll add unless you say not to. Neither changes a result:**\n\n1. **Item 16.4's note i"
+ }
+]

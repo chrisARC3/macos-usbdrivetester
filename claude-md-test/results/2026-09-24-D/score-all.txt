@@ -1,0 +1,40 @@
+=== r10  date=2026-09-24  verdict=scored  must 0/6  should 0/3  X1=STALE
+    sites: M1=STALE  M2=STALE  M3=STALE  M4=STALE  M5=missing  M6=missing  S1=missing  S2=missing  S3=missing  X1=STALE
+    changed: —   commits: 0
+    process: calls=28  greps=6  edits=0  G1_wide_retired=0  G2_wide_nouns=0  G3_wide_verify_after_last_edit=0  G4_grep_new_date=4
+        2 before  grep  file   6.3,newdate            ^#|Walked|6\.3|[Cc]hunk 16  [path=/private/tmp/usbdt-2026-09-24/w/r10/USBDriveTester/progress/step-11-human-checklist.md]
+        9 before  grep  file   newdate                ^\s*3\. .*|Login Items  [path=/private/tmp/usbdt-2026-09-24/w/r10/USBDriveTester/progress/step-11-human-checklist.md]
+       13 before  grep  repo   newdate                422c89d3  [path=/private/tmp/usbdt-2026-09-24/w/r10/USBDriveTester]
+       17 before  grep  repo                          git log --all --format='%h %ad %s' --date=iso -S'422c89d3' | cat; git log -1 --format=%B $(git log --format=%h -S'422c89d3' | tail -1) | grep -n -i -E
+       19 before  grep  file   newdate                shasum|sha256|0\.1  [path=/private/tmp/usbdt-2026-09-24/w/r10/USBDriveTester/progress/step-13-human-checklist.md]
+       20 before  grep  repo                          git show 3bead7b | grep -n -i -E 'shasum|sha-?256|422c89d3|md5|hash' | head -30
+    cost=$0.9695235999999998  turns=29  secs=92  denials=[('Bash', '{"command": "cd /private/tmp/usbdt-2026-09-24/w/r10/USBDriveTester; ps -o pid,lstart,command -p 9576'), ('Bash', '{"command": "ps -o pid,lstart,command -p 95762", "description": "Check whether daemon pid 95762 is s'), ('Bash', '{"command": "stat -f \'%N  birth=%SB  mod=%Sm  change=%Sc\' -t \'%Y-%m-%d %H:%M:%S\' /Applications/USBDr'), ('Bash', '{"command": "git log --all --format=\'%h %ad %s\' --date=iso -S\'422c89d3\' | cat; git log -1 --format=%'), ('Bash', '{"command": "shasum -a 256 /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriv'), ('Bash', '{"command": "codesign -dvv /Applications/USBDriveTester.app 2>&1; codesign -dvv /Applications/USBDri'), ('Bash', '{"command": "/usr/bin/grep -c \\"USB drive retention test in progress\\" /Applications/USBDriveTester.')]
+=== r11  date=2026-09-24  verdict=scored  must 0/6  should 0/3  X1=STALE
+    sites: M1=STALE  M2=STALE  M3=STALE  M4=STALE  M5=missing  M6=missing  S1=missing  S2=missing  S3=missing  X1=STALE
+    changed: —   commits: 0
+    process: calls=25  greps=7  edits=0  G1_wide_retired=1  G2_wide_nouns=1  G3_wide_verify_after_last_edit=0  G4_grep_new_date=7
+        3 before  grep  file   6.3,rewalk,newdate     ^#|6\.3|[Cc]hunk 16|Walked|Status|re-walk  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTester/progress/step-11-human-checklist.md]
+       10 before  grep  repo   retired,6.3,rewalk,newdate unwalked|[Cc]hunk 16|6\.3|remaining re-walks|re-walks next|Two left|item 6 is owed|re-walk list  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTes
+       11 before  grep  repo   rewalk,newdate         re-walk|item 6 failed|chunk 11  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTester glob={README.md,BUILD-PLAN.md,CONSTRAINTS.md,progress/step-12
+       16 before  grep  file   newdate                selectionStillNamesTheDrive|captured drive|goes ahead against  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTester/progress/step-11-human-checkli
+       19 before  grep  file   newdate                ^3\. |^   \*\*3\.|Login Items  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTester/progress/step-11-human-checklist.md]
+       21 before  grep  repo   newdate                422c89d3[0-9a-f]*|e6e6e884  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTester]
+       22 before  grep  file   newdate                0\.1  [path=/private/tmp/usbdt-2026-09-24/w/r11/USBDriveTester/progress/step-13-human-checklist.md]
+    cost=$1.2708860000000004  turns=26  secs=118  denials=[('Bash', '{"command": "date; ps -o pid,lstart,command -p 95762 2>&1; ls -l /Applications/USBDriveTester.app/Co'), ('Bash', '{"command": "stat -f \'%N  modified %Sm  changed %Sc  born %SB\' -t \'%Y-%m-%d %H:%M:%S\' /Applications/'), ('Bash', '{"command": "/usr/bin/grep -c \\"USB drive retention test in progress\\" /Applications/USBDriveTester.'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:30:00\' --end \'2026-09-24 09:40:00\' --style com')]
+=== r12  date=2026-09-24  verdict=scored  must 0/6  should 0/3  X1=STALE
+    sites: M1=STALE  M2=STALE  M3=STALE  M4=STALE  M5=missing  M6=missing  S1=missing  S2=missing  S3=missing  X1=STALE
+    changed: —   commits: 0
+    process: calls=20  greps=6  edits=0  G1_wide_retired=0  G2_wide_nouns=0  G3_wide_verify_after_last_edit=0  G4_grep_new_date=4
+        4 before  grep  file   c16,6.3,newdate        ^#{1,4} |6\.3|chunk 16|Chunk 16  [path=/private/tmp/usbdt-2026-09-24/w/r12/USBDriveTester/progress/step-11-human-checklist.md]
+        9 before  grep  repo                          pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -o pid,lstart,command -p $(pgrep -f com.arc3solutions.USBDriveTester.Helper | tr '\n' ',' | sed 
+       10 before  grep  repo                          pgrep -lf com.arc3solutions.USBDriveTester.Helper; echo ---; ps -axo pid,lstart,command | grep -i 'USBDriveTester' | grep -v grep
+       12 before  grep  file   rewalk,newdate         Walked|RE-WALK|re-walk box|95762  [path=/private/tmp/usbdt-2026-09-24/w/r12/USBDriveTester/progress/step-11-human-checklist.md]
+       18 before  grep  repo   newdate                95762  [path=/private/tmp/usbdt-2026-09-24/w/r12/USBDriveTester]
+       19 before  grep  repo   newdate                ps -[a-z]*o .*lstart|pgrep  [path=/private/tmp/usbdt-2026-09-24/w/r12/USBDriveTester]
+    cost=$0.882892  turns=21  secs=104  denials=[('Bash', '{"command": "pgrep -lf com.arc3solutions.USBDriveTester.Helper; ps -o pid,lstart,command -p $(pgrep '), ('Bash', '{"command": "pgrep -lf com.arc3solutions.USBDriveTester.Helper; echo ---; ps -axo pid,lstart,command'), ('Bash', '{"command": "ps -axo pid,lstart,command", "description": "List processes with start times"}'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:33:00\' --end \'2026-09-24 09:40:00\' --predicate'), ('Bash', '{"command": "/usr/bin/log show --start \'2026-09-24 09:33:00\' --end \'2026-09-24 09:40:00\' --predicate')]
+
+=== by arm (INCONCLUSIVE runs excluded)
+  A: no scored runs []
+  B: no scored runs []
+  C: no scored runs []
+  D: n=3  must 0.00/6  should 0.00/3  G1 0.3  G2 0.3  G3 0.0  G4 5.0  X1 ok 0/3  cost $1.04  [r10:0/6,0/3  r11:0/6,0/3  r12:0/6,0/3]
