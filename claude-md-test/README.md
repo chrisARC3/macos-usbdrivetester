@@ -7,11 +7,11 @@ finding F4 of the prompt audit `a063b9d`, which turned the old file's lapse list
 ran 2026-09-24, 12:03–12:34. The result is in `PROGRESS.md`'s Model row, and the full account is
 the message of `c8ac81e`.
 
-> **Apart from the status line below, nothing in this directory is a status block.** The arms, the
-> sites in `score.py` and `stale_context.py`, and `predictions.md` quote the repository as it stood
-> at `b708e4e`. `staged-request.txt` and everything under `results/` describe a walk that never
-> happened. A grep for a retired claim will find them here. They are fixtures, and editing one
-> changes the test: leave them alone.
+> **Apart from the status line below, nothing in this directory is a status block.** The arms are
+> fixed versions of `CLAUDE.md`. The sites in `score.py` and `stale_context.py`, and the
+> predictions, quote the repository as it stood at `b708e4e`. `staged-request.txt` and everything
+> under `results/` describe a walk that never happened. A grep for a retired claim will find them
+> here. They are fixtures, and editing one changes the test: leave them alone.
 
 **Status, 2026-09-24: moved here from the session scratchpad; no real session has run through the
 moved scripts.** That day they were checked headlessly, with a stand-in for the CLI. The copies
@@ -19,7 +19,8 @@ come out with the same HEADs as the scored runs', the sandbox's controls pass, a
 reproduce `score-all.txt`, `scores.json` and `stale-context.txt` byte for byte — only in the folder
 the runs were made in (*Re-scoring 2026-09-24*, below). The account is in the message of the commit
 that added this file. An edit to any script here lapses that check. So does the first real
-session, which also retires this line.
+session, which also retires this line. Arm D, declared the same day in `results/2026-09-24-D/`, has
+not run; declaring it changed one comment in `run_waves.sh` and no code.
 
 ## Arms
 
@@ -31,10 +32,11 @@ Each copy is the repository at `b708e4e`, the last commit before the audit, with
 | A | `b708e4e`'s, before the audit | 147 | `0358966ccd2b42e7` |
 | B | A with F4 alone (it exists only here) | 131 | `cf99a09088bbafc9` |
 | C | `a063b9d`'s, as committed (F1, F4–F7) | 125 | `4a6ee92dcfa582e1` |
+| D | `1230076`'s, as committed: C with the two `BUILD-PLAN.md` incidents back and the note on this directory | 132 | `5fef44a60861e28c` |
 
 The files are `arms/<arm>.CLAUDE.md`, not `CLAUDE.md`. Claude Code loads a file named exactly
 `CLAUDE.md` from a subdirectory when a session reads files there. A session in this repository
-would then take three old working agreements as its own.
+would then take the arms' working agreements as its own.
 
 ## Files
 
@@ -46,13 +48,14 @@ would then take three old working agreements as its own.
 | `check_sandbox.sh <run> <profile>` | the profile's controls: each denial must fail with *"Operation not permitted"*, and the run's own copy must be readable and writable |
 | `run_one.sh <run> [--probe]` | one headless session in the run's copy, after the login, memory and sandbox checks; outputs go to `$CMT_WORK/out/` |
 | `run_waves.sh [first-wave]` | the waves of `assign.tsv` in order, each wave's runs in parallel; it stops after a wave in which a run has no clean result |
-| `assign.tsv` | run → arm → wave: one run per arm per wave, with ids shuffled so they do not give away the arm |
+| `assign.tsv` | run → arm → wave. Waves 1–3 are the first run: one run per arm per wave, with ids shuffled so they do not give away the arm. Wave 4 is arm D's three runs |
 | `staged-request.txt` | a header, then below the scissors line the body every session was sent |
 | `probe.txt` | the probe's one-line request |
 | `predictions.md` | the question, sites, predictions and scorer controls, declared 2026-09-24 11:21:13, before any run. Its `request.txt` is the body of `staged-request.txt`. It names CLI 2.1.246; 2.1.280 ran, and `c8ac81e` says why |
 | `score.py` | the declared scorer: the sites from each copy's final tree, the process from its stream |
 | `stale_context.py` | a reading aid written after the pilot: the lines a session added near a claim it left in place. It is not the declared scorer |
 | `results/2026-09-24/` | the first run: `score-all.txt`, `scores.json`, `stale-context.txt`, and `runs.tsv` — times, model, effort, CLI, base commit, `CLAUDE.md` and stream per run. Effort comes from `as-run/run_one.sh`, the rest from each run's outputs. `as-run/` holds the scripts as they ran. `raw.tar.xz` holds the raw outputs, and `raw-manifest.tsv` lists them (*The raw outputs*, below) |
+| `results/2026-09-24-D/` | arm D's run, the evening of 2026-09-24: `predictions.md`, declared before any of its sessions |
 
 ## Re-running it
 
@@ -65,10 +68,11 @@ denies those to the sessions; the scripts refuse any other. Name it neutrally: e
 export CMT_WORK=/private/tmp/usbdt-$(date +%F)
 ```
 
-Make the nine copies, and one for the probe:
+Make the copies for the waves from `first` on, and one for the probe. `first=1` makes all of them;
+arm D's runs are wave 4:
 
 ```bash
-awk -F'\t' 'NR > 1 { print $1, $2 }' /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/assign.tsv | while read run arm; do /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/make_clone.sh $run $arm || break; done
+first=1; awk -F'\t' -v first=$first 'NR > 1 && $3 >= first { print $1, $2 }' /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/assign.tsv | while read run arm; do /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/make_clone.sh $run $arm || break; done
 ```
 
 ```bash
@@ -82,11 +86,11 @@ print `probe (probe) rc=0 "result":"OK`:
 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/run_one.sh probe --probe
 ```
 
-Then run the waves. On 2026-09-24 a wave took four to five minutes, and the nine sessions cost
-$16.61 API-equivalent against the subscription, $1.59–2.09 each:
+Then run the waves from `first` on. On 2026-09-24 a wave took four to five minutes, and the first
+run's nine sessions cost $16.61 API-equivalent against the subscription, $1.59–2.09 each:
 
 ```bash
-/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/run_waves.sh
+/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/run_waves.sh $first
 ```
 
 `run_waves.sh` may stop with exit 5; on 2026-09-24 the cause was the subscription's session limit.
@@ -106,7 +110,7 @@ python3 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md
 ```
 
 ```bash
-python3 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/stale_context.py $(awk -F'\t' 'NR > 1' /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/assign.tsv | sort -k2,2 -k3,3n | cut -f1) > $CMT_WORK/out/stale-context.txt
+python3 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/stale_context.py $(awk -F'\t' -v first=$first 'NR > 1 && $3 >= first' /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md-test/assign.tsv | sort -k2,2 -k3,3n | cut -f1) > $CMT_WORK/out/stale-context.txt
 ```
 
 Read by hand every site the scorer calls *annotated*, as `predictions.md` says. Then record the run
@@ -119,8 +123,9 @@ effort and CLI.
   `CMT_CLI`. The default CLI is the desktop app's copy of 2.1.280, and its path names that version.
   `ls "$HOME/Library/Application Support/Claude/claude-code"` shows what is there now, and
   `run_one.sh` will not start without a CLI. Each run's `.model` and `.version` record what it used.
-- **Another `CLAUDE.md`:** add it as the next letter, `arms/D.CLAUDE.md`, and give it runs in
-  `assign.tsv`, one per wave; `score.py` takes its arms from that file. Never reuse or edit an arm.
+- **Another `CLAUDE.md`:** add it as the next letter, `arms/E.CLAUDE.md`, and give it runs in a new
+  wave of `assign.tsv`; `score.py` takes its arms from that file. A wave's runs go in parallel, and
+  so far three at a time. Never reuse or edit an arm.
 - **The base, the request or the sites:** changing any of these makes it a different test.
   `score.py`'s sites quote `b708e4e`'s text. A new base or request needs new sites and new
   predictions, declared before any run, as `predictions.md` was.
@@ -211,8 +216,10 @@ python3 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/claude-md
 **Checked 2026-09-24** against the archive whose sha256 begins `6ec5f15b631a4d31`: these five
 commands, run as written in that folder with the live copies moved aside, gave back
 `score-all.txt`, `scores.json` and `stale-context.txt` byte for byte. The same steps in another
-folder gave the differences above. *What would invalidate it:* an edit to `score.py`,
-`stale_context.py`, `make_clone.sh`, the archive, or `assign.tsv`'s first nine rows.
+folder gave the differences above. **Checked again the same day** with arm D's rows in
+`assign.tsv`: `score-all.txt` has one more line, the last, `  D: no scored runs []`, and the rest
+is unchanged. *What would invalidate it:* an edit to `score.py`, `stale_context.py`,
+`make_clone.sh`, the archive, or `assign.tsv`.
 
 ## What a re-run inherits
 

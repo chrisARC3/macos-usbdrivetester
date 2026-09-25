@@ -1,9 +1,9 @@
 #!/bin/zsh
 # run_waves.sh [first-wave] — the waves of assign.tsv in order, each wave's runs in parallel. A wave
-# holds one run per arm, so a limit or an outage cannot fall on one arm alone. Stops after any wave
-# in which a run ended without a clean result line (an error, a session limit, no result at all).
-# Then move that wave's copies and outputs into out/, where no session can read them, re-make the
-# copies, probe, and start again from that wave.
+# that holds one run per arm keeps a limit or an outage from falling on one arm alone. Stops after
+# any wave in which a run ended without a clean result line (an error, a session limit, no result at
+# all). Then move that wave's copies and outputs into out/, where no session can read them, re-make
+# the copies, probe, and start again from that wave.
 set -uo pipefail
 HERE=${0:A:h}; source $HERE/common.sh
 first=${1:-1}
