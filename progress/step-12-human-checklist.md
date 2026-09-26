@@ -29,7 +29,10 @@
 > **Chunk 1's hook is installed to `/Applications` and taken out again**, so it goes before Step
 > 13's walk restarts, whose item 0 re-checks the install after it. Until each is walked, its pass
 > here is a fact about the Xcode 26 build only. **Each re-walk fills in its own Walked line and
-> edits this note.**
+> edits this note.** *(2026-09-26: chunks 1 and 2 are **next**, with the user's go — Step 11's
+> re-walks finished 2026-09-25. Chunk 1's hook is installed and then taken out again, so its plan
+> first settles, with the user, what that reinstall does to the passes recorded against the
+> 2026-09-24 18:01:53 install: `PROGRESS.md`, the *Now* row.)*
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
