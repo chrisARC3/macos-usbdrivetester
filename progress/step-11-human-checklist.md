@@ -268,8 +268,15 @@ Chunks are run **one at a time**, reporting back between each. That is not cerem
 attempt ran the nine items in one go, hit "numerous problems", and stopped — and the problems were
 never enumerated. Small chunks make a partial pass reportable.
 
-Non-destructive chunks come first. Only 2, 4, 5, 6, 7, 8 and 14 start a run — and **14 also
-revokes a permission**, reversibly, which is why its item 4 says to ask first.
+Non-destructive chunks come first. Chunks 2, 4–9, 11, 12 and 14–16 start a run; 3 asks for one
+that must fail before it writes, and 1 and 13 start none (10 is deleted) — and **14 also revokes a
+permission**, reversibly, which is why its item 4 says to ask first.
+
+> ⚠️ **2026-09-26: this said *"Only 2, 4, 5, 6, 7, 8 and 14 start a run"***, its wording of
+> 2026-09-02, when chunks 9, 11 and 12 already existed; 15 and 16 came after it. Chunks 9 (item
+> 3), 11, 12 (items 7 and 8), 15 and 16 (items 4–7) start runs too. Found 2026-09-26 while weighing
+> chunk 16's heading, which had the same fault, and corrected the same day by user decision
+> (`PROGRESS.md`, *Owed* (j)).
 
 ### Prerequisites
 
@@ -399,6 +406,13 @@ deliberately not bound to the persisted preference.
    volume back, EFI not mounted. Watch for the log line `wind-down finished: … — terminating now`
    followed by `terminate requested: … disposition=quitImmediately`. **Neither line appearing while
    the app stays up is the defect below.**
+
+   > ⚠️ **2026-09-26: the EFI half needs a drive with an EFI slice — the 1 TB scratch T5**,
+   > `12345686DAA9`. The 125.8 MB thumb has none, so on the thumb *"EFI not mounted"* passes
+   > without anything having been observed. A full 6.3 is therefore two runs: the **hardest form**
+   > on the thumb, whose run is short enough to finish under the confirmation, and the **standard
+   > form** on the scratch T5 — how it was walked on 2026-09-25, below. Found that day; this note
+   > added by user decision 2026-09-26 (`PROGRESS.md`, *Owed* (k)).
 
    > ⚠️ **THIS ITEM PASSED ON 2026-08-18 AND WAS BROKEN FOUR DAYS LATER, AND NOBODY LOOKED AGAIN
    > FOR THIRTEEN DAYS.** Increment 8 made the run report a **sheet** on 2026-08-22. A stopped run
@@ -2144,7 +2158,14 @@ live item 4 below it, which is exactly the collision this record is about.)*
    the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
-### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix *(item 4 needs a run; the rest are dry)*
+### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix *(items 4–7 need a run — 5, 6 and 7 one that writes, 4 one that must fail to start; item 3 switches the helper off and on in Login Items, which relaunches the daemon; 1, 2, 8 and 9 are dry)*
+
+> ⚠️ **2026-09-26: this heading's parenthetical read *"(item 4 needs a run; the rest are dry)"***
+> until today, and it was wrong: items 5, 6 and 7 each need a run that writes. Found walking the
+> chunk on 2026-09-25 (the box below) and reworded by user decision 2026-09-26 (`PROGRESS.md`,
+> *Owed* (j)). The item 3 clause is new the same day: a Login Items toggle relaunches the daemon,
+> so its record and resolve line are read afterwards as after a kickstart (`CONSTRAINTS.md` §1,
+> *Registering and replacing the helper*).
 
 **Read this first.** The app no longer uses AppKit's Quit item. It declares its own, so that a
 keystroke arriving under a sheet reaches code at all — AppKit refuses `NSApp.terminate(_:)` *before*
@@ -2214,6 +2235,12 @@ including window class names.
 >   writes nothing. The heading is left as it is. An instrument defect.
 > * **6.3's *"EFI not mounted"* cannot be observed on the thumb**, which has no EFI partition. The
 >   standard form ran on the 1 TB scratch T5, which has one, and observed it. An instrument defect.
+>
+> *(2026-09-26, the user's decisions: the first two wait — the poll's noise for the next app-source
+> change, in a shape agreed that day, and the header for the next edit of `HelperAvailability.swift`
+> or of `AppModel.swift`, whose doc comment on `refreshHelperAvailability()` turned out to carry the
+> same claim; the last two are fixed in this file — this chunk's heading and item 6.3 — with the
+> old wording quoted. `PROGRESS.md`, *Owed* (h)–(k).)*
 
 1. **The item is where it was and reads what it read.** Open the app menu — the bold one named
    *USBDriveTester*. The last item is **Quit USBDriveTester**, ⌘Q, black, at the bottom under a
