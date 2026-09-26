@@ -29,7 +29,7 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27;
 > 4b: that probe fixed and the gate back to **613 pt**, the Xcode 26.6 figure — **614** since
 > 2026-09-24 — with an INCONCLUSIVE verdict of its own so it can never again print a declared
-> minimum as a fit). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, which need a
+> minimum as a fit). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, which need a
 > person at the keyboard — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked
 > 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both.
 > ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and
@@ -37,16 +37,19 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the
 > window at every size taken. The running 615, 1 pt over the gate's 614, is **the spec since the
 > same day**, by user decision; chunk 9's other three items and chunk 11's other ten were not
-> re-walked. **Next: chunk 16
-> and item 6.3, then Step 12's chunks 1–2** — and then the walk restarts at item 0.
+> re-walked. ✅ **Chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all
+> nine items, and 6.3 in its hardest form and its standard one. **Next: Step 12's chunks 1–2** —
+> and then the walk restarts at item 0.
 > Before the pause, item 0 passed
 > 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
 > and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one
 > of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed
 > again at the 2026-09-24 install of item 6's fix. The daemon was kickstarted 2026-09-19 10:32:47
 > and ran the installed Xcode 27 helper from `/Applications` as pid 95762, unchanged by that install,
-> until the user restarted the Mac on 2026-09-25 at 12:13; since 12:19:03 it is **pid 1477** — the
-> same helper `ac4d5208…`, protocol v15, still from `/Applications` (`PROGRESS.md`, cold start).**
+> until the user restarted the Mac on 2026-09-25 at 12:13; from 12:19:03 it was pid 1477, until
+> chunk 16's item 3 switched the helper off in Login Items at 20:11:51, and since 20:12:28 it is
+> **pid 14761** — the same helper `ac4d5208…`, protocol v15, still from `/Applications`
+> (`PROGRESS.md`, cold start).**
 > Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
@@ -570,7 +573,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Next are the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked. **Next: chunk 16 and item 6.3, then Step 12's chunks 1–2** — and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, is PAUSED 2026-09-18 for the move to Xcode 27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. **Next: Step 12's chunks 1–2** — and then the walk restarts at item 0. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -593,6 +596,9 @@ simulation-first still applies wherever the plan calls for it.
 > pid 95762, and since 12:19:03 the daemon is **pid 1477** — the same helper `ac4d5208…`, protocol
 > v15, from `/Applications`, where BTM's record had moved back at 02:56:15.630 when the user
 > launched the installed app. The helper bytes did not change, so no gate lapses with the pid.
+> *(Later that day chunk 16's item 3 switched the helper off in Login Items, and launchd removed the
+> service at 20:11:51.970, ending pid 1477; switched back on, the daemon since 20:12:28 is **pid
+> 14761**, resolved to `/Applications` — the same helper, protocol v15.)*
 > **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
@@ -675,7 +681,11 @@ simulation-first still applies wherever the plan calls for it.
 > reopened four parts of it for re-walks (user decision); one of them, chunk 11, did not pass on
 > 2026-09-23 (item 6). The Status paragraph above and the checklist's 2026-09-19 note carry where they stand.
 > *(2026-09-25: item 6 passed on the fix's build, with chunk 9's items 2, 3 and 6; chunk 16 and
-> item 6.3 are still unwalked, so the checklist is still not complete.)*
+> item 6.3 are still unwalked, so the checklist is still not complete.)* *(Later on 2026-09-25:
+> chunk 16 and item 6.3 walked and passed on the same build, so all four parts the 2026-09-19
+> decision reopened are walked on Xcode 27, and nothing in the checklist is owed. Thirteen passes —
+> 9.1, 9.4, 9.5 and chunk 11's other ten — are facts about the build installed 2026-09-19, not
+> the fix's, by user decision.)*
 > The next three paragraphs are records of 2026-09-04 and 2026-09-03.
 >
 > **Complete again as of 2026-09-04**: increment 12 added chunk 16 and changed 6.1 and 11.7, and

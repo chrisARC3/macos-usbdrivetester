@@ -35,7 +35,10 @@
 > from `/Applications`, running `ac4d5208…` — no kickstart owed, the helper being unchanged. See
 > *The daemon*, below. *(2026-09-25: **pid 1477 since 12:19:03** — the user's restart of the Mac at
 > 12:13 ended 95762 and brought the daemon up again, resolved from `/Applications` at 12:19:03.297,
-> the same helper `ac4d5208…`, protocol v15. Still no kickstart owed.)*
+> the same helper `ac4d5208…`, protocol v15. Still no kickstart owed.)* *(2026-09-25 20:12: **pid
+> 14761 since 20:12:28** — Step 11's chunk 16 item 3 switched the helper off and on in Login Items,
+> which ended 1477 at 20:11:51.970; resolved from `/Applications`, the same helper `ac4d5208…`,
+> protocol v15. Still no kickstart owed.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -173,6 +176,12 @@ its resolve line, `12:19:03.297 xpcproxy[1477]: Resolved (…, FF3ADEC2-…) to 
 /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, and its
 own line at 12:19:03.312, "helper started as uid 0; … protocol v15", both read 2026-09-25. Check
 for 1477 from here on.)*
+*(2026-09-25 20:12: it changed again — **pid 14761**, started on demand at 20:12:28 after Step 11's
+chunk 16 item 3 switched the helper off and on in Login Items; its resolve line, `20:12:28.515
+xpcproxy[14761]: Resolved (…, FF3ADEC2-…) to program:
+/Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, and its
+own line at 20:12:28.528, "helper started as uid 0; … protocol v15", both read 2026-09-25. Check
+for 14761 from here on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -286,6 +295,8 @@ own log; the daemon is still pid 95762 from `/Applications`. Launching the insta
 back — read it before item 0.)*
 *(2026-09-25: it did — the user's launch of the installed app moved it back at 02:56:15.630, by
 BTM's log, and the restart at 12:13 brought the daemon up from there, as pid 1477 at 12:19:03.)*
+*(That evening a Login Items toggle relaunched it through the same record, as pid 14761 at
+20:12:28.)*
 
 **As written 2026-09-13, true then, and kept as the record of when it stopped being true:**
 
@@ -319,6 +330,8 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
   kickstart at **2026-09-19 10:32:47** it is, as pid **95762**, running `ac4d5208…`. Check the pid
   before each of those chunks — the command is in *The daemon*, above. *(2026-09-25: pid **1477**
   since the restart at 12:13, resolved from `/Applications` at 12:19:03, the same helper.)*
+  *(And pid **14761** since 20:12:28 that day, after a Login Items toggle, resolved from
+  `/Applications`, the same helper.)*
 
 * **Nothing else holding the machine awake.** A `caffeinate` left running from another session, or
   a video playing, does not break any item here — every reading is matched on the app's pid — but it
@@ -360,7 +373,8 @@ Read headlessly the same evening, not as a record: item 0.1 greps 1, dylib `e6e6
 helper, the daemon still pid 95762 — and BTM's record on DerivedData since 13:44:34.894, which the
 next launch of the installed app moves back (`PROGRESS.md`, *Installed app*).*
 *(2026-09-25: the user's launch moved it back at 02:56:15.630; the daemon is pid 1477 since the
-restart at 12:13, the same helper. Item 0 stays lapsed until it is re-run.)*
+restart at 12:13, the same helper. Item 0 stays lapsed until it is re-run.)* *(Pid 14761 since
+20:12:28 that day, after a Login Items toggle; the same helper.)*
 
 | | |
 |---|---|
@@ -512,7 +526,9 @@ move's chunk 4 re-ran the four hardware gates against it on 2026-09-19: all four
 pid 95762.)*
 *(2026-09-25: it has changed — pid **1477** since 12:19:03, brought up by the user's restart of the
 Mac rather than a kickstart, resolved from `/Applications`, running the same `ac4d5208…`, protocol
-v15. The helper the gates ran against has not moved.)*
+v15. The helper the gates ran against has not moved.)* *(And again that evening: pid **14761**
+since 20:12:28, after Step 11's chunk 16 item 3 switched the helper off and on in Login Items,
+resolved from `/Applications`, the same `ac4d5208…`, protocol v15.)*
 
 Start a fresh watcher for this chunk so its summary covers only this walk:
 

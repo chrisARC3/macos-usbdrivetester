@@ -465,7 +465,12 @@ Apple and both were found only because someone pressed the button.
     resolved to `/Applications` — pid 95762.)* *(And 2026-09-25: the user's launch of the installed
     app moved the record back from DerivedData at 02:56:15.630, and a restart of the Mac at 12:13 —
     a relaunch of the daemon that nobody typed — resolved it to `/Applications` at 12:19:03.297,
-    pid 1477.)*
+    pid 1477.)* *(And that evening by a third route: Step 11's chunk 16 item 3 switched the helper
+    off in Login Items, launchd removed the service at 20:11:51.970 and pid 1477 ended; switched
+    back on, it was re-enabled at 20:12:19.998, and the app's next launch brought the daemon up on
+    demand at 20:12:28 — `immediate reason = ipc (mach)` — resolved to `/Applications`, pid 14761.
+    **A Login Items toggle is a relaunch of the daemon too**: after one, read the record and the
+    resolve line as after a kickstart.)*
   - **⚠️ `log show`'s `processImagePath` is not provenance either — measured 2026-09-18.** The
     unified log looks the path up through the binary's LC_UUID, so two copies of one binary share one
     path in it. All 167 lines from the installed app's pid 24803 were attributed to

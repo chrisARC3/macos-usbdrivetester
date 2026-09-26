@@ -12,10 +12,12 @@
 > passed, lapsed 2026-09-24** by its own clause, when item 6's fix moved every floor it measured,
 > and **items 2, 3 and 6 re-walked and passed 2026-09-25**, see its own box; ✅ **chunk 11**, the
 > report as a sheet — **walked 2026-09-23: ten of eleven items passed and item 6 failed; fixed
-> headlessly 2026-09-24; item 6 re-walked and passed 2026-09-25**, see its own box; **chunk 16**, ⌘Q
-> under every modal; and **item 6.3**, Cancel and Quit. **Both re-walks of 2026-09-25 ran on the
-> build that carries the fix — installed 2026-09-24 18:01:53 from `77275be` and proved by content.
-> Chunk 16 and item 6.3 remain unwalked.** 9.1, 9.4 and 9.5, and chunk 11's other ten items, were
+> headlessly 2026-09-24; item 6 re-walked and passed 2026-09-25**, see its own box; ✅ **chunk 16**,
+> ⌘Q under every modal — **walked 2026-09-25 and passed, all nine items**, see its own box; and ✅
+> **item 6.3**, Cancel and Quit — **walked 2026-09-25 and passed, in its hardest form and its
+> standard one**, see the item. **Every re-walk of 2026-09-25 ran on the build that carries the fix
+> — installed 2026-09-24 18:01:53 from `77275be` and proved by content. All four parts are walked.**
+> 9.1, 9.4 and 9.5, and chunk 11's other ten items, were
 > not re-walked on that build (user decision, 2026-09-25): their passes are facts about the build
 > installed 2026-09-19, and the fix changed only the two lines that set the list's floor. Every pass in this
 > file was made with an Xcode 26.6 build on macOS 26, and these four are framework behaviour —
@@ -386,6 +388,11 @@ deliberately not bound to the persisted preference.
    >
    > ✅ **RE-WALKED AND PASSED 2026-09-04** against increment 12: the item is greyed, ⌘Q does
    > nothing, and Cancel then ⌘Q quits.
+   >
+   > ✅ **RE-WALKED AND PASSED 2026-09-25 on the Xcode 27 build**, installed 2026-09-24 18:01:53
+   > from `77275be`, with chunk 16 — its 2026-09-25 box has the build, pids and drives. Greyed, and
+   > ⌘Q did nothing, with the dialog up for the 125.8 MB thumb; *Cancel* logged `run issued: false`
+   > at 16:41:11, and ⌘Q then quit at 16:41:20. **Invalidated by** that box's clause.
 2. ⌘Q during a run **asks**, and **the run keeps going underneath the dialog**. *Continue Testing*
    resumes as if nothing happened.
 3. *Cancel and Quit* stops at a chunk boundary, releases, **and the app actually goes** — every
@@ -416,6 +423,37 @@ deliberately not bound to the persisted preference.
    > item quits out of, and nothing re-ran it, because "chunks 1–7 passed in full" reads like a
    > property rather than a date. **Walk 6.3 again after any change to what a finished or stopped
    > run puts on screen.**
+   >
+   > ✅ **RE-WALKED AND PASSED 2026-09-25 on the Xcode 27 build, in both forms** — installed
+   > 2026-09-24 18:01:53 from `77275be`; chunk 16's 2026-09-25 box has the build, pids and drives.
+   >
+   > * **The hardest form, on the 125.8 MB thumb**, `2211190533300386001515`: the confirmation left
+   >   up while the run finished underneath it at 17:43:43 — 30 of 30 chunks, no failed blocks — and
+   >   the report raised behind it. *Cancel and Quit* at 17:44:12.417 found `3 window(s), 2 sheet(s)
+   >   [_NSAlertPanel, SheetPresentationWindow]`, logged `wind-down finished: there was nothing to
+   >   release — terminating now` and, 0.3 s later, `terminate requested: runIsActive=false
+   >   disposition=quitImmediately`, and the app went. `Slice_A` came back and the second slice
+   >   still has no volume. The `2 still flagged afterwards` between those lines is expected:
+   >   `endSheet(_:)` does not take down a sheet SwiftUI owns, which is why the wind-down goes
+   >   through SwiftUI and asks for the termination a turn later (`AppModel.dismissThenTerminate`).
+   >   The defect's sign was no `terminate requested` following it.
+   > * **The standard form, on the 1 TB scratch T5**, `12345686DAA9`: ⌘Q five seconds into a run,
+   >   then *Cancel and Quit* at 19:54:24.248. The helper stopped 11 ms later **at block 1,949,696,
+   >   the end of chunk 238** — of the first call's 256, a run going to the helper one GiB at a
+   >   time — with 998,244,352 B read, written back and verified and no failed ranges, then released
+   >   the drive. `terminate requested: … disposition=quitImmediately` came 0.32 s after the click,
+   >   and the app went. `Test_Drive` came back and **EFI stayed unmounted**. *"Nothing to
+   >   release"* is the designed reading here too: the run's own stop releases the drive before
+   >   the quit sequence starts, and the sequence is built with nothing to release
+   >   (`QuitSequence(release: nil)`, `AppModel.swift`). No sheet was attached when the wind-down
+   >   ran — `1 window(s), 0 sheet(s)`, 11 ms after the run ended — so it is the hardest form that
+   >   put the defect's own state in front of the fix.
+   >
+   > The EFI half of this item cannot be observed on the thumb, which has no EFI partition; the
+   > scratch T5 has one, and that is why the standard form ran there. **Invalidated by** any change
+   > to what a finished or stopped run puts on screen, or to the quit path — `AppModel`,
+   > `QuitPolicy`, `QuitSequence`, `AppLifecycleDelegate`, `USBDriveTesterApp.swift`; by a different
+   > installed build; and by any new Xcode or macOS.
 4. ⌘Q after a run has finished quits **immediately**. 3 and 4 are the pair: one must wait, the
    other must not, and the same code decides both.
 
@@ -2106,7 +2144,7 @@ live item 4 below it, which is exactly the collision this record is about.)*
    the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
-### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** *(item 4 needs a run; the rest are dry)*
+### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix *(item 4 needs a run; the rest are dry)*
 
 **Read this first.** The app no longer uses AppKit's Quit item. It declares its own, so that a
 keystroke arriving under a sheet reaches code at all — AppKit refuses `NSApp.terminate(_:)` *before*
@@ -2123,6 +2161,59 @@ their own chunks. **13.4** also gained a line: the gate's Quit button shares the
 or Console filtered to that subsystem, category `quit`. Every press that reaches the app prints one
 `quit command: …` line with the five flags **and an inventory of what AppKit actually has attached**,
 including window class names.
+
+> ✅ **RE-WALKED ON THE XCODE 27 BUILD 2026-09-25 AND PASSED — ALL NINE ITEMS, with 6.1 and 6.3.**
+> About 16:39 to 20:12 at the keyboard, against the app installed 2026-09-24 18:01:53 from `77275be`, item
+> 6's fix, proved by content that evening: dylib `e6e6e884…`, stub `bf787e19…`, helper `ac4d5208…`,
+> re-hashed after the walk to the same bytes; protocol v15; macOS 27.0 (26A428). One launch per
+> part — app pid 1475 for items 1, 9 and 2 and 6.1; 12508 for items 7, 5 and 6 and 6.3's hardest
+> form; 14060 for 6.3's standard form; 14293 for item 4; 14752, then 14759, for item 3. The daemon
+> was pid 1477 until item 3's Login Items toggle removed the service at 20:11:51.970, and pid 14761
+> from 20:12:28, resolved to `/Applications`. Attached throughout: the 22 TB Seagate and the 1 TB
+> EVO Plus. The 125.8 MB thumb was attached until item 4 pulled it, and the 1 TB scratch T5 from
+> 6.3's standard form on. **Every Proceed was checked against the dialog's serial** — the thumb's
+> `2211190533300386001515`, the scratch T5's `12345686DAA9`. The app selected the 22 TB Seagate by
+> itself at every launch, and again when item 4 pulled the thumb, and nothing was ever started
+> against it. **Invalidated by** any edit to the quit path — `AppModel`, `QuitPolicy`,
+> `QuitSequence`, `AppLifecycleDelegate`, `USBDriveTesterApp.swift`; to `DevicePreparation`,
+> `RunController` or `RunControllerWiring` (item 4); or to the helper gate (item 3); by a different
+> installed build; and by any new Xcode or macOS.
+>
+> | item | what was done | read |
+> |---|---|---|
+> | 1 | the app menu, by eye | **Quit USBDriveTester**, ⌘Q, last, under a separator; nothing above it moved |
+> | 9 | Dock ▸ *Quit* with the pre-run dialog up | did not quit; nothing logged, as designed — AppKit refuses it before the app is asked |
+> | 6.1 | the app menu and ⌘Q with the pre-run dialog up | **greyed**, and ⌘Q did nothing; *Cancel*, then ⌘Q quit — recorded at the item |
+> | 2 | ⌘Q with nothing on screen, 16:41:20 | all five flags `false`, `1 window(s), 0 sheet(s)`, then `terminate requested: runIsActive=false disposition=quitImmediately` |
+> | 7 | ⌘Q once during a run on the thumb | `state=confirming; 2 window(s), 1 sheet(s) [_NSAlertPanel]; key=_NSAlertPanel` at 17:43:07.823 — 2026-09-04's reading exactly — and again at 19:54:23.367, on the scratch T5 |
+> | 5 | ⌘Q again, and the app menu | nothing logged, and **greyed**; the confirmation stayed up 65 s with nothing moving it, so 2026-09-04's unexplained dismissal did not come back |
+> | 6 | the run left to finish under the confirmation | it finished at 17:43:43 and the report was raised behind the confirmation; **greyed** throughout; *Cancel and Quit* found `2 sheet(s) [_NSAlertPanel, SheetPresentationWindow]` and quit — 6.3's hardest form |
+> | 4 | the thumb pulled under the pre-run dialog, then Proceed | the selection moved to the 22 TB Seagate at 19:57:37; `run aborted before any write` at 19:58:29.494, 1 ms after Proceed, with no call to the helper — no readiness check, no unmount, no acquire; **greyed** under the alert; *OK*, then ⌘Q quit |
+> | 3 | Login Items off, relaunch, ⌘Q under the gate | `gate=true` and `discarding the helper gate` at 20:12:10.709, `disposition=quitImmediately` at 20:12:11.027; switched back on, the relaunch logged `helper gate: available — no modal raised` |
+> | 8 | the scan, over 14:14–20:14 | **no hits**; the same window holds 17 `quit command` and `terminate requested` lines, so the scan was reading the right log |
+>
+> **Four things found, none of them in the app's behaviour** — reported 2026-09-25, not fixed:
+>
+> * **The live metrics panel's 1 Hz poll logs two error lines a second while the helper is
+>   unreachable.** Under item 3's gate, with the helper switched off, `LiveRunMetricsPanel` still
+>   asked for progress every second, and every ask logged `helper progress connection invalidated`
+>   and `helper transport error: Couldn't communicate with a helper application.`, both at error
+>   level (`HelperConnection.swift`, lines 439 and 784): 11 of each in the ten seconds 20:12:00–10.
+>   On a failure the panel keeps its last snapshot, by design, so nothing on screen changes. It is
+>   noise on the error channel, the shape of item 8's 2026-09-04 lesson, and nothing had recorded it.
+>   Whether earlier builds did the same cannot be read: the log holds nothing older than 2026-09-23
+>   17:52. Logging only.
+> * **`HelperAvailability.swift`'s header is stale.** It says the gate *"fires at launch and never
+>   again"* and that *"nothing re-diagnoses on activation or on a timer, deliberately"*, and
+>   `8b0db53` added the re-check on activation on 2026-08-31 (`USBDriveTesterApp.swift`, at
+>   `didBecomeActiveNotification`). Item 3's log shows it working: `requiresApproval` was diagnosed
+>   four times in seven seconds, from the scene's `onAppear` and from activation. App source, so it
+>   is left as it is. A comment only.
+> * **This chunk's heading says *"item 4 needs a run; the rest are dry"*, and it is wrong.** Items
+>   5, 6 and 7 each need a run that writes, and item 4 needs one that must fail to start, which
+>   writes nothing. The heading is left as it is. An instrument defect.
+> * **6.3's *"EFI not mounted"* cannot be observed on the thumb**, which has no EFI partition. The
+>   standard form ran on the 1 TB scratch T5, which has one, and observed it. An instrument defect.
 
 1. **The item is where it was and reads what it read.** Open the app menu — the bold one named
    *USBDriveTester*. The last item is **Quit USBDriveTester**, ⌘Q, black, at the bottom under a

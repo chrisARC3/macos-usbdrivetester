@@ -60,7 +60,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > window-size check's probe had stopped measuring on Xcode 27 and proved nothing. **That probe was
 > fixed the same evening** — it was measuring the wrong subview, and it now says so instead of
 > guessing when it cannot measure at all — and the check is back to the figure it gave on Xcode 26.
-> **The move is complete.** Next, a chosen set of Step 11 and 12 checklist items is re-walked on the
+> **The move is complete.** After it, a chosen set of Step 11 and 12 checklist items is re-walked on the
 > new build, and then the walk restarts at item 0. **The first of those re-walks — the window's size
 > — passed on 2026-09-22**, and it confirmed the fixed probe against the real window for the first
 > time: they agree to two points. **The second — the run report, shown as a sheet on the main
@@ -72,9 +72,11 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > again on 2026-09-25, on the build that carries the fix, and passed:** the report sits 24 points
 > inside the window at every size tried, and the window stops at its floor with six drives, with two
 > and with one. Only the failed check and the three window-size checks the fix touches were walked
-> again; the rest remain passes of the earlier build. Next come the two quit checks not yet walked on
-> Xcode 27 — ⌘Q under every modal, and *Cancel and Quit* during a run — then Step 12's first two
-> chunks, and then the walk restarts at item 0.
+> again; the rest remain passes of the earlier build. **The last two Step 11 re-walks passed the same
+> day, on the same build:** ⌘Q under the app's dialogs — refused under the pre-run warning, the quit
+> confirmation and the failure alert, and quitting with nothing on screen and with the helper switched
+> off — and *Cancel and Quit* during a run, which stopped between two chunks, let go of the drive and
+> quit. Next come Step 12's first two chunks, and then the walk restarts at item 0.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
