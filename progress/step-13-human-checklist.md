@@ -378,7 +378,11 @@ helper, the daemon still pid 95762 — and BTM's record on DerivedData since 13:
 next launch of the installed app moves back (`PROGRESS.md`, *Installed app*).*
 *(2026-09-25: the user's launch moved it back at 02:56:15.630; the daemon is pid 1477 since the
 restart at 12:13, the same helper. Item 0 stays lapsed until it is re-run.)* *(Pid 14761 since
-20:12:28 that day, after a Login Items toggle; the same helper.)*
+20:12:28 that day, after a Login Items toggle; the same helper.)* *(2026-09-26: Step 12's chunk 1
+installed a debug hook over this app at 19:50:50 and put back the bundle saved before it at
+20:22:31, proved byte-identical to the 2026-09-24 18:01:53 install; the daemon stayed pid 14761.
+Read headlessly at 20:52, not as a record: item 0.1 greps 1, dylib `e6e6e884…`, the same helper,
+the daemon still pid 14761. Item 0 stays lapsed until it is re-run.)*
 
 | | |
 |---|---|
