@@ -37,7 +37,13 @@
 > saved before the hook goes in, restored from that copy afterwards, and proved identical. A rebuild
 > is not enough, because a signature carries its signing time. **Chunk 2 went first and PASSED on
 > the Xcode 27 build, all five items**, its re-walk box under the chunk. **Chunk 1 is next**, with
-> the user's go; its item 9 kickstart is skipped if the helper is still `ac4d5208…`.)*
+> the user's go; its item 9 kickstart is skipped if the helper is still `ac4d5208…`.)* *(Later
+> again, 2026-09-26: **chunk 1 PASSED on the Xcode 27 build, items 2–8**, 19:55–20:19, its re-walk
+> box under the chunk. Its hook was taken out by 20:22:42 — the source from a pristine copy, the
+> bundle from the saved one, proved byte-identical — and no kickstart was needed: the helper stayed
+> `ac4d5208…`. **Both re-walks are done**, and the passes recorded against the 2026-09-24 18:01:53
+> install stand. Chunks 3 and 4 stay carried by Step 13's pulls. **Next: Step 13's walk restarts at
+> item 0.**)*
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
@@ -260,10 +266,20 @@ force that route rather than a build run in place from Xcode:
    the drive is not attached, so nothing the app could open would change anything.
 7. The window behind the alert is **usable after dismissal**: the device list responds, the app does
    not need restarting.
-8. Repeat 2–7 with `endedBy: .nothingWasInFlight`. The body must say **"Nothing was being written"**
-   and must **not** mention a half-written chunk. *(A paused run had nothing outstanding; telling
-   that user a chunk may be half-written is a false alarm in a dialog, which is worse than in a
-   document, because a dialog is read once and believed.)*
+8. Repeat 2–7 with `endedBy: .nothingWasInFlight`. **The pass is this sentence on screen, word for
+   word:** *"Nothing was being written when the drive left, so no chunk was left half-written."*
+   `DeviceLossMessage`'s body is one fixed text per ending, so what this item guards against is a
+   *different* text in that place — one of the two that say a chunk *may hold partly written data*.
+   *(A paused run had nothing outstanding; telling that user a chunk may be half-written is a false
+   alarm in a dialog, which is worse than in a document, because a dialog is read once and
+   believed.)*
+   *(Reworded 2026-09-26, after the Xcode 27 re-walk, by the user's decision, from "The body must say
+   **"Nothing was being written"** and must **not** mention a half-written chunk". Read literally,
+   that fails the correct text, which mentions a half-written chunk to say there is none; read by
+   the reason above, it holds — the reading both walks took, the 2026-09-08 one without recording
+   it, since `DeviceLossMessage.swift` has not changed since `55a5c71`. It was also a reading off an
+   absence, the shape chunk 4.7 was reworded out of on 2026-09-10. The sentence was checked against
+   `DeviceLossMessage.swift:105-106` at `77275be` the same day.)*
 
 ✅ **ALL EIGHT ITEMS PASSED.** Every one of items 2–8 was read off the screen by a person; nothing
 here was inferred from a test. Item 3 (no literal `**`) and item 8 (the paused case not borrowing
@@ -285,6 +301,22 @@ the write-back warning) are the two the suite cannot reach, and both held.
    → **0**, and the product's own `The drive was disconnected during the test` → **1**. Working
    tree clean of the hook.
 
+   **Done again 2026-09-26, 20:22:18–20:22:42 — by restore, not reinstall** (user decision, the
+   same day: the passes recorded against the install stand only if the bytes put back are proved
+   identical). The hook reverted from a saved pristine copy with `cp -p`: `git status --short`
+   clean, `git diff` empty, the file's sha-256 `9d3d0a9c…` equal to `HEAD`'s. The bundle put back
+   with `rm -rf` and `ditto` from the copy saved at 19:50:18, before the hook went in — never rebuilt,
+   because a signature carries its signing time. Proved identical to the install before the hook:
+   `diff -rq` against the saved copy empty; a manifest of all 17 entries — type, mode, flags, owner,
+   size, sha-256, every extended attribute's value, and separately mtime and birth time — identical;
+   `codesign -dvvv` of the app and of the helper identical, signing times included (2026-09-24
+   18:01:53 and 2026-09-19 09:23:51); dylib `e6e6e884…`, stub `bf787e19…`, helper `ac4d5208…`,
+   strict verify OK; `Device-loss alert` → **0**, the title → **1**. **No kickstart** (user
+   decision: skipped if the helper stays as is): the helper was `ac4d5208…` throughout, the bytes
+   the daemon, pid 14761, was started from. DerivedData was then rebuilt from the reverted source,
+   at 20:23:33: its three binaries differ from the install's by signing time only — each one's
+   CDHash is the install's.
+
 **Walked:** **2026-09-08**  **Against build:** commit `55a5c71` **plus the chunk-1 debug hook
 (uncommitted, never committed)**, app installed 2026-09-08 08:26:05, protocol **v15**, helper source
 hash **`e19b0b3c…`** (the hook lived in `USBDriveTesterApp.swift`, outside `Shared/`, so the hash
@@ -295,6 +327,54 @@ did not move and 7d's four gate results were not disturbed), daemon pid 69701 se
 `.alert` modifier, or to `RunFailureMessage`. The alert has no automated cover at all — see the
 list at the end of this file — so this pass is the *only* evidence that dialog renders correctly,
 and it is evidence about one build on one day.
+
+✅ **Re-walked:** **2026-09-26**, dry — **ITEMS 2–8 ALL PASSED on the Xcode 27 build** (user
+decisions: 2026-09-19, that chunks 1 and 2 are re-walked on it; 2026-09-26, *"chunk 2 first"*, then
+*"Keep the new list and proceed with Chunk B"*). Every reading is the user's, by eye, off the
+installed app, one check at a time, 19:55–20:19 — the helper-never-answered alert for items 2–7,
+then the nothing-in-flight one for item 8:
+
+| item | the user's reading, verbatim |
+|---|---|
+| 2 | *"Yes to the first test. Alert still open."* |
+| 3 | *"No asterisks."* |
+| 4 | *"Yes to both. Here is the exact quote: "It cannot be ruled out that a write-back was interrupted: one chunk of the drive may hold partly written data, and nothing can say which one.""* |
+| 5 | *"Yes to both. Here is the exact quote: "This run cannot be continued — start it again from the beginning.""* |
+| 6 | *"Only one: the OK button. Clicking it closes the alert."* |
+| 7 | *"I am able to use both the up and down arrow and click on a drive successfully"* |
+| 8, as 2 | *"Yes to both."* |
+| 8, as 3 | *"No asterisks."* |
+| 8, its own check | asked for the whole message word for word: *"The drive was disconnected during the test / The drive left the USB bus part-way through the run, while the run was paused. There is no report for this run. / Nothing was being written when the drive left, so no chunk was left half-written. This run cannot be continued — start it again from the beginning."* — then, on the wording finding below, *"Yes, that's a pass by its stated reason."* |
+| 8, as 5 | taken from that quote, which holds the sentence whole |
+| 8, as 6 | *"One button only that says "OK"; clicking the button dismisses the alert."* |
+| 8, as 7 | *"Yes, arrows and clicking both move the selection normally."* |
+
+The quotes at 4, 5 and 8 were compared by script with `DeviceLossMessage.swift` at `77275be`, and
+each is the source's text exactly — item 8's the `.nothingWasInFlight` title and body whole.
+
+**Against build:** `77275be` **plus the chunk-1 debug hook (uncommitted, never committed)** — two
+menu items in `USBDriveTesterApp.swift`, outside `Shared/`, so the helper source hash stayed
+**`e19b0b3c…`** — by Xcode 27.0 (27A266a), Swift 6.4, on macOS 27.0 (26A428), installed by
+`install-app.sh Debug` at 19:50:50 over the 2026-09-24 18:01:53 install, which was saved first
+(item 9). Proved by content at 19:51:01: dylib `a22eaee0…` and stub `1c32916e…`, helper `ac4d5208…`
+unchanged with its signing time, strict verify OK, `Device-loss alert` → **2**, the title → **1**,
+and the install equal to DerivedData's build. The app walked was pid 31583, launched 19:52:59 from
+`/Applications` — by `ps`, and by BTM, which resolved it to `file:///Applications/USBDriveTester.app/`
+at 19:52:59.704, the only app URL it logged from 19:45 to the restore. Daemon pid **14761**, up since
+2026-09-25 20:12:28, protocol **v15**. The install was put back afterwards and proved byte-identical —
+item 9 — so the passes recorded against the 2026-09-24 install stand.
+
+**One finding, cosmetic — the checklist's wording, not the app** — decided by the user the same day,
+*"go with (a)"*: reworded, with a dated note. Item 8 said the body *"must **not** mention a
+half-written chunk"*; read literally, that fails the correct text. The pass is now the sentence on
+screen. **A second, of the same shape, found while rewording it and reported, not fixed** — *Owed*
+(m) in `PROGRESS.md`: item 8 says *"Repeat 2–7"*, and item 4 among them asks the body for the very
+warning item 8 exists to keep out of it. This walk took item 8's own check in item 4's place, and
+the 2026-09-08 one must have, since it passed the same text.
+
+⚠️ **What would invalidate it:** the 2026-09-08 clause — any change to `DeviceLossMessage`, to
+`RunControlsView`'s `.alert` modifier, or to `RunFailureMessage`; any new Xcode or macOS. None of
+these is in the helper hash, so nothing here lapses a hardware gate.
 
 ---
 
@@ -439,8 +519,9 @@ was of the Xcode 26 build. On this one, the first real device-loss reports come 
 pulls. **What would invalidate it:** the 2026-09-08 clause — a change to
 `RunReportPresentation.swift`, `RunReport.swift`, `HonestFraming.swift` or `DeviceLossAccount.swift`
 — **and a change to `RunReportView.swift`**, which draws the header's `Label`, its font and
-`iconTint`, and the Drive table, and which that clause did not name; any new Xcode or macOS. None of
-these files is in the helper hash, so nothing here lapses a hardware gate.
+`iconTint`, and the Drive table, and which that clause did not name (kept in it by the user the
+same day: *"Keep the new list"*); any new Xcode or macOS. None of these files is in the helper hash,
+so nothing here lapses a hardware gate.
 
 ---
 

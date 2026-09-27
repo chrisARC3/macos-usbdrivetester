@@ -76,9 +76,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > day, on the same build:** ⌘Q under the app's dialogs — refused under the pre-run warning, the quit
 > confirmation and the failure alert, and quitting with nothing on screen and with the helper switched
 > off — and *Cancel and Quit* during a run, which stopped between two chunks, let go of the drive and
-> quit. **Of Step 12's first two chunks, the second passed on 2026-09-26** — the report left on
-> screen when a drive disappears mid-test, read off the app's own renderings of it. The first comes
-> next, and then the walk restarts at item 0.
+> quit. **Step 12's first two chunks passed again on 2026-09-26**: the report left on screen when a
+> drive disappears mid-test, read off the app's own renderings of it, and the alert shown when there
+> is no report to show, raised through a temporary debug menu and then taken out again, the install
+> put back byte for byte. Next, the walk restarts at item 0.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the

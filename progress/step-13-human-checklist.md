@@ -38,7 +38,11 @@
 > the same helper `ac4d5208…`, protocol v15. Still no kickstart owed.)* *(2026-09-25 20:12: **pid
 > 14761 since 20:12:28** — Step 11's chunk 16 item 3 switched the helper off and on in Login Items,
 > which ended 1477 at 20:11:51.970; resolved from `/Applications`, the same helper `ac4d5208…`,
-> protocol v15. Still no kickstart owed.)*
+> protocol v15. Still no kickstart owed.)* *(2026-09-26: **the re-walks are done** — Step 11's by
+> 2026-09-25, Step 12's chunks 2 and 1 on 2026-09-26 — **so the walk restarts next, at item 0.**
+> Step 12's chunk 1 installed a debug hook over this app at 19:50:50 and took it out by restoring
+> the bundle saved before it, at 20:22:31, proved byte-identical to the 2026-09-24 18:01:53 install
+> — dylib `e6e6e884…`, the same helper; the daemon stayed pid 14761. Item 0 re-checks all of it.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
