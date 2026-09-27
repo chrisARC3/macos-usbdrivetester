@@ -423,9 +423,15 @@ Apple and both were found only because someone pressed the button.
     measured with a dump: on 2026-09-07 a kickstart came up from `/Applications` *"after the
     installed app had run and re-pointed the record"* (Step 12 checklist, Prerequisites).
     *Measured with a dump on 2026-09-18 — see* The reverse direction, *below.*
-  - **So read the record before a kickstart, and the resolve line after.** Record #11 — the app
-    record listing the helper under `Embedded Item Identifiers` — must name
-    `/Applications/USBDriveTester.app`. ⚠️ **The dump prints a bare path; the log prints a URL**: on
+  - **So read the record before a kickstart, and the resolve line after.** The app record — in the
+    dump's `Records for UID -2` section, uuid `226468B0-…`, the one listing the helper under
+    `Embedded Item Identifiers` — must name `/Applications/USBDriveTester.app`. ⚠️ **Its number is
+    not an identifier — corrected 2026-09-27:** this said "Record #11", and the dump numbers records
+    by position within each UID section. The app record was #11 through 2026-09-19 and #12 on
+    2026-09-27, when #11 was Epson's `RemotePrintIODaemon.app`; and the UID 501 section's #51
+    carries the same uuid with no embedded list, so the uuid alone does not pin it either. The
+    dated notes in this section that say #11 were true on their day.
+    ⚠️ **The dump prints a bare path; the log prints a URL**: on
     macOS 27.0 the record reads `URL: /Applications/USBDriveTester.app`, no scheme and no trailing
     slash, and the 2026-09-18 dump has no `file://` in any of its 1,182 lines — while BTM's log
     names the same place `file:///Applications/USBDriveTester.app/`. Until 2026-09-18 this bullet

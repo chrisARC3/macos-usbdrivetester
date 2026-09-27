@@ -43,7 +43,9 @@
 > bundle from the saved one, proved byte-identical — and no kickstart was needed: the helper stayed
 > `ac4d5208…`. **Both re-walks are done**, and the passes recorded against the 2026-09-24 18:01:53
 > install stand. Chunks 3 and 4 stay carried by Step 13's pulls. **Next: Step 13's walk restarts at
-> item 0.**)*
+> item 0.**)* *(2026-09-27: it restarted, and Step 13's item 0 PASSED 09:44–09:55 against the same
+> install, re-proved byte-identical — so nothing recorded here moved. Chunks 3 and 4 stay carried by
+> Step 13's chunk 3.)*
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
@@ -119,6 +121,9 @@ DerivedData copy and the handshake cannot tell two builds of identical source ap
   ⚠️ **Identify it by serial, in the app's own device pane, every time** — three of the attached
   drives are T5s, BSD names move across a replug (and this step's whole subject is a replug), and
   `/dev/disk7` on one day is `/dev/disk9` on another. The **22 TB Seagate is never a write target.**
+  *(2026-09-27: not the only one since that day — the user widened the write targets to the scratch
+  T5, the 4 TB T5 EVO and the 125.8 MB thumb, chosen for testing efficiency; Step 13's checklist,*
+  Prerequisites*. This file's walks are closed, and each Walked line names the drive it ran on.)*
 
   Confirm before starting, and again after every replug:
 

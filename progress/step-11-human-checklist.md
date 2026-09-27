@@ -1272,6 +1272,8 @@ need a real run; 8–10 do not.
 > ⚠️ Step 13's item 2.7 says the opposite — *"No other drive may be substituted"* — because the thumb
 > is *"reserved for Step 12's item 4.9"*. That reservation was spent when 4.9 was walked on
 > 2026-09-11. Whether this decision reaches 2.7 is a Step 13 question, and it is **not** settled here.
+> *(Settled 2026-09-27, by the user: it does. The write targets are the scratch T5, the 4 TB T5 EVO
+> and the thumb, chosen for testing efficiency, and Step 13's 2.7 no longer bans a substitute.)*
 >
 > **(6) Item 10's log strings are wrong, and always were.** A refused call logs `no run report: the
 > helper refused the call, so no run took place — …` (`RunReportLog.noReportForRefusedCall`), and

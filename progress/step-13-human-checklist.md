@@ -1,7 +1,10 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-19: IN PROGRESS at chunk 5 — and PAUSED since 2026-09-18 for the move to
-> Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
+> **STATUS, 2026-09-27: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
+> 09:44–09:55, and chunk 1 is next.** *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
+> 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
+> block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
+> to Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
 > pass this file had made — item 0, chunk 1, 2.1–2.4 and 2.6, each a fact about the Xcode 26 build
 > `af09416` — LAPSED at that install. Item 0 was re-run against the new install that morning and
 > PASSED — ⚠️ and LAPSED 2026-09-24 18:01:53, at the install of Step 11's item 6 fix. The move's
@@ -9,7 +12,7 @@
 > six hours on the window-fit probe — **chunk 4b fixed that probe the same evening,
 > the gate measures 613 pt again (614 since 2026-09-24, Step 11's item 6 fix), and chunk 4 CLOSED
 > with it, so THE MOVE IS COMPLETE.** The walk
-> restarts after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
+> restarted after the re-walks of Step 11 and 12 items the user decided on 2026-09-19 — Step 12's cable
 > pulls are not re-walked on their own, because this file's item 3.7 carries them: item 0
 > re-checked, then chunk 1 from the top. Before the pause: item 0 PASSED 2026-09-13; its daemon row
 > LAPSED on 2026-09-16 and was restored by a kickstart at 2026-09-18 13:06:19. Chunk 1 PASSED 2026-09-18
@@ -31,7 +34,7 @@
 > 10:22:50 — dylib `422c89d3…`, helper `ac4d5208…`. **Since 2026-09-24 18:01:53 it is `77275be`'s**,
 > Step 11's item 6 fix — dylib `e6e6e884…`, the same helper — which **lapses item 0's pass of
 > 2026-09-19** by its first clause, *another install*; item 0 is re-run when the walk restarts,
-> as it was going to be. **The daemon is pid 95762**, kickstarted 2026-09-19 10:32:47, resolved
+> as it was going to be *(and was, 2026-09-27, and passed)*. **The daemon is pid 95762**, kickstarted 2026-09-19 10:32:47, resolved
 > from `/Applications`, running `ac4d5208…` — no kickstart owed, the helper being unchanged. See
 > *The daemon*, below. *(2026-09-25: **pid 1477 since 12:19:03** — the user's restart of the Mac at
 > 12:13 ended 95762 and brought the daemon up again, resolved from `/Applications` at 12:19:03.297,
@@ -43,6 +46,12 @@
 > Step 12's chunk 1 installed a debug hook over this app at 19:50:50 and took it out by restoring
 > the bundle saved before it, at 20:22:31, proved byte-identical to the 2026-09-24 18:01:53 install
 > — dylib `e6e6e884…`, the same helper; the daemon stayed pid 14761. Item 0 re-checks all of it.)*
+> *(2026-09-27: **the walk restarted, and item 0 PASSED**, 09:44–09:55 — the newest record under
+> item 0. The installed app is that 2026-09-24 18:01:53 install, proved byte-identical once more;
+> the daemon is still pid 14761, running the installed helper. One instrument finding, F1 — BTM's
+> record numbers had moved by one — fixed in the same commit by the user's decision. **The write
+> targets widened the same day**, by the user's decision: the 1 TB scratch T5, the 4 TB T5 EVO
+> and the 125.8 MB thumb — *Prerequisites*.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -186,6 +195,9 @@ xpcproxy[14761]: Resolved (…, FF3ADEC2-…) to program:
 /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, and its
 own line at 20:12:28.528, "helper started as uid 0; … protocol v15", both read 2026-09-25. Check
 for 14761 from here on.)*
+*(2026-09-27, at item 0: still **pid 14761** — `runs = 1`, never exited, and `codesign` against
+the pid gives CDHash `e1e7fe63…`, the installed helper's. Its resolve line has aged out of the log,
+whose `xpcproxy` lines reach back only to 2026-09-26 02:19:50; none is owed while the pid holds.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -199,6 +211,20 @@ works; **any line after it is a move**:
 Nothing but the header means the query is broken, not that the record stayed. The unified log
 rotates, so once the 10:27:22 line has aged out, the next record read starts from a `sfltool
 dumpbtm` instead.*
+
+*(2026-09-27: it has aged out — BTM's `main` lines reach back only to 2026-09-26 00:03:33 — and item
+0 started from the user's dump at 09:36, as this says. The query that works now is anchored on Step
+12's chunk 1 launch of the installed app, and it will age out in its turn:*
+
+```bash
+/usr/bin/log show --info --debug --style compact --start '2026-09-26 19:45:00' --predicate 'process == "backgroundtaskmanagementd" AND eventMessage CONTAINS "USBDriveTester"'
+```
+
+*It printed four lines at 2026-09-26 19:52:59 — .511 and .702, `effectiveItemDispositionWithAuditToken:
+pid=31583`, and .514 and .704, `effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/`
+— and nothing after them, read 2026-09-27. All four are Default-level: without `--info --debug`
+it prints the same four, so the flags only widen it. A `_bundleURLForAuditToken` line after them is
+a move. Chunk 1 launches the installed app, which leaves fresh lines to anchor on.)*
 
 ### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
@@ -259,8 +285,13 @@ First the record, written to a file the assistant can read without `sudo`:
 sudo /usr/bin/sfltool dumpbtm > /tmp/usbdrivetester-btm.txt
 ```
 
-Record #11 — the app record that lists the helper under `Embedded Item Identifiers` — must name
-`/Applications/USBDriveTester.app`. ⚠️ *Corrected 2026-09-18, on reading the 12:57 dump: this said
+The app record — in the dump's `Records for UID -2` section, uuid `226468B0-…`, the one that lists
+the helper under `Embedded Item Identifiers` — must name `/Applications/USBDriveTester.app`.
+⚠️ *Corrected 2026-09-27, finding F1 at item 0: this named it "Record #11". The number is a
+position in its section, not an identifier: #11 through 2026-09-19, #12 on 2026-09-27, when #11 was
+Epson's `RemotePrintIODaemon.app`. Nor does the uuid pin it alone — the UID 501 section's record
+#51 carries `226468B0-…` too, with no embedded list. The dated readings that say #11 were true on
+their day and stay as they are.* ⚠️ *Corrected 2026-09-18, on reading the 12:57 dump: this said
 it "must carry `file:///Applications/USBDriveTester.app/`", which is BTM's **log**'s form. The dump
 prints a bare path — `URL: /Applications/USBDriveTester.app` on macOS 27.0, no scheme and no
 trailing slash, and no `file://` in any of its 1,182 lines — so the old wording, read literally,
@@ -318,9 +349,21 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
 
 ### Prerequisites
 
-* **The 1 TB scratch T5, serial `12345686DAA9`.** The only write-gate target in this project.
-  ⚠️ **Identify it by serial, in the app's own device pane, every time** — three of the attached
-  drives are T5s and BSD names move across a replug. The **22 TB Seagate is never a write target.**
+* **A write target — one of three flash drives, by the user's decision 2026-09-27**, chosen item
+  by item for testing efficiency:
+
+  | drive | serial | |
+  |---|---|---|
+  | the 1 TB scratch T5 | `12345686DAA9` | holds the byte-pattern fill; a whole run takes hours, and losing the fill costs the time to recreate it |
+  | the 4 TB T5 EVO | `00000S7CLNJ0WC02266P` | holds no fill; on a 5 Gb/s link, the slowest whole run of the three |
+  | the 125.8 MB thumb | `2211190533300386001515` | a whole run in about 40 s |
+
+  ⚠️ **Identify it by serial, in the app's own device pane and in the pre-run prompt, every
+  time** — three of the attached drives are T5s and BSD names move across a replug. The **22 TB
+  Seagate is never a write target**, and neither is the 1 TB EVO Plus that holds this repository.
+  *(Until 2026-09-27 this bullet named the scratch T5 alone — "The only write-gate target in this
+  project". The user widened it that day: "we are free to use the 1 TB scratch T5, the 4 TB Samsung
+  and the 126 MB thumb drive. The only consideration is testing efficiency".)*
 
   ```bash
   /usr/sbin/diskutil list
@@ -370,6 +413,36 @@ until chunk 5 installs.
 (`theAssertionNamesItselfInTheWordsTheGateLooksFor`) precisely so that an edit to it breaks a test
 rather than this instruction — mutation **m9** of chunk 4's round confirms the test kills it.
 
+**Record:** ✅ **PASSED 2026-09-27 09:44–09:55**, headless but for the user's `sfltool dumpbtm` at
+09:36 — the walk's restart. It ran against the install of 2026-09-24 18:01:53 as Step 12's chunk 1
+left it: a debug hook installed over it on 2026-09-26 at 19:50:50, and the bundle saved at 19:50:18,
+before the hook, restored at 20:22:31.
+
+| | |
+|---|---|
+| installed from | `77275be`'s sources — Step 11's item 6 fix — Debug, via `scripts/install-app.sh`, built by **Xcode 27.0** (`27A266a`), installed **2026-09-24 18:01:53**. No file outside `*.md` and `claude-md-test/` has changed since `77275be`, and the helper source hash is `e19b0b3c…` over 21 files, re-derived that morning |
+| item 0.1 greps | **1** — and `Device-loss alert` **0**: no debug hook |
+| installed binaries | full sha-256, each equal to the manifest taken before the hook: dylib `e6e6e884d77250e0…`, launcher stub `bf787e192c6e7eec…`, helper `ac4d520884f2c3cb…` |
+| byte-identical | `diff -rq` against the bundle saved before the hook: **0** differ. The 17-entry manifest — type, mode, flags, owner, size, sha-256, every extended attribute's value, mtime and birth time — identical to the three taken on 2026-09-26: of the installed bundle before the hook, of the copy saved then, and of the bundle after the restore. `codesign -dvvv` identical for the app (CDHash `71b8451c…`, signed 2026-09-24 18:01:53) and the helper (CDHash `e1e7fe63…`, signed 2026-09-19 09:23:51); `codesign --verify --deep --strict` OK |
+| daemon | pid **14761**, root, ppid 1, started **2026-09-25 20:12:28**. `launchctl print`: running, `runs = 1`, never exited, `ipc (mach)`, BTM uuid `FF3ADEC2-…`. `codesign` against the pid gives CDHash `e1e7fe63…`, the installed helper's. No app process running |
+| record, 09:36 | the user's dump, 1,230 lines. The app record — `Records for UID -2`, uuid `226468B0-…`, listing the helper under `Embedded Item Identifiers` — is **#12** now: `URL: /Applications/USBDriveTester.app`, generation `710330143423605898` (`…896` on 2026-09-19), disposition `[disabled, allowed, notified]`, a first reading with nothing earlier to compare. Daemon record **#13**: `[enabled, allowed, notified]`, uuid `FF3ADEC2-…`, generation 187 (131), last use 2026-09-27 08:46:30. The UID 0 record #7 and the UID 501 record #51 (#6 and #50 on 2026-09-19) name `/Applications` too. **No line names DerivedData** |
+| record since | BTM's log: the four lines of Step 12's hooked launch at 2026-09-26 19:52:59, all `/Applications`, and nothing naming the app after them — no move (the query is under *The daemon*). At 08:46:30 that morning BTM re-checked every entry (`userDataDidChange`) and saved its store at 08:46:33, with no line naming the app |
+| kickstart | **none owed.** The helper is unchanged, and the daemon has not relaunched since its resolve line was read on 2026-09-25 |
+| instrument | the 2026-09-18 re-run of `scripts/sleep-assertion-check.sh`, below, stands: macOS is still 27.0 (26A428), and Xcode 27.0 (27A266a) |
+
+*What would invalidate it:* another install; a relaunch of the daemon after something has moved
+BTM's record — the test suite and an Xcode run of the project both move it (*The daemon*); a macOS
+update, for the instrument row; a change to `IdleSleepPreventer.reason`, for 0.1.
+
+⚠️ **Finding F1, 2026-09-27 — the instrument's wording, not the app.** The recipe under *The
+daemon* and `CONSTRAINTS.md` §1 called the app record "record #11". The dump numbers its records by
+position within each UID section, and every number had moved up by one: #11 is now Epson's
+`RemotePrintIODaemon.app`, so the recipe read literally checks the wrong record. The uuid does not
+pin it alone either: the UID 501 section's #51 carries `226468B0-…` too, with no embedded list.
+**Fixed in this record's commit, by the user's decision:** both recipes name the record by its
+section, its uuid and the helper in its embedded list, with a dated note; the dated readings that
+say #11 stay as they are.
+
 **Record:** ✅ **PASSED 2026-09-19**, headless, at the move to Xcode 27's chunk 3 — the install
 proved at 10:23:09, the daemon row after the user's kickstart at 10:32:47, both read again at 10:43.
 ⚠️ *LAPSED 2026-09-24 18:01:53, by its first clause: `77275be` was installed, Step 11's item 6 fix.
@@ -382,7 +455,8 @@ restart at 12:13, the same helper. Item 0 stays lapsed until it is re-run.)* *(P
 installed a debug hook over this app at 19:50:50 and put back the bundle saved before it at
 20:22:31, proved byte-identical to the 2026-09-24 18:01:53 install; the daemon stayed pid 14761.
 Read headlessly at 20:52, not as a record: item 0.1 greps 1, dylib `e6e6e884…`, the same helper,
-the daemon still pid 14761. Item 0 stays lapsed until it is re-run.)*
+the daemon still pid 14761. Item 0 stays lapsed until it is re-run.)* *(2026-09-27: re-run and
+PASSED — the record above.)*
 
 | | |
 |---|---|
@@ -519,7 +593,7 @@ in full, from 1.1, on the new build.*
 
 ---
 
-## Chunk 2 — the lifecycle *(writes to the 1 TB scratch T5)*
+## Chunk 2 — the lifecycle *(writes to a write target — see* Prerequisites*)*
 
 This is gate items 1, 2 and 3 for every ending a person can produce with a button. Chunk 3 covers
 the one they cannot.
@@ -620,11 +694,14 @@ detail column — read it, and report anything unexpected even though it does no
 
 *Pass:* **held 0** by the time the run report is on screen.
 
-**2.7 — a complete run releases it.** Let a run finish on its own, on the 1 TB scratch T5.
-⚠️ **No other drive may be substituted to make this quicker.** The scratch T5, serial
-`12345686DAA9`, is the only write target in this project; the 125.8 MB thumb is reserved for Step
-12's item 4.9 and the 22 TB Seagate is never a write target. A full pass takes hours — that is the
-cost of this item, and it is the one item here that cannot be shortened.
+**2.7 — a complete run releases it.** Let a run finish on its own, on one of the three write
+targets in *Prerequisites*, checked by serial in the pre-run prompt. The 125.8 MB thumb finishes a
+whole run in about 40 s; the scratch T5 takes hours. The 22 TB Seagate is never a write target.
+⚠️ *Changed 2026-09-27, by the user's decision on the write targets. This said "on the 1 TB scratch
+T5", and "No other drive may be substituted to make this quicker … the 125.8 MB thumb is reserved
+for Step 12's item 4.9" — a reservation spent 2026-09-11 — and so that this was "the one item here
+that cannot be shortened". This chunk's heading and the Walked lines of chunks 2 and 3 named the
+scratch T5 too, and changed with it.*
 
 *Pass:* **held 0** with the report on screen, and a `sleep prevention: released` line in the log
 adjacent to `running → finishing`.
@@ -647,7 +724,7 @@ and daemon. *Evidence in the Walk record, below.* *(2026-09-18, later: not again
 all — the walk was paused for the move to Xcode 27, and restarts at item 0 on the new install.)*
 ⚠️ *(2026-09-19: 2.1–2.4 and 2.6 LAPSED at the Xcode 27 install. Chunk 2 is owed in full.)*
 
-**Walked:** date ________ build ________ drive `12345686DAA9`, transcript and summary pasted below.
+**Walked:** date ________ build ________ drive, by serial, for each item that runs ________, transcript and summary pasted below.
 
 ---
 
@@ -764,7 +841,7 @@ After **3.6's** pull — a *paused* run:
 *Pass:* all nine. A miss is a **Step 12 defect found on the Xcode 27 build**, and it is reported as
 one. It does not fail 3.5 or 3.6, whose subject is the assertion.
 
-**Walked:** date ________ build ________ drive `12345686DAA9`, transcript pasted below.
+**Walked:** date ________ build ________ drive, by serial, for each item that runs ________, transcript pasted below.
 
 ---
 

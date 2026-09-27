@@ -52,8 +52,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > declared in advance.** Two of those survivors are the point: deleting the release call outright,
 > and holding the display-sleep assertion instead of the system one, each pass all 1,323 tests.
 > That is what [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for,
-> and walking it is the only chunk left. **The walk is paused, since 2026-09-18, for the move to
-> Xcode 27**, which had replaced Xcode 26.6 under the project three days before. Three of the
+> and walking it is the only chunk left. **The walk was paused on 2026-09-18 for the move to
+> Xcode 27**, which had replaced Xcode 26.6 under the project three days before, **and restarted on
+> 2026-09-27**. Three of the
 > move's four chunks are done: the project file, a clean build and test run, and — on 2026-09-19 —
 > the Xcode 27 build installed, with its daemon running from `/Applications`. The fourth ran the same
 > day: the four hardware gates passed on the Xcode 27 build and the UI renders are whole, but the
@@ -79,7 +80,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > quit. **Step 12's first two chunks passed again on 2026-09-26**: the report left on screen when a
 > drive disappears mid-test, read off the app's own renderings of it, and the alert shown when there
 > is no report to show, raised through a temporary debug menu and then taken out again, the install
-> put back byte for byte. Next, the walk restarts at item 0.
+> put back byte for byte. **The walk restarted on 2026-09-27: item 0 — which build is installed, and
+> which helper is running — was re-checked and passed**, and the three flash drives it may write to
+> were named that day. Next is chunk 1, the baseline.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
