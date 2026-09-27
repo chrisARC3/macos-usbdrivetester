@@ -810,11 +810,14 @@ Three findings, and the third was not anticipated:
 
 **The consequence for instrumentation, which cost a checklist item:** any log line that fires only
 on *a slice of the drive under test disappearing* is unreachable on a normal run. `deviceUnderTest`
-is set when the claim returns `.ready` (`RunController.swift:530`), five milliseconds *after* the
-slices have gone, so `deviceDisappeared`'s `guard let deviceUnderTest` swallows them; and at unplug
-there are no slices left. To prove the DA subscription is alive, read the **`discovery`** category's
+is set when the claim returns `.ready` (`RunController.preparationFinished` —
+`RunController.swift:552` at `77275be`), five milliseconds *after* the slices have gone, so
+`deviceDisappeared`'s `guard let deviceUnderTest` swallows them; and at unplug there are no slices
+left. To prove the DA subscription is alive, read the **`discovery`** category's
 `a disk disappeared: disk7sN (slice)` lines at claim time — those come from the app's own
-subscription and do fire.
+subscription and do fire. *(Corrected 2026-09-26: this cited `:530`, true when it was written, at
+`bed54e9`; the assignment moved to `:534` at `abc07e3` on 2026-09-11 and to `:552` at `ad1ee28`
+the next day. The function's name is the part that stays true.)*
 
 ### Device loss (Step 12's territory — the engine's half built 2026-09-05)
 

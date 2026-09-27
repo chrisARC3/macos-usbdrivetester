@@ -32,7 +32,12 @@
 > edits this note.** *(2026-09-26: chunks 1 and 2 are **next**, with the user's go — Step 11's
 > re-walks finished 2026-09-25. Chunk 1's hook is installed and then taken out again, so its plan
 > first settles, with the user, what that reinstall does to the passes recorded against the
-> 2026-09-24 18:01:53 install: `PROGRESS.md`, the *Now* row.)*
+> 2026-09-24 18:01:53 install: `PROGRESS.md`, the *Now* row.)* *(Later 2026-09-26: settled by the
+> user — those passes stand only if the bundle put back is the one taken out, **byte for byte**: it is
+> saved before the hook goes in, restored from that copy afterwards, and proved identical. A rebuild
+> is not enough, because a signature carries its signing time. **Chunk 2 went first and PASSED on
+> the Xcode 27 build, all five items**, its re-walk box under the chunk. **Chunk 1 is next**, with
+> the user's go; its item 9 kickstart is skipped if the helper is still `ac4d5208…`.)*
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
@@ -224,7 +229,11 @@ force that route rather than a build run in place from Xcode:
 1. Add a temporary trigger that sets
    `model.runFailure = DeviceLossMessage.forRunWithNoReport(endedBy: .theHelperNeverAnswered)` —
    a debug menu item is the least invasive. The production path it stands in for is
-   `RunController.swift:875`, `onFailure(DeviceLossMessage.forRunWithNoReport(endedBy:))`.
+   `RunController.deliverTheEndOfRun`, `onFailure(DeviceLossMessage.forRunWithNoReport(endedBy:))`
+   — `RunController.swift:911` at `77275be`. *(Corrected 2026-09-26: this cited `:875`, true when
+   it was written and walked, at `3da3ef7` and `55a5c71`; the call moved four times, from `7b4f200`
+   on the day of the walk to `ad1ee28` on 2026-09-12, and has been at `:911` since. The function's
+   name is the part that stays true.)*
    ⚠️ **Put it outside `USBDriveTester/USBDriveTester/Shared/`** — that directory is in the helper
    source hash recipe, so an edit there lapses all four hardware gate results for a menu item.
    It is then built and installed for you:
@@ -289,7 +298,7 @@ and it is evidence about one build on one day.
 
 ---
 
-## Chunk 2 — the report's device-loss face *(dry: reads an existing report)*
+## Chunk 2 — the report's device-loss face *(dry: no run, no drive — reads `render-ui.sh`'s renders)*
 
 `RunReportPresentation` pins that the six outcomes have six distinct symbols, that no two are told
 apart by tint alone, and that only a verified clean pass is affirmative. What it does **not** pin is
@@ -300,19 +309,28 @@ test — they compare strings — and renders as nothing.
    `scripts/render-ui.sh`), the header icon is **present and is an eject symbol in a circle**, not a
    blank space and not a question mark.
 2. It is tinted **orange** (cautionary), not green.
-3. **No two of the seven collide in greyscale at 16 pt.** That is what NFR-USE-8 actually asks,
-   and the pair to check is whichever two look closest to you. Desaturate and read them. **Six of
-   the seven are a mark inside a filled circle by design** — only `exclamationmark.triangle.fill`
-   breaks that outline — so among those six the discriminator is the **interior mark**: a tick, a
-   square, a raised hand, an exclamation, an eject bar, a question. The seventh shares its interior
-   mark with `exclamationmark.circle.fill` and is told apart by its **outline** instead. Either
-   discriminator is a pass; a pair with **neither** is the failure.
+3. **No two of the seven collide in greyscale at 13 pt**, the size the report header draws them
+   at. That is what NFR-USE-8 actually asks, and the pair to check is whichever two look closest to
+   you. Desaturate and read them. **Six of the seven are a mark inside a filled circle by design** —
+   only `exclamationmark.triangle.fill` breaks that outline — so among those six the discriminator
+   is the **interior mark**: a tick, a square, a raised hand, an exclamation, an eject bar, a
+   question. The seventh shares its interior mark with `exclamationmark.circle.fill` and is told
+   apart by its **outline** instead. Either discriminator is a pass; a pair with **neither** is the
+   failure.
    *(Reworded 2026-09-08. The original demanded "a different shape … not a variation on a mark
    inside a circle", which describes six of the seven symbols, so a walker following it literally
    would have recorded a FAIL against a product behaving exactly as designed. Instrument defect,
    found in chunk 2's own walk. `RunReportPresentation`'s note carries the same overstatement —
    it calls `eject.circle.fill` a "distinct silhouette at 16pt" when the silhouette is a circle
    like five others and it is the interior mark that is distinct.)*
+   *(Reworded again 2026-09-26: this said **16 pt**, and so does `RunReportPresentation`'s note —
+   "their real 16 pt". The header's `Label` sets `.headline` on its text only, so the icon takes
+   the environment's body font, **13 pt** on macOS; nothing in the app or in `tools/ui-probe` sets
+   a font above `RunReportView`. Measured on `render-ui.sh`'s 1x render: the header icon is
+   13 × 13 px, the size of `eject.circle.fill` at the body font, against 16 × 16 at 16 pt. So the
+   2026-09-08 reading was taken 3 pt larger than the product draws. Instrument defect, found in the
+   Xcode 27 re-walk. The note in the source waits for that file's next edit — editing it now would
+   lapse this chunk — as Owed (l) in `PROGRESS.md`.)*
 4. **The drive is named by model and serial, twice.** Once in the header block, on the line
    directly beneath the headline — `Samsung Portable SSD T5 (serial 12345686DAA9)` — and again in
    the **Drive** table, as separate Model and USB serial number rows. The headline itself names no
@@ -333,8 +351,13 @@ product's own `RunReportPresentation` offscreen — it is the app's code path, n
 `report-device-lost-silent`. **Note that `render-ui.sh`'s own usage text does not list those three**
 (2026-09-08); pass them anyway. *(Fixed 2026-09-09 in `2086090`: the usage block now lists all
 three. The argument order is `OUT WIDTH HEIGHT VIEW`.)*
+*(2026-09-26: and once chunk 4.7 has been walked there is still no real report to go back to. The
+app keeps no run history — the report's own footer says "No run history is kept" — so a real one
+can be read only while it is on screen, at the end of the run that made it. Until that day this
+chunk's heading said "dry: reads an existing report", and no report exists to read; a dry walk
+reads these renders. Instrument wording, found in the Xcode 27 re-walk.)*
 
-⚠️ **A hand-built symbol sheet is not the product.** Drawing the seven names at 16 pt magnified is
+⚠️ **A hand-built symbol sheet is not the product.** Drawing the seven names at 13 pt, magnified, is
 the only practical way to judge item 3, but a tool that has the names **typed into it** cannot catch
 a typo in the app — it would draw the right glyph while the app drew nothing. Diff the names out of
 `RunReportPresentation.swift` against the sheet's before trusting it. Done and identical on
@@ -368,6 +391,56 @@ conditions apply to this re-read.
 *A corroboration worth keeping: `eject.circle.fill` occurs exactly **once** in the installed
 `USBDriveTester.debug.dylib`. That is item 1's real subject — the name in the shipped build is the
 name, not a typo — established from the product's own binary rather than from a rendering.*
+
+✅ **Re-walked:** **2026-09-26**, dry — **ALL FIVE ITEMS PASSED on the Xcode 27 build** (user
+decisions: 2026-09-19, that chunks 1 and 2 are re-walked on it; 2026-09-26, *"chunk 2 first"*).
+Every reading is the user's, by eye, one item at a time, 18:00–19:31:
+
+| item | read off | the user's reading, verbatim |
+|---|---|---|
+| 1 | `header-crops.png` — the header of each of the three renders, ×4 | *"Header icon is present with eject symbol in all three"* |
+| 2 | the same | *"Yes, the eject icon is orange in each"* |
+| 3 | `symbol-sheet-13pt.png`, the 1x greyscale row | *"row 1x stop.circle.fill and hand.raised.circle.fill look the most similar."*, then *"Yes, I can tell the difference even though they are similar."* — a square against a raised hand: the interior mark |
+| 4 | `report-device-lost.png` | *"1. Yes the drive is named correctly. 2. Yes, a model row and separate serial number row 3. Yes"* — beneath the headline; in the Drive table; and in neither the headline nor the paragraph under it |
+| 5 | `report-device-lost-paused.png` | *"It specifically says: "...no chunk was part-way through anything and nothing was left half-written." So that's a pass."* |
+
+Item 2 was first answered off a symbol sheet — *"The two tinted checkmark.circle.fill are green.
+The rest are orange or grey."* — and asked again, because item 2 is read off the product's render.
+The first answer is kept as a corroboration: on the sheets, whose tints are read out of the source,
+only `.completedClean`'s symbol is green.
+
+**Against build:** the renders `report-device-lost`, `report-device-lost-paused` and
+`report-device-lost-silent`, drawn by `scripts/render-ui.sh` at 696 × 1400, light, 17:15:35–17:16:08,
+from the working tree at `4299e46` — whose app sources, `tools/` and `scripts/` are `77275be`'s byte
+for byte; every commit since is documents or `claude-md-test/` — by Xcode 27.0 (27A266a), Swift 6.4,
+on macOS 27.0 (26A428). The two symbol sheets, 13 pt and 16 pt, come from a scratch tool that reads
+the seven names and their tints out of `RunReportPresentation.swift` and the tint-to-colour map out of
+`RunReportView`'s `iconTint`, so nothing is typed in; an independent grep of the names agrees, and all
+seven resolve on this macOS. The installed app is the one of **2026-09-24 18:01:53** from `77275be`,
+re-checked before the walk, 16:02–16:04 (`PROGRESS.md`, *Installed app*), and re-hashed after it at
+19:33:33 — dylib `e6e6e884…`, stub `bf787e19…`, helper `ac4d5208…` — strict verify OK,
+`Device-loss alert` → **0** and each of the seven names **once** in `USBDriveTester.debug.dylib`;
+daemon pid **14761**, up since 2026-09-25 20:12:28, protocol **v15**; helper source hash
+**`e19b0b3c…`**, re-derived.
+
+**Four findings, all cosmetic — instrument wording and citations, none of them in the app.** The
+user decided them the same day: *"fix all three in the same commit"*, and *"fix (4) in CONSTRAINTS
+the same way as (1) and leave the checklist's alone"*. (1) Chunk 1's item 1 cited
+`RunController.swift:875`; the call has been at `:911` since `ad1ee28`. (2) This chunk's heading said
+it reads an existing report, and none exists to read. (3) Item 3, and the warning on hand-built
+sheets, said 16 pt; the header draws the icon at 13. Each is fixed above, (1) to (3) with a dated
+note; (3)'s figure is also in `RunReportPresentation.swift`'s note, which waits as Owed (l) in
+`PROGRESS.md`. (4) `CONSTRAINTS.md` cited `RunController.swift:530` for where `deviceUnderTest` is
+set; it is `:552`, corrected there with a dated note. Chunk 3's record below cites `:530` too, and
+stays as written.
+
+⚠️ **Still a pass against renders, not against a run** — the 2026-09-11 re-read on a real report
+was of the Xcode 26 build. On this one, the first real device-loss reports come at Step 13's chunk 3
+pulls. **What would invalidate it:** the 2026-09-08 clause — a change to
+`RunReportPresentation.swift`, `RunReport.swift`, `HonestFraming.swift` or `DeviceLossAccount.swift`
+— **and a change to `RunReportView.swift`**, which draws the header's `Label`, its font and
+`iconTint`, and the Drive table, and which that clause did not name; any new Xcode or macOS. None of
+these files is in the helper hash, so nothing here lapses a hardware gate.
 
 ---
 
