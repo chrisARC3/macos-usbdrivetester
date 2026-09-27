@@ -266,8 +266,9 @@ force that route rather than a build run in place from Xcode:
    the drive is not attached, so nothing the app could open would change anything.
 7. The window behind the alert is **usable after dismissal**: the device list responds, the app does
    not need restarting.
-8. Repeat 2–7 with `endedBy: .nothingWasInFlight`. **The pass is this sentence on screen, word for
-   word:** *"Nothing was being written when the drive left, so no chunk was left half-written."*
+8. Repeat 2, 3 and 5–7 with `endedBy: .nothingWasInFlight`; item 8's own check stands in item 4's
+   place. **That check's pass is this sentence on screen, word for word:** *"Nothing was being
+   written when the drive left, so no chunk was left half-written."*
    `DeviceLossMessage`'s body is one fixed text per ending, so what this item guards against is a
    *different* text in that place — one of the two that say a chunk *may hold partly written data*.
    *(A paused run had nothing outstanding; telling that user a chunk may be half-written is a false
@@ -280,6 +281,11 @@ force that route rather than a build run in place from Xcode:
    it, since `DeviceLossMessage.swift` has not changed since `55a5c71`. It was also a reading off an
    absence, the shape chunk 4.7 was reworded out of on 2026-09-10. The sentence was checked against
    `DeviceLossMessage.swift:105-106` at `77275be` the same day.)*
+   *(Reworded again 2026-09-26, the same evening, by the user's decision, from "Repeat 2–7 with
+   `endedBy: .nothingWasInFlight`": item 4 among them asks the body for the very warning this item
+   keeps out, so read literally the paused alert failed item 4 and passed item 8. The 2026-09-26
+   walk took this item's own check in item 4's place, and the 2026-09-08 one must have, since it
+   passed the same text. Found while making the rewording above; `PROGRESS.md`, *Owed* (m).)*
 
 ✅ **ALL EIGHT ITEMS PASSED.** Every one of items 2–8 was read off the screen by a person; nothing
 here was inferred from a test. Item 3 (no literal `**`) and item 8 (the paused case not borrowing
@@ -370,7 +376,9 @@ half-written chunk"*; read literally, that fails the correct text. The pass is n
 screen. **A second, of the same shape, found while rewording it and reported, not fixed** — *Owed*
 (m) in `PROGRESS.md`: item 8 says *"Repeat 2–7"*, and item 4 among them asks the body for the very
 warning item 8 exists to keep out of it. This walk took item 8's own check in item 4's place, and
-the 2026-09-08 one must have, since it passed the same text.
+the 2026-09-08 one must have, since it passed the same text. *(Decided by the user 2026-09-26,
+the same evening, "go with (a)": reworded, with a dated note — item 8 now repeats 2, 3 and 5–7.
+*Owed* (m) is paid.)*
 
 ⚠️ **What would invalidate it:** the 2026-09-08 clause — any change to `DeviceLossMessage`, to
 `RunControlsView`'s `.alert` modifier, or to `RunFailureMessage`; any new Xcode or macOS. None of
