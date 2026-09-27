@@ -1,7 +1,8 @@
 # Step 13 — the human checklist
 
 > **STATUS, 2026-09-27: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
-> 09:44–09:55, and chunk 1 is next.** *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
+> 09:44–09:55 and chunk 1 PASSED 10:56–11:05; chunk 2 is next, once its drive plan is approved.**
+> *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
 > to Xcode 27 (user decision). The move's chunk 3 installed the Xcode 27 build on 2026-09-19, and every
@@ -51,7 +52,12 @@
 > the daemon is still pid 14761, running the installed helper. One instrument finding, F1 — BTM's
 > record numbers had moved by one — fixed in the same commit by the user's decision. **The write
 > targets widened the same day**, by the user's decision: the 1 TB scratch T5, the 4 TB T5 EVO
-> and the 125.8 MB thumb — *Prerequisites*.)*
+> and the 125.8 MB thumb — *Prerequisites*.)* *(2026-09-27, later: **chunk 1 PASSED**,
+> 10:56:26–11:05:41, on its fourth walk and the first on the Xcode 27 build — the newest Walked line
+> under the chunk. The installed app, pid 42734, held nothing at rest and nothing with the 1 TB
+> scratch T5 selected. One instrument finding, F2 — the watcher samples about three times a second,
+> not at the 4 Hz this file said — fixed in the same commit by the user's decision, in wording only.
+> **Chunk 2 is next**, once the user approves which write target each of its items runs on.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -97,15 +103,25 @@ machine just stops going to sleep, months later, and nobody connects it to a dri
 ## Running it
 
 Chunks are run **one at a time, reporting back between each.** Chunk 1 is dry — no run, no writes,
-nothing unplugged. Chunks 2 and 3 **write to the scratch drive**, and chunk 3 pulls a cable out of a
-running machine.
+nothing unplugged. Chunks 2 and 3 **write to a write target** — one of the three flash drives in
+*Prerequisites*, checked by serial — and chunk 3 pulls a cable out of a running machine.
+⚠️ *Changed 2026-09-27, by the user's decision on the write targets: this said "write to the scratch
+drive". The commit that recorded the decision, `c388605`, missed it.*
 
 **The instrument is `scripts/sleep-assertion-watch.sh`, and you should never be asked to type
 `pmset` at a particular moment.** Release happens milliseconds after a button press; a person
 opening a terminal is sampling a second or two later and can only report the end state. The watcher
-polls at 4 Hz and prints a line on every change, so the transcript holds the transitions themselves
-and the timestamps line up with the app's own log. Start it before the chunk, do the GUI walk, press
-Ctrl-C, and paste the transcript **and the summary it prints** into the chunk's record.
+sleeps 0.25 s between reads of `pmset` — about three samples a second — and prints a line on every
+change, so the transcript holds the transitions themselves and the timestamps line up with the app's
+own log. Start it before the chunk, do the GUI walk, press Ctrl-C, and paste the transcript **and the
+summary it prints** into the chunk's record.
+⚠️ *Corrected 2026-09-27, finding F2 at chunk 1: this said the watcher "polls at 4 Hz". A read of
+`pmset` takes time of its own, and the loop sleeps 0.25 s after each one, so a sample comes about
+every 0.32 s — 1,710 in 555 s on 2026-09-27, 1,084 in 351 s on 2026-09-18. Its header said
+"sampling every 0.25s" and its summary "at 0.25s"; both say "between" since the same commit, and
+nothing it reads changed. No item's pass turns on the difference: the states the items ask about
+last for seconds, 2.5's "within a second" is three samples wide, and a blip shorter than a sample —
+the one thing 3.6's "no blip to 1" could miss — could slip between samples at 4 Hz too.*
 
 **Every line carries its own reading**, so nothing depends on a header that has scrolled away. The
 format (the pid is illustrative):
@@ -224,7 +240,11 @@ dumpbtm` instead.*
 pid=31583`, and .514 and .704, `effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/`
 — and nothing after them, read 2026-09-27. All four are Default-level: without `--info --debug`
 it prints the same four, so the flags only widen it. A `_bundleURLForAuditToken` line after them is
-a move. Chunk 1 launches the installed app, which leaves fresh lines to anchor on.)*
+a move. Chunk 1 launches the installed app, which leaves fresh lines to anchor on.)* *(2026-09-27,
+at chunk 1: it did. The same query with `--start '2026-09-27 10:56:00'` prints four lines at
+10:56:41 — .104 and .267, `effectiveItemDispositionWithAuditToken: pid=42734`, and .106 and .268,
+`effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/` — and nothing after them,
+read at 11:21:57.)*
 
 ### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
@@ -566,6 +586,25 @@ summary reading `most at once     held 0`. Selection is not a run;
 The one on screen was 25 seconds older than the selection, and the transcript was copied then, with
 the watcher still running — so it had no line after the selection and no summary.
 
+**Walked:** ✅ **PASSED 2026-09-27 10:56:26–11:05:41**, on the fourth walk — the first on the Xcode
+27 build. **Build:** the installed app from `77275be` (dylib `e6e6e884…`), as item 0 proved it that
+morning; pid **42734**, its `exe` under `/Applications`, and `codesign` against the pid gives the
+installed app's CDHash, `71b8451c…`. **Watcher:** as committed in `278ac0b`, sha-256 `6728b7af…`.
+**Drive:** `disk9`, serial `12345686DAA9` — the 1 TB scratch T5 — selected at 11:04:33; the 11:04:40
+and 11:05:40 heartbeats follow it. All three readings are the walker's: 1.1 and 1.3 the transcript
+and its summary, and 1.2 a paste taken at about 11:02:35, read again headless at 11:03:14. *What
+would invalidate it:* another install, or another macOS update. The F2 fix below, in this record's
+commit, does not: it changes the watcher's wording, not what it reads. Evidence in the Walk record,
+below.
+
+⚠️ **Finding F2, 2026-09-27 — the instrument's wording, not the app.** *Running it* said the watcher
+"polls at 4 Hz", and its header printed "sampling every 0.25s". It sleeps 0.25 s *after* each read,
+and a read takes time of its own: this walk's summary counts 1,710 samples in 555 s, about three a
+second, and so do both transcripts of 2026-09-18 — 1,084 in 351 s and 499 in 164 s. **Fixed in this
+record's commit, by the user's decision, in wording only:** *Running it*, `PROGRESS.md` (two
+places), `BUILD-PLAN.md`'s Step 13 gate, and the script's comment, header and summary line. What the
+watcher reads, and when, is unchanged; each later Walked line names the commit its watcher came from.
+
 **First walk, 2026-09-18 10:26–10:34 — not recorded as a pass.** It ran against the installed
 `af09416` app, pid 24803 (the log's `processImageUUID` for that pid is the installed stub's LC_UUID,
 `EE5AD84B…`, and BTM resolved the process's bundle to `/Applications`). **1.1** read 0, on a line that did not
@@ -589,7 +628,8 @@ as committed in `a32001e`. **Drive:** `disk8`, serial `12345686DAA9`, selected a
 headless by the assistant** at 14:49:46, during the walk, with the app idle and the T5 selected — the
 walker pasted no 1.2 reading. *What would invalidate it:* another install, or another macOS update.
 Evidence in the Walk record, below. ⚠️ *LAPSED 2026-09-19 at the Xcode 27 install: chunk 1 is owed
-in full, from 1.1, on the new build.*
+in full, from 1.1, on the new build.* *(2026-09-27: walked in full on the new build and PASSED — the
+Walked line above the first walk.)*
 
 ---
 
@@ -964,6 +1004,70 @@ timeout) and `useractivityd` (55 s), and the Claude desktop app held a `NoIdleSl
 "Electron", taken at 14:49:16. None of it touches a reading here, since every reading is matched on
 the app's pid — but it is exactly what item 3.4's prerequisite is about, and it changes by the
 minute.
+
+### Chunk 1, fourth walk — 2026-09-27 10:56, PASSED
+
+**Build:** installed app from `77275be` (dylib `e6e6e884…`), as item 0 proved it at 09:44–09:55;
+pid 42734, ppid 1, started 10:56:40, its mapped images the launcher stub and
+`USBDriveTester.debug.dylib`, both under `/Applications`, and `codesign` against the pid gives CDHash
+`71b8451c…`, signed 2026-09-24 18:01:53. Daemon pid 14761, which chunk 1 does not read.
+**Watcher:** as committed in `278ac0b`, sha-256 `6728b7af…`, unmodified during the walk.
+**Drives:** `disk9` resolved by serial to the 1 TB scratch T5, `12345686DAA9`, before the selection
+and after the walk; `disk4` is the 22 TB Seagate, `00000000NT17XBRA`; `disk6` is the 1 TB EVO Plus
+that holds this repository. As pasted — the whole transcript, then the summary Ctrl-C printed:
+
+```
+sleep-assertion-watch: USBDriveTester, sampling every 0.25s, heartbeat every 60s
+  Reads only the 'Listed by owning process:' section. The system-wide summary line is a
+  flag powerd holds while the display is on, and is never consulted. Ctrl-C to stop.
+
+10:56:26  pid -  held 0  (USBDriveTester is not running)
+10:56:40  pid 42734  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+10:56:40  pid 42734  held 0  (owns no assertions)
+10:57:40  pid 42734  held 0  (unchanged)
+10:58:40  pid 42734  held 0  (unchanged)
+10:59:40  pid 42734  held 0  (unchanged)
+11:00:40  pid 42734  held 0  (unchanged)
+11:01:40  pid 42734  held 0  (unchanged)
+11:02:40  pid 42734  held 0  (unchanged)
+11:03:40  pid 42734  held 0  (unchanged)
+11:04:40  pid 42734  held 0  (unchanged)
+11:05:40  pid 42734  held 0  (unchanged)
+^C
+== summary ======================================================================
+  watched          USBDriveTester from 2026-09-27 10:56:26 to 2026-09-27 11:05:41
+  samples          1710 at 0.25s
+  changes          2
+  held at all      NO - nothing was ever held
+  most at once     held 0  (PreventUserIdleSystemSleep only)
+
+  Paste the whole transcript AND this summary into the checklist's walk record.
+```
+
+`changes 2` is the start and the launch, as on 2026-09-18, so nothing moved between 10:56:40 and
+11:05:41. From the app's own log: `initial enumeration: connected disk4, disk6, disk9` and the
+default selection `disk4 (22.00 TB)` at 10:56:41.264 (FR-DEV-3), `helper gate: available — no
+modal raised` at 10:56:41.308, `selected disk9 (1.00 TB)` at **11:04:33.750**, and no further line
+from the app's subsystem to 11:06:30 — no run was started. The 11:04:40 heartbeat is six seconds
+after the selection. BTM's four lines at the launch, 10:56:41, name `/Applications` (*The daemon*).
+
+**1.2, the walker's paste**, taken at about 11:02:35 — dated by `powerd`'s assertion, 02:20:05 old
+here and 02:20:44 when the assistant read the same id, `0x0001fc5200018427`, at 11:03:14. The paste
+dropped the first line's leading spaces, which the item's pattern requires:
+
+```
+PreventUserIdleSystemSleep     1
+   pid 419(powerd): [0x0001fc5200018427] 02:20:05 PreventUserIdleSystemSleep named: "Powerd - Prevent sleep while display is on"  
+   pid 779(sharingd): [0x00021d25000187bc] 00:00:02 PreventUserIdleSystemSleep named: "Handoff"  
+   pid 758(useractivityd): [0x00021d25000187bb] 00:00:02 PreventUserIdleSystemSleep named: "BTLEAdvertisement.30567278-979A-47C8-80EB-F89C54B9DB79"
+```
+
+At 11:03:14 the owners were `powerd` and `sharingd` — `useractivityd`'s had gone — and the summary
+still read 1. No line named pid 42734 at either reading.
+
+**For F2, after the walk:** a 20-second run of the same watcher from 11:08:52, read-only, counted
+62 samples; pid 42734 still held nothing, with the scratch T5 selected. The reworded watcher, run
+for 10 seconds from 11:20:49, counted 30 and printed its new header and summary wording.
 
 ### Chunk 2, first walk — 2026-09-18 15:04, 2.5 one cycle short
 

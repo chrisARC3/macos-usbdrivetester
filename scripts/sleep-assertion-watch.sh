@@ -12,8 +12,11 @@
 #   1. **The reading is a race.** Release happens on the transition out of `running`, which is
 #      milliseconds after the press; a person opening a terminal and typing `pmset -g assertions`
 #      is sampling a second or two later and can only report the end state. If the release were
-#      late, or briefly doubled, nothing about the typing speed would reveal it. This polls at
-#      4 Hz and prints a line on every CHANGE, so the transcript holds the transitions themselves.
+#      late, or briefly doubled, nothing about the typing speed would reveal it. This sleeps
+#      --interval (0.25 s) between reads of `pmset`, and a read takes time of its own, so it
+#      samples about three times a second — 1710 samples in 555 s on 2026-09-27; this said
+#      "4 Hz" until then — and prints a line on every CHANGE, so the transcript holds the
+#      transitions themselves.
 #
 #   2. **The obvious reading is answered by `powerd`, not by us.** `pmset -g assertions` opens with
 #      a system-wide summary in which `PreventUserIdleSystemSleep` reads **1** whenever the display
@@ -118,7 +121,7 @@ summarise() {
     echo
     echo "== summary ======================================================================"
     echo "  watched          ${PROCESS_NAME} from ${STARTED_AT} to $(date '+%Y-%m-%d %H:%M:%S')"
-    echo "  samples          ${SAMPLES} at ${INTERVAL}s"
+    echo "  samples          ${SAMPLES}, ${INTERVAL}s between them"
     echo "  changes          ${CHANGES}"
     echo "  held at all      $( ((EVER_HELD)) && echo yes || echo "NO - nothing was ever held" )"
     echo "  most at once     held ${MAX_HELD}  (${WANTED_TYPE} only)"
@@ -145,7 +148,7 @@ summarise() {
 }
 trap summarise INT TERM HUP
 
-echo "sleep-assertion-watch: ${PROCESS_NAME}, sampling every ${INTERVAL}s, heartbeat every ${HEARTBEAT}s"
+echo "sleep-assertion-watch: ${PROCESS_NAME}, ${INTERVAL}s between samples, heartbeat every ${HEARTBEAT}s"
 echo "  Reads only the 'Listed by owning process:' section. The system-wide summary line is a"
 echo "  flag powerd holds while the display is on, and is never consulted. Ctrl-C to stop."
 echo

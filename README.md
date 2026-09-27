@@ -82,7 +82,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > is no report to show, raised through a temporary debug menu and then taken out again, the install
 > put back byte for byte. **The walk restarted on 2026-09-27: item 0 — which build is installed, and
 > which helper is running — was re-checked and passed**, and the three flash drives it may write to
-> were named that day. Next is chunk 1, the baseline.
+> were named that day. **Chunk 1, the baseline, passed the same morning:** with the app open, and
+> then with a drive selected but no test started, it keeps nothing awake. Next is chunk 2, the
+> lifecycle, once the drive each of its checks writes to is agreed.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
