@@ -1,7 +1,7 @@
 # Step 13 — the human checklist
 
 > **STATUS, 2026-09-27: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
-> 09:44–09:55 and chunk 1 PASSED 10:56–11:05; chunk 2 is next, once its drive plan is approved.**
+> 09:44–09:55 and chunk 1 PASSED 10:56–11:05; chunk 2 is next, on the drives approved that morning.**
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
@@ -58,6 +58,9 @@
 > scratch T5 selected. One instrument finding, F2 — the watcher samples about three times a second,
 > not at the 4 Hz this file said — fixed in the same commit by the user's decision, in wording only.
 > **Chunk 2 is next**, once the user approves which write target each of its items runs on.)*
+> *(2026-09-27, later still: **the user approved chunk 2's drives** — the 4 TB T5 EVO for 2.1–2.6,
+> the 125.8 MB thumb for 2.7 — and the standing rules in `BUILD-PLAN.md` widened to match; 2.1 and
+> 2.7 say so, dated.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -658,8 +661,12 @@ Start a fresh watcher for this chunk so its summary covers only this walk:
 /Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester/scripts/sleep-assertion-watch.sh
 ```
 
-**2.1 — Start takes exactly one, of the right type, with the right name.** Select the 1 TB scratch
-T5 by serial, acknowledge the warnings, press Start.
+**2.1 — Start takes exactly one, of the right type, with the right name.** Select the 4 TB T5 EVO
+by serial, `00000S7CLNJ0WC02266P`, acknowledge the warnings, press Start.
+⚠️ *Changed 2026-09-27, by the user's decision on chunk 2's drives: this said "Select the 1 TB
+scratch T5 by serial". 2.1–2.6 are one run, which has to outlast Start, three Pause/Resume cycles
+and Stop, so it goes on the write target that holds no fill to lose; the scratch T5 and its fill
+stay out of this chunk. 2.7's complete run goes on the 125.8 MB thumb.*
 ⚠️ The app selects a drive by itself at launch, the first usable one (FR-DEV-3), and on 2026-09-18
 that was **the 22 TB Seagate**, `disk4`. Read the serial in the device pane before pressing Start.
 
@@ -741,7 +748,8 @@ whole run in about 40 s; the scratch T5 takes hours. The 22 TB Seagate is never 
 T5", and "No other drive may be substituted to make this quicker … the 125.8 MB thumb is reserved
 for Step 12's item 4.9" — a reservation spent 2026-09-11 — and so that this was "the one item here
 that cannot be shortened". This chunk's heading and the Walked lines of chunks 2 and 3 named the
-scratch T5 too, and changed with it.*
+scratch T5 too, and changed with it.* *(2026-09-27, later, by the user's decision on chunk 2's
+drives: the 125.8 MB thumb, `2211190533300386001515`.)*
 
 *Pass:* **held 0** with the report on screen, and a `sleep prevention: released` line in the log
 adjacent to `running → finishing`.

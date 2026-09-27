@@ -43,7 +43,8 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted
 > 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **and
 > chunk 1 PASSED the same morning**, on its fourth walk (`PROGRESS.md`, *Chunk 5*).
-> **Next: chunk 2**, once the user approves which write target each of its items runs on.
+> **Next: chunk 2**, on the drives the user approved that morning — the 4 TB T5 EVO for 2.1–2.6,
+> the 125.8 MB thumb for 2.7.
 > Before the pause, item 0 passed
 > 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading,
 > and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one
@@ -476,6 +477,20 @@ results with their numbers.
 | **source tree** — never tested | Samsung SSD 990 EVO Plus in a Ugreen enclosure | **`013117100578`** | Holds this repository and Claude Code, so it is **never unplugged**: every walk state with fewer drives includes it (user, 2026-09-25). The serial belongs to the *enclosure*. |
 | **fixture** — multi-volume unmount tests; reserve discriminator | Samsung PSSD **T5 EVO**, **4 TB**, 512 B blocks | **`00000S7CLNJ0WC02266P`** | Contents expendable. 7,814,037,168 blocks — **above 2³²**. Built by `scripts/make-unmount-fixture.sh`; see the two roles below. |
 
+> **Amended 2026-09-27, user decision (Step 13's walk): a walk may write to any of three flash
+> drives**, chosen item by item for testing efficiency and checked by serial in the pre-run prompt
+> every time — the scratch T5 and the 4 TB T5 EVO above, and the **125.8 MB "General UDisk"
+> thumb, serial `2211190533300386001515`** (role `multislice` in `scripts/lib/device-identity.sh`),
+> which Step 11's walks already used for runs that must finish quickly. In the user's words: *"we
+> are free to use the 1 TB scratch T5, the 4 TB Samsung and the 126 MB thumb drive. The only
+> consideration is testing efficiency because we are using a file with a byte pattern to fill the
+> media. If that gets deleted, we may need to recreate it and that might take time."* The scratch
+> T5 holds that fill and the other two hold none, so a *content* claim from a run on either proves
+> less, and a walk's record names the drive each item ran on. **The write gates are unchanged**:
+> each still resolves the scratch T5 by serial, and neither of the other two is a retention-gate
+> target (`scripts/lib/device-identity.sh` says why). The 22 TB Seagate is **never** a write
+> target, and the drive holding the source tree is never tested.
+
 **The fixture drive, added 2026-08-09.** It carries two roles and they do not conflict:
 
 1. **The multi-volume unmount fixture.** `VolumeMounter.restoringUnmount` can only be exercised
@@ -525,6 +540,8 @@ silently obeyed.
   > **not** part of any gate by default; using it requires a specific case to be named and agreed
   > first, per step. Reading its geometry is not free — it means unmounting a 22 TB volume, and
   > only the scratch device's contents are expendable.
+  > *(2026-09-27: still the rule for the gates. A walk may write to any of three flash drives since
+  > that day, by the user's decision — the amendment under the table in* Test hardware*, above.)*
   >
   > **One such case was known, and has since been agreed and closed: NFR-COMPAT-6.**
   > The scratch device is **1,953,525,168** blocks, *below* 2³² (4,294,967,296), so no test on it
@@ -577,7 +594,7 @@ simulation-first still applies wherever the plan calls for it.
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
 > `7e51398` with the app installed from `abc07e3`, and the account archived to
 > [`progress/step-12.md`](progress/step-12.md). **Step 13 (system-sleep prevention) is IN PROGRESS —
-> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, was PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED 2026-09-27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. ✅ **Step 12's chunks 2 and 1 re-walked 2026-09-26 and PASSED**, dry — all five items, then items 2–8, chunk 1's debug hook taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **and chunk 1 PASSED the same morning**, on its fourth walk. **Next: chunk 2**, once the user approves which write target each of its items runs on. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix, until its re-run of 2026-09-27.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> five chunks planned; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, was PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED 2026-09-27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. ✅ **Step 12's chunks 2 and 1 re-walked 2026-09-26 and PASSED**, dry — all five items, then items 2–8, chunk 1's debug hook taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **and chunk 1 PASSED the same morning**, on its fourth walk. **Next: chunk 2**, on the drives the user approved that morning — the 4 TB T5 EVO for 2.1–2.6, the 125.8 MB thumb for 2.7. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix, until its re-run of 2026-09-27.** Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -1282,7 +1299,7 @@ skip the in-memory proof; it is what makes the hardware run survivable when the 
 misses something.
 
 ### Risks / gotchas
-- **All destructive testing goes on the designated scratch device** (serial `12345686DAA9`). Even though the algorithm is non-destructive, bugs in this step write to raw blocks. Never the drive holding the source tree, and never the Seagate. The scripts enforce this by serial; they no longer accept a BSD name as an identity.
+- **All destructive testing goes on the designated scratch device** (serial `12345686DAA9`). Even though the algorithm is non-destructive, bugs in this step write to raw blocks. Never the drive holding the source tree, and never the Seagate. The scripts enforce this by serial; they no longer accept a BSD name as an identity. *(2026-09-27: still true of the gates. A walk may write to any of three flash drives since that day, by the user's decision — the amendment in* Test hardware*.)*
 - Raw devices reject misaligned offsets/lengths with `EINVAL` — alignment is not optional.
 - Some USB bridges report odd geometry; trust the ioctl and reject impossible values.
 - **The helper needs Full Disk Access** (NFR-INST-4, added 2026-08-01) or the raw open fails `EPERM`. Running as root is not sufficient.
@@ -2480,6 +2497,6 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 
 1. **One step at a time.** Do not begin a step until the previous step's Verification Gate is fully checked off.
 2. **Simulate before you touch hardware.** Steps 2, 7, 8, 9, 10, 12 all have an in-memory verification *before* the real-device verification. Never debug the algorithm on a drive you can't afford to lose.
-3. **Always test on the designated scratch device** (serial `12345686DAA9`) for any real-hardware step. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise. Disk images are **not** an alternative — discovery excludes them by design, and they lack the USB bridge, block device and NAND this tool exists to exercise (amended 2026-08-01).
+3. **Always test on a designated write target, identified by serial**, for any real-hardware step: the 1 TB scratch T5 (`12345686DAA9`) for every write gate, and for a walk any of the three flash drives in *Test hardware* — the scratch T5, the 4 TB T5 EVO (`00000S7CLNJ0WC02266P`) or the 125.8 MB thumb (`2211190533300386001515`), chosen for testing efficiency. The 22 TB Seagate is never one. The tool writes raw blocks; treat every hardware run as potentially destructive until proven otherwise. Disk images are **not** an alternative — discovery excludes them by design, and they lack the USB bridge, block device and NAND this tool exists to exercise (amended 2026-08-01). ⚠️ *Widened 2026-09-27, by the user's decision on Step 13's walk: this said "Always test on the designated scratch device (serial `12345686DAA9`) for any real-hardware step".*
 4. **The trust boundary is sacred.** Raw I/O only ever happens in the helper; the GUI never elevates. Re-confirm this at every step that adds helper code.
 5. **Record what you verified.** The full account goes in the commit message; `PROGRESS.md` keeps a summary and the hash. That keeps the deliberate pace auditable without writing it twice.
