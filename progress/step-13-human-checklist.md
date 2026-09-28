@@ -1,7 +1,8 @@
 # Step 13 — the human checklist
 
 > **STATUS, 2026-09-27: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
-> 09:44–09:55 and chunk 1 PASSED 10:56–11:05; chunk 2 is next, on the drives approved that morning.**
+> 09:44–09:55, chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 is next, once the
+> user approves its plan.**
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
@@ -60,7 +61,12 @@
 > **Chunk 2 is next**, once the user approves which write target each of its items runs on.)*
 > *(2026-09-27, later still: **the user approved chunk 2's drives** — the 4 TB T5 EVO for 2.1–2.6,
 > the 125.8 MB thumb for 2.7 — and the standing rules in `BUILD-PLAN.md` widened to match; 2.1 and
-> 2.7 say so, dated.)*
+> 2.7 say so, dated.)* *(2026-09-27, afternoon: **chunk 2 PASSED**, 16:18:28–16:33:20, on its
+> second walk and the first on the Xcode 27 build — the newest Walked line under the chunk. The
+> same app process, pid 42734, held one assertion of the right type and name from each entry to
+> `running` to the transition out of it — Start, three Pause/Resume cycles and Stop on the 4 TB T5
+> EVO, a complete run on the 125.8 MB thumb — never two at once, and nothing after a quit. No
+> findings. **Chunk 3 is next**, once the user approves its plan.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -217,6 +223,8 @@ for 14761 from here on.)*
 *(2026-09-27, at item 0: still **pid 14761** — `runs = 1`, never exited, and `codesign` against
 the pid gives CDHash `e1e7fe63…`, the installed helper's. Its resolve line has aged out of the log,
 whose `xpcproxy` lines reach back only to 2026-09-26 02:19:50; none is owed while the pid holds.)*
+*(2026-09-27, at chunk 2: still **pid 14761** — `runs = 1` and CDHash `e1e7fe63…` at 14:08:31,
+before the walk, and `runs = 1` again at 16:34:26, after it.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -247,7 +255,8 @@ a move. Chunk 1 launches the installed app, which leaves fresh lines to anchor o
 at chunk 1: it did. The same query with `--start '2026-09-27 10:56:00'` prints four lines at
 10:56:41 — .104 and .267, `effectiveItemDispositionWithAuditToken: pid=42734`, and .106 and .268,
 `effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/` — and nothing after them,
-read at 11:21:57.)*
+read at 11:21:57.)* *(2026-09-27, at chunk 2: the same four and nothing after them, read at 14:08:41,
+before the walk, and at 17:06:33, after it.)*
 
 ### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
@@ -761,6 +770,20 @@ but `(unchanged)` lines. An assertion outlives the
 process that took it only if the process is still alive, so this is really a check that nothing
 *else* was left behind.
 
+**Walked:** ✅ **PASSED 2026-09-27 16:18:28–16:33:20**, on the second walk — the first on the Xcode
+27 build. **Build:** the installed app from `77275be` (dylib `e6e6e884…`), as item 0 proved it that
+morning; pid **42734**, the process chunk 1's fourth walk watched, its `exe` under `/Applications`
+and CDHash `71b8451c…`. **Daemon:** pid **14761**, the installed helper `ac4d5208…` (CDHash
+`e1e7fe63…`), protocol v15, `runs = 1` before the walk and after it; BTM's record unmoved.
+**Watcher:** as committed in `5114006`, sha-256 `2cdc6de9…`. **Drives:** 2.1–2.6 on the 4 TB T5
+EVO, serial `00000S7CLNJ0WC02266P`, as `disk10`, selected at 16:18:37; 2.7 on the 125.8 MB thumb,
+serial `2211190533300386001515`, as `disk8`, named by the pre-run prompt at 16:29:14; 2.8 needs
+none. The transcript and summary are the walker's; 2.2's log extract and the `pmset` cross-checks
+were read headless by the assistant during the walk, and the extract once more over the whole of it
+at 16:35:31. *What would invalidate it:* another install, another macOS update, or the daemon
+running any helper but `ac4d5208…` — this chunk's runs go through it. Evidence in the Walk record,
+below.
+
 **First walk, 2026-09-18 15:04:56–15:07:40 — 2.1–2.4 and 2.6 passed; 2.5 one cycle short.** The
 installed app, pid 54729, and daemon pid 46679, both as in chunk 1; the scratch T5 by serial,
 `12345686DAA9`, named by the pre-run prompt and acquired as `disk8`. Start took one assertion, of the
@@ -771,8 +794,7 @@ written read that as enough (corrected at 2.5). **Owed: 2.5, 2.7 and 2.8**, agai
 and daemon. *Evidence in the Walk record, below.* *(2026-09-18, later: not against this build after
 all — the walk was paused for the move to Xcode 27, and restarts at item 0 on the new install.)*
 ⚠️ *(2026-09-19: 2.1–2.4 and 2.6 LAPSED at the Xcode 27 install. Chunk 2 is owed in full.)*
-
-**Walked:** date ________ build ________ drive, by serial, for each item that runs ________, transcript and summary pasted below.
+*(2026-09-27: walked in full on the new build and PASSED — the Walked line above the first walk.)*
 
 ---
 
@@ -1153,3 +1175,151 @@ The helper's side: four bounded calls on `disk8` — paused at blocks 1818624 an
 1 GiB call completed at 15:07:18.180 in 6.9 s, stopped at block 6856704 — each reading, writing back
 and verifying, with no failed range. The report: *"Stopped by the user — the rest of the drive was not
 tested"*, 0 failing blocks.
+
+### Chunk 2, second walk — 2026-09-27 16:18, PASSED
+
+**Build:** installed app from `77275be` (dylib `e6e6e884…`), pid 42734 — the process chunk 1's
+fourth walk watched, launched 10:56:40 from `/Applications`, CDHash `71b8451c…`. Daemon pid 14761
+from `/Applications`: `runs = 1` and CDHash `e1e7fe63…`, the installed helper's, at 14:08:31, and
+`runs = 1` again at 16:34:26, so it was neither restarted nor replaced across the walk; BTM's query
+(*The daemon*) printed only the four 10:56:41 lines, at 14:08:41 and again at 17:06:33.
+**Watcher:** as committed in `5114006`, sha-256 `2cdc6de9…`, the same at 16:30. **Drives,**
+resolved by serial at 16:04:29 and again at 16:28:15: `disk10` is the 4 TB T5 EVO,
+`00000S7CLNJ0WC02266P`, selected at 16:18:37.044; `disk8` is the 125.8 MB thumb,
+`2211190533300386001515`, 245760 × 512 B, selected at 16:29:08.277; `disk9` is the 1 TB scratch T5,
+not used; `disk4` is the 22 TB Seagate, never a target. As pasted — the whole transcript, then the
+summary Ctrl-C printed:
+
+```
+sleep-assertion-watch: USBDriveTester, 0.25s between samples, heartbeat every 60s
+  Reads only the 'Listed by owning process:' section. The system-wide summary line is a
+  flag powerd holds while the display is on, and is never consulted. Ctrl-C to stop.
+
+16:18:28  pid 42734  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+16:18:28  pid 42734  held 0  (owns no assertions)
+16:19:28  pid 42734  held 0  (unchanged)
+16:19:50  pid 42734  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+16:20:50  pid 42734  held 1  (unchanged)
+16:21:25  pid 42734  held 0  (owns no assertions)
+16:22:25  pid 42734  held 0  (unchanged)
+16:22:50  pid 42734  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+16:23:39  pid 42734  held 0  (owns no assertions)
+16:23:42  pid 42734  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+16:23:46  pid 42734  held 0  (owns no assertions)
+16:23:50  pid 42734  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+16:24:50  pid 42734  held 1  (unchanged)
+16:24:50  pid 42734  held 0  (owns no assertions)
+16:25:50  pid 42734  held 0  (unchanged)
+16:26:50  pid 42734  held 0  (unchanged)
+16:27:50  pid 42734  held 0  (unchanged)
+16:28:50  pid 42734  held 0  (unchanged)
+16:29:21  pid 42734  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+16:30:00  pid 42734  held 0  (owns no assertions)
+16:31:00  pid 42734  held 0  (unchanged)
+16:32:00  pid 42734  held 0  (unchanged)
+16:32:18  pid -  held 0  (USBDriveTester is not running)
+16:33:18  pid -  held 0  (unchanged)
+^C
+== summary ======================================================================
+  watched          USBDriveTester from 2026-09-27 16:18:28 to 2026-09-27 16:33:20
+  samples          2826, 0.25s between them
+  changes          12
+  held at all      yes
+  most at once     held 1  (PreventUserIdleSystemSleep only)
+
+  Paste the whole transcript AND this summary into the checklist's walk record.
+```
+
+2.2's extract, read headless at 16:35:31 with `--start '2026-09-27 16:18:00' --end '2026-09-27
+16:33:30'` in place of `--last 10m`. Every line is pid 42734:
+
+```
+2026-09-27 16:19:50.165 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: idle → starting on the Start command
+2026-09-27 16:19:50.712 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: starting → running on claimEstablished
+2026-09-27 16:19:50.713 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-27 16:21:25.013 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: running → pausing on the Pause command
+2026-09-27 16:21:25.014 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-27 16:21:25.047 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: pausing → paused on pauseSettled
+2026-09-27 16:22:50.365 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: paused → running on the Resume command
+2026-09-27 16:22:50.365 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-27 16:23:39.328 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: running → pausing on the Pause command
+2026-09-27 16:23:39.328 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-27 16:23:39.357 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: pausing → paused on pauseSettled
+2026-09-27 16:23:42.703 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: paused → running on the Resume command
+2026-09-27 16:23:42.703 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-27 16:23:46.748 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: running → pausing on the Pause command
+2026-09-27 16:23:46.748 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-27 16:23:46.756 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: pausing → paused on pauseSettled
+2026-09-27 16:23:49.932 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: paused → running on the Resume command
+2026-09-27 16:23:49.933 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-27 16:24:50.562 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: running → stopping on the Stop command
+2026-09-27 16:24:50.563 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-27 16:24:50.572 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: stopping → finishing on runEnded
+2026-09-27 16:24:50.907 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: finishing → finished on deviceReleased
+2026-09-27 16:29:20.922 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: finished → starting on the Start command
+2026-09-27 16:29:21.464 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: starting → running on claimEstablished
+2026-09-27 16:29:21.464 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-27 16:30:00.566 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: running → finishing on runEnded
+2026-09-27 16:30:00.567 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-27 16:30:00.901 Df USBDriveTester[42734:192126] [com.arc3solutions.USBDriveTester:io] run control: finishing → finished on deviceReleased
+```
+
+- **2.1 ✅** `held 1` at 16:19:50: one entry, `PreventUserIdleSystemSleep "USB drive retention test
+  in progress"`, and no display-sleep type. `pmset` at 16:20:40 listed exactly one assertion for the
+  pid, of that type and name, 49 s old. The EVO's three volumes were unmounted at 16:19:50.619–.693,
+  before the claim.
+- **2.2 ✅** `holding` at 16:19:50.713, 1 ms after `starting → running on claimEstablished`; the
+  548 ms from `idle → starting` at 16:19:50.165 — the unmounts and the claim — have no
+  sleep-prevention line. Each Resume pairs the same way, `paused → running` then `holding`, within a
+  millisecond.
+- **2.3 ✅** each Pause logs `running → pausing`, then `released` within a millisecond, then
+  `paused` 34, 29 and 8 ms later. The watcher read `held 0` in the same second each time — 16:21:25,
+  16:23:39 and 16:23:46 — and `pmset` at 16:21:59 listed nothing for the pid.
+- **2.4 ✅** `held 1` again at 16:22:50, the same type and name. `pmset` at 16:23:07 listed exactly
+  one, under a new id.
+- **2.5 ✅** three `paused → running on the Resume command` lines — 16:22:50.365, 16:23:42.703 and
+  16:23:49.932 — each with a transcript line going to `held 1` within a second: 16:22:50, 16:23:42
+  and 16:23:50. The summary reads `most at once     held 1  (PreventUserIdleSystemSleep only)`, and
+  no line reads `held 2`. The extract has five `holding` lines and five `released`, alternating, and
+  `pmset` at 16:24:14, after the third Resume, listed exactly one, under the third id seen.
+- **2.6 ✅** Stop at 16:24:50.562 and `released` at .563 — before `run ended: stoppedByUser`
+  (.572), the report line (.573) and `finishing → finished` (.907). The watcher read `held 0` at
+  16:24:50, `pmset` at 16:25:16 listed nothing for the pid, and the EVO's three volumes were mounted
+  again.
+- **2.7 ✅** on the thumb: the pre-run prompt at 16:29:14.252 named serial
+  `2211190533300386001515`, and `run authorised` at 16:29:20.922 the same; `holding` at
+  16:29:21.464, in the millisecond of `starting → running`. One call covered the drive, blocks
+  0–245759, 30 of 30 chunks in 39.1 s. `run ended: completed` and `running → finishing` at
+  16:30:00.566, then `released` at .567 — the pid's next line — and the report, *"Completed — no
+  currently-unreadable blocks were found"*, 0 failing blocks. The watcher read `held 0` at 16:30:00;
+  `pmset` at 16:30:18, with the report on screen, listed nothing for the pid; Slice_A was mounted
+  again.
+- **2.8 ✅** the app logged `quit command: … 0 sheet(s)` at 16:32:18.440 and `terminate requested:
+  runIsActive=false disposition=quitImmediately` at .475; the watcher printed `pid -  held 0
+  (USBDriveTester is not running)` at 16:32:18 and one `(unchanged)` line after it. At 16:34:26 no
+  process was named `USBDriveTester`, and `pmset` listed nothing for pid 42734, the daemon's pid or
+  any owner of that name — while the same extraction listed `WindowServer`, Claude and `powerd`.
+
+Read with the transcript:
+
+- **`changes 12`** is the watcher's first line, ten changes — Start, three Pauses, three Resumes,
+  Stop, the thumb's Start and its completion — and the quit, as predicted before the paste.
+- **Two lines at 16:24:50.** The heartbeat fell due 60 s after 16:23:50's line, in the second Stop
+  was pressed. Its sample came before the release at .563 and read `held 1  (unchanged)`; a later
+  sample in the same second read `held 0`.
+- **`finished → starting`** at 2.7's Start, where 2.2's reads `idle → starting`: a closed report
+  leaves the state at `finished` — the extract has no transition between 16:24:50.907 and
+  16:29:20.922 — and Start is accepted from `.finished` by design (`RunControlState.swift`,
+  `start(in:)`).
+- **`samples 2826`** in 892 s is 3.2 a second, as F2's wording says.
+- **The helper logged two `connection … invalidated` lines at the quit**, both at 16:32:18.483: the
+  app opens two connections to it (`HelperConnection.swift`), and the quits of 2026-09-25 20:12:30
+  and 2026-09-26 20:20:22 logged two each.
+
+The helper's side: 25 bounded calls on `disk10` from block 0 — 21 completed at 1 GiB each, three
+paused, at blocks 21962752, 33357824 and 34299904, each Resume starting its call at that block, and
+one stopped, at block 48349184 — then one on `disk8` covering the whole thumb. All 26 read, wrote
+back and verified with no failed block range, and every one reported the cache bypassed. The EVO's
+report: *"Stopped by the user — the rest of the drive was not tested"*, 0 failing blocks. Both
+reports log `verify result qualified: false`, which means the bypass was confirmed
+(`RunReport.verifyResultIsQualified`), not a caveat.
