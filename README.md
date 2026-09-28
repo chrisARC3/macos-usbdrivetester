@@ -87,8 +87,12 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > passed that afternoon**, on the drives agreed that morning: a test on the 4 TB T5 EVO asked the
 > Mac to stay awake only while it was running — not while paused, and never twice over — and
 > stopped asking at the stop; a test on the 125.8 MB thumb stopped asking the moment it finished;
-> and quitting left nothing behind. Next is chunk 3 — the endings a button cannot make — whose
-> plan was agreed on 2026-09-28.
+> and quitting left nothing behind. **Chunk 3, the endings a button cannot make, passed on
+> 2026-09-28**, on the 4 TB T5 EVO: a test asked the Mac to stay awake but never to keep the display
+> on, and the display slept for nearly three minutes with the test running on; pulling the drive's
+> cable mid-test stopped the asking as the report appeared; and pulling it from a paused test found
+> nothing to stop. Step 12's cable-pull checks passed again on this build along the way. Next is
+> Step 13's verification gate, once its plan is agreed.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the

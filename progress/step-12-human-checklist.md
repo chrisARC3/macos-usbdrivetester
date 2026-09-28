@@ -45,7 +45,10 @@
 > install stand. Chunks 3 and 4 stay carried by Step 13's pulls. **Next: Step 13's walk restarts at
 > item 0.**)* *(2026-09-27: it restarted, and Step 13's item 0 PASSED 09:44–09:55 against the same
 > install, re-proved byte-identical — so nothing recorded here moved. Chunks 3 and 4 stay carried by
-> Step 13's chunk 3.)*
+> Step 13's chunk 3.)* *(2026-09-28: carried, and PASSED on the Xcode 27 build — Step 13's chunk 3,
+> 14:48–15:25, on the 4 TB T5 EVO: 3.4, 3.7–3.10 and 3.12 at its running pull, 3.13 and 3.14 at the
+> reconnect, 4.4, 4.7 and 4.8 at its paused pull. Each chunk's carried box is under it; the items
+> not carried stay facts about the Xcode 26 build.)*
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
@@ -802,6 +805,42 @@ it.
 
 **Against build:** `982406a` *(every item PASSED — see the item 9 table above for its six runs)*
 
+✅ **Carried 2026-09-28 by Step 13's chunk 3 (its item 3.7), on the Xcode 27 build — ITEMS 4, 7, 8,
+9, 10 AND 12 PASSED at its running pull, and 13 and 14 at the reconnect after it** (user decision
+2026-09-19: this chunk's pulls are carried by Step 13's, not re-walked on their own). One pull, at
+14:59:07, on the 4 TB T5 EVO, serial `00000S7CLNJ0WC02266P`, as `disk10` — not the scratch T5 item 1
+names, by the user's decision on Step 13's chunk 3 plan: a pull can land part-way through a
+write-back, and this drive's contents are expendable. The readings are the user's, by eye, and the
+log's, read headless:
+
+| item | the reading |
+|---|---|
+| 4 | *"App is responsive, no beach ball or freeze"*, with the report on screen |
+| 7 | *"Full report sheet, not an alert box"* |
+| 8 | the headline *"Ended — the drive disappeared from the USB bus, and the rest was not tested"*, and the rows **Drive left at** block 143,491,072 and **While** verifying the write-back — the block and the phase, which only route (a)'s reply carries |
+| 9 | `verifying`, and the sentence on screen is that row's, word for word: *"The drive left while this tool was re-reading block 143,491,072 to verify it. The write-back had already completed, so the chunk was whole when the drive went — it is unverified, and unverified is not the same as bad."* The helper agrees: `the device was lost while verifying the write-back`, 109 chunks written back and 108 verified. Any phase passes here (Step 13's 3.7 (d)): landing in `writingBack` was this chunk's job, done 2026-09-09 |
+| 10 | *"Only Start is offered, no Resume or Stop"* |
+| 12 | *"Yes, 4 TB T5 EVO is gone, four drives listed"*, and the log's `discovery found 4 USB whole disk(s): disk4, disk6, disk8, disk9` at 14:59:07.994, 376 ms after the drive went — before anyone could click |
+| 13 | *"Drive reconnected, 4 TB T5 EVO is back in the list"* — `connected disk10` at 15:10:06.559, and the serial resolved to `disk10` at 15:10:15 |
+| 14 | a second run accepted: `run authorised: drive serial 00000S7CLNJ0WC02266P` at 15:11:21.263, and the helper's `acquire GRANTED for pid 5999` at .913 |
+
+Also in that log, though 3.7 does not carry them — so readings, not re-walked items: item 5's line
+at error level, `the drive under test left the machine while running: Samsung PSSD T5 EVO (serial
+00000S7CLNJ0WC02266P), disk10 at run time`, naming the drive by model and serial and the BSD name as
+what it was at the time; item 6's `run ended: deviceLost` at .622, and its reading (ii), `a disk
+disappeared: disk10 (whole disk)`, at .618, the only disappearance at the pull; and neither of item
+11's two lines, from the pull to the second run's Start — the run ended on the helper's reply 4 ms
+after the removal callback, and the helper released the claim at .625. Route (a) fired first
+again: the helper's `errno 6 (Device not configured)` at .617, 1 ms before route (b).
+
+**Against build:** the installed app from `77275be` (dylib `e6e6e884…`), pid 5999; daemon pid 14761,
+the installed helper `ac4d5208…`, protocol **v15**; helper source hash **`e19b0b3c…`**, re-derived;
+Xcode 27.0 (27A266a) on macOS 27.0 (26A428). The record is Step 13's checklist — chunk 3's Walked
+line and its walk record. **What would invalidate it:** chunk 4's list, below, which names the
+files this path runs through; another install, another macOS update, or the daemon running any
+helper but `ac4d5208…`. Items 5, 6 and 11 were not carried, and their passes stay facts about the
+Xcode 26 build.
+
 ---
 
 ## Chunk 4 — the unplug while paused *(WRITES to the scratch drive)*
@@ -1029,6 +1068,25 @@ from `2086090` (dylib `44610313…`, helper `7590b920…`; no app or helper sour
 two, and the working tree held documentation and script edits only), protocol **v15**, helper
 source hash **`e19b0b3c…`**, daemon **pid 89541** started 2026-09-08 16:22:50 and resolved from
 `/Applications`.
+
+✅ **Carried 2026-09-28 by Step 13's chunk 3 (its item 3.7), on the Xcode 27 build — ITEMS 4, 7 AND
+8 PASSED** (user decision 2026-09-19, as chunk 3's). One pull, at 15:13:05, from a run paused at
+15:12:07 on the 4 TB T5 EVO, serial `00000S7CLNJ0WC02266P`, as `disk10`:
+
+| item | the reading |
+|---|---|
+| 4 | at once: the removal callback, `device loss: nothing was in flight, ending the run now` and `run ended: deviceLost` all at 15:13:05.791, and `paused → finishing on deviceLost` at .792 |
+| 7 | the sentence on screen, word for word, in the user's screenshot: *"The run was paused when the drive left, so no chunk was part-way through anything and nothing was left half-written. Every chunk the run had reached was written back and verified before it stopped."* — and no **Drive left at** or **While** rows |
+| 8 | *"Yes, 4 TB T5 EVO is gone, four drives listed"*, and `discovery found 4 USB whole disk(s): disk4, disk6, disk8, disk9` at 15:13:06.290, and again at .314 once discovery resumed |
+
+Also in that log, as readings only: item 5's line, `the drive under test left the machine while
+paused: Samsung PSSD T5 EVO (serial 00000S7CLNJ0WC02266P), disk10 at run time` — the state named is
+`paused`; and item 9's, a single `a disk disappeared: disk10 (whole disk)` at the pull and no slice
+line, the slices having gone at the claim, 15:11:21.897–.904. Items 5, 6 and 9 were not carried,
+and their passes stay facts about the Xcode 26 build.
+
+**Against build:** as chunk 3's carried box. **What would invalidate it:** the list above, and
+another install, another macOS update, or the daemon running any helper but `ac4d5208…`.
 
 ---
 

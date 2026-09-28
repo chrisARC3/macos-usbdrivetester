@@ -1,8 +1,10 @@
 # Step 13 — the human checklist
 
 > **STATUS, 2026-09-28: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
-> 09:44–09:55, chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 is next, on the
-> plan the user approved 2026-09-28.**
+> 09:44–09:55, chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 PASSED 2026-09-28
+> 14:48–15:25, with 3.4 and 3.3's optional deliberate sleep not walked, by the user's decision.
+> Every chunk of this checklist is walked; Step 13's verification gate is next, once its plan is
+> approved.**
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
@@ -69,7 +71,17 @@
 > findings. **Chunk 3 is next**, once the user approves its plan.)* *(2026-09-28: **the user
 > approved chunk 3's plan** — both cable pulls on the 4 TB T5 EVO, the display-sleep timer
 > shortened for 3.2 and put back after it, and neither 3.3's optional deliberate sleep nor 3.4
-> walked; 3.2–3.5 say so, dated.)*
+> walked; 3.2–3.5 say so, dated.)* *(2026-09-28, afternoon: **chunk 3 PASSED**, 14:48:00–15:25:21,
+> on its first walk, both cable pulls on the 4 TB T5 EVO — the Walked line under the chunk. The
+> installed app, pid 5999, launched from `/Applications` at 14:45:42, held only
+> `PreventUserIdleSystemSleep` while running, and never the display-sleep type; the display slept
+> for 2 minutes 49 seconds of a run, and the run went on; a pull mid-run released the assertion 4 ms
+> after the app saw the drive go, before the report; a pull from a paused run found nothing held,
+> and nothing was taken. All nine of 3.7's Step 12 readings passed, and Step 12's 3.13 and 3.14 at
+> the reconnect between the pulls — recorded in that file too. No findings from the walk; **F3**,
+> found at its plan — *Prerequisites* named 3.4 alone as the item something else holding the
+> machine awake makes untestable — is fixed in the same commit, by the user's decision. This is the
+> checklist's last chunk: **Step 13's verification gate is next**, once its plan is approved.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -228,6 +240,9 @@ the pid gives CDHash `e1e7fe63…`, the installed helper's. Its resolve line has
 whose `xpcproxy` lines reach back only to 2026-09-26 02:19:50; none is owed while the pid holds.)*
 *(2026-09-27, at chunk 2: still **pid 14761** — `runs = 1` and CDHash `e1e7fe63…` at 14:08:31,
 before the walk, and `runs = 1` again at 16:34:26, after it.)*
+*(2026-09-28, at chunk 3: still **pid 14761** — `runs = 1` and CDHash `e1e7fe63…` at 14:14:19,
+before the walk, and at 14:46:29, with the app open; the same again at 15:26:45 and 15:38:53, after
+it.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -259,7 +274,11 @@ at chunk 1: it did. The same query with `--start '2026-09-27 10:56:00'` prints f
 10:56:41 — .104 and .267, `effectiveItemDispositionWithAuditToken: pid=42734`, and .106 and .268,
 `effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/` — and nothing after them,
 read at 11:21:57.)* *(2026-09-27, at chunk 2: the same four and nothing after them, read at 14:08:41,
-before the walk, and at 17:06:33, after it.)*
+before the walk, and at 17:06:33, after it.)* *(2026-09-28, at chunk 3: the same four and nothing
+after them at 14:14:19, before the walk. The user's launch of the installed app at 14:45:42 added
+four more — .825 and .985, `effectiveItemDispositionWithAuditToken: pid=5999`, and .827 and .987,
+`effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/` — read at 14:46:29; at
+15:38:53, after the walk, nothing after those eight, and no `_bundleURLForAuditToken` line.)*
 
 ### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
@@ -415,9 +434,13 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
   *(And pid **14761** since 20:12:28 that day, after a Login Items toggle, resolved from
   `/Applications`, the same helper.)*
 
-* **Nothing else holding the machine awake.** A `caffeinate` left running from another session, or
-  a video playing, does not break any item here — every reading is matched on the app's pid — but it
-  makes item 3.4 (the real idle-sleep timer) untestable. Check with:
+* **Nothing else holding the machine awake.** Another process's assertion does not break a reading
+  here — every reading is matched on the app's pid — but it can make the two items that test the
+  real system untestable. Anything holding `PreventUserIdleDisplaySleep` — a video playing, a
+  `caffeinate -d` — keeps the display on, and item 3.2 needs it to sleep. Anything holding the
+  idle-system-sleep type — a plain `caffeinate`, which asserts against idle sleep when given no
+  flags, among others — keeps the machine awake whatever the app does, and item 3.4 (the real
+  idle-sleep timer) needs it not to. Check with:
 
   ```bash
   /usr/bin/pmset -g assertions | /usr/bin/grep -A 20 'Listed by owning process'
@@ -426,7 +449,15 @@ assistant's shell.** See `CONSTRAINTS.md` §1, *It does not stay fixed*.
   Measured during chunk 1's third walk, 2026-09-18 14:51: besides `powerd`, the idle-sleep type was
   held by `sharingd`, `bluetoothd` and `useractivityd` — the last two on timeouts of seconds — and
   **the Claude desktop app** held a `NoIdleSleepAssertion` named "Electron". Read the list at the
-  moment 3.4 starts, not before.
+  moment 3.2 or 3.4 starts, not before.
+
+  ⚠️ *Corrected 2026-09-28, finding F3 at chunk 3's plan, by the user's decision: this bullet said a
+  `caffeinate` or a video playing "does not break any item here … but it makes item 3.4 (the real
+  idle-sleep timer) untestable", and ended "Read the list at the moment 3.4 starts". A video holds
+  `PreventUserIdleDisplaySleep`, which stops 3.2's display from sleeping, so 3.4 was not the only
+  item it touched. It did not touch that day's walk: `PreventUserIdleDisplaySleep` read 0 at each
+  of the eight reads that printed it, 14:16:45 to 15:19:26 — at 14:51:09, before 3.2's window, and
+  at 14:57:15, after it — and the display slept.*
 
 ---
 
@@ -954,7 +985,21 @@ After **3.6's** pull — a *paused* run:
 *Pass:* all nine. A miss is a **Step 12 defect found on the Xcode 27 build**, and it is reported as
 one. It does not fail 3.5 or 3.6, whose subject is the assertion.
 
-**Walked:** date ________ build ________ drive, by serial, for each item that runs ________, transcript pasted below.
+**Walked:** ✅ **PASSED 2026-09-28 14:48:00–15:25:21**, on the first walk — on the Xcode 27 build:
+3.1, 3.2, 3.3's reading, 3.5, 3.6 and all nine of 3.7; 3.4 and 3.3's optional deliberate sleep not
+walked, by the user's decision on the plan. **Build:** the installed app from `77275be` (dylib
+`e6e6e884…`), as item 0 proved it on 2026-09-27; pid **5999**, launched 14:45:42 from
+`/Applications`, CDHash `71b8451c…`, signed 2026-09-24 18:01:53. **Daemon:** pid **14761**, the
+installed helper `ac4d5208…` (CDHash `e1e7fe63…`), protocol v15, `runs = 1` before the walk and
+after it; BTM's record unmoved. **Watcher:** as committed in `5114006`, sha-256 `2cdc6de9…`.
+**Drive:** every item on the 4 TB T5 EVO, serial `00000S7CLNJ0WC02266P`, as `disk10`, selected at
+14:48:47.789 and at 15:11:01.120, and named by both pre-run prompts, at 14:48:55.326 and
+15:11:20.279. **3.2's timer:** `displaysleep` 60, then 2 — read at 14:51:09 — then 60 again, read
+at 14:58:15, by the commands the user ran. The transcript and summary are the walker's; the log
+extracts, the power log and the `pmset` cross-checks were read headless by the assistant, during
+the walk and after it. *What would invalidate it:* another install, another macOS update, or the
+daemon running any helper but `ac4d5208…` — both runs go through it. Evidence in the Walk record,
+below.
 
 ---
 
@@ -1366,3 +1411,245 @@ back and verified with no failed block range, and every one reported the cache b
 report: *"Stopped by the user — the rest of the drive was not tested"*, 0 failing blocks. Both
 reports log `verify result qualified: false`, which means the bypass was confirmed
 (`RunReport.verifyResultIsQualified`), not a caveat.
+
+### Chunk 3, first walk — 2026-09-28 14:48, PASSED
+
+**Build:** installed app from `77275be` (dylib `e6e6e884…`), pid 5999 — launched 14:45:42 from
+`/Applications` for this chunk, CDHash `71b8451c…`, signed 2026-09-24 18:01:53. Daemon pid 14761
+from `/Applications`: `runs = 1` and CDHash `e1e7fe63…`, the installed helper's, at 14:14:19 and
+14:46:29, and again at 15:26:45 and 15:38:53, so it was neither restarted nor replaced across the
+walk; BTM's query (*The daemon*) printed the four 10:56:41 lines at 14:14:19, those and the four the
+launch added at 14:46:29, and nothing after the eight at 15:38:53. **Watcher:** as committed in
+`5114006`, sha-256 `2cdc6de9…`, checked at 14:46:29 and again before it was stopped. **Drive,**
+resolved by serial at 14:23:15, before the walk, and at 14:58:15, during it: `disk10` is the 4 TB
+T5 EVO, `00000S7CLNJ0WC02266P`, 7814037168 × 512 B — EFI, `Vol_ExFAT`, the APFS container `disk11`
+and `Vol_HFS`, with `Vol_ExFAT`, `Vol_APFS` (`disk11s1`) and `Vol_HFS` mounted. It was selected at
+14:48:47.789 for run A and at 15:11:01.120 for run B. `disk4` is the 22 TB Seagate, connected
+throughout and never a target; `disk9`, the 1 TB scratch T5, and `disk8`, the 125.8 MB thumb, were
+not used. **Power settings:** AC only, `sleep` 180, `displaysleep` 60 — set to 2 for 3.2, read at
+14:51:09, and back to 60, read at 14:58:15. As pasted — the whole transcript, then the summary
+Ctrl-C printed:
+
+```
+sleep-assertion-watch: USBDriveTester, 0.25s between samples, heartbeat every 60s
+  Reads only the 'Listed by owning process:' section. The system-wide summary line is a
+  flag powerd holds while the display is on, and is never consulted. Ctrl-C to stop.
+
+14:48:00  pid 5999  exe /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester
+14:48:00  pid 5999  held 0  (owns no assertions)
+14:49:00  pid 5999  held 0  (unchanged)
+14:49:01  pid 5999  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+14:50:01  pid 5999  held 1  (unchanged)
+14:51:01  pid 5999  held 1  (unchanged)
+14:52:01  pid 5999  held 1  (unchanged)
+14:53:01  pid 5999  held 1  (unchanged)
+14:54:01  pid 5999  held 1  (unchanged)
+14:55:01  pid 5999  held 1  (unchanged)
+14:56:01  pid 5999  held 1  (unchanged)
+14:57:01  pid 5999  held 1  (unchanged)
+14:58:01  pid 5999  held 1  (unchanged)
+14:59:01  pid 5999  held 1  (unchanged)
+14:59:07  pid 5999  held 0  (owns no assertions)
+15:00:07  pid 5999  held 0  (unchanged)
+15:01:07  pid 5999  held 0  (unchanged)
+15:02:07  pid 5999  held 0  (unchanged)
+15:03:07  pid 5999  held 0  (unchanged)
+15:04:07  pid 5999  held 0  (unchanged)
+15:05:07  pid 5999  held 0  (unchanged)
+15:06:07  pid 5999  held 0  (unchanged)
+15:07:07  pid 5999  held 0  (unchanged)
+15:08:07  pid 5999  held 0  (unchanged)
+15:09:07  pid 5999  held 0  (unchanged)
+15:10:07  pid 5999  held 0  (unchanged)
+15:11:07  pid 5999  held 0  (unchanged)
+15:11:22  pid 5999  held 1  PreventUserIdleSystemSleep "USB drive retention test in progress"  
+15:12:07  pid 5999  held 0  (owns no assertions)
+15:13:07  pid 5999  held 0  (unchanged)
+15:14:07  pid 5999  held 0  (unchanged)
+15:15:07  pid 5999  held 0  (unchanged)
+15:16:07  pid 5999  held 0  (unchanged)
+15:17:07  pid 5999  held 0  (unchanged)
+15:18:07  pid 5999  held 0  (unchanged)
+15:19:07  pid 5999  held 0  (unchanged)
+15:20:07  pid 5999  held 0  (unchanged)
+15:21:07  pid 5999  held 0  (unchanged)
+15:22:07  pid 5999  held 0  (unchanged)
+15:23:07  pid 5999  held 0  (unchanged)
+15:24:07  pid 5999  held 0  (unchanged)
+15:25:07  pid 5999  held 0  (unchanged)
+^C
+== summary ======================================================================
+  watched          USBDriveTester from 2026-09-28 14:48:00 to 2026-09-28 15:25:21
+  samples          6785, 0.25s between them
+  changes          5
+  held at all      yes
+  most at once     held 1  (PreventUserIdleSystemSleep only)
+
+  Paste the whole transcript AND this summary into the checklist's walk record.
+```
+
+The run-control and sleep-prevention lines, read headless after the walk with
+`--start '2026-09-28 14:45:00'` and the predicate narrowed to the app's own process. Every line is
+pid 5999:
+
+```
+2026-09-28 14:49:00.381 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: idle → starting on the Start command
+2026-09-28 14:49:01.041 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: starting → running on claimEstablished
+2026-09-28 14:49:01.042 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-28 14:59:07.622 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: running → finishing on deviceLost
+2026-09-28 14:59:07.622 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-28 14:59:07.990 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: finishing → finished on deviceReleased
+2026-09-28 15:11:21.263 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: finished → starting on the Start command
+2026-09-28 15:11:21.915 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: starting → running on claimEstablished
+2026-09-28 15:11:21.915 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] sleep prevention: holding an idle-system-sleep assertion for the run (USB drive retention test in progress)
+2026-09-28 15:12:07.428 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: running → pausing on the Pause command
+2026-09-28 15:12:07.428 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] sleep prevention: released the idle-system-sleep assertion
+2026-09-28 15:12:07.439 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: pausing → paused on pauseSettled
+2026-09-28 15:13:05.792 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: paused → finishing on deviceLost
+2026-09-28 15:13:06.286 Df USBDriveTester[5999:28d0d0] [com.arc3solutions.USBDriveTester:io] run control: finishing → finished on deviceReleased
+```
+
+The power log across 3.2's window — every line `pmset -g log` has from 14:53:03 to 14:59:09, read
+at 15:53:58 and again at 16:05:45, with the tab after each line's category shown as a space:
+
+```
+2026-09-28 14:53:32 -0700 Assertions           PID 476(WindowServer) TimedOut UserIsActive "com.apple.iohideventsystem.queue.tickle serviceID:100000ff9 service:AppleUserHIDEventService product:USB Optical Mouse  eventType:17" 00:02:00  id:0x0x90000944e [System: PrevIdle DeclUser kDisp]
+2026-09-28 14:53:32 -0700 Assertions           Summary- [System: PrevIdle] Using AC
+2026-09-28 14:53:43 -0700 Notification         Display is turned off
+2026-09-28 14:53:43 -0700 Assertions           PID 419(powerd) Released PreventUserIdleSystemSleep "Powerd - Prevent sleep while display is on" 02:11:57  id:0x0x10000944f [System: PrevIdle]
+2026-09-28 14:53:43 -0700 Assertions           PID 696(backupd-helper) Summary PreventUserIdleSystemSleep "Mutexed Backup Block" 00:00:00  id:0x0x100009b90 [System: PrevIdle]
+2026-09-28 14:53:43 -0700 Assertions           PID 5999(USBDriveTester) Summary PreventUserIdleSystemSleep "USB drive retention test in progress" 00:04:42  id:0x0x100009b66 [System: PrevIdle]
+2026-09-28 14:53:43 -0700 Assertions           PID 419(powerd) Summary ExternalMedia "com.apple.powermanagement.externalmediamounted" 74:36:25  id:0x0x800008000 [System: PrevIdle]
+2026-09-28 14:56:32 -0700 Assertions           PID 476(WindowServer) Created UserIsActive "com.apple.iohideventsystem.queue.tickle serviceID:100000ff9 service:AppleUserHIDEventService product:USB Optical Mouse  eventType:17" 00:00:00  id:0x0x900009ba1 [System: PrevIdle DeclUser kDisp]
+2026-09-28 14:56:32 -0700 Assertions           PID 476(WindowServer) Created PreventSystemSleep "com.apple.WindowServer.PUIDS" 00:00:00  id:0x0x700009ba2 [System: PrevIdle PrevSleep DeclUser kCPU kDisp]
+2026-09-28 14:56:32 -0700 Notification         Display is turned on
+2026-09-28 14:56:32 -0700 Assertions           PID 476(WindowServer) Released PreventSystemSleep "com.apple.WindowServer.PUIDS" 00:00:00  id:0x0x700009ba2 [System: PrevIdle DeclUser kDisp]
+2026-09-28 14:56:37 -0700 Assertions           PID 480(loginwindow) Created UserIsActive "Loginwindow User Activity" 00:00:00  id:0x0x900009ba6 [System: PrevIdle DeclUser kDisp]
+2026-09-28 14:56:37 -0700 Assertions           PID 480(loginwindow) Released UserIsActive "Loginwindow User Activity" 00:00:00  id:0x0x900009ba6 [System: PrevIdle DeclUser kDisp]
+2026-09-28 14:56:38 -0700 Assertions           Summary- [System: PrevIdle DeclUser kDisp] Using AC
+2026-09-28 14:59:07 -0700 Assertions           PID 5999(USBDriveTester) Released PreventUserIdleSystemSleep "USB drive retention test in progress" 00:10:06  id:0x0x100009b66 [System: PrevIdle DeclUser kDisp]
+```
+
+- **3.1 ✅** `held 1` at 14:49:01: one entry,
+  `PreventUserIdleSystemSleep "USB drive retention test in progress"`, and no display-sleep type.
+  `pmset` at 14:49:20 listed exactly one assertion for pid 5999, of that type and name, 19 s old,
+  and read `PreventUserIdleDisplaySleep 0` and `PreventSystemSleep 0` system-wide. Run B's the same
+  at 15:11:31: one, 10 s old, under a new id, and both 0.
+- **3.2 ✅** with run A going, the user ran `sudo /usr/bin/pmset -a displaysleep 2` —
+  `pmset -g custom` read `displaysleep 2` at 14:51:09, and `PreventUserIdleDisplaySleep 0` — left
+  the Mac alone, then woke it: *"Display went dark, run still going"*. The power log has the display
+  off from 14:53:43 to 14:56:32, 2 minutes 49 seconds, and nothing taking a display-sleep assertion
+  in between. The helper completed 19 bounded calls inside that window, ending
+  14:53:46.425–14:56:25.375, each 256 of 256 chunks with no failed range; the run stayed `running`
+  — the extract has no transition between 14:49:01.041 and 14:59:07.622 — and the watcher's
+  heartbeats read `held 1  (unchanged)` throughout. The user put the timer back,
+  `sudo /usr/bin/pmset -a displaysleep 60`, read `60` at 14:58:15, with the run still going.
+- **3.3 ✅ (its reading)** the only type attributed to pid 5999 at every read was
+  `PreventUserIdleSystemSleep` — the watcher's 6785 samples, whose summary reads `most at once     held 1  (PreventUserIdleSystemSleep only)`,
+  and `pmset` at 14:49:20, 14:51:09, 14:57:15, 14:58:15 and 15:11:31. `PreventSystemSleep`, the
+  type that refuses a deliberate sleep, read 0 system-wide at 14:48:27, 14:49:20 and 15:11:31. The
+  optional deliberate sleep was not walked.
+- **3.4** not walked, by the user's decision on the plan.
+- **3.5 ✅** the pull, at 14:59:07, mid-run. In order: the helper's call ended at .617, `the device
+  was lost while verifying the write-back`, with its `errno 6 (Device not configured)` line; at .618
+  the app's `a disk disappeared: disk10 (whole disk)`, `the drive under test left the machine while
+  running: …` and `device loss: a call is in flight; waiting up to 3.000000s for the helper's
+  reply`; at .622 `run ended: deviceLost`, `running → finishing on deviceLost` and `sleep
+  prevention: released the idle-system-sleep assertion`; at .623 the `run report:` line. The release
+  came 4 ms after the app saw the drive go — within the 2.7–6.3 ms 3.5 cites from Step 12's six
+  pulls — and before the report. The watcher read `held 0` at 14:59:07; the power log has the
+  app's `Released` line at 14:59:07, held `00:10:06`; and `pmset` at 14:59:25, with the report on
+  screen, listed nothing for pid 5999.
+- **3.6 ✅** run B: `holding` at 15:11:21.915 and the watcher's `held 1` at 15:11:22; Pause at
+  15:12:07.428, `released` in the same millisecond and `paused` at .439, with the helper's `paused by
+  the user at block 10633216` at .433 between them; the watcher's `held 0` at 15:12:07, which the
+  user read before the pull, and `pmset` at 15:12:17 listing nothing for the pid. The pull at
+  15:13:05: the watcher printed no line for it — its next was the 15:13:07 heartbeat, `held 0
+  (unchanged)` — the log has no sleep-prevention line after 15:12:07.428, and `pmset` at 15:13:16
+  listed nothing for the pid.
+- **3.7 (a) ✅ — Step 12's 3.4.** *"App is responsive, no beach ball or freeze"*, with run A's report
+  on screen.
+- **3.7 (b) ✅ — 3.7.** *"Full report sheet, not an alert box"*.
+- **3.7 (c) ✅ — 3.8.** The headline, *"Ended — the drive disappeared from the USB bus, and the rest
+  was not tested"*, and the rows **Drive left at** block 143,491,072 and **While** verifying the
+  write-back — the block and the phase, which only route (a)'s reply carries — in the user's
+  screenshot of the report, grown to show all its text.
+- **3.7 (d) ✅ — 3.9.** The phase was `verifying`, and the sentence on screen is that row's, word for
+  word: *"The drive left while this tool was **re-reading block 143,491,072 to verify it**. The
+  write-back had already completed, so the chunk was whole when the drive went — it is unverified,
+  and **unverified is not the same as bad**."* The helper agrees: 109 chunks written back and 108
+  verified — 457179136 − 452984832 = 4194304 B, one chunk — and the read that failed was at offset
+  73467428864, block 143491072 × 512, the 109th chunk's first block, 142606336 + 108 × 8192.
+- **3.7 (e) ✅ — 3.10.** *"Only Start is offered, no Resume or Stop"*.
+- **3.7 (f) ✅ — 3.12.** *"Yes, 4 TB T5 EVO is gone, four drives listed"*; the log's `discovery found
+  4 USB whole disk(s): disk4, disk6, disk8, disk9` and `device loss (FR-DEV-8): disconnected disk10`
+  at 14:59:07.994, 376 ms after the drive went — before anyone could click.
+- **Reconnect — Step 12's 3.13 ✅ and 3.14 ✅.** *"Drive reconnected, 4 TB T5 EVO is back in the
+  list"*: `connected disk10` at 15:10:06.559, and at 15:10:15 the serial resolved to `disk10`,
+  7814037168 × 512 B, with the same four partitions and its three volumes mounted again. Run B was
+  accepted — `run authorised: drive serial 00000S7CLNJ0WC02266P` at 15:11:21.263, and the helper's
+  `acquired disk10: claim held, /dev/rdisk10 open exclusively (fd 4)` and `acquire GRANTED for pid
+  5999` at .913 — so the claim from run A was not still held.
+- **3.7 (g) ✅ — Step 12's 4.4.** At once: the removal callback, `device loss: nothing was in flight,
+  ending the run now` and `run ended: deviceLost` all at 15:13:05.791, and `paused → finishing on
+  deviceLost` at .792 — no three-second wait.
+- **3.7 (h) ✅ — 4.7.** The sentence on screen, word for word, in the user's screenshot: *"The run was
+  **paused** when the drive left, so no chunk was part-way through anything and nothing was left
+  half-written. Every chunk the run had reached was written back and verified before it stopped."*
+  The report has no **Drive left at** or **While** rows: route (b) knows only that the drive went.
+- **3.7 (i) ✅ — 4.8.** *"Yes, 4 TB T5 EVO is gone, four drives listed"*; the log's `discovery found
+  4` at 15:13:06.290, 499 ms after the drive went, and again at .314 once discovery resumed.
+- **The second reconnect.** *"Drive reconnected, 4 TB T5 EVO is back in the list"*: `connected
+  disk10` at 15:20:59.440, and at 15:21:10 the serial resolved to `disk10` with the same layout as
+  at 14:23:15 and all three volumes mounted — the fixture came back whole from both pulls.
+
+Read with the transcript:
+
+- **`changes 5`** is the watcher's first line and four changes — run A's hold and its release at
+  the pull, run B's hold and its release at the Pause. The pull from the paused run added none.
+- **The 14:49:00 heartbeat** fell 60 s after the first line, one second before `holding` at
+  14:49:01.042, and read `held 0  (unchanged)`, which was true when it was sampled.
+- **`samples 6785`** in 2241 s is 3.0 a second, as F2's wording says.
+- **`finished → starting`** at run B's Start, as at chunk 2's 2.7: a closed report leaves the state
+  at `finished`, and Start is accepted from it by design.
+- **`device change ignored while a run is active; will refresh when it ends`**, at 14:59:07.997 and
+  15:13:06.292, each followed 20–25 ms later by `discovery resumed` and a second `discovery found 4`:
+  discovery is frozen while a run is active, the FR-DEV-8 path refreshes it once on the loss, and
+  the device-set change that arrives while it is still frozen is refreshed when the run ends
+  (`DeviceDiscovery.swift`). By design, not a finding.
+- **Route (a) saw the drive go first**: the helper's `read of 4194304 bytes at offset 73467428864
+  failed after 0 bytes: errno 6 (Device not configured)` at 14:59:07.617, 1 ms before the app's
+  removal callback — the order Step 12 measured on 2026-09-09.
+
+Checked, and not findings:
+
+- **Other processes held the idle-system type at points in the walk** — `powerd`'s *"Powerd -
+  Prevent sleep while display is on"*, `sharingd`'s *"Handoff"*, the Claude app's
+  `NoIdleSleepAssertion` *"Electron"* and `backupd-helper`'s *"Mutexed Backup Block"* — and
+  `WindowServer` held `UserIsActive`, and `PreventSystemSleep` *"com.apple.WindowServer.PUIDS"* for
+  the instant of the wake at 14:56:32. None is the app's, and every reading here is matched on its
+  pid.
+- **3.2 shows that the display slept and the run went on, not that the assertion kept the Mac
+  awake.** The system-sleep timer was 180 minutes, so the Mac would not have idle-slept in 2 minutes
+  49 seconds whatever the app held; that half is 3.4's subject, not walked. The power log has no
+  `Sleep`, `Wake` or `DarkWake` line between 14:45 and 15:30, against 437 in the whole log, which
+  reaches back to 2026-09-21 — the latest a `Wake` at 2026-09-28 09:36:29 — the positive control,
+  read at 16:07:59. The count is by the category column exactly: matched on its first word, it is
+  652, because it also takes the 215 `Wake Requests` lines, which are requests, not wakes.
+- **The power log's lines for the app's assertions are not a full record**: it has no `Created`
+  line for run A's hold — only a `Summary` when the display went off, 00:04:42 in, and the
+  `Released` at 14:59:07 — and no line at all for run B's 46 s hold; the whole log has two lines for
+  pid 5999. The watcher and the app's log are this chunk's instruments, and the power log
+  corroborates them where it has a line.
+- **Run B's Done logged nothing**: the app's subsystem has no line from 15:13:10 to 15:19:26, across
+  it; the same query over 15:13:05–15:13:07 prints 15, the positive control.
+
+The helper's side: run A — bounded 1 GiB calls on `disk10` from block 0, 68 of them complete, 17,408
+chunks, then the call from block 142606336 ended at block 143491072 after 109 chunks: 17,517 in
+all, as the report shows. Run B — five 1 GiB calls from block 0 complete, then the sixth, from
+block 10485760, paused at block 10633216 after 18 chunks: 1,298 in all, as its report shows. All 75
+calls ended with no failed block range — 73 of them complete, 256 of 256 chunks — and every one
+reported the cache bypassed. The reports' figures are the helper's last metrics lines rounded —
+351 / 418 / 124 MB/s for run A, 347 / 415 / 122 for run B — and both log
+`0 failing block(s) in 0 range(s)` and `verify result qualified: false`, which means the bypass
+was confirmed, not a caveat.
