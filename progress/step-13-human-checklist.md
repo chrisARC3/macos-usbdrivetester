@@ -1,8 +1,8 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-27: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
-> 09:44–09:55, chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 is next, once the
-> user approves its plan.**
+> **STATUS, 2026-09-28: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
+> 09:44–09:55, chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 is next, on the
+> plan the user approved 2026-09-28.**
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
@@ -66,7 +66,10 @@
 > same app process, pid 42734, held one assertion of the right type and name from each entry to
 > `running` to the transition out of it — Start, three Pause/Resume cycles and Stop on the 4 TB T5
 > EVO, a complete run on the 125.8 MB thumb — never two at once, and nothing after a quit. No
-> findings. **Chunk 3 is next**, once the user approves its plan.)*
+> findings. **Chunk 3 is next**, once the user approves its plan.)* *(2026-09-28: **the user
+> approved chunk 3's plan** — both cable pulls on the 4 TB T5 EVO, the display-sleep timer
+> shortened for 3.2 and put back after it, and neither 3.3's optional deliberate sleep nor 3.4
+> walked; 3.2–3.5 say so, dated.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -819,18 +822,52 @@ Do not touch the keyboard or trackpad.
 machine awake whether or not this app holds anything, so a run that survives an idle timer with the
 display on has demonstrated nothing.
 
+⚠️ *Added 2026-09-28, by the user's decision on chunk 3's plan:* **shorten the display-sleep timer
+for this item, and put it back after.** This Mac's is 60 minutes, which would make 3.2 an hour
+hands-off. As in 3.4, write down what the timer is now — `/usr/bin/pmset -g custom` — then, with
+the run going:
+
+```bash
+sudo /usr/bin/pmset -a displaysleep 2
+```
+
+Move the mouse once after it returns, so the last activity the Mac saw comes after the change — the
+key press that ran the command may still be timed against the old setting — then leave the machine
+alone for about five minutes, and wake it. Put the timer back with the number you wrote down:
+
+```bash
+sudo /usr/bin/pmset -a displaysleep <the original number>
+```
+
+`-a` sets every power source to one value: on a laptop whose settings differ on battery, restore
+`-c` and `-b` separately. The reading is taken afterwards, headless, from the power log — the
+display's own lines, and every assertion created or released across the window:
+
+```bash
+/usr/bin/pmset -g log | /usr/bin/grep -E 'Display is turned (off|on)'
+```
+
+If the display does not sleep, read who held `PreventUserIdleDisplaySleep` before calling it the
+app's — a video playing holds it, and so does `caffeinate -d`.
+
 **3.3 — deliberate sleep is not blocked.** Read the app's assertions during a run once more.
 
 *Pass:* the only type attributed to the app's pid is `PreventUserIdleSystemSleep`. Specifically
 **not** `PreventSystemSleep`, which is the one that refuses a deliberate sleep; `IdleSleepPreventer`
 passes `[.idleSystemSleepDisabled]` and nothing else, and this is what makes that visible.
-*Optional, destructive, on the scratch drive only:* Apple menu → Sleep during a run. The machine
-should sleep — that is the requirement. The run will not survive it, and that is expected, not a
-defect; do this only if you want the direct reading rather than the inferred one.
+*Optional, destructive, on a write target, checked by serial:* Apple menu → Sleep during a run. The
+machine should sleep — that is the requirement. The run will not survive it, and that is expected,
+not a defect; do this only if you want the direct reading rather than the inferred one.
+⚠️ *Changed 2026-09-28, by the user's decision on chunk 3's plan: this said "on the scratch drive
+only", from before the write targets widened on 2026-09-27. Not part of that day's walk, by the
+same decision — it would test macOS, and the app's part is the type it asks for, which the reading
+above checks.*
 
 **3.4 — the literal reading of gate item 1** *(optional — the gate says "a short idle-sleep timer
 **or** `pmset -g assertions`", and 2.1 already satisfies the second)*. With a run going and the
 display allowed to sleep (3.2), set a short system-sleep timer and leave the machine alone.
+*(2026-09-28: not part of that day's walk, by the user's decision on chunk 3's plan — the item is
+optional, as its heading says.)*
 
 **First, write down what the timer is now** — this is a system setting, and nothing else in this
 walk restores it for you:
@@ -854,7 +891,13 @@ sudo /usr/bin/pmset -a sleep 2
 sudo /usr/bin/pmset -a sleep <the original number>
 ```
 
-**3.5 — a cable pull releases it.** With a run executing on the 1 TB scratch T5, pull the cable.
+**3.5 — a cable pull releases it.** With a run executing on the 4 TB T5 EVO, checked by serial,
+pull the cable.
+⚠️ *Changed 2026-09-28, by the user's decision on chunk 3's plan: this said "on the 1 TB scratch
+T5". A pull during a run can land part-way through a chunk's write-back, so it goes on the drive
+whose contents are expendable — the 4 TB T5 EVO is the unmount fixture, which
+`scripts/make-unmount-fixture.sh` rebuilds — and the scratch T5 keeps its fill. 3.6 pulls the same
+drive. Only that drive's cable is pulled; the 22 TB Seagate stays connected.*
 
 *Pass:* the watcher goes to **held 0**, and the log shows `sleep prevention: released` after
 `run control: running → finishing`.
