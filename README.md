@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5 done; the move to Xcode 27 is complete and the walk resumes with a set of re-walks)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5 done; chunk 5's walk has passed — item 0 and chunks 1–3 — and the verification gate is next)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -102,7 +102,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > verification gate is next. Logging consolidation (Step 15) and notarization (Step 16) do not
 > exist yet. *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation and
 > notarization do not yet." — wrong from 2026-09-12, when the assertion was wired. Finding F4 of
-> Step 13's walk, found 2026-09-28 and fixed by the user's decision.)*
+> Step 13's walk, found 2026-09-28 and fixed by the user's decision.)* *(And until the same day
+> the heading above ended "the move to Xcode 27 is complete and the walk resumes with a set of
+> re-walks" — stale from 2026-09-27, when the walk restarted. Finding F5, found and fixed
+> 2026-09-29 by the user's decision.)*
 >
 > ⚠️ **This block said *"Step 12 … is next and is not yet started"* until 2026-09-07** — wrong
 > since chunk 1 landed on 2026-09-05, through seven chunks and a protocol bump. That is the
