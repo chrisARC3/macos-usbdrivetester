@@ -937,6 +937,25 @@ the owner list at the moment it is tested, never assumed from an earlier look.
 *This is the same shape as the error channel firing 17 false positives per test run: the instrument
 was the defect. Here it was found before the gate was walked rather than after.*
 
+**And the power log is not a record of this type's holds — measured 2026-09-28 and 2026-09-29,
+macOS 27.0 (26A428).** `pmset -g log` has **no `Created` line for `PreventUserIdleSystemSleep`
+from any process**: across the whole log on 2026-09-29, none, against 1,260 `Released` and 403
+`Summary` lines for the type. Other types do get `Created` lines — `PreventSystemSleep`, 37 for 37
+releases — but not from every owner: `coreaudiod`'s 907 releases of `PreventUserIdleDisplaySleep`
+have none. Nor are the releases complete. Of this app's seven holds in Step 13's walk, on
+2026-09-27 and 2026-09-28, the log has a `Released` line for the three held a minute or more —
+60.6 s, 94.3 s and 606.6 s — and **nothing at all** for the four held 4.0 s, 39.1 s, 45.5 s and
+49.0 s. That is not a one-minute floor for every owner, since other owners' releases of the type
+are logged from 9 s, 99 of them under a minute; what decides it was not found. One of the seven
+also has a `Summary` line, written the moment the display went off, 4 min 42 s into the hold. What
+the log does carry is the display's own `Display is turned off` and `on` lines. And it rolls: at
+12:52:05 on 2026-09-29 its first line was 12:52:07 on 2026-09-22, seven days back, where the day
+before it reached 2026-09-21. **So a hold is read while it is held — from `pmset -g assertions`,
+matched on the pid, or from the watcher — and the power log corroborates where it has a line;
+where it has none, that shows nothing.** It is `powerd`'s behaviour, not this app's, so it lapses
+on a macOS update, not when a commit moves. *(First seen in chunk 3's walk — the Step 13
+checklist's record of it. The counts are in this paragraph's commit.)*
+
 ### The instrument: `scripts/render-ui.sh` and `tools/ui-probe`
 
 - **A SwiftUI sheet or alert gets its own window and can never be captured in place.** Those surfaces

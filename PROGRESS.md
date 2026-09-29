@@ -441,6 +441,18 @@ block, and the argument has no unit test behind it — **F8**, *Owed* (o). Item 
 and chunk 3's, never `held 2`. The global *Definition of Done* is checked in the gate's record.
 Documentation only: the helper hash is unmoved, and no pass lapses. **Closing Step 13 is next.**
 
+**2026-09-29: the power log's limits recorded**, in `CONSTRAINTS.md` §1, *Idle-sleep assertions*,
+by the same decision. `pmset -g log` has no `Created` line for `PreventUserIdleSystemSleep` from
+any process, and no line at all for four of the app's seven holds in the walk, the four held under
+a minute; it keeps seven days. So a hold is read from `pmset -g assertions` or the watcher while
+it is held, and the power log only corroborates. **F9**, found while writing it: the Step 13
+checklist's 3.2 says its reading is taken from the power log — *"the display's own lines, and
+every assertion created or released across the window"* — and the log does not have every
+assertion created or released. 3.2's pass does not rest on it: the display's own lines are in the
+log, and the assertions matter to 3.2 only if the display does not sleep, and it did. Reported,
+not fixed: it waits on the user's decision. Documentation only: the helper hash is unmoved, and no
+pass lapses. **Closing Step 13 is next.**
+
 ### The move to Xcode 27 — pauses Step 13's walk, from 2026-09-18
 
 **User decision 2026-09-18: move now, and re-walk Step 13 from item 0 on the Xcode 27 build**, rather
