@@ -96,10 +96,13 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
-> Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege plumbing, the
-> safety guards, metrics, reporting, run control, device-loss handling and the pre-run warnings all
-> exist and are exercised on real hardware. Sleep prevention, logging consolidation and
-> notarization do not yet.
+> Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege
+> plumbing, the safety guards, metrics, reporting, run control, device-loss handling, the pre-run
+> warnings and sleep prevention all exist and are exercised on real hardware; sleep prevention's
+> verification gate is next. Logging consolidation (Step 15) and notarization (Step 16) do not
+> exist yet. *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation and
+> notarization do not yet." — wrong from 2026-09-12, when the assertion was wired. Finding F4 of
+> Step 13's walk, found 2026-09-28 and fixed by the user's decision.)*
 >
 > ⚠️ **This block said *"Step 12 … is next and is not yet started"* until 2026-09-07** — wrong
 > since chunk 1 landed on 2026-09-05, through seven chunks and a protocol bump. That is the

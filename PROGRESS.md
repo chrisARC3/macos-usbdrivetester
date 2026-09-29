@@ -382,6 +382,20 @@ chunk 3, and fix F3 in the same commit."* It did not touch the walk: `PreventUse
 read 0 before 3.2's window and after it. This was the checklist's last chunk. **Step 13's
 verification gate is next**, once its plan is approved.
 
+**2026-09-29: F4 fixed**, by the user's decision (*"Yes, fix F4 in a follow-up commit."*). Found
+while recording chunk 3: `README.md`'s status block ended *"Sleep prevention, logging consolidation
+and notarization do not yet."* — in the README since its first commit, 2026-09-02, and wrong from
+2026-09-12, when `ad1ee28` wired the assertion. It now counts sleep prevention among what exists
+and is exercised on real hardware, with its verification gate next, and names logging
+consolidation (Step 15) and notarization (Step 16) as not existing yet; a dated note there quotes
+the old words. **Two more, found while fixing it, are reported and not fixed:** **F5**, the
+same block's heading still says *"the walk resumes with a set of re-walks"*, stale since the
+walk restarted on 2026-09-27; and **F6**, F4's claim written on the code — the header comment
+of `AppLifecycleDelegate.swift` says *"Step 13 will hold a power assertion"*. That file is on the
+quit path, and any edit to it lapses Step 11's re-walk passes of 2026-09-25 — 11.6, 9.2, 9.3 and
+9.6, and chunk 16 with 6.1 and 6.3 — the case *Owed* (g)'s rule covers. Both wait on the
+user's decision.
+
 ### The move to Xcode 27 — pauses Step 13's walk, from 2026-09-18
 
 **User decision 2026-09-18: move now, and re-walk Step 13 from item 0 on the Xcode 27 build**, rather
