@@ -1,10 +1,10 @@
 # Step 13 — the human checklist
 
-> **STATUS, 2026-09-28: IN PROGRESS at chunk 5 — the walk RESTARTED 2026-09-27: item 0 PASSED
-> 09:44–09:55, chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 PASSED 2026-09-28
-> 14:48–15:25, with 3.4 and 3.3's optional deliberate sleep not walked, by the user's decision.
-> Every chunk of this checklist is walked; Step 13's verification gate is next, once its plan is
-> approved.**
+> **STATUS, 2026-09-29: CHUNK 5 DONE — the walk RESTARTED 2026-09-27: item 0 PASSED 09:44–09:55,
+> chunk 1 PASSED 10:56–11:05 and chunk 2 PASSED 16:18–16:33; chunk 3 PASSED 2026-09-28 14:48–15:25,
+> with 3.4 and 3.3's optional deliberate sleep not walked, by the user's decision. Every chunk of
+> this checklist is walked, and on its readings Step 13's verification gate PASSED 2026-09-29 — all
+> three items ticked in `BUILD-PLAN.md`. Closing the step is next.**
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
@@ -82,6 +82,10 @@
 > found at its plan — *Prerequisites* named 3.4 alone as the item something else holding the
 > machine awake makes untestable — is fixed in the same commit, by the user's decision. This is the
 > checklist's last chunk: **Step 13's verification gate is next**, once its plan is approved.)*
+> *(2026-09-29: **Step 13's verification gate PASSED** — all three items ticked in `BUILD-PLAN.md`
+> on this file's readings, by the user's decision on its plan; item 1 on the `pmset` route, 3.4 not
+> walked, and *fail* in item 2 argued from the code. One gap in the suite found while planning it,
+> F8, is owed (`PROGRESS.md`, *Owed* (o)). **Closing the step is next.**)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has

@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (chunks 1–4 of 5 done; chunk 5's walk has passed — item 0 and chunks 1–3 — and the verification gate is next)
+> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (all five chunks done: chunk 5's walk has passed — item 0 and chunks 1–3 — and so has the verification gate, on 2026-09-29; closing the step is next)
 >
 > Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -45,14 +45,15 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > callback* mutation was measured surviving all 1301 tests, and one new test kills it. The last
 > unseen line, `paused → running on the Resume command`, was watched on hardware at 18:02 the same
 > evening, and **Step 12 closed** — its full account is in
-> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is in progress**, four
-> of its five chunks done: the gate's instrument measured, the rule and its seam
-> built, and the assertion wired to the one place the run state is assigned (2026-09-12), then
-> **its mutation round run on 2026-09-13 — 17 mutations, 13 killed, four survivors, all four
-> declared in advance.** Two of those survivors are the point: deleting the release call outright,
-> and holding the display-sleep assertion instead of the system one, each pass all 1,323 tests.
-> That is what [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for,
-> and walking it is the only chunk left. **The walk was paused on 2026-09-18 for the move to
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is in
+> progress**, all five of its chunks done and only its close left: the gate's instrument measured,
+> the rule and its seam built, and the assertion wired to the one place the run state is assigned
+> (2026-09-12), then **its mutation round run on 2026-09-13 — 17 mutations, 13 killed, four
+> survivors, all four declared in advance.** Two of those survivors are the point: deleting the
+> release call outright, and holding the display-sleep assertion instead of the system one, each
+> pass all 1,323 tests. That is what
+> [`progress/step-13-human-checklist.md`](progress/step-13-human-checklist.md) is for, and walking
+> it was the last chunk. **The walk was paused on 2026-09-18 for the move to
 > Xcode 27**, which had replaced Xcode 26.6 under the project three days before, **and restarted on
 > 2026-09-27**. Three of the
 > move's four chunks are done: the project file, a clean build and test run, and — on 2026-09-19 —
@@ -91,21 +92,23 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > 2026-09-28**, on the 4 TB T5 EVO: a test asked the Mac to stay awake but never to keep the display
 > on, and the display slept for nearly three minutes with the test running on; pulling the drive's
 > cable mid-test stopped the asking as the report appeared; and pulling it from a paused test found
-> nothing to stop. Step 12's cable-pull checks passed again on this build along the way. Next is
-> Step 13's verification gate, once its plan is agreed.
+> nothing to stop. Step 12's cable-pull checks passed again on this build along the way. **Step 13's
+> verification gate passed on 2026-09-29** on those readings — a test that stops on a failed block
+> was argued from the code rather than seen, since none of the drives it may write to has one — and
+> closing the step is next.
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
 > Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege
 > plumbing, the safety guards, metrics, reporting, run control, device-loss handling, the pre-run
 > warnings and sleep prevention all exist and are exercised on real hardware; sleep prevention's
-> verification gate is next. Logging consolidation (Step 15) and notarization (Step 16) do not
-> exist yet. *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation and
-> notarization do not yet." — wrong from 2026-09-12, when the assertion was wired. Finding F4 of
-> Step 13's walk, found 2026-09-28 and fixed by the user's decision.)* *(And until the same day
-> the heading above ended "the move to Xcode 27 is complete and the walk resumes with a set of
-> re-walks" — stale from 2026-09-27, when the walk restarted. Finding F5, found and fixed
-> 2026-09-29 by the user's decision.)*
+> verification gate passed on 2026-09-29. Logging consolidation (Step 15) and notarization (Step 16)
+> do not exist yet. *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation
+> and notarization do not yet." — wrong from 2026-09-12, when the assertion was wired. Finding F4 of
+> Step 13's walk, found 2026-09-28 and fixed by the user's decision.)* *(And until the same day the
+> heading above ended "the move to Xcode 27 is complete and the walk resumes with a set of re-walks"
+> — stale from 2026-09-27, when the walk restarted. Finding F5, found and fixed 2026-09-29 by the
+> user's decision.)*
 >
 > ⚠️ **This block said *"Step 12 … is next and is not yet started"* until 2026-09-07** — wrong
 > since chunk 1 landed on 2026-09-05, through seven chunks and a protocol bump. That is the
