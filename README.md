@@ -16,9 +16,9 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Step 12 of 16 is complete; Step 13 is in progress (all five chunks done: chunk 5's walk has passed — item 0 and chunks 1–3 — and so has the verification gate, on 2026-09-29; closing the step is next)
+> ### Status: in development — Steps 1–14 of 16 are complete; Step 15 is next and has not started
 >
-> Steps 1–12 and Step 14 are complete and committed. **Step 11 (run control: start / pause /
+> Steps 1–14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
 > human checklist walked in full, and its verification gate re-run against the current XPC
 > protocol. **Step 12 — device-loss handling — CLOSED on 2026-09-11**, all nine chunks done and
@@ -45,8 +45,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > callback* mutation was measured surviving all 1301 tests, and one new test kills it. The last
 > unseen line, `paused → running on the Resume command`, was watched on hardware at 18:02 the same
 > evening, and **Step 12 closed** — its full account is in
-> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — is in
-> progress**, all five of its chunks done and only its close left: the gate's instrument measured,
+> [`progress/step-12.md`](progress/step-12.md). **Step 13 — system-sleep prevention — CLOSED on
+> 2026-09-29**, its full account in [`progress/step-13.md`](progress/step-13.md), all five of its
+> chunks done: the gate's instrument measured,
 > the rule and its seam built, and the assertion wired to the one place the run state is assigned
 > (2026-09-12), then **its mutation round run on 2026-09-13 — 17 mutations, 13 killed, four
 > survivors, all four declared in advance.** Two of those survivors are the point: deleting the
@@ -95,7 +96,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > nothing to stop. Step 12's cable-pull checks passed again on this build along the way. **Step 13's
 > verification gate passed on 2026-09-29** on those readings — a test that stops on a failed block
 > was argued from the code rather than seen, since none of the drives it may write to has one — and
-> closing the step is next.
+> **the step closed the same day. Step 15 — logging consolidation — is next and has not been
+> started.**
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
