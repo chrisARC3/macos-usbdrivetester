@@ -875,15 +875,35 @@ sudo /usr/bin/pmset -a displaysleep <the original number>
 ```
 
 `-a` sets every power source to one value: on a laptop whose settings differ on battery, restore
-`-c` and `-b` separately. The reading is taken afterwards, headless, from the power log — the
-display's own lines, and every assertion created or released across the window:
+`-c` and `-b` separately. The reading is the display's own lines, which the power log does carry,
+so it can be taken afterwards, headless:
 
 ```bash
 /usr/bin/pmset -g log | /usr/bin/grep -E 'Display is turned (off|on)'
 ```
 
-If the display does not sleep, read who held `PreventUserIdleDisplaySleep` before calling it the
-app's — a video playing holds it, and so does `caffeinate -d`.
+If the display does not sleep, read who holds `PreventUserIdleDisplaySleep` before calling it the
+app's — a video playing holds it, and so does `caffeinate -d`. Read it **then, while it is held**:
+`pmset -g assertions` lists what is held at the moment it is asked, and the power log cannot answer
+it afterwards.
+
+```bash
+/usr/bin/pmset -g assertions | /usr/bin/grep -E "^ +PreventUserIdleDisplaySleep +[0-9]|PreventUserIdleDisplaySleep named"
+```
+
+The first line back is the system-wide summary; every line after it is one owner, with its pid, and
+the owners are the answer.
+
+⚠️ *Corrected 2026-09-29, finding F9, by the user's decision: this said the reading "is taken
+afterwards, headless, from the power log — the display's own lines, and every assertion created or
+released across the window", and named nowhere else to read who held `PreventUserIdleDisplaySleep`.
+The log has the display's lines, but it is not a record of assertions (`CONSTRAINTS.md` §1,
+Idle-sleep assertions): `coreaudiod`'s 907 releases of this very type have no `Created` line, and
+the idle-system type has none from any process. It did not touch that day's walk: the display slept
+— the walker saw it go dark, and the log's own lines time it — so there was no holder to find, and
+`PreventUserIdleDisplaySleep` read 0 from `pmset` either side of the window, at 14:51:09 and
+14:57:15. The command above was checked the same day against a six-second `caffeinate -d`: the
+summary read 1, with one owner line naming it, and then 0, with none.*
 
 **3.3 — deliberate sleep is not blocked.** Read the app's assertions during a run once more.
 
@@ -1548,6 +1568,9 @@ at 15:53:58 and again at 16:05:45, with the tab after each line's category shown
   — the extract has no transition between 14:49:01.041 and 14:59:07.622 — and the watcher's
   heartbeats read `held 1  (unchanged)` throughout. The user put the timer back,
   `sudo /usr/bin/pmset -a displaysleep 60`, read `60` at 14:58:15, with the run still going.
+  *(2026-09-29, F9: "nothing taking a display-sleep assertion" is the power log's silence, and that
+  log is not a record of assertions — `CONSTRAINTS.md` §1. The display going dark is the reading,
+  and `PreventUserIdleDisplaySleep` read 0 from `pmset` either side of the window.)*
 - **3.3 ✅ (its reading)** the only type attributed to pid 5999 at every read was
   `PreventUserIdleSystemSleep` — the watcher's 6785 samples, whose summary reads `most at once     held 1  (PreventUserIdleSystemSleep only)`,
   and `pmset` at 14:49:20, 14:51:09, 14:57:15, 14:58:15 and 15:11:31. `PreventSystemSleep`, the

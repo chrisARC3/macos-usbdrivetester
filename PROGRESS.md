@@ -450,8 +450,19 @@ checklist's 3.2 says its reading is taken from the power log — *"the display's
 every assertion created or released across the window"* — and the log does not have every
 assertion created or released. 3.2's pass does not rest on it: the display's own lines are in the
 log, and the assertions matter to 3.2 only if the display does not sleep, and it did. Reported,
-not fixed: it waits on the user's decision. Documentation only: the helper hash is unmoved, and no
-pass lapses. **Closing Step 13 is next.**
+not fixed: it waits on the user's decision. *(Decided the same day: fixed — below.)*
+Documentation only: the helper hash is unmoved, and no pass lapses. **Closing Step 13 is next.**
+
+**2026-09-29: F9 fixed**, by the user's decision (*"Go with your recommendations for 3.2."*). The
+Step 13 checklist's 3.2 now takes only the display's own lines from the power log, and if the
+display does not sleep, reads who holds `PreventUserIdleDisplaySleep` from `pmset -g assertions`
+while it is held — a command checked the same day against a six-second `caffeinate -d`. A dated
+note there quotes the old words and points to `CONSTRAINTS.md` §1. The same item's walk record,
+which says the power log has the display off and *"nothing taking a display-sleep assertion in
+between"*, gains a dated note that this is the log's silence, not a reading. 3.2's pass stands:
+the display slept, and `PreventUserIdleDisplaySleep` read 0 from `pmset` either side of the
+window. Documentation only: the helper hash is unmoved, and no pass lapses. **Closing Step 13 is
+next.**
 
 ### The move to Xcode 27 — pauses Step 13's walk, from 2026-09-18
 
