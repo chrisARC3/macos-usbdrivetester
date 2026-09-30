@@ -62,6 +62,9 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > chunk 16's item 3 switched the helper off in Login Items at 20:11:51, and since 20:12:28 it is
 > **pid 14761** — the same helper `ac4d5208…`, protocol v15, still from `/Applications`
 > (`PROGRESS.md`, cold start).
+> *(2026-09-30: still pid 14761 at 10:55:31 — the last reading before a restart for a macOS update,
+> planned for right after it, which ends the pid. `PROGRESS.md`'s cold start says what to read
+> after it.)*
 > Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
@@ -635,6 +638,9 @@ simulation-first still applies wherever the plan calls for it.
 > *(Later that day chunk 16's item 3 switched the helper off in Login Items, and launchd removed the
 > service at 20:11:51.970, ending pid 1477; switched back on, the daemon since 20:12:28 is **pid
 > 14761**, resolved to `/Applications` — the same helper, protocol v15.)*
+> *(2026-09-30: still pid 14761 at 10:55:31 — the last reading before a restart for a macOS update,
+> planned for right after it, which ends the pid. `PROGRESS.md`'s cold start says what to read
+> after it.)*
 > **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
