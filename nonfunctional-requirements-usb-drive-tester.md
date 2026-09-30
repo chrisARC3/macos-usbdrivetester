@@ -304,7 +304,7 @@ the probe, so the gate's 614 and the real window's 615 agree.
 
 *Shown on* the app installed 2026-09-24 18:01:53 from `77275be`, on macOS 27.0 (26A428). *What
 would move 615:* any edit to a view source, `WindowMetrics` or the probe; another install; a new
-Xcode or macOS.
+Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 
 ### 2026-09-24 — NFR-USE-9: 1280x800 is the only target, and the window may not be dragged shorter than its content
 

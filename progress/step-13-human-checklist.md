@@ -90,6 +90,11 @@
 > *(2026-09-29, later: **STEP 13 CLOSED**, by the user's decision — its account archived to
 > `progress/step-13.md`, and `PROGRESS.md` re-cut for Step 15. This file stays here, the re-walk
 > for anything that touches the assertion; its passes do not transfer.)*
+> *(2026-09-30: the Mac restarted into macOS **27.0.1 (26A434)**, a point release, which lapses
+> nothing here — user decision the same day, `CONSTRAINTS.md` §2, and every macOS clause below was
+> reworded to say so. The daemon is **pid 4752** since the 12:54:01 reboot, resolved to
+> `/Applications`, the same helper `ac4d5208…`; the installed app is the 2026-09-24 18:01:53
+> install, unchanged by content — *The daemon*, and `PROGRESS.md`'s *Installed app*.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -251,6 +256,11 @@ before the walk, and `runs = 1` again at 16:34:26, after it.)*
 *(2026-09-28, at chunk 3: still **pid 14761** — `runs = 1` and CDHash `e1e7fe63…` at 14:14:19,
 before the walk, and at 14:46:29, with the app open; the same again at 15:26:45 and 15:38:53, after
 it.)*
+*(2026-09-30: it changed again — **pid 4752**, started on demand after the 12:54:01 reboot for macOS
+27.0.1, when the user launched the installed app. BTM's record, dumped by the user before that
+launch, was on `/Applications`; the `xpcproxy` resolve line at 13:19:15.408 names `/Applications`;
+and `codesign` against the pid gives CDHash `e1e7fe63…`, the installed helper's. Check for 4752 from
+here on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -505,8 +515,7 @@ before the hook, restored at 20:22:31.
 | instrument | the 2026-09-18 re-run of `scripts/sleep-assertion-check.sh`, below, stands: macOS is still 27.0 (26A428), and Xcode 27.0 (27A266a) |
 
 *What would invalidate it:* another install; a relaunch of the daemon after something has moved
-BTM's record — the test suite and an Xcode run of the project both move it (*The daemon*); a macOS
-update, for the instrument row; a change to `IdleSleepPreventer.reason`, for 0.1.
+BTM's record — the test suite and an Xcode run of the project both move it (*The daemon*); a macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, for the instrument row; a change to `IdleSleepPreventer.reason`, for 0.1.
 
 ⚠️ **Finding F1, 2026-09-27 — the instrument's wording, not the app.** The recipe under *The
 daemon* and `CONSTRAINTS.md` §1 called the app record "record #11". The dump numbers its records by
@@ -543,7 +552,7 @@ PASSED — the record above.)*
 | instrument | the 2026-09-18 re-run of `scripts/sleep-assertion-check.sh`, below, stands: it measures macOS, not this app, and its own footer says it does not lapse when the app's commit moves. macOS is still 27.0 (26A428) |
 
 *What would invalidate it:* another install; a relaunch of the daemon after something has moved
-BTM's record (*The daemon*); a macOS update, for the instrument row; a change to
+BTM's record (*The daemon*); a macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, for the instrument row; a change to
 `IdleSleepPreventer.reason`, for 0.1.
 
 **Record:** ✅ **PASSED 2026-09-13 10:51**, headless, at chunk 5. ⚠️ *LAPSED 2026-09-19 at the
@@ -577,8 +586,8 @@ on the first read rather than 90 ms late. **Nothing in chunk 2 below should be w
 
 The 2026-09-13 instrument run lapsed with the update, as that script's own footer says it would; this
 is its re-run. **Item 0.1 did not lapse**: the installed app is the same bytes. *What would invalidate
-this re-check:* another install, or another macOS update. *(2026-09-19: lapsed by another install —
-except its instrument row, which only a macOS update lapses. See the record at the top of this
+this re-check:* another install, or another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*. *(2026-09-19: lapsed by another install —
+except its instrument row, which only a macOS major or minor release lapses, never a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*. See the record at the top of this
 item.)*
 
 ---
@@ -647,7 +656,7 @@ installed app's CDHash, `71b8451c…`. **Watcher:** as committed in `278ac0b`, s
 **Drive:** `disk9`, serial `12345686DAA9` — the 1 TB scratch T5 — selected at 11:04:33; the 11:04:40
 and 11:05:40 heartbeats follow it. All three readings are the walker's: 1.1 and 1.3 the transcript
 and its summary, and 1.2 a paste taken at about 11:02:35, read again headless at 11:03:14. *What
-would invalidate it:* another install, or another macOS update. The F2 fix below, in this record's
+would invalidate it:* another install, or another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*. The F2 fix below, in this record's
 commit, does not: it changes the watcher's wording, not what it reads. Evidence in the Walk record,
 below.
 
@@ -680,7 +689,7 @@ app from `af09416` (dylib `a8a0e932…`), pid **54729**, its `exe` under `/Appli
 as committed in `a32001e`. **Drive:** `disk8`, serial `12345686DAA9`, selected at 14:48:25; the
 14:49:00 heartbeat follows it. 1.1 and 1.3 are the walker's transcript and summary; **1.2 was read
 headless by the assistant** at 14:49:46, during the walk, with the app idle and the T5 selected — the
-walker pasted no 1.2 reading. *What would invalidate it:* another install, or another macOS update.
+walker pasted no 1.2 reading. *What would invalidate it:* another install, or another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 Evidence in the Walk record, below. ⚠️ *LAPSED 2026-09-19 at the Xcode 27 install: chunk 1 is owed
 in full, from 1.1, on the new build.* *(2026-09-27: walked in full on the new build and PASSED — the
 Walked line above the first walk.)*
@@ -822,7 +831,7 @@ EVO, serial `00000S7CLNJ0WC02266P`, as `disk10`, selected at 16:18:37; 2.7 on th
 serial `2211190533300386001515`, as `disk8`, named by the pre-run prompt at 16:29:14; 2.8 needs
 none. The transcript and summary are the walker's; 2.2's log extract and the `pmset` cross-checks
 were read headless by the assistant during the walk, and the extract once more over the whole of it
-at 16:35:31. *What would invalidate it:* another install, another macOS update, or the daemon
+at 16:35:31. *What would invalidate it:* another install, another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, or the daemon
 running any helper but `ac4d5208…` — this chunk's runs go through it. Evidence in the Walk record,
 below.
 
@@ -1025,7 +1034,7 @@ after it; BTM's record unmoved. **Watcher:** as committed in `5114006`, sha-256 
 15:11:20.279. **3.2's timer:** `displaysleep` 60, then 2 — read at 14:51:09 — then 60 again, read
 at 14:58:15, by the commands the user ran. The transcript and summary are the walker's; the log
 extracts, the power log and the `pmset` cross-checks were read headless by the assistant, during
-the walk and after it. *What would invalidate it:* another install, another macOS update, or the
+the walk and after it. *What would invalidate it:* another install, another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, or the
 daemon running any helper but `ac4d5208…` — both runs go through it. Evidence in the Walk record,
 below.
 

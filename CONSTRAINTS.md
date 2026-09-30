@@ -32,7 +32,9 @@ drift this consolidation exists to remove.
 > since 2026-09-15.** Every measurement in this section was taken on macOS 26 unless its entry says
 > otherwise, and a platform update is exactly what can move one. **Re-measured on macOS 27 so far:
 > *Idle-sleep assertions*, and the record-and-resolve bullets dated 2026-09-18 under *Registering
-> and replacing the helper*.** Re-measure an entry before a design leans on it.
+> and replacing the helper*.** Re-measure an entry before a design leans on it. *(2026-09-30: macOS
+> 27.0.1 (26A434) since that day — a point release, which re-opens none of this section; a major or
+> minor one would, §2.)*
 
 ### XPC: the connection blocks, not the daemon
 
@@ -888,8 +890,8 @@ the next day. The function's name is the part that stays true.)*
 
 Measured by `scripts/sleep-assertion-check.sh` and `tools/sleep-assertion-probe`, on macOS 26.0
 (Darwin 25.6.0), before a line of Step 13 was written. Nothing here is about this app, so **it does
-not lapse when a commit moves — it lapses on a macOS update.** Re-run it then, and before walking
-Step 13's gate on a machine that has been updated since.
+not lapse when a commit moves — it lapses on a macOS major or minor release, but not a point release.** *(reworded 2026-09-30, `CONSTRAINTS.md` §2)* Re-run it then, and
+before walking Step 13's gate on a machine that has had one since.
 
 ✅ **Re-measured 2026-09-18 on macOS 27.0 (26A428, Darwin 27.0.0)**, two days after the update: **0
 failures, every finding below unchanged**, release visible after 0.093 s against 0.087 s for one
@@ -956,7 +958,7 @@ the log does carry is the display's own `Display is turned off` and `on` lines. 
 before it reached 2026-09-21. **So a hold is read while it is held — from `pmset -g assertions`,
 matched on the pid, or from the watcher — and the power log corroborates where it has a line;
 where it has none, that shows nothing.** It is `powerd`'s behaviour, not this app's, so it lapses
-on a macOS update, not when a commit moves. *(First seen in chunk 3's walk — the Step 13
+on a macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, and not when a commit moves. *(First seen in chunk 3's walk — the Step 13
 checklist's record of it. The counts are in this paragraph's commit.)*
 
 ### The instrument: `scripts/render-ui.sh` and `tools/ui-probe`
@@ -1483,6 +1485,15 @@ checklist's record of it. The counts are in this paragraph's commit.)*
   grep the build log for warnings **naming a `.swift` file** — a bare `warning:` also matches
   `appintentsmetadataprocessor`'s AppIntents line, which is not a source warning and produced a
   false alarm on 2026-08-24.
+- **Xcode and macOS lapse a pass on a major or minor release, never on a point release** — user
+  decision 2026-09-30, in force from that day. When the first or second number of the version moves
+  (27.0 → 27.1, 27 → 28), every pass whose clause names Xcode or macOS lapses; when only the third
+  moves (27.0 → 27.0.1), or only the build under an unchanged version, none does. Every such clause
+  was reworded to say so the same day, each marked *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*; a
+  clause that still says only *"a macOS update"* or *"any new Xcode or macOS"* means this. The first
+  update it decided was that day's own, 27.0 (26A428) → 27.0.1 (26A434): **nothing lapsed.** A
+  clause that names a *behaviour* moving — *"a macOS release in which `beginActivity` starts
+  collapsing…"* — is not a release-number clause, and still lapses whenever the behaviour moves.
 - **Commit straight to `main`**, never a branch unless said in advance, message `Step N: <title>`,
   and **only when asked**.
 - **The ADR's 16 checkboxes are never ticked.** It is a decision record; BUILD-PLAN is the tracker.

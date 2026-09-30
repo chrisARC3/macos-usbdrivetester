@@ -65,6 +65,9 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > *(2026-09-30: still pid 14761 at 10:55:31 — the last reading before a restart for a macOS update,
 > planned for right after it, which ends the pid. `PROGRESS.md`'s cold start says what to read
 > after it.)*
+> *(2026-09-30, after it: macOS **27.0.1 (26A434)**, a point release, which lapses nothing —
+> `CONSTRAINTS.md` §2 — and the daemon **pid 4752** since the 12:54:01 reboot, resolved to
+> `/Applications` at 13:19:15.408, the same helper, CDHash `e1e7fe63…`.)*
 > Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
@@ -311,7 +314,7 @@ are **process**, not history.
   the change. Restored, every target resolves to `arm64` in both configurations. **If a later
   Xcode's "update to recommended settings" offers the removal again, refuse it.** Checked
   2026-09-18 against `b8015c7`: Xcode 27.0 opens and closes the project with no prompt, and
-  `project.pbxproj` comes back unchanged. A new Xcode version needs the check again.
+  `project.pbxproj` comes back unchanged. A new Xcode major or minor release needs the check again; a point release does not *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 - App target: `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which makes even plain value types,
   protocols, C-callback functions, file-scope `Logger`s and extensions on standard-library types
   main-actor-isolated. Mark them `nonisolated`, or the test target cannot use them.
@@ -641,6 +644,9 @@ simulation-first still applies wherever the plan calls for it.
 > *(2026-09-30: still pid 14761 at 10:55:31 — the last reading before a restart for a macOS update,
 > planned for right after it, which ends the pid. `PROGRESS.md`'s cold start says what to read
 > after it.)*
+> *(2026-09-30, after it: macOS **27.0.1 (26A434)**, a point release, which lapses nothing —
+> `CONSTRAINTS.md` §2 — and the daemon **pid 4752** since the 12:54:01 reboot, resolved to
+> `/Applications` at 13:19:15.408, the same helper, CDHash `e1e7fe63…`.)*
 > **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
@@ -2154,7 +2160,9 @@ recorded against **`a102848`**, with the app installed 2026-09-24 18:01:53 from 
 sources, Debug, built with Xcode 27.0 (27A266a) on macOS 27.0 (26A428): dylib `e6e6e884…`, stub
 `bf787e19…`, helper `ac4d5208…`, app CDHash `71b8451c…`, helper CDHash `e1e7fe63…`. The daemon is
 pid **14761**, up since 2026-09-25 20:12:28 and resolved from `/Applications`, protocol **v15**,
-helper source hash **`e19b0b3c…`**. The watcher is `scripts/sleep-assertion-watch.sh` as committed
+helper source hash **`e19b0b3c…`**. *(2026-09-30: pid 4752 since that day's reboot, running the same
+helper `ac4d5208…`, CDHash `e1e7fe63…`, and macOS 27.0.1 (26A434), a point release — neither lapses a
+tick, `CONSTRAINTS.md` §2.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
 in `278ac0b` for chunk 1 and in `5114006` for chunks 2 and 3, a change of wording only. The drives
 are the 4 TB T5 EVO, serial **`00000S7CLNJ0WC02266P`**, for 2.1–2.6 and all of chunk 3, and the
 125.8 MB thumb, **`2211190533300386001515`**, for 2.7. **Nothing the walks ran on has moved
@@ -2162,7 +2170,7 @@ since**: `77275be` → `a102848` changes no file under `USBDriveTester/` or `too
 `scripts/` only the watcher's wording, in `5114006`, before chunk 2; and at 12:21–12:22 on
 2026-09-29 the installed binaries, both signatures, the daemon's pid and executable, BTM's record
 and the helper source hash all read the same again, and the app's pid 5999, alive since 2026-09-28
-14:45:42, held no assertion. **Each tick is invalidated by** another install; a macOS update,
+14:45:42, held no assertion. **Each tick is invalidated by** another install; a macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*,
 which also lapses `CONSTRAINTS.md` §1's measurement of what `beginActivity` publishes; the daemon
 running any helper but `ac4d5208…`; or a change to `RunControlPolicy.preventsIdleSleep(in:)`,
 `RunController.move(to:)` or `IdleSleepPreventer`, or an assignment to the controller's `state`
@@ -2192,7 +2200,7 @@ anywhere but `move(to:)`. Item 2 has one more, in its box.
 > Until it does, `powerd`'s own assertion keeps the machine awake whether or not this app holds
 > anything, so a run that survives an idle timer with the display on has demonstrated nothing.
 >
-> Full findings, and what invalidates them (a macOS update, not a commit): `CONSTRAINTS.md` §1,
+> Full findings, and what invalidates them (a macOS major or minor release — not a point release, and not a commit*(reworded 2026-09-30, `CONSTRAINTS.md` §2)*): `CONSTRAINTS.md` §1,
 > *Idle-sleep assertions*.
 >
 > **The reading is taken by `scripts/sleep-assertion-watch.sh`, not by hand** (added chunk 4,

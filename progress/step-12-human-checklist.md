@@ -48,7 +48,9 @@
 > Step 13's chunk 3.)* *(2026-09-28: carried, and PASSED on the Xcode 27 build — Step 13's chunk 3,
 > 14:48–15:25, on the 4 TB T5 EVO: 3.4, 3.7–3.10 and 3.12 at its running pull, 3.13 and 3.14 at the
 > reconnect, 4.4, 4.7 and 4.8 at its paused pull. Each chunk's carried box is under it; the items
-> not carried stay facts about the Xcode 26 build.)*
+> not carried stay facts about the Xcode 26 build.)* *(2026-09-30: macOS 27.0.1 (26A434), a point
+> release, lapses none of these passes — user decision the same day, `CONSTRAINTS.md` §2 — and the
+> clauses below that name Xcode or macOS were reworded to say so.)*
 
 > ⚠️ **Step 11's checklist passes do not transfer to this file, and this file's will not transfer
 > either.** A pass is a fact about one build on one day. Every chunk below carries a line for the
@@ -389,7 +391,7 @@ the same evening, "go with (a)": reworded, with a dated note — item 8 now repe
 *Owed* (m) is paid.)*
 
 ⚠️ **What would invalidate it:** the 2026-09-08 clause — any change to `DeviceLossMessage`, to
-`RunControlsView`'s `.alert` modifier, or to `RunFailureMessage`; any new Xcode or macOS. None of
+`RunControlsView`'s `.alert` modifier, or to `RunFailureMessage`; any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*. None of
 these is in the helper hash, so nothing here lapses a hardware gate.
 
 ---
@@ -536,7 +538,7 @@ pulls. **What would invalidate it:** the 2026-09-08 clause — a change to
 `RunReportPresentation.swift`, `RunReport.swift`, `HonestFraming.swift` or `DeviceLossAccount.swift`
 — **and a change to `RunReportView.swift`**, which draws the header's `Label`, its font and
 `iconTint`, and the Drive table, and which that clause did not name (kept in it by the user the
-same day: *"Keep the new list"*); any new Xcode or macOS. None of these files is in the helper hash,
+same day: *"Keep the new list"*); any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*. None of these files is in the helper hash,
 so nothing here lapses a hardware gate.
 
 ---
@@ -837,7 +839,7 @@ again: the helper's `errno 6 (Device not configured)` at .617, 1 ms before route
 the installed helper `ac4d5208…`, protocol **v15**; helper source hash **`e19b0b3c…`**, re-derived;
 Xcode 27.0 (27A266a) on macOS 27.0 (26A428). The record is Step 13's checklist — chunk 3's Walked
 line and its walk record. **What would invalidate it:** chunk 4's list, below, which names the
-files this path runs through; another install, another macOS update, or the daemon running any
+files this path runs through; another install, another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, or the daemon running any
 helper but `ac4d5208…`. Items 5, 6 and 11 were not carried, and their passes stay facts about the
 Xcode 26 build.
 
@@ -1086,7 +1088,7 @@ line, the slices having gone at the claim, 15:11:21.897–.904. Items 5, 6 and 9
 and their passes stay facts about the Xcode 26 build.
 
 **Against build:** as chunk 3's carried box. **What would invalidate it:** the list above, and
-another install, another macOS update, or the daemon running any helper but `ac4d5208…`.
+another install, another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, or the daemon running any helper but `ac4d5208…`.
 
 ---
 

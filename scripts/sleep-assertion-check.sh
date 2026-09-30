@@ -178,9 +178,10 @@ cat <<EOF
   mechanism produced. Do not quote it as one.
 
   This measurement is about an OS mechanism, not about this app, so it does not
-  lapse when the app's commit moves. It lapses on a macOS update — re-run it
-  then, and re-run it before walking Step 13's gate on a machine that has been
-  updated since.
+  lapse when the app's commit moves. It lapses on a macOS major or minor release, but
+  not a point release — re-run it then, and re-run it before walking Step 13's
+  gate on a machine that has had one since. (Reworded 2026-09-30, CONSTRAINTS.md
+  section 2.)
 
   Full output: ${OUTPUT}
   ---------------------------------------------------------------------------

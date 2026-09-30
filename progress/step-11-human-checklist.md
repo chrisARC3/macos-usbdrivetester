@@ -35,7 +35,10 @@
 > *(2026-09-24: the probe's 613 is **614** since item 6's fix, and 1152x720 is no longer
 > maintained — see below. 2026-09-25, on the build that carries the fix: the shipped window was
 > pushed to **614** at Start, the probe's figure exactly, and held at **615** while the run went on —
-> see chunk 9's box. Later that day **615 became the spec**, by user decision.)*
+> see chunk 9's box. Later that day **615 became the spec**, by user decision.)* *(2026-09-30:
+> macOS 27.0.1 (26A434), a point release, lapses none of these passes — user decision the same
+> day, `CONSTRAINTS.md` §2 — and the clauses below that name Xcode or macOS were reworded to say
+> so.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
@@ -467,7 +470,7 @@ deliberately not bound to the persisted preference.
    > scratch T5 has one, and that is why the standard form ran there. **Invalidated by** any change
    > to what a finished or stopped run puts on screen, or to the quit path — `AppModel`,
    > `QuitPolicy`, `QuitSequence`, `AppLifecycleDelegate`, `USBDriveTesterApp.swift`; by a different
-   > installed build; and by any new Xcode or macOS.
+   > installed build; and by any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 4. ⌘Q after a run has finished quits **immediately**. 3 and 4 are the pair: one must wait, the
    other must not, and the same code decides both.
 
@@ -635,7 +638,7 @@ report, would pass 1–6.
 > `DTXcode 2700`, dylib `422c89d3…`), helper `ac4d5208…`, daemon pid 95762 on protocol v15, and
 > `ui-probe` / `window-fit-check.sh` at `d98b658`, re-run 2026-09-21 08:42 to confirm the gate had
 > not moved. Five drives attached for 9.1–9.5, two for 9.6. **Invalidated by** any edit to a view
-> source, to `WindowMetrics` or to the probe, and by any new Xcode or macOS.
+> source, to `WindowMetrics` or to the probe, and by any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 >
 > **The figures below replace the ones in items 2 and 3**, which were measured 2026-08-20 and went
 > stale two days later — the refusal lines under the run buttons were deleted on 2026-08-22, taking
@@ -725,7 +728,7 @@ report, would pass 1–6.
 > 95762, then 1477. Six drives for the idle floor and the run, two for 9.6, one for the one-drive
 > floor. **9.1, 9.4 and 9.5 were not re-walked** (user decision); their passes above are facts about
 > the build installed 2026-09-19. **Invalidated by** the same clause as the box above: any edit to a
-> view source, to `WindowMetrics` or to the probe; another install; any new Xcode or macOS.
+> view source, to `WindowMetrics` or to the probe; another install; any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 >
 > Frames, 640 pt wide, from a sampler built from chunk 11's `winlist` source — the window server
 > every 50 ms and the autosave every 0.5 s, a line only when either changed:
@@ -1012,7 +1015,7 @@ lines that tell the model a run produced a report are reachable only by a person
 > selected **the 22 TB Seagate** by itself at both launches and again when the thumb was pulled for
 > item 8, and nothing was ever started against it. **Invalidated by** any edit to a view source or to
 > `AppModel`, `QuitPolicy`, `AppLifecycleDelegate`, `WindowMetrics` or `DevicePreparation`; by a
-> different installed build; and by any new Xcode or macOS.
+> different installed build; and by any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 >
 > **Item 6 — the sheet against the window, at every size taken.** Bounds are the window server's, in
 > points; the prediction is correction (8)'s (*W* − 24) × (*H* − 56).
@@ -1107,8 +1110,7 @@ lines that tell the model a run produced a report are reachable only by a person
 > `e6e6e884…`, helper `ac4d5208…`, protocol v15, macOS 27.0 (26A428). **The other ten items were not
 > re-walked** (user decision), so their passes are facts about the build installed 2026-09-19.
 > **Invalidated by** this chunk's clause: any edit to a view source or to `AppModel`, `QuitPolicy`,
-> `AppLifecycleDelegate`, `WindowMetrics` or `DevicePreparation`; a different installed build; any
-> new Xcode or macOS. Read off the window server, as the table above was:
+> `AppLifecycleDelegate`, `WindowMetrics` or `DevicePreparation`; a different installed build; any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*. Read off the window server, as the table above was:
 >
 > | main window | how it got there | sheet | predicted | sheet's bottom edge |
 > |---|---|---|---|---|
@@ -2200,7 +2202,7 @@ including window class names.
 > against it. **Invalidated by** any edit to the quit path — `AppModel`, `QuitPolicy`,
 > `QuitSequence`, `AppLifecycleDelegate`, `USBDriveTesterApp.swift`; to `DevicePreparation`,
 > `RunController` or `RunControllerWiring` (item 4); or to the helper gate (item 3); by a different
-> installed build; and by any new Xcode or macOS.
+> installed build; and by any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
 >
 > | item | what was done | read |
 > |---|---|---|
