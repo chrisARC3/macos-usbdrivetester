@@ -525,6 +525,9 @@ What it changes, and what it does not:
   injectShort` is **14** for two functions. **A presence test uses `nm -gU`** — external symbols
   only, **2**. The Step 12 checklist expected 2 from plain `nm -U` from 2026-09-07 until this was
   found; how that "2" came to be recorded is in `PROGRESS.md`, chunk 7d.
+  *(2026-09-30: that account has been in `progress/step-12.md` since Step 12 was archived on
+  2026-09-11 — under "Chunk 7", at "7d is DONE" and its correction of 2026-09-10. Finding 2 of
+  Step 13's close, 2026-09-29; noted here by the user's decision.)*
 - **No behavioural effect is known.** The counters change no result. An instrumented process that
   exits normally writes `default.profraw` into its working directory; the daemon's is `/` (its
   plist sets no `WorkingDirectory`), which is read-only, and no `/default.profraw` exists.

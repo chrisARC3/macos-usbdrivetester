@@ -80,7 +80,9 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > fixed a false-positive device loss**: route (b) took a *slice* disappearance for the drive
 > leaving, and the run's own exclusive whole-disk open is what makes the slices go — every
 > partitioned drive ended its run ten milliseconds after the claim. The suite is **1323 / 157 / 0**
-> on Xcode 27.0 (2026-09-19, `d1ac7a6`), floor 1323. **The protocol is v15** (chunk 3,
+> on Xcode 27.0, green 2026-09-24 on `77275be`'s sources, floor 1323 *(it said "(2026-09-19,
+> `d1ac7a6`)" until 2026-09-30 — finding 3 of Step 13's close, fixed by the user's decision)*.
+> **The protocol is v15** (chunk 3,
 > 2026-09-05) **and the helper source hash is `e19b0b3c…`, moved by chunk 7b** — chunks 4, 5 and 6
 > did not move it, all three being app target only, and 7b did because `InMemoryBlockDevice` is a
 > member of the helper target as well as the test target.
@@ -109,6 +111,9 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > its account is in `PROGRESS.md` and its plan section has been deleted from
 > [`progress/step-11-increment-plans.md`](progress/step-11-increment-plans.md), which now holds only
 > the settled-decision table. **No increment is planned right now.**
+> *(2026-09-30: that account has been in [`progress/step-11.md`](progress/step-11.md), under
+> "Increment 12", since Step 11 was archived on 2026-09-05 — `PROGRESS.md` holds one step at a
+> time. Finding 1 of Step 13's close, 2026-09-29; noted here by the user's decision.)*
 >
 > **At Step 11's close on 2026-09-05 the human checklist was complete — 16 chunks, nothing owed.**
 > Chunk 16 (⌘Q under every modal)
@@ -654,7 +659,7 @@ simulation-first still applies wherever the plan calls for it.
 > surviving all 1301 tests and killed by one new test. **The step is CLOSED**: all four gate items
 > ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
-> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, complete at 1323 in all seventeen runs of chunk 4's mutation round, and **green on Xcode 27.0 on 2026-09-19** against `d1ac7a6`), protocol **v15** (chunk 3, 2026-09-05),
+> **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, complete at 1323 in all seventeen runs of chunk 4's mutation round, **green on Xcode 27.0 on 2026-09-19** against `d1ac7a6`, and **green again 2026-09-24**, 14:04–14:05, on `77275be`'s sources *(this list ended at 2026-09-19 until 2026-09-30 — finding 3 of Step 13's close, fixed by the user's decision)*), protocol **v15** (chunk 3, 2026-09-05),
 > zero source warnings from three clean builds (on Xcode 27.0: Debug and Release 2026-09-18, the test build 2026-09-19), **14/14** gate clients type-checking against v15 **with zero warnings** (re-run 2026-09-19; `build-tools.sh` had never shown warnings, and `e144510` made it show them and fixed the three it found in `run-control-probe`) —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
