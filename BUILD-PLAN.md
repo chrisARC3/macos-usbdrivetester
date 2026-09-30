@@ -660,7 +660,7 @@ simulation-first still applies wherever the plan calls for it.
 > ticked, the account archived to [`progress/step-12.md`](progress/step-12.md). Both of chunk 2's unwalked items were **instrument defects and were reworded, not failed**
 > — the third and fourth of that kind since 2026-09-04, and neither described a fault in the app. The suite stands at
 > **1323 tests / 157 suites / 0 failures** (floor 1323, ratcheted at Step 13 chunk 3; green again 2026-09-13, complete at 1323 in all seventeen runs of chunk 4's mutation round, **green on Xcode 27.0 on 2026-09-19** against `d1ac7a6`, and **green again 2026-09-24**, 14:04–14:05, on `77275be`'s sources *(this list ended at 2026-09-19 until 2026-09-30 — finding 3 of Step 13's close, fixed by the user's decision)*), protocol **v15** (chunk 3, 2026-09-05),
-> zero source warnings from three clean builds (on Xcode 27.0: Debug and Release 2026-09-18, the test build 2026-09-19), **14/14** gate clients type-checking against v15 **with zero warnings** (re-run 2026-09-19; `build-tools.sh` had never shown warnings, and `e144510` made it show them and fixed the three it found in `run-control-probe`) —
+> zero source warnings from three clean builds (on Xcode 27.0: Debug and Release 2026-09-18, the test build 2026-09-19) and zero Swift warnings in the test build of `77275be`'s sources on 2026-09-24, **14/14** gate clients type-checking against v15 **with zero warnings** (re-run 2026-09-19, and again 2026-09-24 on `77275be`'s sources; `build-tools.sh` had never shown warnings, and `e144510` made it show them and fixed the three it found in `run-control-probe`) *(both stopped at 2026-09-19 until 2026-09-30 — found while finding 3 of Step 13's close was fixed, and fixed by the user's decision)* —
 > **12/13 on the first attempt at chunk 6**, because `ui-probe` builds a `RunController` and the new
 > `onDeviceLost:` parameter has no default. That is `build-tools.sh` doing the job it exists for:
 > the app build does not compile the tools, so nothing else would have found those two call sites.
@@ -735,6 +735,10 @@ simulation-first still applies wherever the plan calls for it.
 > mismatch (fixture destroyed by an early `install-app.sh`) and the idle-panel em dashes (the item
 > was wrong about the app and inverted — it would have passed on a build with the defect it was
 > written to catch). Full record in `PROGRESS.md`, increment 11.
+> *(2026-09-30: that record has been in [`progress/step-11.md`](progress/step-11.md), under
+> "Increment 11", at "Chunk 15 walked", since Step 11 was archived on 2026-09-05 — `PROGRESS.md`
+> holds one step at a time. Found 2026-09-30 while the Step 13 close's findings were fixed; noted
+> here by the user's decision.)*
 >
 > Everything else is walked and passed. Chunk 14, added by increment 10, passed in full on
 > 2026-09-02: all seven items, no product defect. Its item 4 revokes Full Disk Access and is the
