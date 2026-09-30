@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Steps 1–14 of 16 are complete; Step 15 is next and has not started
+> ### Status: in development — Steps 1–14 of 16 are complete; Step 15 is in progress
 >
 > Steps 1–14 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -97,7 +97,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > verification gate passed on 2026-09-29** on those readings — a test that stops on a failed block
 > was argued from the code rather than seen, since none of the drives it may write to has one — and
 > **the step closed the same day. Step 15 — logging consolidation — is next and has not been
-> started.**
+> started.** *(2026-09-30: it has — its chunk 1, a read-only audit of the event set, is done:
+> `progress/step-15-event-audit.md`.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
