@@ -114,6 +114,18 @@ This document specifies the **non-functional requirements** — the quality attr
 | NFR-OBS-1 | The application and helper shall log significant events (run start/stop, failure-mode selection, failed block ranges, device connect/loss, helper registration) to the macOS unified logging system (`os_log`). | S | Derived (diagnosability) |
 | NFR-OBS-2 | Logs shall be sufficient to diagnose an interrupted or failed run after the fact, while never recording device contents. | S | NFR-SEC-6; FR-FAIL-7 |
 
+> **2026-09-30 — how long "after the fact" is, measured (Step 15's audit, F1; user decision the
+> same day).** On macOS 27.0.1 (26A434) the unified log keeps this subsystem's lines for **about one
+> to three days**: two days after Step 13's walk read many of them, three of its 2026-09-28 lines
+> were left, while the store as a whole reached back to 2026-09-08. The subsystem's logging configuration is
+> the default (`INFO PERSIST_DEFAULT`), and `log config` has no setting for a lifetime. So within
+> that window a run is reconstructed from the log; after it, from the run's exported report, which
+> carries the device (serial, and BSD name at run time), the outcome and the failed block ranges.
+> Step 15's gate exports its log evidence the same day for the same reason. The cause — a short
+> lifetime macOS gives these lines — is the best fit, not proven: `progress/step-15-event-audit.md`,
+> section 4. *What would invalidate it:* a macOS major or minor release, or a change to the
+> subsystem's logging configuration.
+
 ## NFR-INST — Installation & Distribution
 
 | ID | Requirement | Priority | Source |
@@ -621,4 +633,6 @@ their consumer moved.
 4. ~~**Accessibility commitment (NFR-USE-8):**~~ **Resolved 2026-06-25** — Should / best-effort; not a v1 release gate.
 5. ~~**Localization:**~~ **Resolved 2026-06-25** — English-only for v1; no localization infrastructure (now in Out of Scope).
 6. ~~**Logging verbosity/retention (NFR-OBS):**~~ **Resolved 2026-06-25** — `os_log` events as specified in NFR-OBS-1/2 are sufficient; no user-visible activity log or formal level/retention rules for v1.
+   *(2026-09-30: still resolved. The one-to-three-day window under NFR-OBS-2 is a measured fact
+   about macOS, not a retention rule this product sets.)*
 7. ~~**Minimum deployment target:**~~ **Resolved 2026-06-25** — minimum deployment target is macOS 26 (Tahoe); Xcode/Swift versions are not pinned in the spec (left to build config).
