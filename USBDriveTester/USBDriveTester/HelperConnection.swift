@@ -400,6 +400,18 @@ final class HelperConnection {
     /// instance in the first place.
     private var progressConnection: NSXPCConnection?
 
+    /// The progress poll's failure streak (*Owed* (h), Step 15 chunk 3). The 1 Hz poll fails on every
+    /// ask while the helper is unreachable, and each failure used to log two error lines; see
+    /// ``FailureStreak`` for the rule. **The poll only**: `setRunControl` shares the progress
+    /// connection and logs every transport failure of its own, because a Pause or Stop that did not
+    /// reach the helper must never be held back.
+    private var progressPollFailures = FailureStreak<ProgressPollFailure>()
+
+    private enum ProgressPollFailure: Hashable {
+        case connectionInvalidated
+        case transportError
+    }
+
     // MARK: - Connection lifecycle
 
     /// Lazily create (or reuse) the connection to the helper's Mach service.
@@ -436,8 +448,19 @@ final class HelperConnection {
                                   options: .privileged)
         new.remoteObjectInterface = NSXPCInterface(with: TesterControl.self)
         new.invalidationHandler = { [weak self] in
-            log.error("helper progress connection invalidated")
-            DispatchQueue.main.async { self?.progressConnection = nil }
+            DispatchQueue.main.async {
+                guard let self else {
+                    log.error("helper progress connection invalidated")
+                    return
+                }
+                self.progressConnection = nil
+                // Through the poll's streak, so a repeat while the poll is failing is held back.
+                // Outside a streak the first of a kind always logs — which includes every
+                // invalidation the poll did not cause.
+                if self.progressPollFailures.failed(.connectionInvalidated, at: Date()) {
+                    log.error("helper progress connection invalidated")
+                }
+            }
         }
         new.interruptionHandler = {
             log.error("helper progress connection interrupted")
@@ -447,9 +470,12 @@ final class HelperConnection {
         return new
     }
 
-    /// Tear down both connections. Used before re-registering the daemon (a stale
-    /// connection outlives the daemon it pointed at) and on app exit. Step 4 folds
-    /// this into the productised teardown path.
+    /// Tear down both connections. Called in two places: by the helper gate's Register remedy,
+    /// before it re-registers the daemon (`AppModel`, `.registerHelper` — a stale connection
+    /// outlives the daemon it pointed at), and by `HelperRegistration.uninstall(using:runIsActive:completion:)`,
+    /// which drains the connection before removing the daemon — the teardown path Step 4 built.
+    /// *(Corrected 2026-09-30, Step 15 chunk 3: this said it was also used "on app exit", and
+    /// nothing calls it there.)*
     func invalidate() {
         log.notice("invalidating helper connections")
         connection?.invalidate()
@@ -708,7 +734,24 @@ final class HelperConnection {
     /// (measured 2026-08-04). Safe to call once a second for a whole run: the helper takes a
     /// lock, reads counters and walks a fixed 2,240-bucket histogram.
     func runProgress(completion: @escaping (Result<RunProgressSnapshot, Error>) -> Void) {
-        withProxy(completion, on: currentProgressConnection()) { tester, finish in
+        let answered: (Result<RunProgressSnapshot, Error>) -> Void = { [weak self] result in
+            if case .success = result, let self,
+               let recovery = self.progressPollFailures.answered(at: Date()) {
+                log.notice("""
+                           helper progress answered again after \
+                           \(String(format: "%.1f", recovery.seconds), privacy: .public)s of \
+                           failures; \(recovery.heldBack, privacy: .public) repeated failure \
+                           line(s) held back
+                           """)
+            }
+            completion(result)
+        }
+        withProxy(answered,
+                  on: currentProgressConnection(),
+                  transportError: { [weak self] in
+                      guard let self else { return true }
+                      return self.progressPollFailures.failed(.transportError, at: Date())
+                  }) { tester, finish in
             tester.runProgress { available, fraction, currentBlock, readRate, writeRate,
                                  coveringRate, completedRate, remainingSeconds, latencySamples,
                                  latencyMinimum,
@@ -772,8 +815,11 @@ final class HelperConnection {
     /// - Parameter connection: which connection to send on. Defaults to the owning one; only
     ///   ``runProgress(completion:)`` passes the progress connection, and it must, because the
     ///   owning connection is blocked for the duration of a run.
+    /// - Parameter transportError: asked, on the main queue, whether to log a transport error.
+    ///   `nil` — every call but the progress poll — logs every one; the poll passes its streak.
     private func withProxy<T>(_ completion: @escaping (Result<T, Error>) -> Void,
                               on connection: NSXPCConnection? = nil,
+                              transportError shouldLog: (() -> Bool)? = nil,
                               _ body: (TesterControl, @escaping (Result<T, Error>) -> Void) -> Void) {
         let finish: (Result<T, Error>) -> Void = { result in
             DispatchQueue.main.async { completion(result) }
@@ -781,7 +827,18 @@ final class HelperConnection {
 
         let proxy = (connection ?? currentConnection())
             .remoteObjectProxyWithErrorHandler { error in
-                log.error("helper transport error: \(error.localizedDescription, privacy: .public)")
+                let description = error.localizedDescription
+                if let shouldLog {
+                    // Decided on the main queue, where the streak lives, and queued before
+                    // `finish`'s own hop, so the failure is counted before the completion runs.
+                    DispatchQueue.main.async {
+                        if shouldLog() {
+                            log.error("helper transport error: \(description, privacy: .public)")
+                        }
+                    }
+                } else {
+                    log.error("helper transport error: \(description, privacy: .public)")
+                }
                 finish(.failure(error))
             }
 

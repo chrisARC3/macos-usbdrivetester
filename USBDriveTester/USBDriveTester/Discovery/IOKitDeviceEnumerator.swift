@@ -229,13 +229,16 @@ nonisolated final class IOKitDeviceEnumerator: DeviceSource {
             return nil
         }
 
+        // These two skips are at notice, not error (Step 15's audit, F5, user decision 2026-09-30):
+        // a disk this app cannot use is a fact about the disk, not a fault here. The registry-ID
+        // failure below is an IOKit call failing, and stays at error.
         guard let sizeBytes = Self.number(media, RegistryKey.size) else {
-            log.error("skipping \(bsdName, privacy: .public): no Size property")
+            log.notice("skipping \(bsdName, privacy: .public): no Size property")
             return nil
         }
         guard let blockSize = Self.number(media, RegistryKey.preferredBlockSize),
               let logicalBlockSize = UInt32(exactly: blockSize) else {
-            log.error("skipping \(bsdName, privacy: .public): no usable Preferred Block Size")
+            log.notice("skipping \(bsdName, privacy: .public): no usable Preferred Block Size")
             return nil
         }
 

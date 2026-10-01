@@ -86,7 +86,7 @@
 > *(2026-09-29: **Step 13's verification gate PASSED** — all three items ticked in `BUILD-PLAN.md`
 > on this file's readings, by the user's decision on its plan; item 1 on the `pmset` route, 3.4 not
 > walked, and *fail* in item 2 argued from the code. One gap in the suite found while planning it,
-> F8, is owed (`PROGRESS.md`, *Owed* (o)). **Closing the step is next.**)*
+> F8, is owed (`PROGRESS.md`, *Owed* (o)) *(paid 2026-09-30 by Step 15's chunk 3: `aRunThatEndsReleasesIt` runs over every ending but `deviceLost`)*. **Closing the step is next.**)*
 > *(2026-09-29, later: **STEP 13 CLOSED**, by the user's decision — its account archived to
 > `progress/step-13.md`, and `PROGRESS.md` re-cut for Step 15. This file stays here, the re-walk
 > for anything that touches the assertion; its passes do not transfer.)*

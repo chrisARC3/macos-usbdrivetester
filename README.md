@@ -98,7 +98,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > was argued from the code rather than seen, since none of the drives it may write to has one — and
 > **the step closed the same day. Step 15 — logging consolidation — is next and has not been
 > started.** *(2026-09-30: it has — its chunk 1, a read-only audit of the event set, is done, and its chunk 2
-> recorded the decisions on what the audit found: `progress/step-15-event-audit.md`.)*
+> recorded the decisions on what the audit found: `progress/step-15-event-audit.md`; chunk 3 made
+> the app-side changes, the same day.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -127,8 +128,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state, on Xcode 27.0 since 2026-09-19: **1323 tests / 157 suites / 0 failures**
-> (floor 1323), zero source warnings from three clean builds, **14/14** gate clients type-checking
+> Current verified state, on Xcode 27.0 since 2026-09-19: **1330 tests / 158 suites / 0 failures**
+> (floor 1330, green 2026-09-30 on Step 15's chunk 3 — 1323 / 157 / 0 until then), zero source warnings from three clean builds, **14/14** gate clients type-checking
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15,
 > and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
 > measured on the shipped window itself, 2026-09-22**, which is the first time the two have been

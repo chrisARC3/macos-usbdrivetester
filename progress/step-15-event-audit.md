@@ -226,3 +226,21 @@ runs the suite and so pays *Owed* (o); **4**, `Shared/` and the helper — F4 at
 and *Owed* (a) and (b); **5**, the gate — install, the four hardware gates, a traced full run and
 an induced interrupted run on a write target, the evidence exported the same day. Each is planned
 and approved on its own.
+
+## 5. 2026-09-30: chunk 3 done
+
+*Added the same day, with chunk 3's commit; helper hash `e19b0b3c…` unmoved.* **F5**: all 68
+`error` calls classified, and the list approved by the user. **2 moved to `notice`**:
+`IOKitDeviceEnumerator.swift`'s *no Size property* and *no usable Preferred Block Size* skips.
+2 are F7's. **64 kept**, the helper's 21 among them:
+- **wiring defects, 20** — the three `RunSequencer` refusals among them;
+- **real failures of an action or the run, 19**;
+- **system calls failing, 7**;
+- **the helper's calls, 21**, all kept at `error`.
+
+`HelperAvailability.swift:477`, the gate line, is kept by the user's decision. So is
+`HelperConnection.swift:417`, option (a): the line before it, *invalidating helper connections*,
+already shows when a close was the app's own.
+
+**F7 — paid**: `FailureStreak.swift`, applied to the progress poll only. The full account is the
+commit's message, and the summary is PROGRESS's Step 15 row.

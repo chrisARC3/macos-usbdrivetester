@@ -1967,12 +1967,27 @@ struct RunControllerSleepPreventionTests {
         #expect(!heldTwiceInARow, "a second assertion was taken while one was already held")
     }
 
-    /// A run that completes lets it go on the way out of `running`, not at the terminal state.
-    @Test func aRunThatEndsReleasesIt() {
+    /// A run that ends lets it go on the way out of `running`, not at the terminal state.
+    ///
+    /// **Every ending but `deviceLost`**, which the next test takes. Until 2026-09-30 this ended on
+    /// `completed` alone, and Step 13's gate item 2 — *release on failure* — was argued from the
+    /// code, because nothing pinned the mapping for a failure (*Owed* (o), F8 of Step 13's walk).
+    /// Paid in Step 15's chunk 3.
+    @Test(arguments: [RunSequenceOutcome.completed,
+                      .stoppedOnFailure,
+                      .stoppedByUser,
+                      .haltedForQuit,
+                      .callFailed(reason: "the helper could not be reached")])
+    func aRunThatEndsReleasesIt(_ outcome: RunSequenceOutcome) {
         let bench = Bench()
         #expect(bench.driveTo(.running))
+        #expect(bench.sleep.isHeld)
 
-        bench.emit(.runEnded(Bench.completedRun))
+        bench.emit(.runEnded(RunSequenceResult(outcome: outcome,
+                                               finalReply: nil,
+                                               ioSizesUsed: [1 << 22],
+                                               startBlock: 0,
+                                               blockCount: 7_814_037_168)))
 
         #expect(!bench.sleep.isHeld)
         #expect(bench.sleep.ends >= 1)
