@@ -150,13 +150,17 @@ final class RunLogger: RunObserver {
     private var loggedFailures = 0
     private var announcedTruncation = false
 
-    init(failureMode: FailureMode) {
+    /// The run's ID as every line here begins with it (v16) — ``TesterProtocol/runTag(_:)``.
+    private let tag: String
+
+    init(failureMode: FailureMode, runID: UUID) {
         self.failureMode = failureMode
+        self.tag = TesterProtocol.runTag(runID)
     }
 
     func runStarted(_ start: RunStart) {
         ioLog.notice("""
-                     retention cycle START on \(start.deviceName, privacy: .public): \
+                     \(self.tag, privacy: .public)retention cycle START on \(start.deviceName, privacy: .public): \
                      blocks \(start.startBlock, privacy: .public)–\
                      \(start.startBlock + start.blockCount - 1, privacy: .public) \
                      (\(start.blockCount, privacy: .public) blocks, \
@@ -171,12 +175,12 @@ final class RunLogger: RunObserver {
         if loggedFailures < Self.loggedFailureLimit {
             loggedFailures += 1
             ioLog.error("""
-                        retention cycle FAILURE: \(failure.description, privacy: .public)
+                        \(self.tag, privacy: .public)retention cycle FAILURE: \(failure.description, privacy: .public)
                         """)
         } else if !announcedTruncation {
             announcedTruncation = true
             ioLog.error("""
-                        retention cycle: more than \(Self.loggedFailureLimit, privacy: .public) \
+                        \(self.tag, privacy: .public)retention cycle: more than \(Self.loggedFailureLimit, privacy: .public) \
                         failed ranges; individual ranges are no longer being logged. The run \
                         report carries the full list.
                         """)
@@ -189,7 +193,7 @@ final class RunLogger: RunObserver {
 
     func runFinished(_ summary: RunSummary) {
         ioLog.notice("""
-                     retention cycle END: \(summary.outcome.description, privacy: .public); \
+                     \(self.tag, privacy: .public)retention cycle END: \(summary.outcome.description, privacy: .public); \
                      \(summary.chunksProcessed, privacy: .public)/\
                      \(summary.chunksPlanned, privacy: .public) chunks; \
                      read \(summary.bytesRead, privacy: .public) B, \
@@ -282,9 +286,11 @@ enum RunCoordinator {
         //    cycle on the same descriptor, and what makes `prepareForShutdown` refuse while a
         //    run is in progress (NFR-INST-3, NFR-REL-5).
         let device: AcquiredDevice
+        let runID: UUID
         switch HelperActivity.shared.beginDeviceOperation("a retention cycle is writing") {
-        case .started(let acquired):
+        case .started(let acquired, let heldFor):
             device = acquired
+            runID = heldFor
         case .refused(let refusal):
             return .failure(refusal)
         }
@@ -383,7 +389,7 @@ enum RunCoordinator {
         //    accumulate into the session of a device it does not hold.
         let session = device.runSession
         let observer = RunObservers.forRun(mode: failureMode,
-                                           watchedBy: [RunLogger(failureMode: failureMode),
+                                           watchedBy: [RunLogger(failureMode: failureMode, runID: runID),
                                                        session])
 
         // NFR-PERF-3's two figures are both the **run's** from Step 11. The CPU bracket opens at
@@ -408,11 +414,11 @@ enum RunCoordinator {
                                          // call is blocking this one (measured 2026-08-04).
                                          control: { RunControlChannel.shared.current },
                                          observer: observer)
-            logDeviceDiagnostics(blockDevice)
+            logDeviceDiagnostics(blockDevice, runID: runID)
 
             let (overhead, core) = perfFigures()
             logPerformance(summary, session: session.snapshot,
-                           overheadFraction: overhead, coreFraction: core)
+                           overheadFraction: overhead, coreFraction: core, runID: runID)
             return .success(CycleResult(summary: summary,
                                         hostOverheadFraction: overhead,
                                         helperCoreFraction: core,
@@ -422,16 +428,18 @@ enum RunCoordinator {
                                         failureMode: failureMode))
         } catch let abort as RunAbort {
             ioLog.error("""
+                        \(TesterProtocol.runTag(runID), privacy: .public)\
                         retention cycle ABORTED on \(device.device.rawValue, privacy: .public): \
                         \(abort.description, privacy: .public)
                         """)
-            logDeviceDiagnostics(blockDevice)
+            logDeviceDiagnostics(blockDevice, runID: runID)
             return .failure(.aborted(abort))
         } catch {
             // `run` throws only `RunAbort`. Reported rather than trapped — a root daemon
             // holding a claim must not crash, or the disk stays claimed until launchd
             // restarts it.
             ioLog.error("""
+                        \(TesterProtocol.runTag(runID), privacy: .public)\
                         retention cycle ABORTED on \(device.device.rawValue, privacy: .public) \
                         with an unexpected error: \(String(describing: error), privacy: .public)
                         """)
@@ -451,15 +459,17 @@ enum RunCoordinator {
     /// took before a cycle against one it took after, so a digest function that returned a
     /// constant would make the comparison pass unconditionally — a check that cannot fail.
     static func digestRange(startBlock: UInt64,
-                            blockCount: UInt64) -> Result<(bytes: UInt64, hex: String),
+                            blockCount: UInt64) -> Result<(bytes: UInt64, hex: String, runID: UUID),
                                                           RetentionCycleRefusal> {
 
         guard blockCount > 0 else { return .failure(.emptyRequest) }
 
         let device: AcquiredDevice
+        let runID: UUID
         switch HelperActivity.shared.beginDeviceOperation("a fingerprint is being taken") {
-        case .started(let acquired):
+        case .started(let acquired, let heldFor):
             device = acquired
+            runID = heldFor
         case .refused(let refusal):
             return .failure(refusal)
         }
@@ -486,13 +496,14 @@ enum RunCoordinator {
             let hex = try DeviceDigest.sha256(of: blockDevice,
                                               startBlock: startBlock,
                                               blockCount: blockCount)
-            return .success((bytes: requestedBytes, hex: hex))
+            return .success((bytes: requestedBytes, hex: hex, runID: runID))
         } catch let failure as DeviceDigest.Failure {
             ioLog.error("""
+                        \(TesterProtocol.runTag(runID), privacy: .public)\
                         digest FAILED on \(device.device.rawValue, privacy: .public): \
                         \(failure.description, privacy: .public)
                         """)
-            logDeviceDiagnostics(blockDevice)
+            logDeviceDiagnostics(blockDevice, runID: runID)
             return .failure(.digestFailed(detail: failure.description))
         } catch {
             return .failure(.digestFailed(detail: String(describing: error)))
@@ -516,7 +527,8 @@ enum RunCoordinator {
     private static func logPerformance(_ summary: RunSummary,
                                        session: MetricsSnapshot?,
                                        overheadFraction: Double?,
-                                       coreFraction: Double?) {
+                                       coreFraction: Double?,
+                                       runID: UUID) {
         guard let snapshot = session else { return }
 
         func rate(_ bytesPerSecond: Double?) -> String {
@@ -533,6 +545,7 @@ enum RunCoordinator {
         }
 
         metricsLog.notice("""
+                          \(TesterProtocol.runTag(runID), privacy: .public)\
                           run metrics — DISPLAYED, over phase time (v14; read pools the original \
                           and the verify over both their times, R-W-R-C is successful bytes over \
                           all successful phase time and runs about a third of its neighbours on a \
@@ -571,9 +584,10 @@ enum RunCoordinator {
     /// but "the read failed" and nothing else is the kind of message that sent someone to
     /// check a cable when the answer was a checkbox (NFR-INST-4, NFR-USE-5). Addressing only,
     /// never contents.
-    private static func logDeviceDiagnostics(_ device: FileDescriptorBlockDevice) {
+    private static func logDeviceDiagnostics(_ device: FileDescriptorBlockDevice, runID: UUID) {
         guard let failure = device.lastFailure else { return }
         ioLog.error("""
+                    \(TesterProtocol.runTag(runID), privacy: .public)\
                     retention cycle, last device-level failure: \
                     \(failure.description, privacy: .public)
                     """)

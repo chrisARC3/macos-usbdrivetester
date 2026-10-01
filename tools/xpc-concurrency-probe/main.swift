@@ -251,7 +251,8 @@ print("[version] EXPECTED=\(TesterProtocol.version)")
 
 var acquired = false
 blockingCall("acquire", on: connectionA) { tester, done in
-    tester.acquireDevice(bsdName: bsdName) { ok, causeCode, message in
+    // v16 (Step 15 chunk 4): a fresh run ID per acquire. A label in the helper's log only.
+    tester.acquireDevice(bsdName: bsdName, runID: UUID()) { ok, causeCode, message in
         acquired = ok
         print("[acquire] ACQUIRED=\(ok ? 1 : 0)")
         print("[acquire] CAUSE=\(causeCode)")

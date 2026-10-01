@@ -178,11 +178,19 @@ import Foundation
     /// 2026-07-30), so the claim is what keeps the device unmounted for the run's whole
     /// duration.
     ///
+    /// - Parameter runID: the run this claim is for (v16, Step 15's F4). The app makes it when
+    ///   a run is authorised and logs it there; the helper keeps it with the claim and puts it on
+    ///   every line it logs about the claim until the claim ends, so one search for the ID finds
+    ///   the run in both processes (``TesterProtocol/runTag(_:)``). It is **only** a label: the
+    ///   helper decides nothing by it, and a gate tool passes a fresh one per acquire. A `UUID`
+    ///   rather than a `String` so that XPC's own decoding is what rejects a malformed one, and
+    ///   no caller-controlled text reaches a root daemon's log through it.
     /// - Parameter reply: `(acquired, causeCode, message)`. On success `causeCode` is 0.
     ///   On refusal it is a ``DeviceAccessRefusalCause`` raw value, so the app can offer
     ///   the matching corrective control; `message` always names the actual cause and the
     ///   corrective step (NFR-USE-5).
     func acquireDevice(bsdName: String,
+                       runID: UUID,
                        reply: @escaping (Bool, Int, String) -> Void)
 
     /// Release whatever device the helper holds (NFR-REL-5).
@@ -1203,6 +1211,20 @@ nonisolated public enum TesterProtocol {
     ///   it is luck rather than design: the field was needed. The version check in
     ///   `HelperConnection` remains the guard that is not allowed to depend on luck.
     ///
+    /// - **v16 (Step 15 chunk 4, 2026-10-01) — a run has an identifier both processes log.**
+    ///
+    ///   `acquireDevice` gains `runID`, a `UUID` the app makes when a run is authorised. The
+    ///   helper keeps it with the claim and stamps it, through ``runTag(_:)``, on the lines it
+    ///   logs about that claim — acquire, profile, each cycle's START, FAILURE and END, digest,
+    ///   release — so a paused and resumed run's several START/END pairs, and the app's own lines
+    ///   that name the drive by serial, are joined by one search rather than by timestamp and pid.
+    ///   The user's decision on Step 15's audit, F4, 2026-09-30, for future runs only.
+    ///
+    ///   A **signature change on a call**, not on a reply, so the bump is mandatory: a v15 daemon
+    ///   does not implement the new selector, and a v15 app's call is one a v16 daemon does not
+    ///   answer. Either way the mismatch is a transport failure the version check names, never a
+    ///   run on an unlabelled claim. No reply changed shape.
+    ///
     /// The bump matters in practice, not just on paper: the app and the daemon are
     /// separately installed artefacts, so after an app update a **v2 daemon can still
     /// be registered** until the user reinstalls it. Such a daemon does not implement
@@ -1214,7 +1236,14 @@ nonisolated public enum TesterProtocol {
     /// daemon on purpose, but the device methods must **not**. A helper that cannot
     /// answer `acquireDevice` has not granted access, and treating a failed call as
     /// anything but a refusal would put a run on a device nobody claimed.
-    public static let version = 15
+    public static let version = 16
+
+    /// How a log line names the run it belongs to (v16): `[run <UUID>] `, or nothing when there
+    /// is none. One spelling in both processes, so a search for the ID is a search for this.
+    public static func runTag(_ runID: UUID?) -> String {
+        guard let runID else { return "" }
+        return "[run \(runID.uuidString)] "
+    }
 
     /// The most one privileged, uncancellable call may cover — ``TesterControl/runRetentionCycle(startBlock:blockCount:ioSizeBytes:reply:)``
     /// and ``TesterControl/digestRange(startBlock:blockCount:reply:)`` alike. **1 GiB.**

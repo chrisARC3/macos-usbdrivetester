@@ -199,7 +199,8 @@ guard helperVersion == TesterProtocol.version else {
 var acquired = false
 var acquireMessage = ""
 let acquireDone = DispatchSemaphore(value: 0)
-proxy(on: runConnection, "run").acquireDevice(bsdName: bsdName) { ok, causeCode, message in
+// v16 (Step 15 chunk 4): a fresh run ID per acquire. A label in the helper's log only.
+proxy(on: runConnection, "run").acquireDevice(bsdName: bsdName, runID: UUID()) { ok, causeCode, message in
     acquired = ok
     acquireMessage = "cause=\(causeCode) \(message)"
     acquireDone.signal()

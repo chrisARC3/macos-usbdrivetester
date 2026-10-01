@@ -55,8 +55,8 @@ extension RunController {
                     mayIssueNewWork: model.mayIssueNewWork)
             },
             selectedDevice: { model.discovery.selectedDevice },
-            prepare: { device, finished in
-                prepare(device, model: model, completion: finished)
+            prepare: { device, runID, finished in
+                prepare(device, runID: runID, model: model, completion: finished)
             },
             makeSequencer: { emit in
                 RunSequencer(caller: model.helper,
@@ -103,7 +103,11 @@ extension RunController {
     /// Unmount → verify → acquire → geometry → clear the level, with the real machinery behind each
     /// step. The sequencing, and every rollback, is `DevicePreparation`'s.
     @MainActor
+    ///
+    /// - Parameter runID: the run being prepared (v16), handed to the helper with the acquire so
+    ///   its lines carry the ID the app's do.
     private static func prepare(_ device: DiscoveredDevice,
+                                runID: UUID,
                                 model: AppModel,
                                 completion: @escaping (DevicePreparationOutcome) -> Void) {
 
@@ -153,7 +157,8 @@ extension RunController {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { again() }
             },
             acquire: { finished in
-                model.helper.acquireDevice(bsdName: device.bsdName.rawValue, completion: finished)
+                model.helper.acquireDevice(bsdName: device.bsdName.rawValue, runID: runID,
+                                           completion: finished)
             },
             profile: { finished in model.helper.deviceProfile(completion: finished) },
             clearRunControl: { finished in

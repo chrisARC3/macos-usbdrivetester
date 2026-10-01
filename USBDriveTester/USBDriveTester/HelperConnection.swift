@@ -374,7 +374,10 @@ final class HelperConnection {
 
     private var connection: NSXPCConnection?
 
-    /// A **second, non-owning** connection, used only for `runProgress`.
+    /// A **second, non-owning** connection, for the two calls that must reach the helper while a
+    /// run blocks ``connection``: `runProgress` and `setRunControl`. *(Until 2026-10-01 this said
+    /// "used only for `runProgress`" — wrong since Step 11 added `setRunControl` on it. Found
+    /// 2026-09-30 in Step 15's chunk 3 and fixed in chunk 4 by the user's decision.)*
     ///
     /// ## Why two connections is not a design preference
     ///
@@ -616,10 +619,14 @@ final class HelperConnection {
     /// path, which fails open by design, this one has no safe permissive reading: a run
     /// on a device nobody claimed is the exact situation the mount guard exists to
     /// prevent.
+    ///
+    /// - Parameter runID: the run this claim is for, made when it was authorised (v16). The
+    ///   helper logs it on every line about the claim; see `TesterControl.acquireDevice`.
     func acquireDevice(bsdName: String,
+                       runID: UUID,
                        completion: @escaping (Result<DeviceAcquisition, Error>) -> Void) {
         withProxy(completion) { tester, finish in
-            tester.acquireDevice(bsdName: bsdName) { acquired, causeCode, message in
+            tester.acquireDevice(bsdName: bsdName, runID: runID) { acquired, causeCode, message in
                 finish(.success(acquired
                     ? .acquired(message)
                     : .refused(cause: DeviceAccessRefusalCause(wireValue: causeCode),
@@ -812,9 +819,11 @@ final class HelperConnection {
     /// were not signed under the expected Team ID, the helper's code-signing
     /// requirement would invalidate the connection and every call below would fail
     /// through this path. A foreign client sees exactly this.
-    /// - Parameter connection: which connection to send on. Defaults to the owning one; only
-    ///   ``runProgress(completion:)`` passes the progress connection, and it must, because the
-    ///   owning connection is blocked for the duration of a run.
+    /// - Parameter connection: which connection to send on. Defaults to the owning one;
+    ///   ``runProgress(completion:)`` and ``setRunControl(_:completion:)`` pass the progress
+    ///   connection, and they must, because the owning connection is blocked for the duration of a
+    ///   run. *(Until 2026-10-01 this said "only `runProgress`" — the same stale claim as
+    ///   ``progressConnection``'s, fixed with it in Step 15's chunk 4.)*
     /// - Parameter transportError: asked, on the main queue, whether to log a transport error.
     ///   `nil` — every call but the progress poll — logs every one; the poll passes its streak.
     private func withProxy<T>(_ completion: @escaping (Result<T, Error>) -> Void,

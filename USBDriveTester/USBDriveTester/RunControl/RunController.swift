@@ -217,6 +217,16 @@ final class RunController {
     private(set) var lastRunDevice: ReportedDevice?
     private(set) var lastRunStartedAt: Date?
 
+    /// The ID of the run most recently authorised (v16, Step 15's F4), or `nil` before the first.
+    ///
+    /// Made at authorisation, before anything is unmounted, so the line that says a run was
+    /// authorised carries it and an aborted start is a run with an ID too. The helper is handed
+    /// the same value with the acquire and logs it on every line about the claim, so one search
+    /// finds a run in both processes. **Kept after the run ends** rather than cleared, because the
+    /// lines that close a run — the release acknowledged late among them — arrive after it.
+    /// A label only: nothing is decided by it.
+    private(set) var runID: UUID?
+
     /// The negotiated USB link speed of the drive under test, from the claim's own profile.
     private(set) var linkSpeedCode = -1
 
@@ -237,7 +247,8 @@ final class RunController {
 
     private let preconditions: () -> RunPreconditions
     private let selectedDevice: () -> DiscoveredDevice?
-    private let prepare: (DiscoveredDevice, @escaping (DevicePreparationOutcome) -> Void) -> Void
+    /// Unmount → acquire → geometry. The `UUID` is the run's ID (v16), for the acquire.
+    private let prepare: (DiscoveredDevice, UUID, @escaping (DevicePreparationOutcome) -> Void) -> Void
     private let makeSequencer: (@escaping (RunSequencerEvent) -> Void) -> RunSequencing
 
     /// Builds the sequence that ends a run whose drive has left (Step 12, chunk 4).
@@ -363,6 +374,7 @@ final class RunController {
     init(preconditions: @escaping () -> RunPreconditions,
          selectedDevice: @escaping () -> DiscoveredDevice?,
          prepare: @escaping (DiscoveredDevice,
+                             UUID,
                              @escaping (DevicePreparationOutcome) -> Void) -> Void,
          makeSequencer: @escaping (@escaping (RunSequencerEvent) -> Void) -> RunSequencing,
          makeWindDown: ((@escaping DeviceLossWindDown.End) -> DeviceLossWindDown)? = nil,
@@ -460,6 +472,10 @@ final class RunController {
         // Taken here, before anything is unmounted, so the report's elapsed figure covers the whole
         // operation the user waited through rather than only the privileged calls inside it.
         pending.authorisedAt = Date()
+        // v16. One per authorisation — the run's, not a call's — and made here for the reason the
+        // time is: an abort during the unmount is still a run the log must be able to name.
+        let runID = UUID()
+        self.runID = runID
         // **The one read of the dropdown for this whole run** (FR-CTRL-8, increment 6). Everything
         // downstream — the log line below and the sequencer, several seconds of unmounting later —
         // takes it from here. See `PendingStart.ioSizeBytes`.
@@ -467,7 +483,7 @@ final class RunController {
         self.pending = pending
         apply(.start, movingTo: next)
 
-        beginPreparation(pending)
+        beginPreparation(pending, runID: runID)
     }
 
     /// Unmount → acquire → geometry, for a start whose gate has already been answered.
@@ -475,12 +491,13 @@ final class RunController {
     /// A separate function because it was shared with Restart until 2026-08-22. It has one caller
     /// again and is kept as one: logging the intent and then preparing is a step worth a name, and
     /// inlining it would put the log line back inside a branch.
-    private func beginPreparation(_ pending: PendingStart) {
-        RunControlLog.runStarting(device: pending.identity,
+    private func beginPreparation(_ pending: PendingStart, runID: UUID) {
+        RunControlLog.runStarting(runID: runID,
+                                  device: pending.identity,
                                   ioSizeBytes: pending.ioSizeBytes,
                                   failureMode: failureMode())
 
-        prepare(pending.device) { [weak self] outcome in
+        prepare(pending.device, runID) { [weak self] outcome in
             self?.preparationFinished(outcome)
         }
     }
@@ -526,7 +543,7 @@ final class RunController {
         case .aborted(let failure):
             // The volumes are already back by the time this arrives — that is what
             // `startAborted` promises, and `DevicePreparation` is what keeps it.
-            RunControlLog.startAborted(failure.reason)
+            RunControlLog.startAborted(failure.reason, runID: runID)
             report(.startAborted)
             pending = nil
             onFailure(RunFailureMessage(title: failure.alertTitle,
@@ -555,7 +572,7 @@ final class RunController {
                 // rather than absorbed because if it ever happens the run is one that cannot
                 // recognise its own drive leaving, and the silence would be indistinguishable
                 // from a removal callback that never fired.
-                RunControlLog.driveCannotBeWatchedForRemoval(pending.identity)
+                RunControlLog.driveCannotBeWatchedForRemoval(pending.identity, runID: runID)
             }
 
             onRunBegan()
@@ -690,13 +707,13 @@ final class RunController {
             // going is this run's own claim tearing the partition scheme down; anything else is
             // another drive, and logging those would be noise.
             if deviceUnderTest.isASliceOfThisDrive(disk) {
-                RunControlLog.sliceOfTheDriveUnderTestIgnored(disk, deviceUnderTest)
+                RunControlLog.sliceOfTheDriveUnderTestIgnored(disk, deviceUnderTest, runID: runID)
             }
             return
         }
 
         if windDown == nil {
-            RunControlLog.deviceLost(deviceUnderTest, whileIn: state)
+            RunControlLog.deviceLost(deviceUnderTest, whileIn: state, runID: runID)
             windDown = newWindDown { [weak self] ending in
                 self?.endTheRunBecauseTheDriveIsGone(ending)
             }
@@ -740,11 +757,11 @@ final class RunController {
             // **The second party of the handshake.** It arrives as the cycle's own reply carrying a
             // paused outcome and its resume point — the helper stating it settled at a chunk
             // boundary with no write in flight (NFR-REL-10). This is the only route to `paused`.
-            RunControlLog.pauseSettled(atBlock: resumeBlock)
+            RunControlLog.pauseSettled(atBlock: resumeBlock, runID: runID)
             report(.pauseSettled)
 
         case .runEnded(let result):
-            RunControlLog.runEnded(result.outcome)
+            RunControlLog.runEnded(result.outcome, runID: runID)
 
             // **Unconditional, and that is what makes route (b) free on every ordinary run.** A
             // wind-down that was never begun has nothing to stand down from; one that is waiting
@@ -797,9 +814,12 @@ final class RunController {
         releaseCannotBeConfirmed = false
 
         if !canBeConfirmed {
-            RunControlLog.releaseCannotBeConfirmed(deviceUnderTest)
+            RunControlLog.releaseCannotBeConfirmed(deviceUnderTest, runID: runID)
         }
 
+        // Captured now: an unconfirmed release lets the machine come to rest before the answer
+        // arrives, and a new run can be authorised in between — the late line is this run's.
+        let releasedRunID = runID
         release { [weak self] in
             guard let self else { return }
             guard canBeConfirmed else {
@@ -807,7 +827,7 @@ final class RunController {
                 // moved on when the deadline expired, so there is nothing left to do but say so:
                 // this is the line that distinguishes "the claim was dropped late" from "the
                 // claim is still held", and without it neither is visible afterwards.
-                RunControlLog.releaseAcknowledgedLate()
+                RunControlLog.releaseAcknowledgedLate(runID: releasedRunID)
                 return
             }
             self.driveIsBack(afterDeviceLoss: afterDeviceLoss)
@@ -907,7 +927,7 @@ final class RunController {
         // No reply ever came back, so there is nothing to build a report from — and the drive is
         // gone, so there never will be. This is the only path in the app that says what happened
         // to a lost drive without a report behind it.
-        RunControlLog.deviceLostWithNoReport(deviceLossEnding)
+        RunControlLog.deviceLostWithNoReport(deviceLossEnding, runID: runID)
         onFailure(DeviceLossMessage.forRunWithNoReport(endedBy: deviceLossEnding))
     }
 
@@ -1033,8 +1053,13 @@ nonisolated enum RunControlLog {
     /// The run's identity and its two fixed parameters, at the moment it is authorised (NFR-OBS-1
     /// asks for start/stop and mode). The drive is named by **serial** — the axis that survives a
     /// renumbering — because this line outlives the enumeration that produced the BSD name.
-    static func runStarting(device: ReportedDevice, ioSizeBytes: Int, failureMode: FailureModeCode) {
+    ///
+    /// Every line here that belongs to a run begins with its ID, ``TesterProtocol/runTag(_:)`` —
+    /// the spelling the helper uses on its lines about the same claim (v16, Step 15's F4).
+    static func runStarting(runID: UUID?, device: ReportedDevice, ioSizeBytes: Int,
+                            failureMode: FailureModeCode) {
         runLog.notice("""
+                      \(TesterProtocol.runTag(runID), privacy: .public)\
                       run authorised: drive serial \
                       \(device.usbSerialNumber ?? "none", privacy: .public); \
                       I/O size \(ioSizeBytes, privacy: .public) bytes; \
@@ -1045,15 +1070,21 @@ nonisolated enum RunControlLog {
     /// The drive could not be prepared. **The volumes have already been put back** by the time this
     /// is written; the reason is recorded so an abort is explicable after the fact rather than
     /// looking like a run that vanished.
-    static func startAborted(_ reason: String) {
-        runLog.error("run aborted before any write: \(reason, privacy: .public)")
+    static func startAborted(_ reason: String, runID: UUID?) {
+        runLog.error("""
+                     \(TesterProtocol.runTag(runID), privacy: .public)\
+                     run aborted before any write: \(reason, privacy: .public)
+                     """)
     }
 
     /// The helper settled at a chunk boundary with no write in flight (NFR-REL-10). Paired with the
     /// daemon's own *"run control set to pause"* line, these two timestamps are the settle latency —
     /// which is what `scripts/run-control-check.sh` measures.
-    static func pauseSettled(atBlock block: UInt64) {
-        runLog.notice("run paused and settled at block \(block, privacy: .public)")
+    static func pauseSettled(atBlock block: UInt64, runID: UUID?) {
+        runLog.notice("""
+                      \(TesterProtocol.runTag(runID), privacy: .public)\
+                      run paused and settled at block \(block, privacy: .public)
+                      """)
     }
 
     /// **The drive under test left the machine** (Step 12, FR-DEV-8, route (b)).
@@ -1069,8 +1100,10 @@ nonisolated enum RunControlLog {
     /// The state is named too, and it is the fact that matters most here: a loss discovered while
     /// `paused` is one that **only** the removal callback could have seen, and a log that did not
     /// distinguish it could not tell route (b) working from route (a) having covered for it.
-    static func deviceLost(_ device: DeviceUnderTest, whileIn state: RunControlState) {
+    static func deviceLost(_ device: DeviceUnderTest, whileIn state: RunControlState,
+                           runID: UUID?) {
         runLog.error("""
+                     \(TesterProtocol.runTag(runID), privacy: .public)\
                      the drive under test left the machine while \
                      \(String(describing: state), privacy: .public): \
                      \(device.logIdentification, privacy: .public)
@@ -1083,8 +1116,9 @@ nonisolated enum RunControlLog {
     /// of a wiring defect rather than a state, and it is logged for the reason
     /// ``RunEventOutcome/ignored`` is: route (b) going quiet is otherwise indistinguishable from a
     /// drive that was never unplugged.
-    static func driveCannotBeWatchedForRemoval(_ device: ReportedDevice) {
+    static func driveCannotBeWatchedForRemoval(_ device: ReportedDevice, runID: UUID?) {
         runLog.error("""
+                     \(TesterProtocol.runTag(runID), privacy: .public)\
                      the run's drive has no BSD name, so its removal cannot be recognised: \
                      serial \(device.usbSerialNumber ?? "none", privacy: .public)
                      """)
@@ -1096,8 +1130,9 @@ nonisolated enum RunControlLog {
     /// At error level, and deliberately: this is the one path where the app moves on without
     /// knowing whether the claim was dropped, and the next `acquireDevice` refusing is what a
     /// person would otherwise have to explain from nothing.
-    static func releaseCannotBeConfirmed(_ device: DeviceUnderTest?) {
+    static func releaseCannotBeConfirmed(_ device: DeviceUnderTest?, runID: UUID?) {
         runLog.error("""
+                     \(TesterProtocol.runTag(runID), privacy: .public)\
                      release issued but not waited for — the helper has not answered the call \
                      it is inside, so this app cannot say the claim on \
                      \(device?.logIdentification ?? "the drive", privacy: .public) was dropped
@@ -1130,8 +1165,10 @@ nonisolated enum RunControlLog {
     /// DiskArbitration subscription is alive. Checklist chunk 3 reads those. Notice level, for the
     /// day it does fire.
     static func sliceOfTheDriveUnderTestIgnored(_ disk: DisappearedDisk,
-                                                _ device: DeviceUnderTest) {
+                                                _ device: DeviceUnderTest,
+                                                runID: UUID?) {
         runLog.notice("""
+                      \(TesterProtocol.runTag(runID), privacy: .public)\
                       a slice of the drive under test disappeared and was ignored: \
                       \(disk.bsdName.rawValue, privacy: .public) — this run's own exclusive \
                       whole-disk claim is what removes it, and the drive itself is still here: \
@@ -1149,8 +1186,9 @@ nonisolated enum RunControlLog {
     ///
     /// Names the ending so the log distinguishes the two ways route (b) can end a run without the
     /// report that would otherwise carry it.
-    static func deviceLostWithNoReport(_ ending: DeviceLossEnding?) {
+    static func deviceLostWithNoReport(_ ending: DeviceLossEnding?, runID: UUID?) {
         runLog.error("""
+                     \(TesterProtocol.runTag(runID), privacy: .public)\
                      device loss with no report: no reply ever came back, so there is nothing \
                      to build one from — \
                      \(ending?.description ?? "nothing recorded how it ended", privacy: .public)
@@ -1162,15 +1200,19 @@ nonisolated enum RunControlLog {
     /// The good ending of ``releaseCannotBeConfirmed(_:)``, and worth its own line: it is the
     /// difference between a claim that was dropped late and one that is still held, and neither is
     /// visible afterwards without it.
-    static func releaseAcknowledgedLate() {
+    static func releaseAcknowledgedLate(runID: UUID?) {
         runLog.notice("""
+                      \(TesterProtocol.runTag(runID), privacy: .public)\
                       the release was acknowledged after the deadline had already ended the \
                       run; the claim was dropped
                       """)
     }
 
-    static func runEnded(_ outcome: RunSequenceOutcome) {
-        runLog.notice("run ended: \(String(describing: outcome), privacy: .public)")
+    static func runEnded(_ outcome: RunSequenceOutcome, runID: UUID?) {
+        runLog.notice("""
+                      \(TesterProtocol.runTag(runID), privacy: .public)\
+                      run ended: \(String(describing: outcome), privacy: .public)
+                      """)
     }
 
     /// The single Pause/Resume control issued something that is neither.

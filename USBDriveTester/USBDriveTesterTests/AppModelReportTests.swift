@@ -154,7 +154,7 @@ struct AppModelReportTests {
                                      mayIssueNewWork: model.mayIssueNewWork)
                 },
                 selectedDevice: { [model] in model.discovery.selectedDevice },
-                prepare: { _, done in
+                prepare: { _, _, done in
                     done(.ready(PreparedDeviceGeometry(logicalBlockSize: 512,
                                                        deviceBlockCount: 1_024,
                                                        usbLinkSpeedCode: -1)))

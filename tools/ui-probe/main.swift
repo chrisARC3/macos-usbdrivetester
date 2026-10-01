@@ -190,7 +190,7 @@ private enum ProbeRun {
             preconditions: { RunPreconditions(hasUsableSelection: true,
                                               mayIssueNewWork: model.mayIssueNewWork) },
             selectedDevice: { model.discovery.selectedDevice },
-            prepare: { _, done in
+            prepare: { _, _, done in
                 done(.ready(PreparedDeviceGeometry(logicalBlockSize: 512,
                                                    deviceBlockCount: 7_814_037_168,
                                                    usbLinkSpeedCode: 4)))
@@ -389,7 +389,7 @@ private struct RunStateHost: View {
         RunController(
             preconditions: { RunPreconditions(hasUsableSelection: true, mayIssueNewWork: true) },
             selectedDevice: { model.discovery.selectedDevice },
-            prepare: { _, _ in },
+            prepare: { _, _, _ in },
             makeSequencer: { emit in ProbeSequencer(emit: emit) },
             setRunControl: { _, done in done(.success(())) },
             release: { done in done() },

@@ -161,7 +161,8 @@ for command in commands {
 
     case "acquire":
         call("acquire") { tester, done in
-            tester.acquireDevice(bsdName: bsdName) { acquired, causeCode, message in
+            // v16 (Step 15 chunk 4): a fresh run ID per acquire. A label in the helper's log only.
+            tester.acquireDevice(bsdName: bsdName, runID: UUID()) { acquired, causeCode, message in
                 print("[acquire] ACQUIRED=\(acquired ? 1 : 0)")
                 print("[acquire] CAUSE=\(causeCode)")
                 print("[acquire] MESSAGE=\(message)")

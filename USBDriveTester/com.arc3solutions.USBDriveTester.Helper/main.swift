@@ -124,8 +124,9 @@ final class HelperActivity: @unchecked Sendable {
 
     private let lock = NSLock()
 
-    /// The device currently held, and which connection acquired it.
-    private var held: (device: AcquiredDevice, owner: UUID)?
+    /// The device currently held, which connection acquired it, and the run it was acquired for
+    /// (v16) — the ID the run's log lines carry, and nothing is decided by it.
+    private var held: (device: AcquiredDevice, owner: UUID, runID: UUID)?
 
     /// Set while an acquire is in flight, so two concurrent acquires cannot both get
     /// past the check. Separate from ``held`` because acquiring blocks for up to the
@@ -176,9 +177,16 @@ final class HelperActivity: @unchecked Sendable {
         lock.withLock { held?.device }
     }
 
+    /// The run the held claim was acquired for, or `nil` when nothing is held (v16). For log
+    /// lines only — ``TesterProtocol/runTag(_:)``.
+    var heldRunID: UUID? {
+        lock.withLock { held?.runID }
+    }
+
     /// Take exclusive access on behalf of `owner`, if nothing is held already.
     func acquire(_ device: WholeDiskName,
-                 owner: UUID) -> Result<AcquiredDevice, DeviceAccessRefusal> {
+                 owner: UUID,
+                 runID: UUID) -> Result<AcquiredDevice, DeviceAccessRefusal> {
 
         lock.lock()
         if let held {
@@ -201,7 +209,7 @@ final class HelperActivity: @unchecked Sendable {
         lock.lock()
         acquireInProgress = false
         if case .success(let acquired) = result {
-            held = (acquired, owner)
+            held = (acquired, owner, runID)
         }
         lock.unlock()
 
@@ -210,7 +218,9 @@ final class HelperActivity: @unchecked Sendable {
 
     /// The outcome of asking for exclusive use of the held device (Step 8).
     enum DeviceOperationClaim {
-        case started(AcquiredDevice)
+        /// The held device, and the run its claim was acquired for (v16), so the operation's log
+        /// lines name the run without a second read of the slot.
+        case started(AcquiredDevice, runID: UUID)
         case refused(RetentionCycleRefusal)
     }
 
@@ -231,7 +241,7 @@ final class HelperActivity: @unchecked Sendable {
                                         operation: deviceOperation ?? "an operation"))
         }
         deviceOperation = description
-        return .started(held.device)
+        return .started(held.device, runID: held.runID)
     }
 
     /// Give the slot back. Always paired with a successful ``beginDeviceOperation(_:)`` via
@@ -500,7 +510,11 @@ final class TesterControlImpl: NSObject, TesterControl {
               holdsThisDevice, cause.rawValue, message)
     }
 
-    func acquireDevice(bsdName: String, reply: @escaping (Bool, Int, String) -> Void) {
+    func acquireDevice(bsdName: String,
+                       runID: UUID,
+                       reply: @escaping (Bool, Int, String) -> Void) {
+        // v16: the run this claim is for, on every line below and on the claim itself.
+        let tag = TesterProtocol.runTag(runID)
 
         func refuse(_ refusal: DeviceAccessRefusal) {
             reply(false, refusal.causeCode, refusal.description)
@@ -513,7 +527,7 @@ final class TesterControlImpl: NSObject, TesterControl {
             // A name that does not validate never becomes a path. This is the boundary
             // that stops a root daemon opening whatever string it is handed.
             safetyLog.error("""
-                            acquire REFUSED for \(self.peer, privacy: .public): \
+                            \(tag, privacy: .public)acquire REFUSED for \(self.peer, privacy: .public): \
                             \(rejection.description, privacy: .public)
                             """)
             refuse(.deviceNotEligible(bsdName: Self.truncated(bsdName),
@@ -525,10 +539,10 @@ final class TesterControlImpl: NSObject, TesterControl {
             return
         }
 
-        switch HelperActivity.shared.acquire(device, owner: owner) {
+        switch HelperActivity.shared.acquire(device, owner: owner, runID: runID) {
         case .success(let acquired):
             safetyLog.notice("""
-                             acquire GRANTED for \(self.peer, privacy: .public): \
+                             \(tag, privacy: .public)acquire GRANTED for \(self.peer, privacy: .public): \
                              \(acquired.activityDescription, privacy: .public)
                              """)
             reply(true, 0, """
@@ -541,7 +555,7 @@ final class TesterControlImpl: NSObject, TesterControl {
         case .failure(let refusal):
             // DeviceClaim already logged the detail; this line attributes it to a caller.
             safetyLog.error("""
-                            acquire REFUSED for \(self.peer, privacy: .public) on \
+                            \(tag, privacy: .public)acquire REFUSED for \(self.peer, privacy: .public) on \
                             \(device.rawValue, privacy: .public), cause \
                             \(refusal.causeCode, privacy: .public)
                             """)
@@ -560,6 +574,7 @@ final class TesterControlImpl: NSObject, TesterControl {
                         + "\(TesterProtocol.maximumBytesPerCall) bytes per call, so try again "
                         + "shortly."
             safetyLog.notice("""
+                             \(TesterProtocol.runTag(HelperActivity.shared.heldRunID), privacy: .public)\
                              release REFUSED for \(self.peer, privacy: .public): \
                              \(HelperActivity.shared.current ?? "busy", privacy: .public)
                              """)
@@ -567,9 +582,11 @@ final class TesterControlImpl: NSObject, TesterControl {
             return
         }
 
+        // Read before the release, which is what ends the claim the ID belongs to.
+        let tag = TesterProtocol.runTag(HelperActivity.shared.heldRunID)
         let message = HelperActivity.shared.releaseAll()
         safetyLog.notice("""
-                         release requested by \(self.peer, privacy: .public): \
+                         \(tag, privacy: .public)release requested by \(self.peer, privacy: .public): \
                          \(message, privacy: .public)
                          """)
         reply(true, message)
@@ -615,6 +632,7 @@ final class TesterControlImpl: NSObject, TesterControl {
         message += held.cacheBypass.reportLine
 
         ioLog.notice("""
+                     \(TesterProtocol.runTag(HelperActivity.shared.heldRunID), privacy: .public)\
                      deviceProfile for \(held.device.rawValue, privacy: .public) requested by \
                      \(self.peer, privacy: .public): \
                      \(held.reconciliation.logDescription, privacy: .public); \
@@ -670,6 +688,7 @@ final class TesterControlImpl: NSObject, TesterControl {
         /// exactly this defect and the gate killed it. Do not weaken those assertions.
         func refuse(_ detail: String) {
             ioLog.error("""
+                        \(TesterProtocol.runTag(HelperActivity.shared.heldRunID), privacy: .public)\
                         runRetentionCycle REFUSED for \(self.peer, privacy: .public): \
                         \(detail, privacy: .public)
                         """)
@@ -688,6 +707,7 @@ final class TesterControlImpl: NSObject, TesterControl {
         let wireMode = FailureModeCode(wireValue: failureModeCode)
 
         ioLog.notice("""
+                     \(TesterProtocol.runTag(HelperActivity.shared.heldRunID), privacy: .public)\
                      runRetentionCycle from \(self.peer, privacy: .public): \
                      startBlock=\(startBlock, privacy: .public) \
                      blockCount=\(blockCount, privacy: .public) \
@@ -978,21 +998,25 @@ final class TesterControlImpl: NSObject, TesterControl {
         switch RunCoordinator.digestRange(startBlock: startBlock, blockCount: blockCount) {
 
         case .success(let result):
-            // The digest is logged: it is a fingerprint, not device contents (NFR-SEC-6), and
-            // having it in the log is what lets a disagreement be investigated after the fact
-            // (NFR-OBS-2).
+            // That a digest was taken, over which blocks and for whom — **not its value**, which
+            // goes to the caller in the reply and nowhere else. Step 15's audit, F2, decided by the
+            // user 2026-09-30: the hash is not device contents, but it is computed from them, and
+            // over a block whose content can be guessed it confirms the guess (NFR-SEC-6). The gate
+            // tools compare the replies, so nothing they check came from this line. *(Until
+            // 2026-10-01 this logged the hex, on the reasoning that a fingerprint is not contents.)*
             ioLog.notice("""
+                         \(TesterProtocol.runTag(result.runID), privacy: .public)\
                          digest for \(self.peer, privacy: .public): blocks \
                          \(startBlock, privacy: .public)–\
                          \(startBlock + blockCount - 1, privacy: .public) \
-                         (\(result.bytes, privacy: .public) B) = \
-                         \(result.hex, privacy: .public)
+                         (\(result.bytes, privacy: .public) B) taken
                          """)
             reply(true, result.bytes, result.hex,
                   "Fingerprinted \(result.bytes) bytes from block \(startBlock).")
 
         case .failure(let refusal):
             ioLog.error("""
+                        \(TesterProtocol.runTag(HelperActivity.shared.heldRunID), privacy: .public)\
                         digestRange REFUSED for \(self.peer, privacy: .public): \
                         \(refusal.description, privacy: .public)
                         """)
@@ -1100,8 +1124,12 @@ final class ListenerDelegate: NSObject, NSXPCListenerDelegate {
             // dropped, the symptom would be a drive that has silently stopped mounting,
             // with no process visibly responsible. Scoped to this connection's own
             // acquisition, so one client disconnecting cannot release another's device.
+            // Read before the release; it names the run only when this connection's claim is
+            // the one released, because the line below is logged only then.
+            let runID = HelperActivity.shared.heldRunID
             if let released = HelperActivity.shared.releaseIfOwned(by: owner) {
                 safetyLog.notice("""
+                                 \(TesterProtocol.runTag(runID), privacy: .public)\
                                  released on connection loss from \(peer, privacy: .public): \
                                  \(released, privacy: .public)
                                  """)

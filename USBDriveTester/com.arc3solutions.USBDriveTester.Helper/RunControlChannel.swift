@@ -110,7 +110,10 @@ final class RunControlChannel: @unchecked Sendable {
     /// between (NFR-OBS-1, NFR-REL-10).
     func request(_ signal: RunControlSignal, from peer: String) {
         lock.withLock { self.signal = signal }
+        // v16: the run is the held claim's. Read from the slot rather than passed, because this
+        // arrives on a different connection from the one that acquired.
         controlLog.notice("""
+                          \(TesterProtocol.runTag(HelperActivity.shared.heldRunID), privacy: .public)\
                           run control set to \(String(describing: signal), privacy: .public) \
                           by \(peer, privacy: .public)
                           """)

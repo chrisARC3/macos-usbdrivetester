@@ -199,6 +199,8 @@ private final class Bench {
     // Recorded.
     private(set) var steps: [String] = []
     private(set) var prepared: [String] = []
+    /// The run ID each preparation was handed — what the live wiring gives the helper's acquire.
+    private(set) var preparedRunIDs: [UUID] = []
     private(set) var runControlCodes: [RunControlCode] = []
     private(set) var releases = 0
     private(set) var reports: [RunReport?] = []
@@ -254,9 +256,10 @@ private final class Bench {
                              mayIssueNewWork: self.mayIssueNewWork)
         },
         selectedDevice: { self.selection },
-        prepare: { device, done in
+        prepare: { device, runID, done in
             self.steps.append("prepare")
             self.prepared.append(device.bsdName.rawValue)
+            self.preparedRunIDs.append(runID)
             if self.holdPreparation {
                 self.pendingPreparation = done
             } else {
@@ -2108,5 +2111,78 @@ struct RunControllerSleepPreventionTests {
 
         #expect(bench.controller.state == .finished)
         #expect(!bench.sleep.isHeld)
+    }
+}
+
+// MARK: - The run ID (protocol v16, Step 15's F4)
+
+/// The ID that joins a run's lines in the app and the helper. What these reach is the controller's
+/// half: one ID per authorisation, the same one handed to the preparation — which the live wiring
+/// passes to `acquireDevice` — and kept across a pause. What they cannot reach is the helper
+/// stamping it, because `main.swift` and `RunCoordinator` are not in the test target; chunk 5's
+/// traced run reads that off the log.
+@MainActor
+struct RunControllerRunIDTests {
+
+    @Test func noRunHasNoID() {
+        let bench = Bench()
+        #expect(bench.controller.runID == nil)
+    }
+
+    /// The press alone makes none: an ID is made when the dialog is answered with Proceed, so a
+    /// Start that was cancelled is not a run with an ID.
+    @Test func aCancelledStartMakesNoID() {
+        let bench = Bench()
+        _ = bench.controller.startRequested(warningsSuppressed: false)
+        bench.controller.startAuthorised(by: PreRunOutcome(issuesRun: false,
+                                                           persistsSuppression: false))
+        #expect(bench.controller.runID == nil)
+        #expect(bench.preparedRunIDs.isEmpty)
+    }
+
+    /// The acquire is given the ID the app's own lines carry — the property the join rests on.
+    @Test func thePreparationIsHandedTheRunsID() {
+        let bench = Bench()
+        bench.startAndProceed()
+        let runID = bench.controller.runID
+        #expect(runID != nil)
+        #expect(bench.preparedRunIDs == [runID].compactMap { $0 })
+    }
+
+    /// An aborted start is still a run the log names, because the ID is made before the unmount.
+    @Test func anAbortedStartStillHasAnID() {
+        let bench = Bench()
+        bench.preparationOutcome = .aborted(
+            DevicePreparationFailure(reason: "Could not unmount Vol_HFS: the disk is in use.",
+                                     restore: .succeeded("remounted"),
+                                     operation: .unmount))
+        bench.startAndProceed()
+        #expect(bench.controller.runID != nil)
+        #expect(bench.preparedRunIDs.count == 1)
+    }
+
+    /// One ID per run, not one for the app's life: the second run must not be found by a search
+    /// for the first.
+    @Test func eachRunGetsItsOwnID() {
+        let bench = Bench()
+        #expect(bench.driveTo(.finished))
+        let first = bench.controller.runID
+        bench.startAndProceed()
+        let second = bench.controller.runID
+        #expect(first != nil && second != nil)
+        #expect(first != second)
+        #expect(bench.preparedRunIDs.count == 2)
+        #expect(bench.preparedRunIDs.last == second)
+    }
+
+    /// A pause and resume is the same run — the case F4 was found on, where the helper logs a
+    /// START/END pair per call — so the ID does not move and nothing is prepared again.
+    @Test func aPauseAndResumeKeepTheRunsID() {
+        let bench = Bench()
+        bench.runToPaused()
+        let before = bench.controller.runID
+        bench.controller.resume()
+        #expect(bench.controller.runID == before)
+        #expect(bench.preparedRunIDs.count == 1)
     }
 }

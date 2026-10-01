@@ -15,6 +15,11 @@
 > own **Walked** line is the record; this block only points at them. Written at chunk 7c on
 > **2026-09-07**, against commit `3da3ef7`, protocol **v15**, helper source hash **`e19b0b3c…`**.
 >
+> ⚠️ **2026-10-01: that hash has moved.** Step 15's chunk 4 took the source to protocol **v16** and
+> helper source hash `36c3a9e1…`, so the passes here, all recorded against `e19b0b3c…`, are not
+> evidence about the current source. Which of them chunk 5 re-walks is the user's decision at its
+> plan; the four hardware gates it re-runs regardless.
+>
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
 > through three chunks' walks and thirteen commits to this very file. It names no step, so the grep
 > for the five blocks that do never finds it — the tenth stale status block (`CLAUDE.md`).

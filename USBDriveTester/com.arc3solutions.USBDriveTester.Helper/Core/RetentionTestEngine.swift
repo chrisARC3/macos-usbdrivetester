@@ -647,8 +647,8 @@ public extension RetentionTestEngine {
     ///   when it was a write. Used for `shortTransfer`, which is neutral about direction.
     ///
     /// - Note: `shortTransfer` stays a **block failure**, deliberately. The *decision* is pinned
-    ///   by `ShortTransferIsNotDeviceLossTests`; the *physics* behind it is still one hardware
-    ///   gate short, and the two should not be confused.
+    ///   by `ShortTransferIsNotDeviceLossTests`; the *physics* behind it was answered on hardware
+    ///   separately (below), and the two should not be confused.
     ///
     ///   Until Step 12's mutation round, neither was pinned. Moving this case into `.deviceLost`
     ///   passed all 1,288 tests, because `InMemoryBlockDevice` — the only device the engine tests
@@ -657,13 +657,18 @@ public extension RetentionTestEngine {
     ///   transfer and never what is *done* with one. The fake now has `injectShortRead` and
     ///   `injectShortWrite`, and the gap is closed on the decision.
     ///
-    ///   What remains open: a device that vanishes mid-transfer could plausibly produce a short
-    ///   read with no `errno` before it produces `ENXIO`, in which case the first chunk of a loss
-    ///   is recorded as one bad range and the next call ends the run. That sequence is now a
-    ///   test — `aShortReadFollowedByTheDeviceLeavingCostsOneRangeAndStillEndsTheRun` — so its
-    ///   cost is known and bounded: a single spurious range rather than two million, which is not
-    ///   the defect Step 12 exists to fix. Whether a real drive does it is what the hardware gate
-    ///   can answer, and only it.
+    ///   The question that was left open: a device that vanishes mid-transfer could plausibly
+    ///   produce a short read with no `errno` before it produces `ENXIO`, in which case the first
+    ///   chunk of a loss is recorded as one bad range and the next call ends the run. That
+    ///   sequence is a test — `aShortReadFollowedByTheDeviceLeavingCostsOneRangeAndStillEndsTheRun`
+    ///   — so its cost is known and bounded: a single spurious range rather than two million.
+    ///   **Answered on hardware: a real drive does not.** Step 12's checklist item 5.2, six cable
+    ///   pulls taken 2026-09-09 and read back 2026-09-10: no short transfer, six of six, 0 failing
+    ///   ranges each time (`progress/step-12-human-checklist.md`). The test stays, as the bound on
+    ///   a drive that might. *(Until 2026-10-01 this said "What remains open … Whether a real drive
+    ///   does it is what the hardware gate can answer" — stale from 2026-09-10, and left until the
+    ///   next helper-source change by the user's decision of 2026-09-11, Owed (a); paid by Step
+    ///   15's chunk 4.)*
     private static func classify(_ error: DeviceIOError,
                                  operation: BlockFailureKind) throws -> ChunkFailureClassification {
         switch error {

@@ -113,7 +113,7 @@ struct AppModelQuitTests {
                 selectedDevice: { [model] in model.discovery.selectedDevice },
                 // No drive is touched: preparation succeeds at once with a plausible geometry,
                 // which is all the machine needs to reach `running`.
-                prepare: { _, done in
+                prepare: { _, _, done in
                     done(.ready(PreparedDeviceGeometry(logicalBlockSize: 512,
                                                        deviceBlockCount: 1_024,
                                                        usbLinkSpeedCode: -1)))

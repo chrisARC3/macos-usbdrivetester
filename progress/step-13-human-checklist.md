@@ -6,6 +6,10 @@
 > this checklist is walked, and on its readings Step 13's verification gate PASSED 2026-09-29 — all
 > three items ticked in `BUILD-PLAN.md` — and STEP 13 CLOSED the same day, its account archived to
 > `progress/step-13.md`.**
+> ⚠️ **2026-10-01: Step 15's chunk 4 edited `RunController.swift`** (the run ID: a stored `runID`,
+> the prepare closure's new argument, and its log lines) and moved the helper to protocol v16. No
+> pass here lapses on the edit alone; **they lapse at chunk 5's install** by their own *another
+> install* clause, and whether the run ID's edit touches the assertion's path is for chunk 5's plan.
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move

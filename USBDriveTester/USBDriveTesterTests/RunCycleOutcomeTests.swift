@@ -430,8 +430,11 @@ struct ProtocolVersionTests {
     /// arity change broke four gate clients and a dozen fixtures, which is the compiler doing the
     /// work the handshake had to do alone last time. That is luck rather than design — the field
     /// was needed — so the handshake stays the guard that is not allowed to depend on it.
-    @Test func theProtocolVersionIsFifteen() {
-        #expect(TesterProtocol.version == 15)
+    ///
+    /// **v16 (Step 15 chunk 4) changed a call, not a reply**: `acquireDevice` gained `runID`, so a
+    /// mismatched pair fails on the selector rather than decoding anything wrong.
+    @Test func theProtocolVersionIsSixteen() {
+        #expect(TesterProtocol.version == 16)
     }
 
     /// **The cap is unchanged by v10, and that is a measurement pending rather than a decision

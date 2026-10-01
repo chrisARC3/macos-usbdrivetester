@@ -13,6 +13,9 @@
 >
 > *(2026-09-30, chunk 2: the user's decisions on F1–F6, F1's reading of the store, and a correction
 > to F5 are in section 4. Sections 1–3 are left as written.)*
+>
+> *(2026-10-01, chunk 4: the helper and `Shared/` were edited — F4, F2, and *Owed* (a) — so the
+> inventory's line numbers and counts are of `d59042e`, not of the source now. Section 6.)*
 
 ## Method
 
@@ -244,3 +247,27 @@ already shows when a close was the app's own.
 
 **F7 — paid**: `FailureStreak.swift`, applied to the progress poll only. The full account is the
 commit's message, and the summary is PROGRESS's Step 15 row.
+
+## 6. 2026-10-01: chunk 4 done
+
+*Added the same day, with chunk 4's commit.* **The helper source hash moved**, `e19b0b3c…` →
+`36c3a9e1…`, and the protocol to **v16**; the four hardware gates recorded against the old hash
+have lapsed until chunk 5. No install: the daemon still runs the v15 helper `ac4d5208…`.
+
+**F4 — paid in source.** `acquireDevice(bsdName:runID:reply:)` carries the run's `UUID`, made by
+`RunController` once per authorisation; the helper holds it with the claim. Both processes write it
+through one function, `TesterProtocol.runTag`, as `[run <UUID>] ` at the head of each run line.
+`DeviceClaim.swift`'s own detail lines are not tagged — the tagged acquire and release lines in
+`main.swift` come before and after them. **F2 — paid**: the digest line logs its byte count and no
+longer the SHA-256. ***Owed* (a) paid; (b) deferred to Step 16**, the user's decision 2026-10-01.
+
+**Mutation round, 2026-10-01 11:04–11:12, eight mutants declared first.** Killed, as predicted:
+K1, a fresh ID handed to the preparation; K2, an ID reused across runs; K3, the tag without its
+UUID; K4, the ID made at the Start press rather than at Proceed. Survived, as predicted — what a
+line says is not under test: S1, the cycle END line untagged; S2, the hex back on the digest line;
+S3, the late-release line taking the current ID; S4, the helper holding a fresh ID in place of the
+app's.
+
+What a person checks at chunk 5: one run's ID found by grep in both the app's and the helper's
+lines of an exported log, the same ID from the acquire to the release, and the digest line without
+hex. The full account is the commit's message.
