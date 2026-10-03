@@ -68,6 +68,9 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > *(2026-09-30, after it: macOS **27.0.1 (26A434)**, a point release, which lapses nothing —
 > `CONSTRAINTS.md` §2 — and the daemon **pid 4752** since the 12:54:01 reboot, resolved to
 > `/Applications` at 13:19:15.408, the same helper, CDHash `e1e7fe63…`.)*
+> *(2026-10-03: pid 4752 ended at a kernel panic on 2026-10-02 at 18:11:39; since 12:48:09, after
+> the user's power cycle, the daemon is **pid 1723**, resolved to `/Applications` — the same helper
+> `ac4d5208…`, CDHash `e1e7fe63…` (`PROGRESS.md`, *Finding, 2026-10-03*).)*
 > Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
@@ -655,6 +658,9 @@ simulation-first still applies wherever the plan calls for it.
 > *(2026-09-30, after it: macOS **27.0.1 (26A434)**, a point release, which lapses nothing —
 > `CONSTRAINTS.md` §2 — and the daemon **pid 4752** since the 12:54:01 reboot, resolved to
 > `/Applications` at 13:19:15.408, the same helper, CDHash `e1e7fe63…`.)*
+> *(2026-10-03: pid 4752 ended at a kernel panic on 2026-10-02 at 18:11:39; since 12:48:09, after
+> the user's power cycle, the daemon is **pid 1723**, resolved to `/Applications` — the same helper
+> `ac4d5208…`, CDHash `e1e7fe63…` (`PROGRESS.md`, *Finding, 2026-10-03*).)*
 > **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
@@ -2175,7 +2181,9 @@ helper source hash **`e19b0b3c…`**. *(2026-09-30: pid 4752 since that day's re
 helper `ac4d5208…`, CDHash `e1e7fe63…`, and macOS 27.0.1 (26A434), a point release — neither lapses a
 tick, `CONSTRAINTS.md` §2.)* *(2026-10-01: the source moved to protocol v16 and hash `36c3a9e1…` at
 Step 15's chunk 4; the daemon still runs the v15 helper `ac4d5208…` until chunk 5's install, which
-lapses these ticks by their own install clause.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
+lapses these ticks by their own install clause.)* *(2026-10-03: pid 1723 since 12:48:09, after a
+kernel panic ended pid 4752 on 2026-10-02 and the user's power cycle — the same helper `ac4d5208…`,
+CDHash `e1e7fe63…`, so no tick lapses; `PROGRESS.md`, *Finding, 2026-10-03*.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
 in `278ac0b` for chunk 1 and in `5114006` for chunks 2 and 3, a change of wording only. The drives
 are the 4 TB T5 EVO, serial **`00000S7CLNJ0WC02266P`**, for 2.1–2.6 and all of chunk 3, and the
 125.8 MB thumb, **`2211190533300386001515`**, for 2.7. **Nothing the walks ran on has moved
@@ -2464,6 +2472,9 @@ Ensure all significant events from both executables are emitted to the macOS uni
   > into a file under `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-evidence/step-15/`
   > — beside the repository, on no drive under test — and this item and the first are judged on
   > that file, not on the live store.
+  > *(2026-10-03: **split the export at every boot inside the window** — a `log show` window that
+  > spans a boot ignores `--end` for the later boot and returns its lines up to the newest in the
+  > store, measured on macOS 27.0.1 (26A434); `CONSTRAINTS.md` §1.)*
 - [ ] No log entry anywhere contains device data bytes (inspect read/write/verify paths specifically).
 
 ### Risks / gotchas

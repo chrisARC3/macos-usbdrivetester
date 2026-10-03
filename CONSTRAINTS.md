@@ -275,6 +275,19 @@ may gate a warning on it — FR-WARN-2's "run this infrequently on NAND" is unco
 `HonestFraming.mandatory` and must stay that way. Same shape as the SMART exclusion: what a bridge
 declines to report is not information about the drive.
 
+**A bridge can answer for a medium that is not there — seen 2026-10-03, once, not induced.** After a
+kernel panic in a sleep transition (2026-10-02 18:11:39; `PROGRESS.md`, *Finding, 2026-10-03*), the
+990 EVO Plus holding this repository came back as a whole disk whose IOMedia carried **`Size` 0 and
+`Preferred Block Size` 0** — both keys present, since the enumerator skips a disk that lacks either —
+while the enclosure still answered with its model, serial `013117100578`, `Solid State` and a
+10 Gb/s link, and nothing mounted. The user's power cycle restored it — the Mac shut down at
+12:41:39 and booted at 12:42:03 — to 1,000,204,886,016 bytes in 512-byte blocks, read the same day
+behind the same bridge, a Realtek, USB `0x0bda:0x9210`. So a zero is a value a bridge publishes,
+not only an absence; `DiscoveredDevice.geometryProblem` met it as `.unsupportedBlockSize(0)`, the
+block size being checked first. Whether the drive caused the panic or suffered it is not
+established, and the condition could not be reproduced on demand: this says what a bridge *can*
+publish, not how often.
+
 **Two drives on this machine share a block count.** The scratch Portable SSD T5 (`12345686DAA9`) and
 the 990 EVO Plus holding this repository (`013117100578`) are both 1,953,525,168 blocks.
 `device-identity.sh` selects on **serial** and uses the block count only to confirm, which is the
@@ -478,7 +491,16 @@ Apple and both were found only because someone pressed the button.
     back on, it was re-enabled at 20:12:19.998, and the app's next launch brought the daemon up on
     demand at 20:12:28 — `immediate reason = ipc (mach)` — resolved to `/Applications`, pid 14761.
     **A Login Items toggle is a relaunch of the daemon too**: after one, read the record and the
-    resolve line as after a kickstart.)*
+    resolve line as after a kickstart.)* *(And 2026-10-03, after a reboot nobody chose — a kernel
+    panic, 2026-10-02 18:11:39: the record had been on DerivedData since chunk 3's suite run,
+    2026-09-30 16:59:06.472, and stayed there through the panic and the reboot. Nothing launched the
+    daemon until the user launched the installed app, which moved the record back at 12:39:29.847,
+    and `xpcproxy[3935]` resolved the daemon to `/Applications` 189 ms later. **Which copy asked
+    first decided it**: a test host or an Xcode run first would have found the record on DerivedData.
+    And with FileVault on, **a panic's reboot waits at the unlock**: `last` has a reboot at 18:12
+    and no shutdown line before it, while the panic report and `pmset -g log`'s *"powerd process is
+    started"* are both stamped 12:31:06 the next day — after that day's boot at 12:42:03, the user's
+    power cycle, the powerd line came at 12:46:18. Nothing can ask for the daemon before the unlock.)*
   - **⚠️ `log show`'s `processImagePath` is not provenance either — measured 2026-09-18.** The
     unified log looks the path up through the binary's LC_UUID, so two copies of one binary share one
     path in it. All 167 lines from the installed app's pid 24803 were attributed to
@@ -489,7 +511,12 @@ Apple and both were found only because someone pressed the button.
     kernel; `scripts/sleep-assertion-watch.sh` prints it for every new pid. For the root daemon the
     resolve line is still the only witness: `ps -o comm=` names it by its program identifier,
     `Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, which names no bundle at all (pid
-    46679, 2026-09-18).
+    46679, 2026-09-18). *(And 2026-10-03, the dylib's path too: the installed app's lines named
+    `DerivedData/USBDriveTester-djyud…/…/USBDriveTester.debug.dylib` as their sender, while their
+    `senderImageUUID`, `0A5431FB…`, is the installed dylib's — the DerivedData dylib was by then
+    `EA5453E8…`, rebuilt 2026-10-01. The installed dylib was built in DerivedData before it was
+    copied, and `/private/var/db/uuidtext`'s entry for its UUID names the DerivedData path. **Read the
+    UUID, never the path**: `xcrun dwarfdump --uuid` on both copies says which one ran.)*
   - **⚠️ On macOS 27.0 `log show` finds itself — measured 2026-09-18.** `log` logs its own
     invocation, `log run noninteractively, parent: … args: '/usr/bin/log' 'show' '--predicate' …`,
     so a predicate on `eventMessage` alone matches that line: the strings it looks for are among the
@@ -500,6 +527,13 @@ Apple and both were found only because someone pressed the button.
     lines the same day — the 2026-09-16 17:28:36 DerivedData resolve, the 13:06:19 `/Applications`
     one and the 10:26:52.825 record move — and the record-move filter against the empty interval
     since 12:50, where it printed only its header. Whether macOS 26 did this was never recorded.
+  - **⚠️ A `log show` window that spans a boot ignores `--end` for the later boot — measured
+    2026-10-03 on macOS 27.0.1 (26A434).** With a boot at 12:42:03, `--start 12:39:00 --end
+    12:45:00` on this subsystem returned lines through 13:03:12, the newest in the store, and so did
+    `--end 12:50:00` and `--end 12:54:00`; windows inside one boot — 12:39–12:41, 12:43–12:54 and
+    12:48–12:50 — stopped at their `--end`. Nothing is lost, but lines from after the window read as
+    the window's. **Split an export at every boot inside it** — Step 15's same-day export among them.
+    *What would invalidate it:* a macOS major or minor release.
 
 ### Every scheme build is coverage-instrumented — measured 2026-09-10
 

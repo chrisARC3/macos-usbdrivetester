@@ -99,6 +99,10 @@
 > reworded to say so. The daemon is **pid 4752** since the 12:54:01 reboot, resolved to
 > `/Applications`, the same helper `ac4d5208…`; the installed app is the 2026-09-24 18:01:53
 > install, unchanged by content — *The daemon*, and `PROGRESS.md`'s *Installed app*.)*
+> *(2026-10-03: pid 4752 ended at a kernel panic on 2026-10-02 at 18:11:39; since 12:48:09, after
+> the user's power cycle, the daemon is **pid 1723**, resolved to `/Applications`, the same helper
+> `ac4d5208…`, and the installed app unchanged by content — nothing here lapses. *The daemon*, and
+> `PROGRESS.md`'s *Finding, 2026-10-03*.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -265,6 +269,14 @@ it.)*
 launch, was on `/Applications`; the `xpcproxy` resolve line at 13:19:15.408 names `/Applications`;
 and `codesign` against the pid gives CDHash `e1e7fe63…`, the installed helper's. Check for 4752 from
 here on.)*
+*(2026-10-03: it changed twice. A kernel panic on 2026-10-02 at 18:11:39 ended pid 4752. The user's
+launch of the installed app moved BTM's record from DerivedData, where chunk 3 of Step 15 had left
+it, to `/Applications` at 12:39:29.847, and brought the daemon up as pid 3935, resolved to
+`/Applications` at 12:39:30.036; the user's Shut Down at 12:41:39 ended it. The next launch, after
+the boot at 12:42:03, brought up **pid 1723**: resolve line `12:48:09.292 xpcproxy[1723]: Resolved
+(…, FF3ADEC2-…) to program: /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`,
+`runs = 1`, never exited, and CDHash `e1e7fe63…` against the pid at 13:16 and 13:28. No record
+move since 12:39:29.847, read to 13:28. Check for 1723 from here on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -301,6 +313,11 @@ after them at 14:14:19, before the walk. The user's launch of the installed app 
 four more — .825 and .985, `effectiveItemDispositionWithAuditToken: pid=5999`, and .827 and .987,
 `effectiveItemDisposition: appURL=file:///Applications/USBDriveTester.app/` — read at 14:46:29; at
 15:38:53, after the walk, nothing after those eight, and no `_bundleURLForAuditToken` line.)*
+*(2026-10-03: the anchor now is the user's move of the record back to `/Applications` at
+12:39:29.847. The first query of this section with `--start '2026-10-03 12:39:00'` prints that
+`_bundleURLForAuditToken` line and nothing after it, read at 13:28:34; any line after it is a move.
+The window spans the 12:42:03 boot and has no `--end`, so it reads to the present — with an
+`--end`, split it at the boot, `CONSTRAINTS.md` §1.)*
 
 ### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
