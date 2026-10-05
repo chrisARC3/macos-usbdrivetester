@@ -52,7 +52,12 @@
 > lapsed at chunk 4 as well, by the letter of their clause; the sentence was checked against file
 > names and the clause names the probe by role)*. Which of these four parts
 > chunk 5 re-walks is **not yet decided**: the 2026-10-04/05 walk through the checklists covered
-> Steps 12 and 13 only. `PROGRESS.md`, *Chunk 5*.)*
+> Steps 12 and 13 only *(✅ decided 2026-10-05 by the user, after chunk 5's hardware gates:
+> **chunk 16 in full, with 6.1 and 6.3**, 6.3 in both forms; **chunk 9's 2, 3 and 6 and chunk
+> 11's item 6 stay lapsed and unwalked**, their passes facts about the 2026-09-24 install only.
+> 6.1 was not among the four parts this note named — its pass was made with chunk 16's and is
+> invalidated by that box's clause, so it lapsed with it, at chunk 4 already — and the user
+> included it the same day)*. `PROGRESS.md`, *Chunk 5*.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
