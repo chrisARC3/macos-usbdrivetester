@@ -56,7 +56,7 @@
 > install lapse by their own *another install* clause, as decided above. **Nothing here is walked
 > on it yet**: the daemon is on the v16 helper since the user's kickstart at 10:49:36, pid 33239,
 > and the pulls come after the four hardware gates and the thumb's traced run — `PROGRESS.md`,
-> *Chunk 5*. *(It said "the daemon is still the previous helper until the user's kickstart" until
+> *Chunk 5*. *(The gates passed 2026-10-05 11:11–13:06.)* *(It said "the daemon is still the previous helper until the user's kickstart" until
 > 11:05.)*
 >
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
