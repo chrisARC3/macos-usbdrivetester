@@ -534,6 +534,17 @@ Apple and both were found only because someone pressed the button.
     12:48–12:50 — stopped at their `--end`. Nothing is lost, but lines from after the window read as
     the window's. **Split an export at every boot inside it** — Step 15's same-day export among them.
     *What would invalidate it:* a macOS major or minor release.
+  - **A dump's daemon *Last Use* moves when BTM sweeps, not only at a launch — read 2026-09-27 on
+    macOS 27.0 and 2026-10-05 on 27.0.1 (26A434).** `sfltool dumpbtm` gave this daemon's record
+    *Last Use* 08:46:30 and 10:17:03 on those days. Each was the moment BTM re-checked every entry —
+    `copyJobWithLabel` over every job, `BTMManager.userDataDidChange`, the store saved seconds later
+    — with the daemon's pid unchanged, `runs = 1` and nothing logged by this subsystem. Of the 11
+    records with a *Last Use* in the 2026-10-05 dump, only this one had the sweep's time. Read it as
+    *BTM looked*, never as *the daemon launched*: a launch is the pid, `runs` and the `xpcproxy`
+    resolve line. **And BTM's `_bundleURLForAuditToken` line can age out within two days**: the
+    2026-10-03 12:39:29.847 line was gone by 2026-10-05 09:37, while BTM lines from earlier that
+    morning remained — so an anchored query that prints only its header means *read a dump*, not
+    *nothing moved*. *What would invalidate it:* a macOS major or minor release.
 
 ### Every scheme build is coverage-instrumented — measured 2026-09-10
 

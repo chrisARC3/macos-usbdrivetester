@@ -39,6 +39,15 @@
 > macOS 27.0.1 (26A434), a point release, lapses none of these passes — user decision the same
 > day, `CONSTRAINTS.md` §2 — and the clauses below that name Xcode or macOS were reworded to say
 > so.)*
+> ⚠️ *(2026-10-05: **every re-walk pass of 2026-09-25 here has lapsed** — Step 15's chunk 5
+> installed the v16 build at 09:40 from `cae1d91`, and each clause names a different installed
+> build. **And one had lapsed earlier, unrecorded — a finding, reported not fixed:** chunk 16's box
+> names `RunController` and `RunControllerWiring` (its item 4), and Step 15's chunk 4, `5bc6a43`,
+> edited both on 2026-10-01 — the run ID handed to `prepare` and `acquireDevice` — while that
+> commit and `PROGRESS.md` said every pass recorded against the 2026-09-24 install stood until
+> chunk 5's. No other clause here names a file chunks 3 or 4 edited. Which of these four parts
+> chunk 5 re-walks is **not yet decided**: the 2026-10-04/05 walk through the checklists covered
+> Steps 12 and 13 only. `PROGRESS.md`, *Chunk 5*.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and

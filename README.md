@@ -101,7 +101,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > recorded the decisions on what the audit found: `progress/step-15-event-audit.md`; chunk 3 made
 > the app-side changes, the same day. 2026-10-01: chunk 4 gave each run an identifier that both the
 > app and the helper write on their log lines, at XPC protocol v16 — it moved the helper's source,
-> so the hardware gates must be re-run on an installed build, which is chunk 5.)*
+> so the hardware gates must be re-run on an installed build, which is chunk 5. 2026-10-05: chunk 5
+> installed that build at 09:40, proved by content; the helper's restart is next, then the hardware
+> gates and the runs.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -135,7 +137,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > 1323 / 157 / 0 before that), zero source warnings from three clean builds, **14/14** gate clients type-checking
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15
 > *(2026-10-01: the source is protocol **v16** since Step 15's chunk 4, which lapsed those four
-> hardware gates; the installed helper is still v15 until chunk 5 installs and re-runs them)*,
+> hardware gates. 2026-10-05: chunk 5 installed the v16 build at 09:40; the running daemon is still
+> the v15 helper until the kickstart, and the four gates re-run after it)*,
 > and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
 > measured on the shipped window itself, 2026-09-22**, which is the first time the two have been
 > compared. *(2026-09-24: **614 pt**, re-measured on the report fix, and the suite green again at

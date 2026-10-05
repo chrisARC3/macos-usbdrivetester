@@ -10,6 +10,9 @@
 > the prepare closure's new argument, and its log lines) and moved the helper to protocol v16. No
 > pass here lapses on the edit alone; **they lapse at chunk 5's install** by their own *another
 > install* clause, and whether the run ID's edit touches the assertion's path is for chunk 5's plan.
+> ⚠️ **2026-10-05: they have lapsed** — chunk 5 installed the v16 build at 09:40 from `cae1d91`, dylib
+> `ff44c396…`, helper `4a2c642e…`, proved by content (item 0.1 greps **1**). Nothing below is walked
+> on it yet; the daemon is still the previous helper until the user's kickstart — *The daemon*.
 >
 > ✅ **Decided 2026-10-05 for Step 15's chunk 5** — the assistant's recommendations, adopted under the
 > user's standing instruction that day. **The run ID's edit does not touch the assertion's path**:
@@ -127,6 +130,10 @@
 > the user's power cycle, the daemon is **pid 1723**, resolved to `/Applications`, the same helper
 > `ac4d5208…`, and the installed app unchanged by content — nothing here lapses. *The daemon*, and
 > `PROGRESS.md`'s *Finding, 2026-10-03*.)*
+> *(2026-10-05: **Step 15's chunk 5 installed the v16 build at 09:40, and every pass here lapses with
+> it.** pid 1723 still runs the previous helper `ac4d5208…`; the user's kickstart is owed, after
+> BTM's record, read from the user's `sfltool dumpbtm` at 10:42 — on `/Applications`. *The
+> daemon*, and `PROGRESS.md`'s *Chunk 5*.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -301,6 +308,11 @@ the boot at 12:42:03, brought up **pid 1723**: resolve line `12:48:09.292 xpcpro
 (…, FF3ADEC2-…) to program: /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`,
 `runs = 1`, never exited, and CDHash `e1e7fe63…` against the pid at 13:16 and 13:28. No record
 move since 12:39:29.847, read to 13:28. Check for 1723 from here on.)*
+*(2026-10-05: still **pid 1723**, `runs = 1`, never exited, read at 09:37 and 10:43 — but from
+09:40 it runs the **previous** helper: Step 15's chunk 5 installed `4a2c642e…`, CDHash
+`ed9086ed…`, protocol v16, and the install script's stale-daemon warning named 1723. **A kickstart
+is owed**, the user's; after it, read the new pid's `runs`, its resolve line, its own start line
+— which must say protocol v16 — and `codesign` against it, and check for that pid from then on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -342,6 +354,15 @@ four more — .825 and .985, `effectiveItemDispositionWithAuditToken: pid=5999`,
 `_bundleURLForAuditToken` line and nothing after it, read at 13:28:34; any line after it is a move.
 The window spans the 12:42:03 boot and has no `--end`, so it reads to the present — with an
 `--end`, split it at the boot, `CONSTRAINTS.md` §1.)*
+*(2026-10-05: **that anchor has aged out.** The same query printed only its header at 09:37, and
+the widened one — `--info --debug`, any line naming the app, from 2026-10-03 12:30 — nothing,
+though BTM's own lines still reach back to 2026-10-03 12:31:21. So, as this section says, the
+record was read from a dump instead: the user's `sfltool dumpbtm` at 10:42, before chunk 5's
+kickstart — the UID −2 app record, uuid `226468B0-…`, `URL: /Applications/USBDriveTester.app`,
+generation `…901`, the helper embedded; the daemon record `FF3ADEC2-…` `[enabled, allowed,
+notified]`; the UID 0 and UID 501 records on `/Applications` too; and no line of 1,258 naming
+DerivedData. Its *Last Use*, 10:17:03, is BTM's `userDataDidChange` sweep, not a launch —
+`CONSTRAINTS.md` §1. The kickstart and the app's next launch leave fresh lines to anchor on.)*
 
 ### The kickstart before it — 2026-09-18 13:06:19, superseded 2026-09-19
 
@@ -545,7 +566,12 @@ rather than this instruction — mutation **m9** of chunk 4's round confirms the
 **Record:** ✅ **PASSED 2026-09-27 09:44–09:55**, headless but for the user's `sfltool dumpbtm` at
 09:36 — the walk's restart. It ran against the install of 2026-09-24 18:01:53 as Step 12's chunk 1
 left it: a debug hook installed over it on 2026-09-26 at 19:50:50, and the bundle saved at 19:50:18,
-before the hook, restored at 20:22:31.
+before the hook, restored at 20:22:31. *(⚠️ 2026-10-05: **lapsed** by its first clause — Step 15's
+chunk 5 installed the v16 build at 09:40. **Re-run the same morning, headless:** 0.1 greps **1**
+against the new dylib `ff44c396…`, `Device-loss alert` **0**, the three hashes and both CDHashes
+read at 09:40:47 and `codesign --verify --deep --strict` OK, and BTM's record from the user's dump
+at 10:42 on `/Applications`; the daemon rows wait for the user's kickstart — `PROGRESS.md`,
+*Installed app* and *Chunk 5*.)*
 
 | | |
 |---|---|
