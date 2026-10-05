@@ -254,7 +254,7 @@ commit's message, and the summary is PROGRESS's Step 15 row.
 `36c3a9e1…`, and the protocol to **v16**; the four hardware gates recorded against the old hash
 have lapsed until chunk 5. No install: the daemon still runs the v15 helper `ac4d5208…`.
 *(2026-10-05: chunk 5 installed the v16 build at 09:40, helper `4a2c642e…`; the daemon runs it from
-the user's kickstart — `PROGRESS.md`, *Chunk 5*.)*
+the user's kickstart — `PROGRESS.md`, *Chunk 5*.)* *(It came at 10:49:36: pid 33239, protocol v16.)*
 
 **F4 — paid in source.** `acquireDevice(bsdName:runID:reply:)` carries the run's `UUID`, made by
 `RunController` once per authorisation; the helper holds it with the claim. Both processes write it

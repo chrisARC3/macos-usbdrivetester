@@ -54,8 +54,10 @@
 > ⚠️ **2026-10-05: Step 15's chunk 5 installed the v16 build at 09:40** — dylib `ff44c396…`, helper
 > `4a2c642e…`, from `cae1d91` — so the re-walk passes recorded against the 2026-09-24 18:01:53
 > install lapse by their own *another install* clause, as decided above. **Nothing here is walked
-> on it yet**: the daemon is still the previous helper until the user's kickstart, and the pulls
-> come after the four hardware gates and the thumb's traced run — `PROGRESS.md`, *Chunk 5*.
+> on it yet**: the daemon is on the v16 helper since the user's kickstart at 10:49:36, pid 33239,
+> and the pulls come after the four hardware gates and the thumb's traced run — `PROGRESS.md`,
+> *Chunk 5*. *(It said "the daemon is still the previous helper until the user's kickstart" until
+> 11:05.)*
 >
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
 > through three chunks' walks and thirteen commits to this very file. It names no step, so the grep

@@ -45,7 +45,12 @@
 > names `RunController` and `RunControllerWiring` (its item 4), and Step 15's chunk 4, `5bc6a43`,
 > edited both on 2026-10-01 — the run ID handed to `prepare` and `acquireDevice` — while that
 > commit and `PROGRESS.md` said every pass recorded against the 2026-09-24 install stood until
-> chunk 5's. No other clause here names a file chunks 3 or 4 edited. Which of these four parts
+> chunk 5's. No other clause here names a file chunks 3 or 4 edited *(⚠️ wrong, found 2026-10-05
+> 11:05 — a second finding, reported not fixed: chunk 9's two boxes name **the probe**, and
+> `5bc6a43` edited `tools/ui-probe/main.swift` — its two `prepare` closures took the run-ID
+> argument, `{ _, done in` to `{ _, _, done in`, and nothing it measures. So 9.2, 9.3 and 9.6 had
+> lapsed at chunk 4 as well, by the letter of their clause; the sentence was checked against file
+> names and the clause names the probe by role)*. Which of these four parts
 > chunk 5 re-walks is **not yet decided**: the 2026-10-04/05 walk through the checklists covered
 > Steps 12 and 13 only. `PROGRESS.md`, *Chunk 5*.)*
 

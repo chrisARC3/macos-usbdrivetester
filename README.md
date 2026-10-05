@@ -137,8 +137,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > 1323 / 157 / 0 before that), zero source warnings from three clean builds, **14/14** gate clients type-checking
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15
 > *(2026-10-01: the source is protocol **v16** since Step 15's chunk 4, which lapsed those four
-> hardware gates. 2026-10-05: chunk 5 installed the v16 build at 09:40; the running daemon is still
-> the v15 helper until the kickstart, and the four gates re-run after it)*,
+> hardware gates. 2026-10-05: chunk 5 installed the v16 build at 09:40, and the user's kickstart at 10:49:36
+> put the running daemon on it, protocol v16; the four gates re-run next. It said "the running
+> daemon is still the v15 helper until the kickstart" until 11:05)*,
 > and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
 > measured on the shipped window itself, 2026-09-22**, which is the first time the two have been
 > compared. *(2026-09-24: **614 pt**, re-measured on the report fix, and the suite green again at

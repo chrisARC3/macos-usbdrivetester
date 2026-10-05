@@ -12,7 +12,10 @@
 > install* clause, and whether the run ID's edit touches the assertion's path is for chunk 5's plan.
 > ⚠️ **2026-10-05: they have lapsed** — chunk 5 installed the v16 build at 09:40 from `cae1d91`, dylib
 > `ff44c396…`, helper `4a2c642e…`, proved by content (item 0.1 greps **1**). Nothing below is walked
-> on it yet; the daemon is still the previous helper until the user's kickstart — *The daemon*.
+> on it yet but item 0, re-run headless and passed — its record; the daemon is on the v16 helper
+> since the user's kickstart at 10:49:36, pid 33239 — *The daemon*. *(It said "Nothing below is
+> walked on it yet; the daemon is still the previous helper until the user's kickstart" until
+> 11:05.)*
 >
 > ✅ **Decided 2026-10-05 for Step 15's chunk 5** — the assistant's recommendations, adopted under the
 > user's standing instruction that day. **The run ID's edit does not touch the assertion's path**:
@@ -134,6 +137,9 @@
 > it.** pid 1723 still runs the previous helper `ac4d5208…`; the user's kickstart is owed, after
 > BTM's record, read from the user's `sfltool dumpbtm` at 10:42 — on `/Applications`. *The
 > daemon*, and `PROGRESS.md`'s *Chunk 5*.)*
+> *(2026-10-05 10:49:36: the user's kickstart — **pid 33239**, `runs = 2`, resolved to
+> `/Applications`, protocol v16 on its own start line, CDHash `ed9086ed…` against the pid, read
+> 10:59–11:05. *The daemon*.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -251,6 +257,9 @@ value for one command).
 
 ### The daemon — kickstarted 2026-09-19 10:32:47, from `/Applications`
 
+*(2026-10-05: kickstarted again, at 10:49:36, onto the v16 helper — **pid 33239**. The table below
+is the 2026-09-19 kickstart's; the current reading is the last dated note under it.)*
+
 **Kickstarted 2026-09-19 by the user, at the move to Xcode 27's chunk 3 — after the Xcode 27 build
 was installed and the record was read — and it came up from `/Applications`.** Headless readings,
 except the two commands the user ran. The daemon's rows were read again at 10:43 and had not moved:
@@ -313,6 +322,15 @@ move since 12:39:29.847, read to 13:28. Check for 1723 from here on.)*
 `ed9086ed…`, protocol v16, and the install script's stale-daemon warning named 1723. **A kickstart
 is owed**, the user's; after it, read the new pid's `runs`, its resolve line, its own start line
 — which must say protocol v16 — and `codesign` against it, and check for that pid from then on.)*
+*(2026-10-05, read 10:59–11:05: **pid 33239** since the user's kickstart at 10:49:36 —
+`launchctl print`: running, `runs = 2`, `last terminating signal = Terminated: 15`, `immediate
+reason = non-ipc demand`; root, ppid 1; resolve line `10:49:36.867949 xpcproxy[33239]: Resolved
+(…, FF3ADEC2-…) to program: /Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`;
+its own line at 10:49:37.220876, *"helper started as uid 0; listening on
+com.arc3solutions.USBDriveTester.Helper; protocol v16; …"*; and `codesign` against the pid gives
+CDHash `ed9086ed…`, signed 09:40:04 — the installed helper `4a2c642e…`. No app process before or
+since. The record: `USBDriveTester-evidence/step-15/kickstart-2026-10-05.txt`. Check for 33239
+from here on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -571,7 +589,12 @@ chunk 5 installed the v16 build at 09:40. **Re-run the same morning, headless:**
 against the new dylib `ff44c396…`, `Device-loss alert` **0**, the three hashes and both CDHashes
 read at 09:40:47 and `codesign --verify --deep --strict` OK, and BTM's record from the user's dump
 at 10:42 on `/Applications`; the daemon rows wait for the user's kickstart — `PROGRESS.md`,
-*Installed app* and *Chunk 5*.)*
+*Installed app* and *Chunk 5*.)* *(✅ 2026-10-05: **item 0 re-run and PASSED** on the v16 install —
+09:40 from `cae1d91`, dylib `ff44c396…`, helper `4a2c642e…`. The daemon rows, read 10:59–11:05
+after the user's kickstart at 10:49:36: pid **33239**, root, ppid 1, `runs = 2`, resolved by
+`xpcproxy` to `/Applications`, protocol v16 on its own start line, CDHash `ed9086ed…` against the
+pid, no app process — *The daemon*. The instrument row stands: macOS 27.0.1 is a point release.
+Invalidated by the clause under the table.)*
 
 | | |
 |---|---|
