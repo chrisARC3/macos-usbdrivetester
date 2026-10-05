@@ -27,7 +27,9 @@
 > - **Item 0 — re-run headless**, as part of chunk 5's install proof, which it is.
 > - **1.1 and 1.3 — re-read headless**, with the app at rest and with a drive selected; **1.2
 >   carried** — a look at the trap, and nothing it reads moved.
-> - **2.1 and 2.2 — re-read at the traced full run**, 2.2 off the tagged `run starting` line;
+> - **2.1 and 2.2 — re-read at the traced full run**, 2.2 off the tagged `run authorised` line
+>   *(it said "`run starting`" until 2026-10-05 14:54: the app logs no such line — found at
+>   chunk 5's launch A and corrected by the user's decision the same day)*;
 >   **2.3 and 2.4 — one Pause and Resume** in the first 4 TB T5 EVO run, before its pull; **2.7 —
 >   the traced full run** on the 125.8 MB thumb; **2.8 — re-read headless** when the app is quit at
 >   the end.

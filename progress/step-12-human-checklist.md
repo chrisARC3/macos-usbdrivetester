@@ -42,7 +42,10 @@
 >   chosen by serial — chunk 5's interrupted run is this pull, not a Stop. Items 1–4, 7–10 and 12–14
 >   by eye; 5, 6 and 11 headless from the log exported the same day, with dated wording notes on
 >   each, since their lines now begin `[run <UUID>] `; item 5's and 6's lines must carry the same ID
->   as the run's `run starting` line and the helper's acquire and release lines; item 9 records the
+>   as the run's `run authorised` line and the helper's acquire and release lines *(it said "`run
+>   starting` line" until 2026-10-05 14:54: the app logs none, and its first tagged line is
+>   `run authorised` — found at chunk 5's launch A and corrected by the user's decision the same
+>   day)*; item 9 records the
 >   phase it lands in, with no further pulls to find `writingBack` — `RetentionTestEngine.swift`'s
 >   chunk 4 diff is comments only; item 14's second run must carry a different ID.
 > - **Chunk 4 — re-walked at chunk 5, as a second pull**: item 14's second run, paused, then
@@ -642,8 +645,10 @@ the original and has not finished putting it back.
    *(Wording note 2026-10-05, by the user's decision: since `5bc6a43` — Step 15's chunk 4, protocol
    v16 — this line **begins** `[run <UUID>] `, the run's ID, and the words after it are unchanged.
    Match it as a substring, never as the start of the line. Its re-walk at Step 15's chunk 5 also
-   asks that the ID be the same one the app's `run starting` line and the helper's acquire and
-   release lines carry.)*
+   asks that the ID be the same one the app's `run authorised` line and the helper's acquire and
+   release lines carry. *(It said "`run starting` line" until 14:54: the app logs none, and
+   its first tagged line is `run authorised` — found at chunk 5's launch A and corrected by the
+   user's decision the same day.)*)*
 6. Log: `run ended: deviceLost`.
 
    *(Wording note 2026-10-05, by the user's decision: since `5bc6a43` — Step 15's chunk 4, protocol
