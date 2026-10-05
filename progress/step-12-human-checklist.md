@@ -20,6 +20,37 @@
 > evidence about the current source. Which of them chunk 5 re-walks is the user's decision at its
 > plan; the four hardware gates it re-runs regardless.
 >
+> ✅ **Decided item by item 2026-10-04 and 2026-10-05, for Step 15's chunk 5** — the user's own
+> decisions through chunk 3's item 7; from item 8 on, the assistant's recommendations, adopted under
+> the user's standing instruction of 2026-10-05 to take them for the rest of that session. The
+> basis throughout is `git diff 77275be HEAD` over the app's sources — six files changed, none of
+> them a view, `DeviceLossMessage.swift`, `AppModel.swift` or the report's — and `5bc6a43`'s
+> `RunController.swift` read by name, non-comment lines only: on the pause and device-loss paths
+> every changed line is a `RunControlLog` call gaining `runID:`, plus `releasedRunID` captured
+> before the release; the start path gained the run ID, handed to `acquireDevice` at v16.
+> - **Chunk 1 — carried by argument, items 2–8**; items 1 and 9 skipped, no hook installed. No
+>   source the alert reads changed. Reopens on a change to `DeviceLossMessage.swift`, `AppModel`'s
+>   `runFailure` or the alert's presentation before chunk 5 installs — and, for item 3, a new Xcode
+>   major or minor release. Item 1's citation corrected to `:931`. Chunk 5's install proof adds
+>   `Device-loss alert` → **0**. A main window that stops responding during chunk 5's helper
+>   off/on check is evidence against item 7.
+> - **Chunk 2 — every pass stands.** Its own clause names five files and the toolchain, and none
+>   moved; `ui-probe`'s diff is two `prepare` closures. Chunk 5's install proof adds
+>   `eject.circle.fill` → **1**.
+> - **Chunk 3 — re-walked at chunk 5**, because the helper hash moved and the clause lapses the
+>   claim-and-release half: **one running cable pull on the 4 TB T5 EVO, `00000S7CLNJ0WC02266P`**,
+>   chosen by serial — chunk 5's interrupted run is this pull, not a Stop. Items 1–4, 7–10 and 12–14
+>   by eye; 5, 6 and 11 headless from the log exported the same day, with dated wording notes on
+>   each, since their lines now begin `[run <UUID>] `; item 5's and 6's lines must carry the same ID
+>   as the run's `run starting` line and the helper's acquire and release lines; item 9 records the
+>   phase it lands in, with no further pulls to find `writingBack` — `RetentionTestEngine.swift`'s
+>   chunk 4 diff is comments only; item 14's second run must carry a different ID.
+> - **Chunk 4 — re-walked at chunk 5, as a second pull**: item 14's second run, paused, then
+>   pulled — route (b) alone, the path whose `deviceLost` line chunk 4 tagged. Items 5 and 9
+>   headless, item 5 with a dated wording note.
+> - **Chunk 5 stays discharged** (2026-09-11); the two pulls' timings are recorded as readings
+>   only.
+>
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
 > through three chunks' walks and thirteen commits to this very file. It names no step, so the grep
 > for the five blocks that do never finds it — the tenth stale status block (`CLAUDE.md`).
@@ -254,7 +285,10 @@ force that route rather than a build run in place from Xcode:
    — `RunController.swift:911` at `77275be`. *(Corrected 2026-09-26: this cited `:875`, true when
    it was written and walked, at `3da3ef7` and `55a5c71`; the call moved four times, from `7b4f200`
    on the day of the walk to `ad1ee28` on 2026-09-12, and has been at `:911` since. The function's
-   name is the part that stays true.)*
+   name is the part that stays true.)* *(Corrected again 2026-10-04, by the user's decision: the
+   call is at **`:931`** since `5bc6a43`, Step 15's chunk 4, which added 20 lines above it for the
+   run ID; the call itself is unchanged. Re-walking this item follows the decision on items 2–8,
+   user decision the same day.)*
    ⚠️ **Put it outside `USBDriveTester/USBDriveTester/Shared/`** — that directory is in the helper
    source hash recipe, so an edit there lapses all four hardware gate results for a menu item.
    It is then built and installed for you:
@@ -597,7 +631,19 @@ the original and has not finished putting it back.
    — at **error** level, naming the drive by **model and serial**, with the BSD name labelled as
    what it was at the time. *(A log outlives the enumeration that produced the locator. This project
    has already shipped one artefact that could not say which drive it was about — 2026-08-06.)*
+   *(Wording note 2026-10-05, by the user's decision: since `5bc6a43` — Step 15's chunk 4, protocol
+   v16 — this line **begins** `[run <UUID>] `, the run's ID, and the words after it are unchanged.
+   Match it as a substring, never as the start of the line. Its re-walk at Step 15's chunk 5 also
+   asks that the ID be the same one the app's `run starting` line and the helper's acquire and
+   release lines carry.)*
 6. Log: `run ended: deviceLost`.
+
+   *(Wording note 2026-10-05, by the user's decision: since `5bc6a43` — Step 15's chunk 4, protocol
+   v16 — the `run ended` line **begins** `[run <UUID>] `, with the same ID as item 5's line; match
+   it as a substring. The readings below are **not** tagged, by design: `a disk disappeared: …`
+   comes from `VolumeChangeWatcher`, which is discovery, not a run line, and `acquired diskN: claim
+   held, …` is one of `DeviceClaim.swift`'s detail lines, beside the helper's tagged `acquire
+   GRANTED` line. An untagged line among these is not a defect.)*
 
    ⚠️ **TWO READINGS, and the order matters. (i) was WRONG as first written — corrected
    2026-09-09 from the walk that took it.**
@@ -684,6 +730,11 @@ the original and has not finished putting it back.
     matters. The error alone means the claim's fate is genuinely unknown and the drive may still be
     held; the pair means it was dropped and the app found out late. The gap measures how long the
     helper stayed inside its call after the app had given up on it, which is 5.1's subject.
+    *(Wording note 2026-10-05, adopted under the user's standing instruction of that day: since
+    `5bc6a43` — Step 15's chunk 4, protocol v16 — both lines **begin** `[run <UUID>] `; match them
+    as substrings. The late line carries the ID of the run whose drive was released, captured
+    before the release, not whatever run is current when the helper answers — the mutation S3
+    showed no test reads that, so a person does, if the line ever fires.)*
 12. **Discovery re-runs by itself.** The scratch drive leaves the list without anything being
     clicked. *(FR-DEV-8's third obligation, and the closure in `RunControllerWiring` that fires it
     has no cover but this item — mutation m17 in chunk 7b's round deletes the call and passes the
@@ -864,6 +915,9 @@ that can see the drive go. This is the case the whole of chunk 2 (2026-09-05) wa
 5. Log: `the drive under test left the machine while paused: …` — **the state named is `paused`**.
    This is the item that distinguishes route (b) working from route (a) having covered for it, and
    nothing else in the system distinguishes them.
+   *(Wording note 2026-10-05, adopted under the user's standing instruction of that day: since
+   `5bc6a43` this line **begins** `[run <UUID>] ` — as chunk 3's item 5 — and the words after it
+   are unchanged. Match it as a substring.)*
 6. The GUI stays alive and usable.
 7. A report appears, and **its device-loss account is this sentence, word for word** — the
    `.nothingWasInFlight` case of `HonestFraming.claim(about:)`, with *paused* in bold:

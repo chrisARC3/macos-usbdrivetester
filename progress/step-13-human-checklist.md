@@ -10,6 +10,30 @@
 > the prepare closure's new argument, and its log lines) and moved the helper to protocol v16. No
 > pass here lapses on the edit alone; **they lapse at chunk 5's install** by their own *another
 > install* clause, and whether the run ID's edit touches the assertion's path is for chunk 5's plan.
+>
+> ✅ **Decided 2026-10-05 for Step 15's chunk 5** — the assistant's recommendations, adopted under the
+> user's standing instruction that day. **The run ID's edit does not touch the assertion's path**:
+> `SleepPrevention.swift` is unchanged since `77275be`, the installed build's sources, and no line of
+> `apply(_:movingTo:)` or `move(to:)` changed — the only hit in the diff is an unchanged context line.
+> So every pass here lapses at chunk 5's install by its *another install* clause, and none sooner.
+> Re-read on the new install where chunk 5's own runs make it free, carried by argument where they
+> do not:
+> - **Item 0 — re-run headless**, as part of chunk 5's install proof, which it is.
+> - **1.1 and 1.3 — re-read headless**, with the app at rest and with a drive selected; **1.2
+>   carried** — a look at the trap, and nothing it reads moved.
+> - **2.1 and 2.2 — re-read at the traced full run**, 2.2 off the tagged `run starting` line;
+>   **2.3 and 2.4 — one Pause and Resume** in the first 4 TB T5 EVO run, before its pull; **2.7 —
+>   the traced full run** on the 125.8 MB thumb; **2.8 — re-read headless** when the app is quit at
+>   the end.
+> - **2.5 and 2.6 — carried by argument**: the assertion path is unchanged and
+>   `RunControllerSleepPreventionTests` pins the cycles; chunk 5 has no Stop, its interrupted run
+>   being a cable pull, and `RunController`'s stop path changed only in a log argument.
+> - **3.1 and 3.3's reading — re-read headless** during a run; **3.2 — carried by argument**, the
+>   assertion's type and `IdleSleepPreventer` unchanged, against an idle wait for the display to
+>   sleep; **3.4 stays not walked**, as decided 2026-09-28.
+> - **3.5 and 3.6 — re-read at chunk 5's two pulls**, the running one and the paused one; **3.7** is
+>   answered by Step 12's chunks 3 and 4, re-walked directly at those pulls this time
+>   (`progress/step-12-human-checklist.md`, the 2026-10-05 block under its status).
 > *(This line read "STATUS, 2026-09-19: IN PROGRESS at chunk
 > 5 — and PAUSED since 2026-09-18 for the move to Xcode 27" until 2026-09-27; the rest of this
 > block is as it stood, dated where it moved.)* **The walk was PAUSED from 2026-09-18 for the move
