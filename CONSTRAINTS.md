@@ -534,6 +534,19 @@ Apple and both were found only because someone pressed the button.
     12:48–12:50 — stopped at their `--end`. Nothing is lost, but lines from after the window read as
     the window's. **Split an export at every boot inside it** — Step 15's same-day export among them.
     *What would invalidate it:* a macOS major or minor release.
+  - **⚠️ `log stream` stamps a line 5–20 ms later than `log show` stamps the same line — measured
+    2026-10-08 on macOS 27.0.1 (26A434).** Step 15's chunk 5 captured this subsystem with `log
+    stream --level info --style compact` from 2026-10-06 15:33:53 to 2026-10-08 10:33:12, and
+    exported 2026-10-06 15:30:00 to 2026-10-08 10:35:00 from the store with `log show --info --style
+    compact` at 10:33:30. Every line of the export is in the stream, and of the 49 that occur
+    exactly once in both, the stream's timestamp is the later on every one — by 5, 16, 16, 16, 19
+    and 20 ms on six helper lines of 2026-10-06, 15 ms on five app lines of 2026-10-07, and 13–14 ms
+    on all 38 of 2026-10-08 — never equal and never earlier. Within one source the order of lines is
+    unaffected. **Across the two it is not: a gap measured between a line read with `log show` — the
+    kernel's, say, which a stream of this subsystem does not carry — and one read off a stream is
+    off by 5–20 ms, so one under about 20 ms cannot be read.** Take both lines from the same tool.
+    *(First read as 5–14 ms the same day, off six lines; the whole set of 49 widened it.)* *What
+    would invalidate it:* a macOS major or minor release.
   - **A dump's daemon *Last Use* moves when BTM sweeps, not only at a launch — read 2026-09-27 on
     macOS 27.0 and 2026-10-05 on 27.0.1 (26A434).** `sfltool dumpbtm` gave this daemon's record
     *Last Use* 08:46:30 and 10:17:03 on those days. Each was the moment BTM re-checked every entry —

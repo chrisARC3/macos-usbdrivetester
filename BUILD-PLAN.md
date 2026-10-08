@@ -2586,8 +2586,10 @@ Ensure all significant events from both executables are emitted to the macOS uni
   > only seven helper Info lines of E1 and E2, 2026-10-06: the one-to-three-day lifetime this note
   > was written for. The captures are `log stream --level info --style compact` of the same
   > subsystem, continuous over every launch and saved per launch in the evidence folder; where both
-  > exist, for 2026-10-08, they agree with the export line for line, the stream's timestamps 5–14 ms
-  > later than the store's. A finding against the assistant's ordering — `PROGRESS.md`, *Chunk 5*.)*
+  > exist, for 2026-10-08, they agree with the export line for line; the stream's timestamps run
+  > 5–20 ms later than the store's, `CONSTRAINTS.md` §1 *(it said "5–14 ms" until 2026-10-08, the
+  > same day: read off six lines; all 49 the two share widened it)*. A finding against the
+  > assistant's ordering — `PROGRESS.md`, *Chunk 5*.)*
 - [x] No log entry anywhere contains device data bytes (inspect read/write/verify paths specifically).
   > **Ticked 2026-10-08**: no run of 64 hex characters in any capture of the walk — the seven
   > per-launch `log stream` files, A to F, 2026-10-05 to 2026-10-08 — nor in the 2026-10-08 export
