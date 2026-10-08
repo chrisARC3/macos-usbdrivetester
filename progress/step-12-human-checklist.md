@@ -61,6 +61,14 @@
 > and the pulls come after the four hardware gates and the thumb's traced run — `PROGRESS.md`,
 > *Chunk 5*. *(The gates passed 2026-10-05 11:11–13:06.)* *(It said "the daemon is still the previous helper until the user's kickstart" until
 > 11:05.)*
+> *(✅ 2026-10-06: **chunks 3 and 4 re-walked on the v16 build and PASSED** — chunk 3, all fourteen
+> items with readings (i) and (ii), at Step 15's chunk 5 launch E1, a running pull on the 4 TB T5
+> EVO at 15:36:10; chunk 4, all nine items, at launch E2, a paused pull at 15:46:46, with chunk 3's
+> item 14 at E2's Start — each chunk's 2026-10-06 box. 2026-10-08: **chunk 1's item 7, carried by
+> argument, met no evidence against it** at chunk 5's helper off/on, 10:28:05–10:28:36 — the drive
+> list took selections while the helper was off and after it came back. The daemon is **pid 58327**
+> since 2026-10-08 10:29:19, that toggle having ended 33239 — resolved to `/Applications`, the same
+> helper `4a2c642e…`. This paragraph's "Nothing here is walked on it yet" stood until 2026-10-08.)*
 >
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
 > through three chunks' walks and thirteen commits to this very file. It names no step, so the grep
@@ -912,6 +920,44 @@ files this path runs through; another install, another macOS major or minor rele
 helper but `ac4d5208…`. Items 5, 6 and 11 were not carried, and their passes stay facts about the
 Xcode 26 build.
 
+✅ **RE-WALKED 2026-10-06 at Step 15's chunk 5, on the v16 build — ALL FOURTEEN ITEMS PASSED, with
+readings (i) and (ii)** (decided 2026-10-04/05, the block under this file's status). One running
+pull, at 15:36:10, on the 4 TB T5 EVO, serial `00000S7CLNJ0WC02266P`, as `disk8` — launch E1, app
+pid 2104, run `C3811BC6-C457-41C8-A615-F0D34548D1AA`. By eye, the user's — *"everything exactly as
+expected"* — and the report the user exported, which *"matches the Report window exactly"*; the log
+read headless off the live stream:
+
+| item | the reading |
+|---|---|
+| 1 | the 4 TB T5 EVO selected at 15:35:03.184, and the pre-run prompt named `drive serial 00000S7CLNJ0WC02266P` at 15:35:11.265 — not the scratch T5 item 1 names, by the decision |
+| 2 | by eye; the report counts 1,204 chunks processed by the pull |
+| 3 | the pull, 15:36:10.045, mid-call — the cycle had started at 15:36:09.444, at block 9,732,096 |
+| 4 | by eye: as expected, with the report on screen |
+| 5 | `[run C3811BC6-…] the drive under test left the machine while running: Samsung PSSD T5 EVO (serial 00000S7CLNJ0WC02266P), disk8 at run time`, error level, at .046 — the same ID as the run's `run authorised` line and the helper's `acquire GRANTED` and `release requested` lines |
+| 6 | `[run C3811BC6-…] run ended: deviceLost` at .047. **(i)** at the claim, 15:35:20.944–.960, `disk8s1`–`s4 (slice)` and the APFS container synthesized from `disk8s3`, `disk10` and `disk10s1`, disappeared — the subscription alive; **(ii)** `a disk disappeared: disk8 (whole disk)` at .045, the only disappearance at the pull |
+| 7 | the report sheet, not an alert — by eye, and the exported report |
+| 8 | the headline *"Ended — the drive disappeared from the USB bus, and the rest was not tested"*, and the rows **Drive left at** block 9,854,976 and **While** verifying the write-back — route (a)'s block and phase |
+| 9 | `verifying`, and that row's sentence, word for word: *"The drive left while this tool was re-reading block 9,854,976 to verify it. The write-back had already completed, so the chunk was whole when the drive went — it is unverified, and unverified is not the same as bad."* The helper agrees: `the device was lost while verifying the write-back`, 16 chunks written back and 15 verified in that call. No further pulls for `writingBack`, by the decision |
+| 10 | by eye: only Start offered |
+| 11 | **neither line** — the app logged `device loss: a call is in flight; waiting up to 3.000000s` at .046, and the helper's reply, route (a)'s `errno 6 (Device not configured)` at offset 5,045,747,712, was back 1 ms after the removal callback, so the deadline was never approached; `release requested` at .048 |
+| 12 | `discovery found 4 USB whole disk(s): disk4, disk6, disk9, disk11` at 15:36:10.406, 361 ms after the drive went, and again at .425 after `discovery resumed`; the selection moved to the 22 TB Seagate by default, and nothing was started on it |
+| 13 | `connected disk8` at 15:40:30.964; read headless at 15:41 with the app's enumerator: `disk8` is `00000S7CLNJ0WC02266P`, its four slices back |
+| 14 | at launch E2's Start: `[run 6EC00199-2D44-4DE9-80BA-26CF30F711A9] run authorised: drive serial 00000S7CLNJ0WC02266P` at 15:45:37.835 — a different ID — and the helper's tagged `acquire GRANTED` at 15:45:38.468: the interrupted run's claim was not still held |
+
+Readings only: the link was USB SuperSpeed 5 Gb/s; route (a) and route (b) fired in the same
+millisecond; the run's 35 tagged lines carry one ID, and none other between acquire and release.
+
+**Against build:** the app installed 2026-10-05 09:39:58–09:40:29 from `cae1d91`, dylib `ff44c396…`,
+helper `4a2c642e…`, re-hashed unchanged 2026-10-06 at 15:34; protocol **v16**; helper source hash
+**`36c3a9e1…`**; daemon pid **33239**, from the user's kickstart of 2026-10-05 10:49:36, resolved to
+`/Applications`; Xcode 27.0 (27A266a) on macOS 27.0.1 (26A434). Evidence, in
+`USBDriveTester-evidence/step-15/`: `log-stream-launch-E1-2026-10-06.txt`,
+`report-launch-E1-2026-10-06-1535.md` and `walk-notes-2026-10-06.txt` — the live stream, not a
+same-day `log show` export, which the store no longer held when it was taken; the user accepted the
+stream captures 2026-10-08. **What would invalidate it:** chunk 4's list, below; another install;
+another macOS major or minor release, but not a point release; or the daemon running any helper but
+`4a2c642e…`.
+
 ---
 
 ## Chunk 4 — the unplug while paused *(WRITES to the scratch drive)*
@@ -1161,6 +1207,33 @@ and their passes stay facts about the Xcode 26 build.
 
 **Against build:** as chunk 3's carried box. **What would invalidate it:** the list above, and
 another install, another macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*, or the daemon running any helper but `ac4d5208…`.
+
+✅ **RE-WALKED 2026-10-06 at Step 15's chunk 5, on the v16 build — ALL NINE ITEMS PASSED** (decided
+2026-10-04/05, the block under this file's status). One pull, at 15:46:46.643, from a run paused at
+15:45:46 — paused for 60.4 s — on the 4 TB T5 EVO, serial `00000S7CLNJ0WC02266P`, as `disk8`: launch
+E2, the same app process as chunk 3's re-walk, pid 2104, run `6EC00199-2D44-4DE9-80BA-26CF30F711A9`.
+The user: *"everything exactly as expected"*, with the exported report; the log read headless off
+the live stream:
+
+| item | the reading |
+|---|---|
+| 1 | the prompt at 15:45:34.778 and `run authorised` at 15:45:37.835 both name `00000S7CLNJ0WC02266P`; `acquired disk8` at 15:45:38.466 |
+| 2 | `running → pausing on the Pause command` at 15:45:46.221; the helper's END `paused by the user at block 1810432; 221/256 chunks`, read, written and verified alike, no failed ranges; `pausing → paused on pauseSettled` at .245; the panel by the user's eye, and the report counts 221 chunks |
+| 3 | the pull, 15:46:46.643 |
+| 4 | at once — the removal callback, `device loss: nothing was in flight, ending the run now`, `[run 6EC00199-…] run ended: deviceLost` and `paused → finishing on deviceLost` all in that millisecond, and no deadline line; by eye, as expected |
+| 5 | `[run 6EC00199-…] the drive under test left the machine while paused: Samsung PSSD T5 EVO (serial 00000S7CLNJ0WC02266P), disk8 at run time` — the state named is `paused` |
+| 6 | by eye: as expected |
+| 7 | the sentence, word for word, in the exported report: *"The run was paused when the drive left, so no chunk was part-way through anything and nothing was left half-written. Every chunk the run had reached was written back and verified before it stopped."* — and no **Drive left at** or **While** rows |
+| 8 | `discovery found 4 USB whole disk(s): disk4, disk6, disk9, disk11` at 15:46:47.017, and again at .041 after `discovery resumed`; the selection to the 22 TB Seagate by default |
+| 9 | the prediction held again: at the claim, `disk8s1`–`s4` and `disk10s1 (slice)`, with `disk10 (whole disk)`, the synthesized APFS container, 15:45:38.443–.457; at the pull, exactly one `disk8 (whole disk)` and no slice line. The three checks, over 15:41:00–15:47:50: one `left the machine` line, one `run ended`, one `run report:` — and one report on screen |
+
+Readings only: the run's 13 tagged lines carry one ID; `finishing → finished on deviceReleased` came
+371 ms after the pull.
+
+**Against build:** as chunk 3's 2026-10-06 box. Evidence: `log-stream-launch-E2-2026-10-06.txt`,
+`report-launch-E2-2026-10-06-1545.md` and `walk-notes-2026-10-06.txt`, in the same folder. **What
+would invalidate it:** the list above, another install, another macOS major or minor release, but
+not a point release, or the daemon running any helper but `4a2c642e…`.
 
 ---
 

@@ -58,6 +58,10 @@
 > 6.1 was not among the four parts this note named — its pass was made with chunk 16's and is
 > invalidated by that box's clause, so it lapsed with it, at chunk 4 already — and the user
 > included it the same day)*. `PROGRESS.md`, *Chunk 5*.)*
+> *(✅ 2026-10-08: **chunk 16 re-walked in full on the v16 build and PASSED, all nine items, with 6.1
+> and 6.3 — 6.3 in both forms** — 2026-10-05 to 2026-10-08, at Step 15's chunk 5, launches A–D and
+> F2; chunk 16's 2026-10-08 box, and each item's own line. Chunk 9's 2, 3 and 6 and chunk 11's item
+> 6 stay lapsed and unwalked, as decided.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
@@ -422,6 +426,12 @@ deliberately not bound to the persisted preference.
    > from `77275be`, with chunk 16 — its 2026-09-25 box has the build, pids and drives. Greyed, and
    > ⌘Q did nothing, with the dialog up for the 125.8 MB thumb; *Cancel* logged `run issued: false`
    > at 16:41:11, and ⌘Q then quit at 16:41:20. **Invalidated by** that box's clause.
+   >
+   > ✅ **RE-WALKED AND PASSED 2026-10-05 on the v16 build**, installed 2026-10-05 09:40 from
+   > `cae1d91`, with chunk 16 — its 2026-10-08 box has the build, pids and drives. Greyed, and ⌘Q
+   > did nothing, with the dialog up for the 125.8 MB thumb from 14:40:52.797; nothing was logged
+   > until *Cancel*, `run issued: false`, at 14:41:20.485, and ⌘Q then quit at 14:41:23.207.
+   > **Invalidated by** that box's clause.
 2. ⌘Q during a run **asks**, and **the run keeps going underneath the dialog**. *Continue Testing*
    resumes as if nothing happened.
 3. *Cancel and Quit* stops at a chunk boundary, releases, **and the app actually goes** — every
@@ -490,6 +500,28 @@ deliberately not bound to the persisted preference.
    > to what a finished or stopped run puts on screen, or to the quit path — `AppModel`,
    > `QuitPolicy`, `QuitSequence`, `AppLifecycleDelegate`, `USBDriveTesterApp.swift`; by a different
    > installed build; and by any new Xcode or macOS major or minor release, but not a point release *(reworded 2026-09-30, `CONSTRAINTS.md` §2)*.
+   >
+   > ✅ **RE-WALKED AND PASSED 2026-10-05 on the v16 build, in both forms** — installed 2026-10-05
+   > 09:40 from `cae1d91`; chunk 16's 2026-10-08 box has the build, pids and drives.
+   >
+   > * **The hardest form, on the 125.8 MB thumb**: the confirmation left up while the run finished
+   >   underneath it at 14:54:39.957 — 30 of 30 chunks, no failed ranges — and the report raised
+   >   behind it. *Cancel and Quit* at 14:55:01.151 found `3 window(s), 2 sheet(s) [_NSAlertPanel,
+   >   SheetPresentationWindow]`, logged `wind-down finished: there was nothing to release —
+   >   terminating now`, the expected `2 still flagged afterwards`, and `terminate requested:
+   >   runIsActive=false disposition=quitImmediately` at 14:55:01.448, 0.30 s after the click, and
+   >   the app went. `Slice_A` came back; the second slice still has no volume.
+   > * **The standard form, on the 1 TB scratch T5**, `12345686DAA9`: ⌘Q 4.7 s into a run, then
+   >   *Cancel and Quit* at 14:57:10.384. The helper stopped 23 ms later **at block 1,720,320, the end
+   >   of chunk 210** of 256, with 880,803,840 B read, written back and verified and no failed
+   >   ranges, then released the drive; `terminate requested: … disposition=quitImmediately` came at
+   >   14:57:11.310, 0.93 s after the click, and the app went. `Test_Drive` came back and **EFI stayed
+   >   unmounted**, read at 14:57:21. ⚠️ **A difference from 2026-09-25, reported not fixed — not a
+   >   failure:** the release was confirmed 0.33 s after `run ended`, the report sheet was attached by
+   >   then, and the wind-down ran with `1 sheet(s) [SheetPresentationWindow]` and took it down — so
+   >   this time the standard form, too, put the defect's own state in front of the fix.
+   >
+   > **Invalidated by** the list above.
 4. ⌘Q after a run has finished quits **immediately**. 3 and 4 are the pair: one must wait, the
    other must not, and the same code decides both.
 
@@ -2181,7 +2213,7 @@ live item 4 below it, which is exactly the collision this record is about.)*
    the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
-### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix *(items 4–7 need a run — 5, 6 and 7 one that writes, 4 one that must fail to start; item 3 switches the helper off and on in Login Items, which relaunches the daemon; 1, 2, 8 and 9 are dry)*
+### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix — ✅ **RE-WALKED ON THE v16 BUILD AND PASSED IN FULL, ALL NINE ITEMS, 2026-10-05 – 2026-10-08**, with 6.1 and 6.3 *(items 4–7 need a run — 5, 6 and 7 one that writes, 4 one that must fail to start; item 3 switches the helper off and on in Login Items, which relaunches the daemon; 1, 2, 8 and 9 are dry)*
 
 > ⚠️ **2026-09-26: this heading's parenthetical read *"(item 4 needs a run; the rest are dry)"***
 > until today, and it was wrong: items 5, 6 and 7 each need a run that writes. Found walking the
@@ -2205,6 +2237,63 @@ their own chunks. **13.4** also gained a line: the gate's Quit button shares the
 or Console filtered to that subsystem, category `quit`. Every press that reaches the app prints one
 `quit command: …` line with the five flags **and an inventory of what AppKit actually has attached**,
 including window class names.
+
+> ✅ **RE-WALKED ON THE v16 BUILD 2026-10-05 – 2026-10-08 AND PASSED — ALL NINE ITEMS, with 6.1 and
+> 6.3**, at Step 15's chunk 5, by the user's decision of 2026-10-05 and in the walk order approved
+> that day. Against the app installed **2026-10-05 09:39:58–09:40:29 from `cae1d91`** — Step 15's
+> chunk 4 code, protocol **v16**, helper source hash `36c3a9e1…` — proved by content that morning
+> and again 2026-10-06 at 15:34 and 2026-10-08 between 10:29:36 and 10:32:42: dylib `ff44c396…`,
+> stub `908c1ace…`, helper `4a2c642e…` (CDHash `ed9086ed…`); Xcode 27.0 (27A266a) on macOS 27.0.1
+> (26A434). One launch per part — app pid **9710** (launch A, 2026-10-05 14:37–14:41) for items 1,
+> 9, 6.1 and 2; **32702** (B, 14:53–14:55) for items 7, 5 and 6 and 6.3's hardest form; **38904**
+> (C, 14:56–14:57) for 6.3's standard form, and item 7 again; **58379** (D, 15:10–15:11) for item 4;
+> **57816** (F2, 2026-10-08 10:29:01–10:29:05) for item 3. The daemon was pid **33239**, from the
+> user's kickstart of 2026-10-05 10:49:36, until step (7)'s Login Items toggle removed the service
+> at 2026-10-08 10:28:05.167; then **57084**, 10:28:36 until item 3 removed it at 10:28:58.678; and
+> **58327** from 10:29:19 — each resolved by `xpcproxy` to `/Applications`, each start line saying
+> protocol v16. Attached throughout: the 22 TB Seagate and the 1 TB repository drive, and neither
+> was ever started against. **Every Proceed was checked against the dialog's serial** — the thumb's
+> `2211190533300386001515`, the scratch T5's `12345686DAA9`. The log was read off a live `log
+> stream` of the subsystem, saved per launch in `USBDriveTester-evidence/step-15/`, with the
+> readings in its `walk-notes-2026-10-05.txt` and `walk-notes-2026-10-08.txt` — not off a same-day
+> `log show` export, which the store could no longer give for A–D when step (8) took it; the user
+> accepted the stream captures 2026-10-08. **Invalidated by** the 2026-09-25 box's list, below — any
+> edit to the quit path (`AppModel`, `QuitPolicy`, `QuitSequence`, `AppLifecycleDelegate`,
+> `USBDriveTesterApp.swift`); to `DevicePreparation`, `RunController` or `RunControllerWiring` (item
+> 4); or to the helper gate (item 3); by a different installed build; and by any new Xcode or macOS
+> major or minor release, but not a point release.
+>
+> | item | launch | read |
+> |---|---|---|
+> | 1 | A | the app menu, by eye: as expected |
+> | 9 | A | Dock ▸ *Quit* with the pre-run dialog up: did not quit, and nothing logged — as designed |
+> | 6.1 | A | **greyed**, and ⌘Q did nothing, with the dialog up for the thumb from 14:40:52.797; *Cancel* logged `run issued: false` at 14:41:20.485 — recorded at the item |
+> | 2 | A | ⌘Q with nothing on screen, 14:41:23.170: all five flags `false`, `1 window(s), 0 sheet(s)`, then `terminate requested: runIsActive=false disposition=quitImmediately` at .207 |
+> | 7 | B, C | `state=confirming; 2 window(s), 1 sheet(s) [_NSAlertPanel]; key=_NSAlertPanel` at 14:54:04.628 on the thumb and at 14:57:09.746 on the scratch T5 — the 2026-09-04 and 2026-09-25 reading |
+> | 5 | B | the second ⌘Q logged nothing, and the item was **greyed**; the confirmation stayed up 57 s, 14:54:04.298 to 14:55:01.151, with no `confirming → idle` line |
+> | 6 | B | the run finished under the confirmation at 14:54:39.957, 30 of 30 chunks, and the report was raised behind it; **greyed** throughout; *Cancel and Quit* found `2 sheet(s) [_NSAlertPanel, SheetPresentationWindow]` and quit — 6.3's hardest form |
+> | 4 | D | the thumb pulled under the pre-run dialog at 15:10:40.352, and the selection moved to the 22 TB Seagate; Proceed at 15:10:53.825 and `run aborted before any write` in the same millisecond, against the thumb's serial, with no call to the helper — no readiness check, no unmount, no acquire; **greyed** under the alert, the user; *OK*, then ⌘Q quit at 15:11:27.660 |
+> | 3 | F2 | Login Items off, relaunch, ⌘Q under the gate at 10:29:05.419: `gate=true`, `2 window(s), 1 sheet(s) [SheetPresentationWindow]`, and `discarding the helper gate` in the same millisecond; `disposition=quitImmediately` at .737; switched back on, the relaunch (F3) logged `helper gate: available — no modal raised` at 10:29:19.626 |
+> | 8 | the scan | **no hits** over every capture of the walk and the 2026-10-08 export; the same files hold 22 `quit command` and `terminate requested` lines, so the scan read the right log |
+>
+> **Found on the walk, none of them in the app's behaviour** — reported, not fixed:
+>
+> * **6.3's standard form met the report sheet this time.** On 2026-09-25 the wind-down ran 11 ms
+>   after the run ended, with `1 window(s), 0 sheet(s)`; on 2026-10-05 the release was confirmed
+>   0.33 s after `run ended`, the report sheet was attached by then, and the wind-down took it down
+>   and quit 0.93 s after the click. A difference, not a failure — the hardest form's state reached
+>   by the standard path; why the confirmation took 0.33 s is not read.
+> * **Under item 3's gate, `helper gate: requiresApproval` was logged twice**, at 10:29:01.362 and
+>   .367. **Not new**: it is the re-check on activation `8b0db53` added, seen diagnosing four times
+>   in seven seconds on 2026-09-25 (the box below), and the doc comment that says otherwise is
+>   `PROGRESS.md`'s *Owed* (i), open. *(The walk notes first called it a new finding; corrected
+>   2026-10-08.)*
+> * **The poll's error noise under the gate is gone**, as Step 15's chunk 3 meant: one `helper
+>   progress connection invalidated` and one `helper transport error` at 10:29:01.695, against
+>   eleven of each in ten seconds on 2026-09-25. A reading.
+>
+> The 2026-09-25 box below lapsed at Step 15's chunk 4, `5bc6a43`, unrecorded until 2026-10-05 — the
+> note at the top of this file.
 
 > ✅ **RE-WALKED ON THE XCODE 27 BUILD 2026-09-25 AND PASSED — ALL NINE ITEMS, with 6.1 and 6.3.**
 > About 16:39 to 20:12 at the keyboard, against the app installed 2026-09-24 18:01:53 from `77275be`, item

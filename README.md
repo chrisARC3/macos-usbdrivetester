@@ -104,7 +104,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > so the hardware gates must be re-run on an installed build, which is chunk 5. 2026-10-05: chunk 5
 > installed that build at 09:40, proved by content; the helper's restart is next, then the hardware
 > gates and the runs. The restart came at 10:49:36, the user's kickstart — pid 33239, protocol v16 —
-> and the four hardware gates passed on it 11:11–13:06; the runs are next. Until 13:45 this said
+> and the four hardware gates passed on it 11:11–13:06; the runs are next *(until 2026-10-08: they
+> were walked 2026-10-05 to 2026-10-08 — a full traced run, two cable pulls on the 4 TB T5 EVO and
+> the quit checks under every modal — and all passed, so all three of the step's verification
+> checks are ticked; **closing Step 15 is next**)*. Until 13:45 this said
 > only "the helper's restart is next": `0c415e5` grepped for "kickstart", and this sentence says
 > "restart".)*
 > Before the pause, item 0 passed on 2026-09-13 and

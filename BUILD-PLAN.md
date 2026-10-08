@@ -21,7 +21,7 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
 > COMPLETE (2026-09-29) — all five chunks done and all three gate items ticked on the walk's
 > readings; archived to [`progress/step-13.md`](progress/step-13.md). STEP 15 (LOGGING /
-> OBSERVABILITY CONSOLIDATION) IS IN PROGRESS — chunks 1–4 done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; and chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…` and lapsed the four hardware gates; chunk 5, the install and the gate, under way since 2026-10-05 — the v16 build installed at 09:40, proved by content, BTM's record read, and the daemon kickstarted onto v16 at 10:49:36 (pid 33239), and the four hardware gates passed on it 11:11–13:06, the same counts as 2026-09-19; the runs are next (`PROGRESS.md`, *Chunk 5*).** Step 13 was planned in five
+> OBSERVABILITY CONSOLIDATION) IS IN PROGRESS — chunks 1–5 done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; and chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…` and lapsed the four hardware gates; chunk 5, the install and the gate, done 2026-10-05 to 2026-10-08 — the v16 build installed at 09:40, proved by content, BTM's record read, the daemon kickstarted onto v16 at 10:49:36 (pid 33239), the four hardware gates passed on it 11:11–13:06, the same counts as 2026-09-19, and the runs walked and passed 2026-10-05 to 2026-10-08, so all three of Step 15's gate items are ticked (*Step 15*, below); closing the step is next (`PROGRESS.md`, *Chunk 5*).** Step 13 was planned in five
 > chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
 > 2026-09-13, and 5 (the hardware walk) PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED
@@ -75,6 +75,9 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > `ed9086ed…`; pid 1723 is still the v15 helper `ac4d5208…` until the user's kickstart, which is
 > owed (`PROGRESS.md`, *Chunk 5*).)* *(2026-10-05 10:49:36: the user's kickstart — **pid 33239**,
 > `runs = 2`, resolved to `/Applications`, protocol v16 on its start line, CDHash `ed9086ed…`.)*
+> *(2026-10-08 10:29:19: **pid 58327** — Step 15's chunk 5 switched the helper off and on in Login
+> Items, which ended 33239 at 10:28:05; resolved to `/Applications`, protocol v16, CDHash
+> `ed9086ed…`.)*
 > Step 12's
 > chunks 0–6 built it and chunk 7 proved it
 > (7a–7d done 2026-09-07, **7f done 2026-09-08**; **7e — the
@@ -632,7 +635,7 @@ simulation-first still applies wherever the plan calls for it.
 > 2026-09-29** — all five chunks done, all three gate items ticked against `a102848` with the app
 > installed 2026-09-24 18:01:53 from `77275be`, and the account archived to
 > [`progress/step-13.md`](progress/step-13.md). **Step 15 (logging / observability consolidation) is
-> in progress — chunks 1–4 done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; and chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…` and lapsed the four hardware gates; chunk 5, the install and the gate, under way since 2026-10-05 — the v16 build installed at 09:40, proved by content, BTM's record read, and the daemon kickstarted onto v16 at 10:49:36 (pid 33239), and the four hardware gates passed on it 11:11–13:06, the same counts as 2026-09-19; the runs are next (`PROGRESS.md`, *Chunk 5*).** Step 13 was planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, was PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED 2026-09-27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. ✅ **Step 12's chunks 2 and 1 re-walked 2026-09-26 and PASSED**, dry — all five items, then items 2–8, chunk 1's debug hook taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **chunk 1 PASSED the same morning**, on its fourth walk, ✅ **and chunk 2 PASSED that afternoon**, on its second, on the drives the user approved that morning — the 4 TB T5 EVO for 2.1–2.6, the 125.8 MB thumb for 2.7. ✅ **Chunk 3 PASSED 2026-09-28**, on its first walk, both cable pulls on the 4 TB T5 EVO, carrying Step 12's cable-pull items. ✅ **Step 13's verification gate PASSED 2026-09-29**, all three items ticked (*Step 13*, below), which closes chunk 5, ✅ **and the step CLOSED the same day** (above); F8, a gap in the suite found while planning it, is owed (`PROGRESS.md`, *Owed* (o)) *(paid 2026-09-30 by Step 15's chunk 3)*. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix, until its re-run of 2026-09-27. Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> in progress — chunks 1–5 done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; and chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…` and lapsed the four hardware gates; chunk 5, the install and the gate, done 2026-10-05 to 2026-10-08 — the v16 build installed at 09:40, proved by content, BTM's record read, the daemon kickstarted onto v16 at 10:49:36 (pid 33239), the four hardware gates passed on it 11:11–13:06, the same counts as 2026-09-19, and the runs walked and passed 2026-10-05 to 2026-10-08, so all three of Step 15's gate items are ticked (*Step 15*, below); closing the step is next (`PROGRESS.md`, *Chunk 5*).** Step 13 was planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, was PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED 2026-09-27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. ✅ **Step 12's chunks 2 and 1 re-walked 2026-09-26 and PASSED**, dry — all five items, then items 2–8, chunk 1's debug hook taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **chunk 1 PASSED the same morning**, on its fourth walk, ✅ **and chunk 2 PASSED that afternoon**, on its second, on the drives the user approved that morning — the 4 TB T5 EVO for 2.1–2.6, the 125.8 MB thumb for 2.7. ✅ **Chunk 3 PASSED 2026-09-28**, on its first walk, both cable pulls on the 4 TB T5 EVO, carrying Step 12's cable-pull items. ✅ **Step 13's verification gate PASSED 2026-09-29**, all three items ticked (*Step 13*, below), which closes chunk 5, ✅ **and the step CLOSED the same day** (above); F8, a gap in the suite found while planning it, is owed (`PROGRESS.md`, *Owed* (o)) *(paid 2026-09-30 by Step 15's chunk 3)*. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix, until its re-run of 2026-09-27. Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -671,6 +674,9 @@ simulation-first still applies wherever the plan calls for it.
 > `ed9086ed…`; pid 1723 is still the v15 helper `ac4d5208…` until the user's kickstart, which is
 > owed (`PROGRESS.md`, *Chunk 5*).)* *(2026-10-05 10:49:36: the user's kickstart — **pid 33239**,
 > `runs = 2`, resolved to `/Applications`, protocol v16 on its start line, CDHash `ed9086ed…`.)*
+> *(2026-10-08 10:29:19: **pid 58327** — Step 15's chunk 5 switched the helper off and on in Login
+> Items, which ended 33239 at 10:28:05; resolved to `/Applications`, protocol v16, CDHash
+> `ed9086ed…`.)*
 > **Chunk 3
 > aborted on 2026-09-08 having found a shipped defect** — the app ended its own run ten milliseconds
 > after the claim, because route (b) accepted a slice disappearance and the exclusive whole-disk
@@ -2200,7 +2206,7 @@ CDHash `e1e7fe63…`, so no tick lapses; `PROGRESS.md`, *Finding, 2026-10-03*.)*
 **that install came at 09:40**, Step 15's chunk 5 — dylib `ff44c396…`, helper `4a2c642e…`, from
 `cae1d91` — **so these three ticks have lapsed** by their own install clause. What chunk 5 re-reads
 of the walk under them, and what it carries by argument, is decided item by item in
-`progress/step-13-human-checklist.md`, the 2026-10-05 block under its status.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
+`progress/step-13-human-checklist.md`, the 2026-10-05 block under its status.)* *(2026-10-08: those re-reads passed on the v16 build — the checklist's Walked lines dated 2026-10-05 to 2026-10-08. Whether they re-tick these three is not decided, and they are not re-ticked here.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
 in `278ac0b` for chunk 1 and in `5114006` for chunks 2 and 3, a change of wording only. The drives
 are the 4 TB T5 EVO, serial **`00000S7CLNJ0WC02266P`**, for 2.1–2.6 and all of chunk 3, and the
 125.8 MB thumb, **`2211190533300386001515`**, for 2.7. **Nothing the walks ran on has moved
@@ -2478,9 +2484,33 @@ Ensure all significant events from both executables are emitted to the macOS uni
    > (F4), which moves the hash anyway. `progress/step-15-event-audit.md`, section 4.
 5. **No user-visible activity log required for v1** (resolved open question) — unified logging is sufficient.
 
-### Verification Gate (must pass before Step 16)
-- [ ] `log show --predicate 'subsystem == "<bundle-id>"'` (and Console) shows a coherent trace across a full run lifecycle from both app and helper.
-- [ ] An induced interrupted run (device loss / stop-on-error) is fully reconstructable from logs (device, offset, outcome).
+### Verification Gate (must pass before Step 16) — ✅ **ALL THREE PASSED, ticked 2026-10-08 at chunk 5**
+- [x] `log show --predicate 'subsystem == "<bundle-id>"'` (and Console) shows a coherent trace across a full run lifecycle from both app and helper.
+  > **Ticked 2026-10-08** at Step 15's chunk 5, on launch A's traced full run, 2026-10-05: the 125.8
+  > MB thumb, run `24823240-7C5C-4E48-8EAC-D396302A25DD`, 30 of 30 chunks — the app's `run
+  > authorised` at 14:39:00.438, the helper's `acquire GRANTED`, device profile, run control,
+  > `runRetentionCycle`, cycle START and END and run metrics, the app's `run ended: completed` at
+  > 14:39:40.214 and the helper's `release requested` at .227: 10 tagged lines, one ID, both
+  > processes, with the state machine's `run control:` and `sleep prevention:` lines between.
+  > Against the app installed 2026-10-05 09:40 from `cae1d91`, protocol v16, helper `4a2c642e…`,
+  > source hash `36c3a9e1…`, daemon pid 33239. Judged on the live capture
+  > `log-stream-launch-A-2026-10-05.txt` — the note under the next item. *Invalidated by* another
+  > install, an edit to any `Logger` call on the run's path, or a move of the helper source hash.
+- [x] An induced interrupted run (device loss / stop-on-error) is fully reconstructable from logs (device, offset, outcome).
+  > **Ticked 2026-10-08**, on launch E1's running pull, 2026-10-06 at 15:36:10, run
+  > `C3811BC6-C457-41C8-A615-F0D34548D1AA`: **the device** — `the drive under test left the machine
+  > while running: Samsung PSSD T5 EVO (serial 00000S7CLNJ0WC02266P), disk8 at run time`; **the
+  > offset** — the helper's END `ended at block 9854976: the device was lost while verifying the
+  > write-back`, and `read of 4194304 bytes at offset 5045747712 failed after 0 bytes: errno 6
+  > (Device not configured)`, 5,045,747,712 being 9,854,976 × 512; **the outcome** — `run ended:
+  > deviceLost`; every one carrying the run's ID. E2's paused pull at 15:46:46.643, run
+  > `6EC00199-…`, reconstructs the same way: the drive named the same, `left the machine while
+  > paused`; the offset the block the pause settled at, 1,810,432, on the helper's END `paused by
+  > the user at block 1810432` and the app's `run paused and settled at block 1810432`; and `run
+  > ended: deviceLost`. The interrupted run is a cable pull, not a Stop, by chunk 5's plan;
+  > stop-on-error needs a failing block, and none of the write targets has one. Same build and
+  > *Invalidated by* as the first item.
+  >
   > **2026-09-30 — the evidence is exported the same day** (user decision, the audit's F1). The
   > unified log keeps this subsystem's lines for only about one to three days on macOS 27.0.1
   > (NFR-OBS-2's note), so straight after the traced run and the induced interrupted run, the
@@ -2492,7 +2522,22 @@ Ensure all significant events from both executables are emitted to the macOS uni
   > *(2026-10-03: **split the export at every boot inside the window** — a `log show` window that
   > spans a boot ignores `--end` for the later boot and returns its lines up to the newest in the
   > store, measured on macOS 27.0.1 (26A434); `CONSTRAINTS.md` §1.)*
-- [ ] No log entry anywhere contains device data bytes (inspect read/write/verify paths specifically).
+  > *(⚠️ 2026-10-08, **the user's decision (a)**: items 1 and 2 are judged on the live `log stream`
+  > captures, not on a same-day export. The export was left to the walk's end, step (8), and taken
+  > 2026-10-08 at 10:33:30 — and by then the store held nothing of launches A–D, 2026-10-05, and
+  > only seven helper Info lines of E1 and E2, 2026-10-06: the one-to-three-day lifetime this note
+  > was written for. The captures are `log stream --level info --style compact` of the same
+  > subsystem, continuous over every launch and saved per launch in the evidence folder; where both
+  > exist, for 2026-10-08, they agree with the export line for line, the stream's timestamps 5–14 ms
+  > later than the store's. A finding against the assistant's ordering — `PROGRESS.md`, *Chunk 5*.)*
+- [x] No log entry anywhere contains device data bytes (inspect read/write/verify paths specifically).
+  > **Ticked 2026-10-08**: no run of 64 hex characters in any capture of the walk — the seven
+  > per-launch `log stream` files, A to F, 2026-10-05 to 2026-10-08 — nor in the 2026-10-08 export
+  > or the gates' helper log of 2026-10-05: 0 in each, re-counted 2026-10-08 (positive control, a
+  > 64-hex test string: 1). The helper's digest line, which only a gate tool asks for — an app run
+  > takes none — ends `(N B) taken` in all 1,892 of the gates' lines. The read, write-back and
+  > verify paths were audited at chunk 1 (`progress/step-15-event-audit.md`), and F2 took the
+  > SHA-256 off the digest line at chunk 4. Same build and *Invalidated by* as the first item.
 
 ### Risks / gotchas
 - The privileged helper logs as root; double-check no buffer contents are interpolated into format strings even at debug level.

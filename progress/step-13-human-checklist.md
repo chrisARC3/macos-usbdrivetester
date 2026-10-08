@@ -15,7 +15,8 @@
 > on it yet but item 0, re-run headless and passed — its record; the daemon is on the v16 helper
 > since the user's kickstart at 10:49:36, pid 33239 — *The daemon*. *(It said "Nothing below is
 > walked on it yet; the daemon is still the previous helper until the user's kickstart" until
-> 11:05.)*
+> 11:05.)* *(Walked since, 2026-10-05 to 2026-10-08 — the last dated note in this block; and the daemon is
+> pid 58327 since 2026-10-08 10:29:19.)*
 >
 > ✅ **Decided 2026-10-05 for Step 15's chunk 5** — the assistant's recommendations, adopted under the
 > user's standing instruction that day. **The run ID's edit does not touch the assertion's path**:
@@ -142,6 +143,16 @@
 > *(2026-10-05 10:49:36: the user's kickstart — **pid 33239**, `runs = 2`, resolved to
 > `/Applications`, protocol v16 on its own start line, CDHash `ed9086ed…` against the pid, read
 > 10:59–11:05. *The daemon*.)*
+> *(2026-10-05 – 2026-10-08: **Step 15's chunk 5 re-read what it planned to, and every re-read
+> PASSED on the v16 build** — 1.1 and 1.3 at its launch A, 2026-10-05; 2.1, 2.2 and 2.7 at A's
+> traced run on the 125.8 MB thumb; 2.3, 2.4, 3.1, 3.3's reading and 3.5 at launch E1, 2026-10-06,
+> on the 4 TB T5 EVO; 3.6 at E2; 2.8 at A's quit and at the walk's last, 2026-10-08 10:29:22; and
+> 3.7 answered by Step 12's chunks 3 and 4, re-walked at those two pulls. 1.2, 2.5, 2.6 and 3.2
+> carried by argument, and 3.4 not walked, as decided — the Walked lines dated 2026-10-05 to
+> 2026-10-08 under chunks 1, 2 and 3. **The daemon is pid 58327 since 2026-10-08 10:29:19** — chunk
+> 5's Login Items toggle ended 33239 at 10:28:05.167 — resolved to `/Applications`, protocol v16,
+> CDHash `ed9086ed…`; *The daemon*. **Whether these re-reads re-tick Step 13's lapsed gate is not
+> decided**: they were planned as re-reads, and `BUILD-PLAN.md`'s ticks stay marked lapsed.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -260,7 +271,9 @@ value for one command).
 ### The daemon — kickstarted 2026-09-19 10:32:47, from `/Applications`
 
 *(2026-10-05: kickstarted again, at 10:49:36, onto the v16 helper — **pid 33239**. The table below
-is the 2026-09-19 kickstart's; the current reading is the last dated note under it.)*
+is the 2026-09-19 kickstart's; the current reading is the last dated note under it.)* *(2026-10-08:
+**pid 58327** since 10:29:19, after Step 15's chunk 5 switched the helper off and on in Login
+Items — the last dated note.)*
 
 **Kickstarted 2026-09-19 by the user, at the move to Xcode 27's chunk 3 — after the Xcode 27 build
 was installed and the record was read — and it came up from `/Applications`.** Headless readings,
@@ -333,6 +346,17 @@ com.arc3solutions.USBDriveTester.Helper; protocol v16; …"*; and `codesign` aga
 CDHash `ed9086ed…`, signed 09:40:04 — the installed helper `4a2c642e…`. No app process before or
 since. The record: `USBDriveTester-evidence/step-15/kickstart-2026-10-05.txt`. Check for 33239
 from here on.)*
+*(2026-10-08: it changed twice. Step 15's chunk 5, its step (7), switched the helper off in Login
+Items: launchd removed the service at 10:28:05.167, ending 33239; switched on at 10:28:35.760, it
+came up as pid 57084, resolved by `xpcproxy` to `/Applications` at 10:28:36.379, its own line saying
+protocol v16 at .450; Step 11's item 3 removed it again at 10:28:58.678. Switched on at
+10:29:14.651: **pid 58327** — resolve line `10:29:19.583 xpcproxy[58327]: Resolved (…, FF3ADEC2-…)
+to program:
+/Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, its own
+line at .607 saying protocol v16; root, ppid 1, `runs = 1` — the service was removed and submitted
+again, so the count restarted — and `codesign` against the pid gives CDHash `ed9086ed…`, signed
+2026-10-05 09:40:04. Nothing has been built or run from DerivedData since the install, so BTM's
+record is as the user's dump read it on 2026-10-05 at 10:42. Check for 58327 from here on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -745,6 +769,23 @@ summary reading `most at once     held 0`. Selection is not a run;
 The one on screen was 25 seconds older than the selection, and the transcript was copied then, with
 the watcher still running — so it had no line after the selection and no summary.
 
+**Walked:** ✅ **RE-READ AND PASSED 2026-10-05 at Step 15's chunk 5, launch A, 14:37:44–14:39:00** —
+1.1 and 1.3 headless, 1.2 carried by argument (decided 2026-10-05, the block under this file's
+status). **Build:** the app installed 2026-10-05 09:39:58–09:40:29 from `cae1d91`, dylib
+`ff44c396…`, as item 0 proved it that morning, re-hashed at 14:44; pid **9710**, its `exe` under
+`/Applications`. **Watcher:** as committed in `5114006`, sha-256 `2cdc6de9…`, run with `--heartbeat
+15`. **1.1:** `held 0` for pid 9710 at 14:38:12, before any selection, with the 22 TB Seagate
+selected by the app itself. **1.3:** the 1 TB scratch T5, `disk9`, serial `12345686DAA9`, selected
+at 14:38:24.718, and `held 0 (unchanged)` at the 14:38:27 and 14:38:42 heartbeats after it; the
+thumb selected at 14:38:51.029, `held 0` at 14:38:57; no `held 1` before Start, at 14:39:00. The
+watcher ran on through the run, so its summary covers the whole launch and is not 1.3's: the item's
+summary reading is taken instead from the transcript's lines between the selection and Start. *What
+would invalidate it:* another install, or another macOS major or minor release, but not a point
+release. ⚠️ The watcher printed nothing from 14:37:32 to 14:38:12, two heartbeats missed across the
+app's launch — an instrument finding, reported not fixed (`PROGRESS.md`, *Chunk 5*); 1.1's reading
+falls inside the at-rest window either way. Evidence, in `USBDriveTester-evidence/step-15/`:
+`watch-launch-A-2026-10-05.txt`, `log-stream-launch-A-2026-10-05.txt`, `walk-notes-2026-10-05.txt`.
+
 **Walked:** ✅ **PASSED 2026-09-27 10:56:26–11:05:41**, on the fourth walk — the first on the Xcode
 27 build. **Build:** the installed app from `77275be` (dylib `e6e6e884…`), as item 0 proved it that
 morning; pid **42734**, its `exe` under `/Applications`, and `codesign` against the pid gives the
@@ -916,6 +957,32 @@ adjacent to `running → finishing`.
 but `(unchanged)` lines. An assertion outlives the
 process that took it only if the process is still alive, so this is really a check that nothing
 *else* was left behind.
+
+**Walked:** ✅ **RE-READ AND PASSED 2026-10-05 – 2026-10-08 at Step 15's chunk 5** — 2.1, 2.2, 2.3,
+2.4, 2.7 and 2.8; 2.5 and 2.6 carried by argument (decided 2026-10-05, the block under this file's
+status). **Build:** the app installed 2026-10-05 09:40 from `cae1d91`, dylib `ff44c396…`, unchanged
+by content 2026-10-06 at 15:34 and 2026-10-08 between 10:29:36 and 10:32:42. **Daemon:** pid
+**33239**, the installed helper `4a2c642e…` (CDHash `ed9086ed…`), protocol v16, for every run.
+**Watcher:** `5114006`'s, sha-256 `2cdc6de9…`, `--heartbeat 15`; from 2026-10-06 a `pmset` sampler
+beside it, every 5 s (sha-256 `4e5ae8db…`). **2.1, 2.2, 2.7** — launch A, pid 9710, the 125.8 MB
+thumb, serial `2211190533300386001515`, named by the prompt at 14:38:55.104: `starting → running on
+claimEstablished` at 14:39:01.037 and `sleep prevention: holding …` at .039, and none after `idle →
+starting` at 14:39:00.438, the tagged `run authorised` line's moment; the watcher `held 1`
+`PreventUserIdleSystemSleep` *"USB drive retention test in progress"* at 14:39:01, never the
+display-sleep type; the run completed 30 of 30 chunks at 14:39:40.209, `running → finishing on
+runEnded` and `sleep prevention: released` both at .214, and the watcher read `held 0` at 14:39:40,
+with the report on screen. **2.3, 2.4** — launch E1, pid 2104, the 4 TB T5 EVO, serial
+`00000S7CLNJ0WC02266P`, 2026-10-06: the Pause released the assertion at 15:35:26.718, in the
+millisecond of `running → pausing`, the watcher `held 0` at 15:35:26 and `pmset` empty for the pid
+at 15:35:29; the Resume took it again at 15:35:32.709, `held 1` at 15:35:32, the same type and name
+under a new assertion id. **2.8** — `pid - held 0 (USBDriveTester is not running)` at A's quit,
+14:41:23, then only `(unchanged)`; and at the walk's last quit, 2026-10-08 10:29:22, then only
+`(unchanged)` until the watcher was stopped at 10:33:12 — at 10:32:42 no USBDriveTester process, and
+nothing in `pmset` for it or the daemon, while the same extraction listed `powerd` and four other
+owners. *What would invalidate it:* another install, another macOS major or minor release, but not a
+point release, or the daemon running any helper but `4a2c642e…`. Evidence: the watcher, stream and
+sampler files in `USBDriveTester-evidence/step-15/`, and its walk notes of 2026-10-05, 2026-10-06
+and 2026-10-08.
 
 **Walked:** ✅ **PASSED 2026-09-27 16:18:28–16:33:20**, on the second walk — the first on the Xcode
 27 build. **Build:** the installed app from `77275be` (dylib `e6e6e884…`), as item 0 proved it that
@@ -1117,6 +1184,27 @@ After **3.6's** pull — a *paused* run:
 
 *Pass:* all nine. A miss is a **Step 12 defect found on the Xcode 27 build**, and it is reported as
 one. It does not fail 3.5 or 3.6, whose subject is the assertion.
+
+**Walked:** ✅ **RE-READ AND PASSED 2026-10-06 at Step 15's chunk 5, launches E1 and E2**, both pulls
+on the 4 TB T5 EVO, serial `00000S7CLNJ0WC02266P`, as `disk8` — 3.1, 3.3's reading, 3.5, 3.6 and
+3.7; 3.2 carried by argument, and 3.4 and 3.3's optional deliberate sleep not walked (decided
+2026-10-05, the block under this file's status). **Build, daemon, watcher and sampler:** as chunk
+2's 2026-10-05 – 2026-10-08 Walked line; app pid **2104**. **3.1 and 3.3's reading** — 153 `pmset`
+samples over E1 and E2, every one `PreventUserIdleDisplaySleep 0` and `PreventSystemSleep 0`
+system-wide; at every sample taken while a run was running, exactly one assertion for the pid,
+`PreventUserIdleSystemSleep` *"USB drive retention test in progress"*, and never another type.
+**3.5** — the running pull at 15:36:10: `sleep prevention: released the idle-system-sleep assertion`
+at .047, after `running → finishing`, 2 ms after the removal callback and before the `run report:`
+line at .048; the watcher `held 0` at 15:36:10, and `pmset` empty for the pid at 15:36:14. **3.6** —
+the paused pull at 15:46:46.643: `held 0` from the Pause at 15:45:46 with no change through the
+pull, only `(unchanged)` heartbeats until the quit; `pmset` empty for the pid at every sample from
+the Pause on; and no `sleep prevention:` line after 15:45:46.221. **3.7** — answered by Step 12's
+chunks 3 and 4, re-walked at these two pulls and passed: `progress/step-12-human-checklist.md`, each
+chunk's 2026-10-06 box. *What would invalidate it:* another install, another macOS major or minor
+release, but not a point release, or the daemon running any helper but `4a2c642e…`. Evidence:
+`log-stream-launch-E1-2026-10-06.txt`, `log-stream-launch-E2-2026-10-06.txt`,
+`watch-launches-E-F-2026-10-06-to-08.txt`, `pmset-sampler-launches-E-F-2026-10-06-to-08.txt` and
+`walk-notes-2026-10-06.txt`.
 
 **Walked:** ✅ **PASSED 2026-09-28 14:48:00–15:25:21**, on the first walk — on the Xcode 27 build:
 3.1, 3.2, 3.3's reading, 3.5, 3.6 and all nine of 3.7; 3.4 and 3.3's optional deliberate sleep not
