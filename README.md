@@ -16,9 +16,9 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Steps 1–14 of 16 are complete; Step 15 is in progress
+> ### Status: in development — Steps 1–15 of 16 are complete; Step 16 is next and has not started
 >
-> Steps 1–14 are complete and committed. **Step 11 (run control: start / pause /
+> Steps 1–15 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
 > human checklist walked in full, and its verification gate re-run against the current XPC
 > protocol. **Step 12 — device-loss handling — CLOSED on 2026-09-11**, all nine chunks done and
@@ -107,7 +107,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and the four hardware gates passed on it 11:11–13:06; the runs are next *(until 2026-10-08: they
 > were walked 2026-10-05 to 2026-10-08 — a full traced run, two cable pulls on the 4 TB T5 EVO and
 > the quit checks under every modal — and all passed, so all three of the step's verification
-> checks are ticked; **closing Step 15 is next**)*. Until 13:45 this said
+> checks are ticked; closing Step 15 was next, and **it closed the same day** — its full account is
+> [`progress/step-15.md`](progress/step-15.md) — **and Step 16, code-signing and notarization, is
+> next and has not been started** (this said "closing Step 15 is next" until the close))*. Until
+> 13:45 this said
 > only "the helper's restart is next": `0c415e5` grepped for "kickstart", and this sentence says
 > "restart".)*
 > Before the pause, item 0 passed on 2026-09-13 and
@@ -116,8 +119,10 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Xcode 26 build and lapsed when the Xcode 27 one was installed. The engine, the privilege
 > plumbing, the safety guards, metrics, reporting, run control, device-loss handling, the pre-run
 > warnings and sleep prevention all exist and are exercised on real hardware; sleep prevention's
-> verification gate passed on 2026-09-29. Logging consolidation (Step 15) and notarization (Step 16)
-> do not exist yet. *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation
+> verification gate passed on 2026-09-29, and logging consolidation's on 2026-10-08. Notarization (Step 16)
+> does not exist yet. *(Until 2026-10-08 this said "Logging consolidation (Step 15) and notarization
+> (Step 16) do not exist yet" — stale from 2026-09-30, when Step 15's chunk 3 made its first change to
+> the app's logging; found at Step 15's close.)* *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation
 > and notarization do not yet." — wrong from 2026-09-12, when the assertion was wired. Finding F4 of
 > Step 13's walk, found 2026-09-28 and fixed by the user's decision.)* *(And until the same day the
 > heading above ended "the move to Xcode 27 is complete and the walk resumes with a set of re-walks"
