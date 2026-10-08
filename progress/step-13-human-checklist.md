@@ -151,8 +151,10 @@
 > carried by argument, and 3.4 not walked, as decided — the Walked lines dated 2026-10-05 to
 > 2026-10-08 under chunks 1, 2 and 3. **The daemon is pid 58327 since 2026-10-08 10:29:19** — chunk
 > 5's Login Items toggle ended 33239 at 10:28:05.167 — resolved to `/Applications`, protocol v16,
-> CDHash `ed9086ed…`; *The daemon*. **Whether these re-reads re-tick Step 13's lapsed gate is not
-> decided**: they were planned as re-reads, and `BUILD-PLAN.md`'s ticks stay marked lapsed.)*
+> CDHash `ed9086ed…`; *The daemon*. **They re-tick Step 13's three gate items**, by the user's
+> decision of 2026-10-08 — `BUILD-PLAN.md`, Step 13's gate, a box under each item. *(It said
+> "Whether these re-reads re-tick Step 13's lapsed gate is not decided: they were planned as
+> re-reads, and `BUILD-PLAN.md`'s ticks stay marked lapsed" until that decision, the same day.)*)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has

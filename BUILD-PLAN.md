@@ -2188,7 +2188,7 @@ Prevent idle system sleep while a run is **actively executing** (because runs ca
 3. **Do not prevent display sleep or block manual sleep** — only *idle system* sleep. The user can still deliberately sleep/quit.
 4. **`os_log`** assertion acquire/release alongside run start/stop.
 
-### Verification Gate (must pass before Step 14) — ✅ **ALL THREE PASSED, ticked 2026-09-29 at chunk 5** *(⚠️ lapsed 2026-10-05 at Step 15's chunk 5 install — the note under the ticks)*
+### Verification Gate (must pass before Step 14) — ✅ **ALL THREE PASSED, ticked 2026-09-29 at chunk 5** *(⚠️ lapsed 2026-10-05 at Step 15's chunk 5 install — the note under the ticks)* *(✅ **re-ticked 2026-10-08 on the v16 build**, on Step 15's chunk 5 re-reads, by the user's decision — a box under each item)*
 
 **What these are true of.** The evidence is `progress/step-13-human-checklist.md`, walked on real
 hardware on 2026-09-27 and 2026-09-28 — item 0, then chunks 1, 2 and 3 — and the ticks are
@@ -2206,7 +2206,7 @@ CDHash `e1e7fe63…`, so no tick lapses; `PROGRESS.md`, *Finding, 2026-10-03*.)*
 **that install came at 09:40**, Step 15's chunk 5 — dylib `ff44c396…`, helper `4a2c642e…`, from
 `cae1d91` — **so these three ticks have lapsed** by their own install clause. What chunk 5 re-reads
 of the walk under them, and what it carries by argument, is decided item by item in
-`progress/step-13-human-checklist.md`, the 2026-10-05 block under its status.)* *(2026-10-08: those re-reads passed on the v16 build — the checklist's Walked lines dated 2026-10-05 to 2026-10-08. Whether they re-tick these three is not decided, and they are not re-ticked here.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
+`progress/step-13-human-checklist.md`, the 2026-10-05 block under its status.)* *(2026-10-08: those re-reads passed on the v16 build — the checklist's Walked lines dated 2026-10-05 to 2026-10-08 — and **the three are re-ticked on them, by the user's decision of 2026-10-08**: the 2026-10-08 box under each item, which says what was read again and what is carried by argument. This said "Whether they re-tick these three is not decided, and they are not re-ticked here" until that decision, the same day.)* The watcher is `scripts/sleep-assertion-watch.sh` as committed
 in `278ac0b` for chunk 1 and in `5114006` for chunks 2 and 3, a change of wording only. The drives
 are the 4 TB T5 EVO, serial **`00000S7CLNJ0WC02266P`**, for 2.1–2.6 and all of chunk 3, and the
 125.8 MB thumb, **`2211190533300386001515`**, for 2.7. **Nothing the walks ran on has moved
@@ -2221,8 +2221,66 @@ running any helper but `ac4d5208…`; or a change to `RunControlPolicy.preventsI
 anywhere but `move(to:)`. Item 2 has one more, in its box.
 
 - [x] During an active run, the Mac does not idle-sleep (verify with a short idle-sleep timer or `pmset -g assertions` showing `PreventUserIdleSystemSleep` while running). — **Ticked on the `pmset` route**, which the item names, read in the `Listed by owning process:` section and matched on the app's pid and the assertion's name, never the system-wide line (the note below the items). **2.1, 2026-09-27**: pid 42734 held exactly one assertion, `PreventUserIdleSystemSleep "USB drive retention test in progress"`, taken at 16:19:50.713, 1 ms after `starting → running`, and `pmset` at 16:20:40 listed that one for the pid. **3.1 and 3.3's reading, 2026-09-28**: across 6,785 samples and five `pmset` reads the only type pid 5999 held was that one — no `PreventUserIdleDisplaySleep`, so the display may sleep (Detailed step 3), and no `PreventSystemSleep`, so a deliberate sleep is not refused. That reading and 2.1's are the only check on mutation m8, which holds the display type instead and passes the whole suite. **3.2**: the display was off 14:53:43–14:56:32, 2 min 49 s of a run, and the run went on — 19 bounded calls completed inside that window, none with a failed range. ⚠️ **What this does not show** is the machine staying awake past a short system-sleep timer: that is 3.4, not walked, by the user's decision of 2026-09-28. The system-sleep timer was 180 minutes, and at points in the walk `powerd`, `sharingd`, `backupd-helper` and the Claude app held the same type, so on this machine a 3.4 that stayed awake would not show it was the app that kept it so. That a deliberate sleep still works rests on 3.3's reading alone; its optional deliberate sleep was not walked. **Invalidated by** the clause in *What these are true of*.
+  > **Re-ticked 2026-10-08**, by the user's decision, on Step 15's chunk 5 re-reads — the `pmset`
+  > route again, read the same way. **2.1**, launch A, 2026-10-05, app pid 9710, on the 125.8 MB
+  > thumb: `sleep prevention: holding …` at 14:39:01.039, 2 ms after `starting → running on
+  > claimEstablished`, and the watcher `held 1` `PreventUserIdleSystemSleep` *"USB drive retention
+  > test in progress"* at 14:39:01, never the display-sleep type. **3.1 and 3.3's reading**,
+  > launches E1 and E2, 2026-10-06, app pid 2104, on the 4 TB T5 EVO: 153 `pmset` samples, every one
+  > `PreventUserIdleDisplaySleep 0` and `PreventSystemSleep 0` system-wide, and at every sample
+  > taken while a run was running exactly one assertion for the pid, that one. **3.2 is carried by
+  > argument** — the assertion's type and `IdleSleepPreventer` unchanged since `77275be` — and **3.4
+  > and 3.3's optional deliberate sleep are still not walked**, so the ⚠️ above stands as written.
+  > *Against* the app installed 2026-10-05 09:40 from `cae1d91` — dylib `ff44c396…`, helper
+  > `4a2c642e…` (CDHash `ed9086ed…`) — protocol v16, helper source hash `36c3a9e1…`, Xcode 27.0
+  > (27A266a) on macOS 27.0.1 (26A434), the daemon pid 33239 for every run read here. *Invalidated
+  > by* the clause in *What these are true of* with `4a2c642e…` in place of `ac4d5208…`: another
+  > install; a macOS major or minor release, but not a point release; the daemon running any helper
+  > but `4a2c642e…`; or a change to `RunControlPolicy.preventsIdleSleep(in:)`,
+  > `RunController.move(to:)` or `IdleSleepPreventer`, or an assignment to the controller's `state`
+  > anywhere but `move(to:)`.
 - [x] On pause/stop/complete/fail/device-loss, the assertion is released (`pmset -g assertions` no longer lists it). — **Pause**: 2.3, three Pauses on 2026-09-27, each `released` within a millisecond of `running → pausing` and the watcher at `held 0` in the same second, `pmset` at 16:21:59 listing nothing for the pid; and 3.6's Pause on 2026-09-28, released in the same millisecond. **Stop**: 2.6, `released` at 16:24:50.563, 1 ms after `running → stopping` and before `run ended: stoppedByUser`, and nothing listed at 16:25:16. **Complete**: 2.7 on the 125.8 MB thumb, `released` at 16:30:00.567, 1 ms after `running → finishing on runEnded` and before the report, and nothing listed at 16:30:18 with the report on screen. **Device loss while running**: 3.5, the cable pulled mid-run at 14:59:07 — `released` at .622 with `running → finishing on deviceLost`, 4 ms after the app saw the drive go and before the report; the watcher at `held 0`, and nothing listed at 14:59:25. **Device loss while paused**: 3.6 — nothing held from the Pause to the pull or after it, and no sleep-prevention line after the Pause's release. **Fail is argued from the code, not observed**: no write target here has a known bad block and there is no fault injection on hardware, so no run in the walk ended `stoppedOnFailure` (FR-FAIL-2) or `callFailed`. `RunController.sequencerReported(_:)` turns every ending but `deviceLost` into `runEnded` — the event 2.7's complete run took — `RunControlPolicy` moves `running` to `finishing` on it, and `move(to:)`, the one assignment to `state`, releases on any destination but `running`. So a failure takes the transition 2.7 walked. ⚠️ **F8, found 2026-09-29 while this was planned — a gap in the suite, not a defect**: no test ends a run on a failure through the controller and then reads the assertion. `aRunThatEndsReleasesIt` ends on `completed` alone; `discoveryIsNotReRunWhenARunEndsNormally` ends runs on `stoppedOnFailure` among others but reads only discovery; `aRunThatNeverGotAReplyProducesNoReport` and `anEndingThatIsNotADeviceLossStillForwardsTheNilReport` end on `callFailed` and read the report, the state and the drive's release, not the assertion; and `everyWayOutOfRunningLandsSomewhereThatDoesNotHoldIt` pins the rule, not the controller's mapping. Owed as `PROGRESS.md`'s *Owed* (o), by the user's decision. **Invalidated by** the clause in *What these are true of*, and by a change to how `sequencerReported(_:)` turns an outcome into an event or to any row of `RunControlPolicy`'s tables that leaves `running`.
+  > **Re-ticked 2026-10-08**, by the user's decision, on the v16 build. **Pause**: 2.3, launch E1,
+  > 2026-10-06 — released at 15:35:26.718, in the millisecond of `running → pausing`, the watcher
+  > `held 0` at 15:35:26 and `pmset` empty for the pid at 15:35:29. **Stop**: 2.6 is carried by
+  > argument, as decided 2026-10-05 — and observed besides: Step 11's 6.3 at launch C, 2026-10-05,
+  > app pid 38904, stopped a run on the 1 TB scratch T5 with Cancel and Quit: `running → stopping on
+  > the Stop command` and `sleep prevention: released the idle-system-sleep assertion` both at
+  > 14:57:10.385, before `run ended: stoppedByUser` at .675, and the watcher `held 0` at 14:57:10 —
+  > read off `log-stream-launch-C-2026-10-05.txt` and `watch-launches-B-D-2026-10-05.txt` 2026-10-08
+  > for this box. **Complete**: 2.7, launch A — `running → finishing on runEnded` and `released`
+  > both at 14:39:40.214, the watcher `held 0` at 14:39:40 with the report on screen. **Device loss
+  > while running**: 3.5, E1's pull at 15:36:10 — `released` at .047, after `running → finishing`, 2
+  > ms after the removal callback and before the `run report:` line; the watcher `held 0` at
+  > 15:36:10 and `pmset` empty for the pid at 15:36:14. **Device loss while paused**: 3.6, E2's pull
+  > at 15:46:46.643 — `held 0` from the Pause at 15:45:46 through the pull, `pmset` empty for the
+  > pid at every sample from the Pause on, and no `sleep prevention:` line after 15:45:46.221.
+  > **Fail is still argued from the code**, and F8's gap is closed: *Owed* (o) was paid 2026-09-30
+  > at Step 15's chunk 3 — `aRunThatEndsReleasesIt` runs over every ending but `deviceLost`.
+  > *Against* the app installed 2026-10-05 09:40 from `cae1d91` — dylib `ff44c396…`, helper
+  > `4a2c642e…` (CDHash `ed9086ed…`) — protocol v16, helper source hash `36c3a9e1…`, Xcode 27.0
+  > (27A266a) on macOS 27.0.1 (26A434), the daemon pid 33239 for every run read here. *Invalidated
+  > by* the clause in *What these are true of* with `4a2c642e…` in place of `ac4d5208…`: another
+  > install; a macOS major or minor release, but not a point release; the daemon running any helper
+  > but `4a2c642e…`; or a change to `RunControlPolicy.preventsIdleSleep(in:)`,
+  > `RunController.move(to:)` or `IdleSleepPreventer`, or an assignment to the controller's `state`
+  > anywhere but `move(to:)`. And this item's own extra clause, above.
 - [x] Exactly one assertion is held at a time (no leaks across pause/resume cycles) — verified across several transitions. — **2.5, 2026-09-27**: Start, three Pause/Resume cycles and Stop in one run on the 4 TB T5 EVO, then a complete run on the thumb, watched as a sequence, where a leak prints `held 2` — and no line did. The summary over 2,826 samples reads `most at once     held 1  (PreventUserIdleSystemSleep only)`; the app's log has five `holding` lines and five `released`, alternating; and `pmset` after the third Resume listed exactly one for the pid, under the third id seen. **Chunk 3, 2026-09-28**: 6,785 samples, the same summary. What stands behind it beyond the walk is the guard in `IdleSleepPreventer.begin()` — `CONSTRAINTS.md` §1 measured that two activities from one process are two assertions — pinned by `theRealPreventerTakesOneAssertionHoweverManyTimesItIsAsked` and `threePauseResumeCyclesNeverHoldTwoAtOnce`. ⚠️ **What this does not show**: the guard's own error line, which fires only on a wiring defect the state table rules out (mutation m11, declared). **Invalidated by** the clause in *What these are true of*.
+  > **Re-ticked 2026-10-08**, by the user's decision, on the v16 build: the watcher over every
+  > launch of Step 15's chunk 5 — 2026-10-05 13:48:02–14:44:52, 11,050 samples; 14:45:23–15:47:00,
+  > 12,032; and 2026-10-06 15:33:53 to 2026-10-08 10:33:12, 486,618 — each summary reading `most at
+  > once held 1 (PreventUserIdleSystemSleep only)`, and no `held 2` line in any of the three files.
+  > E1's Pause and Resume, 2.3 and 2.4, took the assertion again under a new id, one at a time.
+  > **2.5's three cycles are carried by argument**, as decided 2026-10-05 — the assertion path
+  > unchanged and `RunControllerSleepPreventionTests` pinning the cycles — beside the guard and the
+  > two tests named above. *Against* the app installed 2026-10-05 09:40 from `cae1d91` — dylib
+  > `ff44c396…`, helper `4a2c642e…` (CDHash `ed9086ed…`) — protocol v16, helper source hash
+  > `36c3a9e1…`, Xcode 27.0 (27A266a) on macOS 27.0.1 (26A434), the daemon pid 33239 for every run
+  > read here. *Invalidated by* the clause in *What these are true of* with `4a2c642e…` in place of
+  > `ac4d5208…`: another install; a macOS major or minor release, but not a point release; the
+  > daemon running any helper but `4a2c642e…`; or a change to
+  > `RunControlPolicy.preventsIdleSleep(in:)`, `RunController.move(to:)` or `IdleSleepPreventer`, or
+  > an assignment to the controller's `state` anywhere but `move(to:)`.
 
 > ⚠️ **How these three are read — settled 2026-09-12 by `scripts/sleep-assertion-check.sh`, before
 > any of Step 13 was wired.** The three items above are unchanged; what follows is how to take the
