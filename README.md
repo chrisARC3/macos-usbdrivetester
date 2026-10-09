@@ -120,7 +120,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > chunk 0, so Step 16 is in progress; until then the heading above ended "Step 16 is next and has
 > not started". Chunk 1, the same day, built and measured a Release build without installing it;
 > chunk 2 made the project and source edits the same day — the build is no longer instrumented for
-> code coverage — and chunk 3, the release artefact, is next.)*
+> code coverage — and chunk 3 built the release artefact the same day, archived and re-signed
+> with a secure timestamp; chunk 4, installing it here and re-running the hardware gates, is next.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
