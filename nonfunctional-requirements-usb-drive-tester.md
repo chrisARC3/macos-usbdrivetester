@@ -320,6 +320,10 @@ Xcode or macOS major or minor release, but not a point release *(reworded 2026-0
 *(⚠️ 2026-10-05: another install came — Step 15's chunk 5, 09:40, from `cae1d91` — so 615 is a
 reading of the previous build and is not re-shown on this one. No view source and no `WindowMetrics`
 changed since `77275be`; `tools/ui-probe`'s diff is its two `prepare` closures.)*
+*(⚠️ 2026-10-09: two more since — Step 16's chunk 2 edited a doc comment in `ContentView.swift`,
+a view source, comment only (*Owed* (g)), and this clause was not annotated at that edit; and
+Step 16's chunk 4 installed the release build at 13:10:48. 615 stays a reading of the 2026-09-24
+build, not re-shown since.)*
 
 ### 2026-09-24 — NFR-USE-9: 1280x800 is the only target, and the window may not be dragged shorter than its content
 

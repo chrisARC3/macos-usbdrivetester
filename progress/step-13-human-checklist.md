@@ -17,6 +17,12 @@
 > walked on it yet; the daemon is still the previous helper until the user's kickstart" until
 > 11:05.)* *(Walked since, 2026-10-05 to 2026-10-08 — the last dated note in this block; and the daemon is
 > pid 58327 since 2026-10-08 10:29:19.)*
+> ⚠️ **2026-10-09: they have lapsed again** — Step 16's chunk 4 installed the release build at
+> 13:10:48 from the artefact built at `a7eee6c`, executable `07c392f6…`, helper `b5b807aa…`, proved
+> by content; the daemon is on that helper since the user's kickstart at 14:25:11, pid 91274 — *The
+> daemon*. Item 0.1's command cannot be run on it as written: a Release install has no
+> `.debug.dylib` (item 0's 2026-10-09 note). Nothing below is walked on it; whether any of it is
+> read again is the user's decision, asked when chunk 4's hardware gates close.
 >
 > ✅ **Decided 2026-10-05 for Step 15's chunk 5** — the assistant's recommendations, adopted under the
 > user's standing instruction that day. **The run ID's edit does not touch the assertion's path**:
@@ -155,6 +161,9 @@
 > decision of 2026-10-08 — `BUILD-PLAN.md`, Step 13's gate, a box under each item. *(It said
 > "Whether these re-reads re-tick Step 13's lapsed gate is not decided: they were planned as
 > re-reads, and `BUILD-PLAN.md`'s ticks stay marked lapsed" until that decision, the same day.)*)*
+> *(2026-10-09: Step 16's chunk 4 installed the release build at 13:10:48, so every pass here
+> lapses again, and the 2026-10-08 re-ticks of Step 13's gate with them; the daemon is **pid
+> 91274** since the user's kickstart at 14:25:11 — *The daemon*, and `PROGRESS.md`, *Step 16, chunk 4*.)*
 >
 > ⚠️ **This block is a status block about itself.** The tenth stale block in this project was
 > `progress/step-12-human-checklist.md`'s own header, which still said *"UNWALKED … Nothing here has
@@ -268,14 +277,17 @@ numbers.
 is a debug-dylib build: the app binary is a 59 KB launcher stub, and all of the app's own strings
 live in the dylib beside it. Grepping the stub returns 0 for every product string, which reads
 exactly like a failed install (measured 2026-09-08, after that false negative was taken at face
-value for one command).
+value for one command). *(⚠️ 2026-10-09: true of a Debug install only. Step 16's Release install
+has no `.debug.dylib` — its code, strings and all, is in `Contents/MacOS/USBDriveTester` — so
+there the proof points at the executable; item 0's 2026-10-09 note.)*
 
 ### The daemon — kickstarted 2026-09-19 10:32:47, from `/Applications`
 
 *(2026-10-05: kickstarted again, at 10:49:36, onto the v16 helper — **pid 33239**. The table below
 is the 2026-09-19 kickstart's; the current reading is the last dated note under it.)* *(2026-10-08:
 **pid 58327** since 10:29:19, after Step 15's chunk 5 switched the helper off and on in Login
-Items — the last dated note.)*
+Items — the last dated note.)* *(2026-10-09: kickstarted by the user at 14:25:11 onto Step 16's
+release helper — **pid 91274**; it is now the last dated note.)*
 
 **Kickstarted 2026-09-19 by the user, at the move to Xcode 27's chunk 3 — after the Xcode 27 build
 was installed and the record was read — and it came up from `/Applications`.** Headless readings,
@@ -359,6 +371,19 @@ line at .607 saying protocol v16; root, ppid 1, `runs = 1` — the service was r
 again, so the count restarted — and `codesign` against the pid gives CDHash `ed9086ed…`, signed
 2026-10-05 09:40:04. Nothing has been built or run from DerivedData since the install, so BTM's
 record is as the user's dump read it on 2026-10-05 at 10:42. Check for 58327 from here on.)*
+*(2026-10-09: Step 16's chunk 4 installed the release build at 13:10:48 — helper `b5b807aa…`,
+CDHash `d9eeeecc…` — and `scripts/install-app.sh` warned that pid 58327 was not running it:
+`codesign --verify 58327`, *the code on disk does not match what is running*. Chunk 2's suite
+runs had pulled BTM's app record to DerivedData; the user's launch of the installed app moved it
+back — `13:48:40.455 _bundleURLForAuditToken: updating item uuid=226468B0-…` from `…/Build/
+Products/Debug/USBDriveTester.app/` to `file:///Applications/USBDriveTester.app/` — and the user's
+`sfltool dumpbtm` at 13:49 read the app and daemon records on `/Applications`, no line naming
+DerivedData. The user's kickstart at 14:25:11: **pid 91274** — resolve line `14:25:11.934
+xpcproxy[91274]: Resolved (…, FF3ADEC2-…) to program:
+/Applications/USBDriveTester.app/Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`, its own
+line at 14:25:12.016 saying protocol v16 and the Team-ID requirement; root, ppid 1, `runs = 2`,
+last terminating signal 15; `codesign --verify 91274` valid at 14:25:24 — the code running, not
+only the file. Check for 91274 from here on.)*
 
 **Whether the record has moved since** needs no `sudo`: BTM logs every move. The start time is just
 before the 10:27:22 move, so that line is the first one back, and it is the check that the query
@@ -622,7 +647,13 @@ at 10:42 on `/Applications`; the daemon rows wait for the user's kickstart — `
 after the user's kickstart at 10:49:36: pid **33239**, root, ppid 1, `runs = 2`, resolved by
 `xpcproxy` to `/Applications`, protocol v16 on its own start line, CDHash `ed9086ed…` against the
 pid, no app process — *The daemon*. The instrument row stands: macOS 27.0.1 is a point release.
-Invalidated by the clause under the table.)*
+Invalidated by the clause under the table.)* *(⚠️ 2026-10-09: **lapsed** by its first clause — Step 16's
+chunk 4 installed the release build at 13:10:48. **An instrument finding, reported, not fixed:**
+0.1's command names `Contents/MacOS/USBDriveTester.debug.dylib`, which a Release install does not
+have — `grep` exits 2, *No such file or directory*. Aimed at `Contents/MacOS/USBDriveTester` at
+14:34: the assertion's name **1**, `Device-loss alert` **0**, and the device-loss alert's title
+**1**, the positive control. Not a record of item 0: the command as written cannot run on this
+install, and item 0 waits for the user's decision on the re-walks.)*
 
 | | |
 |---|---|

@@ -69,6 +69,13 @@
 > list took selections while the helper was off and after it came back. The daemon is **pid 58327**
 > since 2026-10-08 10:29:19, that toggle having ended 33239 — resolved to `/Applications`, the same
 > helper `4a2c642e…`. This paragraph's "Nothing here is walked on it yet" stood until 2026-10-08.)*
+> ⚠️ **2026-10-09: Step 16's chunk 4 installed the release build at 13:10:48** — executable
+> `07c392f6…`, helper `b5b807aa…`, from the artefact built at `a7eee6c` — so the re-walk passes
+> recorded against the 2026-10-05 09:40 install, chunks 3 and 4's of 2026-10-06, lapse by their own
+> *another install* clause. The daemon is pid 91274 since the user's kickstart at 14:25:11.
+> Nothing here is walked on it; whether anything is, is the user's decision when chunk 4's gates
+> close. On a Release install the `Device-loss alert` proof reads `Contents/MacOS/USBDriveTester`:
+> **0** there, 2026-10-09 14:34 — the build carries no hook.
 >
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,
 > through three chunks' walks and thirteen commits to this very file. It names no step, so the grep

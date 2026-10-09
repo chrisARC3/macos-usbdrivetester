@@ -746,6 +746,10 @@ What it binds:
   comparing `codesign -d <pid>`'s CDHash with the file's — that comparison is the file against
   itself and always matches — and never by timestamp. `scripts/install-app.sh` does this since
   2026-10-09, after the install and as `--check-daemon`.
+- **Seen on the daemon itself, 2026-10-09:** Step 16's chunk 4 installed a new helper at 13:10:48
+  over pid 58327, and `codesign --verify 58327` failed — *"the code on disk does not match what
+  is running"* — the first reading on a real stale daemon; after the user's kickstart, pid 91274
+  read valid at 14:25:24. Same macOS, so the invalidation below is unchanged.
 
 **Invalidated by** a new macOS major or minor release, or a change to how the helper is launched
 (its plist's `BundleProgram`, or `SMAppService`'s handling of it).
