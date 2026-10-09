@@ -109,10 +109,14 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > the quit checks under every modal — and all passed, so all three of the step's verification
 > checks are ticked; closing Step 15 was next, and **it closed the same day** — its full account is
 > [`progress/step-15.md`](progress/step-15.md) — **and Step 16, code-signing and notarization, is
-> next and has not been started** (this said "closing Step 15 is next" until the close))*. Until
-> 13:45 this said
+> next and has not been started** (this said "closing Step 15 is next" until the close))*.
+> Until 13:45 this said
 > only "the helper's restart is next": `0c415e5` grepped for "kickstart", and this sentence says
 > "restart".)*
+> *(2026-10-09: Step 16 goes ahead **without notarization**. Notarization and a Developer ID
+> certificate both need a paid Apple Developer Program membership, which the author does not have,
+> and by the author's decision the step proceeds without them — `PROGRESS.md`, *Finding,
+> 2026-10-09*.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -120,7 +124,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > plumbing, the safety guards, metrics, reporting, run control, device-loss handling, the pre-run
 > warnings and sleep prevention all exist and are exercised on real hardware; sleep prevention's
 > verification gate passed on 2026-09-29, and logging consolidation's on 2026-10-08. Notarization (Step 16)
-> does not exist yet. *(Until 2026-10-08 this said "Logging consolidation (Step 15) and notarization
+> does not exist yet. *(2026-10-09: and Step 16 will not add it, by the author's decision — no paid
+> Apple Developer Program membership; `PROGRESS.md`, *Finding, 2026-10-09*.)* *(Until 2026-10-08 this said "Logging consolidation (Step 15) and notarization
 > (Step 16) do not exist yet" — stale from 2026-09-30, when Step 15's chunk 3 made its first change to
 > the app's logging; found at Step 15's close.)* *(Until 2026-09-29 this paragraph ended "Sleep prevention, logging consolidation
 > and notarization do not yet." — wrong from 2026-09-12, when the assertion was wired. Finding F4 of
