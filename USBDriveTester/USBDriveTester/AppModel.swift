@@ -367,8 +367,9 @@ final class AppModel {
 
     /// Diagnose the helper and raise or clear the gate.
     ///
-    /// Called **once from the scene's `onAppear`**, and thereafter only by ``performHelperGateAction(_:)``.
-    /// Nothing re-diagnoses on activation or on a timer, deliberately: `checkProtocolVersion` goes
+    /// Called **from the scene's `onAppear`**, by ``performHelperGateAction(_:)``, and on every
+    /// activation **while the gate is up** (`USBDriveTesterApp.swift`). Nothing re-diagnoses on a
+    /// timer, or on activation while the gate is down, deliberately: `checkProtocolVersion` goes
     /// out on the *owning* connection, which is blocked for the whole of a run (the D1 measurement
     /// of 2026-08-04), so a re-check that could fire mid-run would queue behind the very call it
     /// interrupted. `HelperAvailability`'s header states the property that follows — no run can be

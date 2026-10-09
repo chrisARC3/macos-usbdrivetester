@@ -217,7 +217,8 @@ struct ContentView: View {
     ///   (2026-09-23). The sentence above was false there. It is true again since 2026-09-24,
     ///   because the window can no longer be dragged shorter than its content —
     ///   `WindowMetrics.deviceListFloor` — and `window-fit-check.sh` fails if that stops being so.
-    ///   Item 6's re-walk is what confirms it on a real window.
+    ///   On a real window the check is Step 11 chunk 11's item 6, in
+    ///   `progress/step-11-human-checklist.md`, whose record says which build it last passed on.
     private var reportSheetSize: CGSize {
         // Before the first geometry read there is nothing measured to take a margin off. The
         // scene's own default size is the honest stand-in: it is the size the window opens at.

@@ -62,6 +62,7 @@
 > and 6.3 — 6.3 in both forms** — 2026-10-05 to 2026-10-08, at Step 15's chunk 5, launches A–D and
 > F2; chunk 16's 2026-10-08 box, and each item's own line. Chunk 9's 2, 3 and 6 and chunk 11's item
 > 6 stay lapsed and unwalked, as decided.)*
+> ⚠️ *(2026-10-09: **chunk 16, 6.1 and 6.3 have lapsed again, at the edit**, each by its own clause: Step 16's chunk 2 corrected stale comments in `AppModel.swift` and `AppLifecycleDelegate.swift`, on the quit path, and in `HelperAvailability.swift`, the helper gate — *Owed* (i) and (n), by the user's decision of 2026-10-09. Comments only; no code line moved, and the next install would have lapsed them anyway. `PROGRESS.md`, *Step 16, chunk 2*. Whether they are re-walked after Step 16's install is decided then.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
@@ -432,6 +433,7 @@ deliberately not bound to the persisted preference.
    > did nothing, with the dialog up for the 125.8 MB thumb from 14:40:52.797; nothing was logged
    > until *Cancel*, `run issued: false`, at 14:41:20.485, and ⌘Q then quit at 14:41:23.207.
    > **Invalidated by** that box's clause.
+   > ⚠️ *(2026-10-09: **lapsed at the edit**, by that box's clause — chunk 16's 2026-10-08 box.)*
 2. ⌘Q during a run **asks**, and **the run keeps going underneath the dialog**. *Continue Testing*
    resumes as if nothing happened.
 3. *Cancel and Quit* stops at a chunk boundary, releases, **and the app actually goes** — every
@@ -503,6 +505,7 @@ deliberately not bound to the persisted preference.
    >
    > ✅ **RE-WALKED AND PASSED 2026-10-05 on the v16 build, in both forms** — installed 2026-10-05
    > 09:40 from `cae1d91`; chunk 16's 2026-10-08 box has the build, pids and drives.
+   > ⚠️ *(2026-10-09: **lapsed at the edit**, by this item's clause: Step 16's chunk 2 corrected stale comments in `AppModel.swift` and `AppLifecycleDelegate.swift`, on the quit path, and in `HelperAvailability.swift`, the helper gate — *Owed* (i) and (n), by the user's decision of 2026-10-09. Comments only; no code line moved, and the next install would have lapsed it anyway. `PROGRESS.md`, *Step 16, chunk 2*.)*
    >
    > * **The hardest form, on the 125.8 MB thumb**: the confirmation left up while the run finished
    >   underneath it at 14:54:39.957 — 30 of 30 chunks, no failed ranges — and the report raised
@@ -2213,7 +2216,7 @@ live item 4 below it, which is exactly the collision this record is about.)*
    the pause, coverage would have fallen about 1.9× and taken the ETA with it.**
 
 
-### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix — ✅ **RE-WALKED ON THE v16 BUILD AND PASSED IN FULL, ALL NINE ITEMS, 2026-10-05 – 2026-10-08**, with 6.1 and 6.3 *(items 4–7 need a run — 5, 6 and 7 one that writes, 4 one that must fail to start; item 3 switches the helper off and on in Login Items, which relaunches the daemon; 1, 2, 8 and 9 are dry)*
+### Chunk 16 — ⌘Q under every modal (increment 12) — **PASSED IN FULL, ALL NINE ITEMS, 2026-09-04** — ✅ **RE-WALKED ON XCODE 27 AND PASSED IN FULL, ALL NINE ITEMS, 2026-09-25**, on the build that carries item 6's fix — ✅ **RE-WALKED ON THE v16 BUILD AND PASSED IN FULL, ALL NINE ITEMS, 2026-10-05 – 2026-10-08**, with 6.1 and 6.3 — ⚠️ **lapsed 2026-10-09 at Step 16's chunk 2 edit**, see the 2026-10-08 box *(items 4–7 need a run — 5, 6 and 7 one that writes, 4 one that must fail to start; item 3 switches the helper off and on in Login Items, which relaunches the daemon; 1, 2, 8 and 9 are dry)*
 
 > ⚠️ **2026-09-26: this heading's parenthetical read *"(item 4 needs a run; the rest are dry)"***
 > until today, and it was wrong: items 5, 6 and 7 each need a run that writes. Found walking the
@@ -2262,6 +2265,7 @@ including window class names.
 > `USBDriveTesterApp.swift`); to `DevicePreparation`, `RunController` or `RunControllerWiring` (item
 > 4); or to the helper gate (item 3); by a different installed build; and by any new Xcode or macOS
 > major or minor release, but not a point release.
+> ⚠️ *(2026-10-09: **lapsed at the edit.** Step 16's chunk 2 corrected stale comments in `AppModel.swift` and `AppLifecycleDelegate.swift`, on the quit path, and in `HelperAvailability.swift`, the helper gate — *Owed* (i) and (n), by the user's decision of 2026-10-09. Comments only; no code line moved, and the next install would have lapsed it anyway. `PROGRESS.md`, *Step 16, chunk 2*.)*
 >
 > | item | launch | read |
 > |---|---|---|

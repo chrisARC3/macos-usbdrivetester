@@ -30,8 +30,8 @@
 //
 //  The cost is one real difference: a **logout or shutdown** during a run is *cancelled* rather
 //  than deferred. That is defensible on this product — a run is writing raw blocks to somebody's
-//  drive, cannot be resumed (FR-FAIL-7), and Step 13 will hold a power assertion for the same
-//  reason — and the user still gets the dialog and can choose to quit.
+//  drive, cannot be resumed (FR-FAIL-7), and the app holds a power assertion through it for the
+//  same reason (`IdleSleepPreventer`) — and the user still gets the dialog and can choose to quit.
 //
 //  ## Every route ends in the same two lines
 //

@@ -45,15 +45,18 @@
 //  **not** Quit-only: this project's own wording, `ProtocolVersionCheck.mismatch.description`,
 //  already prescribes re-registering.
 //
-//  ## The gate fires at launch and never again, and that is load-bearing
+//  ## The gate is raised only at launch, and that is load-bearing
 //
-//  `AppModel.refreshHelperAvailability()` is called once from the scene's `onAppear` and thereafter
-//  only by the gate's own actions. Nothing re-diagnoses on activation or on a timer, **deliberately**:
-//  `checkProtocolVersion` goes out on the *owning* connection, which is blocked for the whole of a
-//  run (the D1 measurement of 2026-08-04), so a re-check that could fire mid-run would queue behind
-//  the very call it interrupts. Because the gate can only be raised before the main window has been
-//  used, no run can be in flight while it is up — which is also what makes dropping the XPC
-//  connection safe on the register path (see `AppModel.performHelperGateAction(_:)`).
+//  `AppModel.refreshHelperAvailability()` is called from the scene's `onAppear`, by the gate's own
+//  actions, and on every activation **while the gate is up** (user request, 2026-08-27 — see
+//  `USBDriveTesterApp.swift`). Nothing re-diagnoses on a timer, or on activation while the gate is
+//  down, **deliberately**: `checkProtocolVersion` goes out on the *owning* connection, which is
+//  blocked for the whole of a run (the D1 measurement of 2026-08-04), so a re-check that could fire
+//  mid-run would queue behind the very call it interrupts. Every trigger after launch runs only
+//  while the gate is up, so it can clear the gate or re-diagnose it but never raise it. Because the
+//  gate can only be raised before the main window has been used, no run can be in flight while it
+//  is up — which is also what makes dropping the XPC connection safe on the register path (see
+//  `AppModel.performHelperGateAction(_:)`).
 //
 //  `nonisolated` throughout, for the reason `RunControlState.swift` records: the app target compiles
 //  with SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor, which would otherwise make even these value types

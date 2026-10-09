@@ -213,7 +213,9 @@ DerivedData copy and the handshake cannot tell two builds of identical source ap
 
   **2** means the installed helper contains chunk 7b's source; **0** means it does not, whatever
   the timestamps say. ⚠️ **The `-g` is load-bearing, and was found missing 2026-09-10.** Every
-  build from this project's scheme is coverage-instrumented, so plain `nm -U` also lists a local
+  build from this project's scheme is coverage-instrumented *(until 2026-10-09: Step 16's chunk 2
+  turned coverage off in a shared scheme, so builds since carry no counters; the build installed
+  2026-10-05 still does)*, so plain `nm -U` also lists a local
   `___profc_` and `___profd_` counter for each of the two functions and each of their closures:
   **14** lines, not 2, on both helpers installed since 7b's source landed — `7590b920…` and
   `ab4b6957…`, the very binary 7d recorded as "2" (`CONSTRAINTS.md` §1, *Every scheme build is

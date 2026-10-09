@@ -559,7 +559,7 @@ Apple and both were found only because someone pressed the button.
     morning remained — so an anchored query that prints only its header means *read a dump*, not
     *nothing moved*. *What would invalidate it:* a macOS major or minor release.
 
-### Every scheme build is coverage-instrumented — measured 2026-09-10
+### Every scheme build is coverage-instrumented — measured 2026-09-10 *(until 2026-10-09: fixed, below)*
 
 **`build.sh`, `install-app.sh` and `test.sh` all produce binaries carrying LLVM coverage counters —
 the installed app and daemon included, Release as well as Debug.** No `.xcscheme` has ever been
@@ -611,6 +611,19 @@ ways then: commit a shared scheme with coverage off, which keeps `build.sh` and 
 flavour; or pass `CLANG_COVERAGE_MAPPING=NO` from `build.sh`, which makes the two compile
 differently into one DerivedData, so every switch between them rebuilds everything.
 
+**✅ Fixed 2026-10-09, Step 16's chunk 2, the first way** — a shared scheme,
+`USBDriveTester.xcodeproj/xcshareddata/xcschemes/USBDriveTester.xcscheme`, with `codeCoverageEnabled
+= "NO"` and no autocreated test plan. Measured the same day with Xcode 27.0 (27A266a): under it
+`-showBuildSettings -scheme USBDriveTester` resolves **no** `CLANG_COVERAGE_MAPPING` for Debug or
+Release; with the scheme moved aside, the autocreated one still resolves **YES** for both, so the
+mechanism above stands on Xcode 27. The rebuilt binaries carry **0** `__llvm_prf_cnts` sections
+and **0** `___profc_` symbols — Release app and helper; Debug dylib, launcher stub, helper and
+test bundle — each against a `__text` section and a symbol count read by the same commands, and
+no compile command in the Release log carries `-profile-generate`. **Nothing installed has
+changed**: `/Applications` holds the instrumented build of 2026-10-05 until Step 16's install.
+**Invalidated by** a scheme edit that turns coverage on, an `.xctestplan` that does, or a new Xcode
+major or minor release.
+
 ### The team is a free Personal Team, and the notary service refuses it — measured 2026-10-08 and 2026-10-09
 
 **Every build here is signed under `5JC55GTLZA`, a free Personal Team, and Apple's notary service
@@ -652,6 +665,44 @@ What it binds:
 **Invalidated by** a paid membership on this Apple ID, or a *Developer ID Application* identity in
 `security find-identity`. The 403's wording is notarytool 1.1.3's, and another version may word it
 differently.
+
+### A string check on a Mach-O counts with `strings -` or by bytes — measured 2026-10-09
+
+**`strings -a` and `grep -c` read 0 or 1 where a binary carries hundreds of build-machine paths.**
+Measured on **macOS 27.0.1 (26A434) with Xcode 27.0 (27A266a)**, on Step 16 chunk 1's Release build
+of `30f0ed8` — app executable `76271fcf…`, helper `34a1282a…` — counting `/Volumes/` (and `/Users/`):
+
+| instrument | app | helper |
+|---|---|---|
+| Python, `bytes.count` over the file | 2315 (54) | 963 (22) |
+| `strings - FILE \| /usr/bin/grep -c` | 2315 (54) | 963 (22) |
+| `strings -a FILE \| /usr/bin/grep -c` | **0** (0) | **0** (0) |
+| `/usr/bin/grep -a -c`, and `/usr/bin/grep -c` | **1** (1) | **1** (1) |
+
+- **`strings -a` is every *section*, not every *byte*** — `man strings`: `-a` looks in all sections
+  of the object file, `-` in all bytes. The paths are in the symbol string table, which `LC_SYMTAB`
+  places in `__LINKEDIT` (the helper's: offset 848936, 636464 bytes) and no section covers: the
+  coverage counters' names, `___profc_/Volumes/…`, and the debug map's object-file and source-
+  directory entries. `/usr/bin/strings` (the Command Line Tools') and Xcode's own, by `xcrun -f`,
+  read the same.
+- **`grep -c` counts lines, not occurrences.** The string table holds no newline, so every hit is
+  one "line". BSD grep 2.6.0 reports that 1 with or without `-a`.
+- **In Claude Code's shell, `grep` is not `/usr/bin/grep`.** Its shell snapshot defines `grep` as a
+  function running ugrep with `-I`, which skips binary files, and `--ignore-files`, which honours
+  `.gitignore`. On a Mach-O a bare `grep -c` there prints **nothing** and exits 1; a recursive
+  `grep` there skips `DerivedData/`, `build/` and `xcuserdata/`. The project's scripts are not
+  affected — a `#!/bin/bash` script does not inherit a zsh function — and neither is the user's
+  own Terminal.
+
+What it binds:
+
+- **A string or path check on a binary counts with `strings -` or by bytes, with a positive
+  control** — a string known to be there, such as the bundle identifier, read non-zero by the same
+  instrument in the same run. A count of 0 without one is the zero test total of `CLAUDE.md`.
+- **A `grep` the assistant types over binaries or gitignored paths names `/usr/bin/grep`.**
+
+**Invalidated by** a new Xcode or macOS major or minor release, or a Claude Code update that changes
+or drops its `grep` function.
 
 ### Quitting, and the run boundary
 
