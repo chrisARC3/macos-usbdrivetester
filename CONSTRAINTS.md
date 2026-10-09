@@ -636,6 +636,15 @@ and commit `2c41dfc`.
   by Apple's WWDR G3 CA, valid 2026-05-06 to 2027-05-06. `424WY3TDB4` identifies the person, not
   the team; the team is the OU. There was no *Developer ID Application* identity and no
   provisioning profile on disk, and Xcode's preferences listed no account or team.
+- **A free Personal Team has an Apple Development certificate — read again 2026-10-09.** The
+  identity above is still the only one, unchanged: SHA-1 `B33ED7AA…`, `UID=N9Y2LXCNFE`, read at
+  Step 16's chunk 3. The notary service refuses this team as unpaid (next bullet), so the free team
+  is what holds the certificate. Xcode issues a development certificate to any Apple ID's Personal
+  Team. **Having one is not evidence of a paid membership.** It signs every build here, with the
+  hardened runtime. What only the paid program adds is *Developer ID Application* and notarization.
+  *(Recorded at the user's request, 2026-10-09. When approving chunk 3, the user said that without a
+  paid account there is no Apple Development certificate; the keychain, read the same day, holds
+  this one.)*
 - **`notarytool` refuses the team before it stores anything.** On 2026-10-09 the user ran
   `notarytool store-credentials … --team-id 5JC55GTLZA` (notarytool 1.1.3 (42)), and it failed its
   validation step: *"HTTP status code: 403. Invalid or inaccessible developer team ID for the
@@ -662,9 +671,9 @@ What it binds:
 - **When `notarytool` calls a team "invalid or inaccessible", check the membership before the Team
   ID.**
 
-**Invalidated by** a paid membership on this Apple ID, or a *Developer ID Application* identity in
-`security find-identity`. The 403's wording is notarytool 1.1.3's, and another version may word it
-differently.
+**Invalidated by** a paid membership on this Apple ID, a *Developer ID Application* identity in
+`security find-identity`, or the *Apple Development* identity no longer listed there. The 403's
+wording is notarytool 1.1.3's, and another version may word it differently.
 
 ### A string check on a Mach-O counts with `strings -` or by bytes — measured 2026-10-09
 
