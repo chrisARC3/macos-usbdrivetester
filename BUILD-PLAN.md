@@ -368,13 +368,28 @@ are **process**, not history.
   ```
 
   or unregister and re-register in the app's Step 3 panel, then confirm with **Check version**.
-  `install-app.sh` prints the kickstart line itself when it finishes, if the running daemon started
-  before the installed helper binary's mtime. *(It did not from `63a7ae2`, 2026-09-11, to
+  `install-app.sh` prints the kickstart line itself when it finishes, if the running daemon is not
+  running the installed helper's code — `codesign --verify <pid>`, which compares the running code
+  with the file at its path — and `install-app.sh --check-daemon` asks the same question again after
+  the kickstart. *(Until 2026-10-09 it asked whether the daemon started before the installed helper
+  binary's mtime, which a release artefact defeats: a zip keeps the build's timestamps. The content
+  check replaced it at Step 16's chunk 3; `CONSTRAINTS.md` §1, *A running process's code is read
+  with `codesign --verify <pid>`*. **It has been proven on a daemon running the installed code
+  (pid 58327, 2026-10-09) and not yet on a stale one** — Step 16's chunk 4 installs over pid 58327,
+  and that is the first chance.)* *(It did not print the line from `63a7ae2`, 2026-09-11, to
   2026-09-19: its daemon lookup was a pipe that stopped reading early — see* Shell and scripting,
   *below — and the script exited 141 after the install and before the warning, 97 runs in 100.
   Fixed 2026-09-19, and proven that day by the script's own run against a stale daemon: exit 0,
-  warning printed. Any change to that lookup lapses the proof.)* It refuses to overwrite a running
-  app — quit it first.
+  warning printed. Any change to that lookup lapses the proof. **2026-10-09: the lookup is
+  unchanged, but what follows it is not, so the proof lapsed with the comparison — above.**)* It
+  refuses to overwrite a running app — quit it first.
+
+  **Every install ends with a content proof** (since 2026-10-09): the installed tree against its
+  source by `diff -r`, and the SHA-256 of the code and the helper — the `.debug.dylib` and its stub
+  in a Debug build, `Contents/MacOS/USBDriveTester` in a Release one, which has no `.debug.dylib`.
+  A release artefact is installed with `install-app.sh --artefact <zip>`, which builds nothing,
+  refuses a bundle whose signature does not verify, and prints hashes to match against the
+  artefact's `MANIFEST.txt`. `scripts/release.sh` makes the artefact (Step 16, detailed step 3).
 - This repo lives on an **external volume**, and macOS gates daemon access to removable volumes:
   anything the root helper must read has to live outside the repo (`/tmp`).
 
@@ -2796,7 +2811,11 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
   - **The certificate expires 2027-05-06.** Without a secure timestamp, whether the shipped build
     still launches, and still passes the helper's check, after that date is not known. Whether an
     *Apple Development* signature can carry a timestamp is tried when the artefact is built — after
-    asking, because it contacts timestamp.apple.com.
+    asking, because it contacts timestamp.apple.com. *(2026-10-09, chunk 3: tried with the user's
+    approval, and **it can** — `CONSTRAINTS.md` §1, *The team is a free Personal Team*. By the
+    user's decision the same day, `scripts/release.sh` re-signs the artefact with one. Whether the
+    timestamp keeps the build launching and passing the helper's check after 2027-05-06 is still
+    not known, and cannot be measured before then.)*
   - **The helper carries `com.apple.application-identifier` with no provisioning profile.** It runs
     on this Mac; whether it runs on another is not known.
   - **The code as it stands has not run on macOS 26.** The deployment target is 26.0, but this Mac

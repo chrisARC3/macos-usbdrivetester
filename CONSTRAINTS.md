@@ -645,6 +645,16 @@ and commit `2c41dfc`.
   *(Recorded at the user's request, 2026-10-09. When approving chunk 3, the user said that without a
   paid account there is no Apple Development certificate; the keychain, read the same day, holds
   this one.)*
+- **Its signature can carry a secure timestamp — measured 2026-10-09, with the user's approval.**
+  Xcode signs with `--timestamp=none`, so a build here carries only *Signed Time*. Re-signed by the
+  same identity with `codesign --force --timestamp --preserve-metadata=identifier,entitlements,
+  requirements,flags` — helper first, then the app — a copy of the `4964bfa-dirty` archive's app
+  got a *Timestamp* from timestamp.apple.com on both binaries (12:55:11 and 12:55:12). Both CDHashes
+  came out unchanged (`fd0151b9…`, `d9eeeecc…`), and so did the runtime flag and the helper's
+  entitlement; `--verify --deep --strict` was valid, the helper's pin was satisfied, and `spctl`
+  still rejected it. The timestamp lives in the CMS blob, outside the CodeDirectory, which is why
+  the CDHash does not move and the file's SHA-256 does. **What it does after the certificate
+  expires on 2027-05-06 is not measured**, and cannot be before then.
 - **`notarytool` refuses the team before it stores anything.** On 2026-10-09 the user ran
   `notarytool store-credentials … --team-id 5JC55GTLZA` (notarytool 1.1.3 (42)), and it failed its
   validation step: *"HTTP status code: 403. Invalid or inaccessible developer team ID for the
@@ -712,6 +722,33 @@ What it binds:
 
 **Invalidated by** a new Xcode or macOS major or minor release, or a Claude Code update that changes
 or drops its `grep` function.
+
+### A running process's code is read with `codesign --verify <pid>` — measured 2026-10-09
+
+**`codesign -d <pid>` describes the file at the process's path, not the code the process is
+running.** Measured on **macOS 27.0.1 (26A434)** with two ad-hoc-signed programs, A and B: with A
+running, B was moved over A's path, and `codesign -dvvv <pid>` printed **B's** CDHash
+(`7bf574b0…`) for the process still running A (`1cd785fd…`). `codesign --verify <pid>` on the same
+process failed: *"the code on disk does not match what is running"*, exit 1.
+
+- **`codesign --verify <pid>` needs no privilege for the root daemon.** On pid 58327, the helper
+  daemon started 2026-10-08 10:29:19 from `/Applications`, it read *"dynamically valid"*, *"valid
+  on disk"* and *"satisfies its Designated Requirement"*, exit 0. On a pid that does not exist it
+  exits 1, *"No such process"*.
+- **`ps`'s `comm` for the daemon is not a path.** It is the process's argv[0], which launchd sets
+  to the plist's relative `BundleProgram`: `Contents/MacOS/com.arc3solutions.USBDriveTester.Helper`,
+  with no bundle in front. The absolute path is `codesign -d <pid>`'s `Executable=`: the full path
+  in every reading, the swap's included.
+
+What it binds:
+
+- **Whether a daemon runs the installed code is asked with `codesign --verify <pid>`**, never by
+  comparing `codesign -d <pid>`'s CDHash with the file's — that comparison is the file against
+  itself and always matches — and never by timestamp. `scripts/install-app.sh` does this since
+  2026-10-09, after the install and as `--check-daemon`.
+
+**Invalidated by** a new macOS major or minor release, or a change to how the helper is launched
+(its plist's `BundleProgram`, or `SMAppService`'s handling of it).
 
 ### Quitting, and the run boundary
 
