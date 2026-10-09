@@ -21,7 +21,7 @@ through `a063b9d`, and none of them this line; `git log -- BUILD-PLAN.md` is the
 > archived to [`progress/step-12.md`](progress/step-12.md). STEP 13 (SYSTEM-SLEEP PREVENTION) IS
 > COMPLETE (2026-09-29) — all five chunks done and all three gate items ticked on the walk's
 > readings; archived to [`progress/step-13.md`](progress/step-13.md). STEP 15 (LOGGING /
-> OBSERVABILITY CONSOLIDATION) IS COMPLETE (2026-10-08) — all five chunks done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…`; and chunk 5, the install and the gate, 2026-10-05 to 2026-10-08 — the four hardware gates passed on the v16 helper and the runs walked and passed, so all three gate items are ticked (*Step 15*, below); archived to [`progress/step-15.md`](progress/step-15.md). STEP 16 (CODE-SIGNING, HARDENED RUNTIME, NOTARIZATION) IS NEXT AND HAS NOT STARTED.** *(2026-10-09: without notarization, by the user's decision — there is no paid Apple Developer Program membership, so no Developer ID identity and no notary service; `PROGRESS.md`, *Finding, 2026-10-09*.)* Step 13 was planned in five
+> OBSERVABILITY CONSOLIDATION) IS COMPLETE (2026-10-08) — all five chunks done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…`; and chunk 5, the install and the gate, 2026-10-05 to 2026-10-08 — the four hardware gates passed on the v16 helper and the runs walked and passed, so all three gate items are ticked (*Step 15*, below); archived to [`progress/step-15.md`](progress/step-15.md). STEP 16 (CODE-SIGNING, HARDENED RUNTIME, NOTARIZATION) IS IN PROGRESS, WITHOUT NOTARIZATION — chunk 0, the re-cut gate, done 2026-10-09, and chunk 1 next (*Step 16*, below).** *(2026-10-09: without notarization by the user's decision — there is no paid Apple Developer Program membership, so no Developer ID identity and no notary service; `PROGRESS.md`, *Finding, 2026-10-09*. Until chunk 0, the same day, this said "IS NEXT AND HAS NOT STARTED".)* Step 13 was planned in five
 > chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the
 > one acquire/release path) done 2026-09-12, 4 (the mutation round and the human checklist) done
 > 2026-09-13, and 5 (the hardware walk) PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED
@@ -626,7 +626,7 @@ simulation-first still applies wherever the plan calls for it.
 
 ## Sequence overview
 
-> **Status, 2026-10-08: Steps 1–15 are complete and committed. STEP 11 IS CLOSED** —
+> **Status, 2026-10-09: Steps 1–15 are complete and committed. STEP 11 IS CLOSED** —
 > twelve increments done and gated, the 16-chunk human checklist walked in full, and the step's own
 > verification gate re-run against the **v14** daemon on 2026-09-05. **STEP 12 (device-loss
 > handling) IS CLOSED, 2026-09-11** — all nine chunks done, all four gate items ticked against
@@ -635,7 +635,7 @@ simulation-first still applies wherever the plan calls for it.
 > 2026-09-29** — all five chunks done, all three gate items ticked against `a102848` with the app
 > installed 2026-09-24 18:01:53 from `77275be`, and the account archived to
 > [`progress/step-13.md`](progress/step-13.md). **STEP 15 (logging / observability consolidation) IS
-> CLOSED, 2026-10-08** — all five chunks done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…`; and chunk 5, the install and the gate, 2026-10-05 to 2026-10-08 — the four hardware gates passed on the v16 helper and the runs walked and passed. All three gate items ticked 2026-10-08 at `3a1f13c`, against the app installed 2026-10-05 09:40 from `cae1d91` (*Step 15*, below), and the account archived to [`progress/step-15.md`](progress/step-15.md). **Step 16 (code-signing, hardened runtime, notarization) is next and has not started.** *(2026-10-09: without notarization, by the user's decision — there is no paid Apple Developer Program membership, so no Developer ID identity and no notary service; `PROGRESS.md`, *Finding, 2026-10-09*.)* Step 13 was planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, was PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED 2026-09-27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. ✅ **Step 12's chunks 2 and 1 re-walked 2026-09-26 and PASSED**, dry — all five items, then items 2–8, chunk 1's debug hook taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **chunk 1 PASSED the same morning**, on its fourth walk, ✅ **and chunk 2 PASSED that afternoon**, on its second, on the drives the user approved that morning — the 4 TB T5 EVO for 2.1–2.6, the 125.8 MB thumb for 2.7. ✅ **Chunk 3 PASSED 2026-09-28**, on its first walk, both cable pulls on the 4 TB T5 EVO, carrying Step 12's cable-pull items. ✅ **Step 13's verification gate PASSED 2026-09-29**, all three items ticked (*Step 13*, below), which closes chunk 5, ✅ **and the step CLOSED the same day** (above); F8, a gap in the suite found while planning it, is owed (`PROGRESS.md`, *Owed* (o)) *(paid 2026-09-30 by Step 15's chunk 3)*. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix, until its re-run of 2026-09-27. Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
+> CLOSED, 2026-10-08** — all five chunks done: the event-set audit, the user's decisions on it (`progress/step-15-event-audit.md`), and the app-source chunk — F5's two level changes, F7's streak rule (*Owed* (h)) and *Owed* (o)'s test — 2026-09-30, the helper hash unmoved; chunk 4, 2026-10-01 — F4's run ID at protocol v16, F2's digest line, *Owed* (a) paid — which moved the helper hash to `36c3a9e1…`; and chunk 5, the install and the gate, 2026-10-05 to 2026-10-08 — the four hardware gates passed on the v16 helper and the runs walked and passed. All three gate items ticked 2026-10-08 at `3a1f13c`, against the app installed 2026-10-05 09:40 from `cae1d91` (*Step 15*, below), and the account archived to [`progress/step-15.md`](progress/step-15.md). **Step 16 (code-signing, hardened runtime, notarization) is in progress, without notarization: chunk 0, the re-cut gate, done 2026-10-09, and chunk 1 next.** *(2026-10-09: without notarization by the user's decision — there is no paid Apple Developer Program membership, so no Developer ID identity and no notary service; `PROGRESS.md`, *Finding, 2026-10-09*. Until chunk 0, the same day, this said "is next and has not started".)* Step 13 was planned in five chunks; 1 (the instrument), 2 (the rule and the seam) and 3 (the one acquire/release path) done 2026-09-12, and 4 (the mutation round and the human checklist) done 2026-09-13 — 17 mutations, 13 killed, 4 survivors all declared in advance. Chunk 5, the hardware walk, was PAUSED 2026-09-18 for the move to Xcode 27 and RESTARTED 2026-09-27 — **and that move is COMPLETE, 2026-09-19: four chunks and a fifth, 4b, all closed** (2: the suite green on Xcode 27.0 with zero Swift warnings, once the one warning it found was fixed in the test target; 3: the Xcode 27 build installed and proved by content, and the daemon kickstarted from `/Applications`; 4: the four hardware gates passed against the Xcode 27 helper and the renders are whole, but `window-fit-check.sh` was inconclusive, its probe having stopped measuring on Xcode 27 / macOS 27; 4b: that probe fixed the same evening and the gate back to **613 pt** — **614** since 2026-09-24 — with an INCONCLUSIVE verdict of its own). Then come the Step 11 and 12 re-walks the user chose on 2026-09-19, keyboard work — Step 11's chunk 9 passed 2026-09-22, and its chunk 11 was walked 2026-09-23 and did **not** pass; **item 6 was fixed headlessly on 2026-09-24**, which lapsed both. ✅ **Re-walked 2026-09-25 on the build that carries the fix, installed 2026-09-24 18:01:53, and PASSED: item 6 and chunk 9's items 2, 3 and 6** (user decision) — 600 pt idle with six drives and with two, 588 with one, 614 at Start and 615 while running, and the report sheet 24 pt inside the window at every size taken; the running 615, 1 pt over the gate's 614, is the spec since the same day by user decision, and chunk 9's other three items and chunk 11's other ten were not re-walked; ✅ **chunk 16 and item 6.3 walked the same day on the same build and PASSED** — all nine items, and 6.3 in both forms. ✅ **Step 12's chunks 2 and 1 re-walked 2026-09-26 and PASSED**, dry — all five items, then items 2–8, chunk 1's debug hook taken out again by restoring the saved install, proved byte-identical. ✅ **The walk restarted 2026-09-27: item 0 re-checked and PASSED**, headless, against that install as put back, ✅ **chunk 1 PASSED the same morning**, on its fourth walk, ✅ **and chunk 2 PASSED that afternoon**, on its second, on the drives the user approved that morning — the 4 TB T5 EVO for 2.1–2.6, the 125.8 MB thumb for 2.7. ✅ **Chunk 3 PASSED 2026-09-28**, on its first walk, both cable pulls on the 4 TB T5 EVO, carrying Step 12's cable-pull items. ✅ **Step 13's verification gate PASSED 2026-09-29**, all three items ticked (*Step 13*, below), which closes chunk 5, ✅ **and the step CLOSED the same day** (above); F8, a gap in the suite found while planning it, is owed (`PROGRESS.md`, *Owed* (o)) *(paid 2026-09-30 by Step 15's chunk 3)*. Before the pause, item 0 passed 2026-09-13, chunk 1 passed 2026-09-18 on its third walk — the first could not show its reading, and the watcher was rewritten — and chunk 2 was part-walked (2.1–2.4 and 2.6 passed); every one of those passes lapsed at the Xcode 27 install, and item 0 passed again against it — and lapsed again at the 2026-09-24 install of item 6's fix, until its re-run of 2026-09-27. Step 12's chunks 0–6 built it and chunk 7 proved it — 7a (the clean
 > build figures), 7b (the mutation round) and 7c (the human checklist) are done; **7d is DONE
 > — the app is reinstalled and verified by symbol, the daemon is kickstarted, the multi-slice thumb
 > is replugged with both slices intact, and all four hardware gates are re-run and passed** on
@@ -905,7 +905,7 @@ simulation-first still applies wherever the plan calls for it.
 | 13 | AI-12 | System-sleep prevention | GUI | Assertion held only while actively running; released on all exits |
 | 14 | AI-11 | Mandatory pre-run warnings & honest framing | GUI | Three warnings shown & acknowledged before any run |
 | 15 | AI-15 | Logging / observability consolidation | Both | All significant events logged; never logs device contents |
-| 16 | AI-13 | Signing, hardened runtime, notarization | Both | Notarized build launches Gatekeeper-clean on a clean Mac *(notarization out of scope since 2026-10-09 — Step 16's note)* |
+| 16 | AI-13 | Signing, hardened runtime, notarization | Both | Notarized build launches Gatekeeper-clean on a clean Mac *(notarization out of scope since 2026-10-09 — Step 16's re-cut gate)* |
 
 ---
 
@@ -2639,34 +2639,41 @@ Done*, and what answers it:
 
 ## Step 16 — Code-signing, hardened runtime, notarization
 
-> ⚠️ **2026-10-09 — without notarization, by the user's decision.** There is no paid Apple Developer
-> Program membership: the one signing identity is *Apple Development* under the free Personal Team
-> `5JC55GTLZA`, and `notarytool` refuses that team with HTTP 403. So detailed steps 1 (as far as
-> Developer ID goes) and 3 cannot be done, and the gate items that need them — the `spctl` half of
-> the first, the notarization item and the clean Mac's *"no Gatekeeper warning"* — will be recorded
-> as not met, with that reason. Their rewording comes with the re-cut chunk plan, for the user's
-> approval; until then the text below is the plan as written, not the plan in force.
-> `PROGRESS.md`, *Finding, 2026-10-09*, holds what was read and what is still in scope.
+> ⚠️ **2026-10-09 — re-scoped without notarization, by the user's decision.** There is no paid
+> Apple Developer Program membership: the one signing identity is *Apple Development* under the free
+> Personal Team `5JC55GTLZA`, and `notarytool` refuses that team with HTTP 403 (`CONSTRAINTS.md` §1,
+> *The team is a free Personal Team, and the notary service refuses it*). **Detailed steps 1, 3 and
+> 4, the verification gate and the risks below are the re-cut, approved by the user 2026-10-09**, and
+> what each one replaced is quoted beside it. Three gate items are **not met** by that decision — the
+> `spctl` assessment, notarization and *"no Gatekeeper warning"* — so this build does not meet
+> NFR-SEC-4 or NFR-INST-2. `PROGRESS.md` holds what was read (*Finding, 2026-10-09*) and the chunks
+> (*Step 16*). *(Until the re-cut, the same day, this note said the text below was "the plan as
+> written, not the plan in force".)*
 
 **Original action item:** AI-13
 **Satisfies:** NFR-SEC-4, NFR-INST-2; supports NFR-SEC-2 (Team-ID stability)
 **Trust boundary:** **both** targets.
 
 ### Objective
-Code-sign both the app and the helper, enable the hardened runtime, and notarize so the app launches Gatekeeper-clean on a clean supported Mac.
+Code-sign both the app and the helper, enable the hardened runtime, and notarize so the app launches Gatekeeper-clean on a clean supported Mac. *(2026-10-09: without notarization, so not Gatekeeper-clean — the note above. What is left is a signed, hardened, uninstrumented build that a person can open, register and run on a clean Mac.)*
 
 ### Detailed steps
-1. **Sign both targets** with a Developer ID (or Apple Distribution) identity under the **same Team ID** the helper pins in Step 3 (NFR-SEC-2 depends on this stability). The embedded helper must be signed and sealed inside the app bundle.
-2. **Enable the hardened runtime** (NFR-SEC-4) on both targets. Request **only the entitlements actually required** (NFR-SEC-7) — keep the set minimal.
-3. **Notarize:** archive, submit via `notarytool`, and **staple** the ticket to the app (NFR-INST-2).
-4. **Verify Gatekeeper-clean launch (NFR-INST-2):** on a **clean** macOS 26 machine (or a fresh user), download/copy the app, confirm it launches without Gatekeeper warnings, registers the helper via `SMAppService` (Step 3), and the helper accepts the now-properly-signed client (Step 3's Team-ID requirement is satisfied by the real signature).
-5. **Confirm the install/uninstall lifecycle** end-to-end on the clean machine (Steps 3 & 4) with the signed build.
-6. **`os_log`** nothing new required; ensure release logging level is sane.
+1. **Sign both targets** with the *Apple Development* identity under Team ID `5JC55GTLZA`, the **same Team ID** the helper pins in Step 3 (NFR-SEC-2 depends on this stability). The embedded helper must be signed and sealed inside the app bundle. *(Re-cut 2026-10-09. It said "with a Developer ID (or Apple Distribution) identity under the same Team ID"; neither identity exists without a paid membership.)*
+2. **Enable the hardened runtime** (NFR-SEC-4) on both targets. Request **only the entitlements actually required** (NFR-SEC-7) — keep the set minimal. *(2026-10-09: the runtime is already on in both targets and both configurations — the installed binaries carry `flags=0x10000(runtime)` — so what is left is to verify it on the build that ships. The minimal set drops `get-task-allow` and the inert `com.apple.security.files.user-selected.read-only`, and justifies in writing anything it keeps.)*
+3. **Build the release artefact:** archive with coverage instrumentation off (`PROGRESS.md`, *Owed* (b)), take the app from the archive, verify it against the gate below, zip it with `ditto`, and record the zip's SHA-256 and both CDHashes. *(Re-cut 2026-10-09. It said "**Notarize:** archive, submit via `notarytool`, and **staple** the ticket to the app (NFR-INST-2)" — out of scope without a paid membership.)*
+4. **Verify the first launch on a clean Mac:** on a macOS 26 Mac that has **never** run a dev build of this app, open a copy that arrived **quarantined** (AirDrop or a browser download — a copy from a drive is not checked); record that macOS refuses the first open and that the app opens after *Open Anyway* in System Settings → Privacy & Security, with both dialogs' wording; confirm it registers the helper via `SMAppService` (Step 3), and that the helper accepts the properly-signed client (Step 3's Team-ID requirement is satisfied by the real signature). *(Re-cut 2026-10-09. It said "on a clean macOS 26 machine (or a fresh user), download/copy the app, confirm it launches without Gatekeeper warnings" — not possible without notarization; and a fresh user on this Mac shares its approvals, and runs macOS 27.)*
+5. **Confirm the install/uninstall lifecycle** end-to-end on the clean machine (Steps 3 & 4) with the signed build. *(2026-10-09: with a full run on the 1 TB scratch T5 and a report exported through the save panel — the app's only file panel, which the dropped entitlement no longer covers.)*
+6. **`os_log`** nothing new required; ensure release logging level is sane. *(2026-10-09: read against `progress/step-15-event-audit.md`, the inventory of every `Logger` call.)*
 7. **Release notes (added 2026-08-03, user observation during Step 8).** If Step 9's CPU
    measurement (detailed step 5a) shows the **host** becoming the throughput limit at a transport
    speed this product plausibly meets, say so in the release notes. Conditional on that number,
    not on the one that prompted it: the 36–39% of one core observed at ~500 MB/s during Step 8's
    gate was the gate's own SHA-256 fingerprint, which is **not** in the product's run path.
+
+   *(2026-10-09: the figures below were measured on coverage-instrumented builds — Debug ones, as
+   far as the records show — and would be published about an uninstrumented Release build. **By
+   the user's decision of 2026-10-09 they are re-measured on the release build**, with
+   `scripts/metrics-check.sh`, before the notes are written.)*
 
    > **The condition was measured on 2026-08-04/05, and it is MET. This is no longer conditional.**
    >
@@ -2740,16 +2747,49 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
    > report outlives the session** — the same reasoning that puts FR-TEST-9's qualification into
    > the report (Step 10, detailed step 3).
 
+9. **Release notes — opening an app that is not notarized (added 2026-10-09, user decision).** The
+   notes say that the app is signed but not notarized, that macOS refuses its first open, and how to
+   open it with *Open Anyway* — in the words of the dialogs the clean-Mac walk records (detailed
+   step 4).
+10. **NFR-SEC-2's wording (added 2026-10-09, user decision).** NFR-SEC-2 says the Apple anchor is
+    *"not separately pinned"*, and `HelperIdentity.codeSigningRequirement` pins `anchor apple
+    generic` together with the Team ID — the stricter check, and the right one: a Team-ID match
+    without the anchor can be met by a home-made certificate. The requirement's text is corrected
+    to the code; the code is not touched, so the helper source hash does not move.
+
 ### Verification Gate (release gate)
-- [ ] `codesign --verify --deep --strict` and `spctl -a -vv` pass on the app; the embedded helper is validly signed under the expected Team ID.
-- [ ] Hardened runtime is on; entitlement set is minimal and justified.
-- [ ] Notarization succeeds and the ticket is stapled (`stapler validate` passes).
-- [ ] On a clean macOS 26 Mac: the app launches with **no Gatekeeper warning**, registers and (after approval) enables the helper, runs a full test on the scratch device, and uninstalls the helper cleanly.
-- [ ] The helper's Team-ID code-signing requirement (Step 3) now matches the real signing identity end-to-end.
+- [ ] `codesign --verify --deep --strict` passes on the shipped app, and the app and the embedded helper are both validly signed *Apple Development* under Team ID `5JC55GTLZA`. **`spctl -a -vv` is not met, by the user's decision of 2026-10-09** — there is no Developer ID identity — and its reading is recorded.
+- [ ] Hardened runtime is on in both binaries; the entitlement set is measured, minimal and justified — `get-task-allow` and `files.user-selected.read-only` gone, and anything kept justified in writing.
+- [ ] **Notarization is not met, by the user's decision of 2026-10-09** — there is no paid Apple Developer Program membership (`PROGRESS.md`, *Finding, 2026-10-09*).
+- [ ] On a clean macOS 26 Mac, from a copy that arrives quarantined: macOS refuses the first open and the app opens after *Open Anyway*, both dialogs recorded — ***"no Gatekeeper warning"* is not met, by the same decision**; it registers and (after approval) enables the helper, runs a full test on the 1 TB scratch T5, exports a report through the save panel, and uninstalls the helper cleanly.
+- [ ] The helper's Team-ID code-signing requirement (Step 3) matches the real signing identity end-to-end: the helper accepts the shipped app on the clean Mac, and the shipped app satisfies the requirement under `codesign -v -R` on this one.
+- [ ] Every Mach-O in the shipped app carries **0** `__llvm_prf_cnts` sections and **0** `___profc_` symbols (`PROGRESS.md`, *Owed* (b)). *(Added 2026-10-09.)*
+
+> *Re-cut 2026-10-09, approved by the user.* Until then the gate read: `codesign --verify --deep
+> --strict` and `spctl -a -vv` pass on the app, the embedded helper validly signed under the
+> expected Team ID; hardened runtime on, entitlement set minimal and justified; notarization
+> succeeds and the ticket is stapled (`stapler validate` passes); on a clean macOS 26 Mac the app
+> launches with **no Gatekeeper warning**, registers and (after approval) enables the helper, runs a
+> full test on the scratch device, and uninstalls the helper cleanly; the helper's Team-ID
+> requirement now matches the real signing identity end-to-end. The first, third and fourth are the
+> three that cannot be met without a paid membership; the sixth item is new.
 
 ### Risks / gotchas
 - `SMAppService` is unforgiving about signing/notarization: an unsigned or mismatched helper fails to register on a clean system. This step is what makes Step 3 work for real users.
 - Test on a machine that has **never** run a dev build of this app, or you'll get false "it works" results from cached approvals.
+- **Added 2026-10-09 with the re-cut — none of these is measured:**
+  - **launchd and a quarantined helper that is not notarized.** *Open Anyway* approves the app;
+    whether launchd will start the helper inside it on another Mac is not known. If it will not,
+    the walk stops there and reports.
+  - **The certificate expires 2027-05-06.** Without a secure timestamp, whether the shipped build
+    still launches, and still passes the helper's check, after that date is not known. Whether an
+    *Apple Development* signature can carry a timestamp is tried when the artefact is built — after
+    asking, because it contacts timestamp.apple.com.
+  - **The helper carries `com.apple.application-identifier` with no provisioning profile.** It runs
+    on this Mac; whether it runs on another is not known.
+  - **The code as it stands has not run on macOS 26.** The deployment target is 26.0, but this Mac
+    has run macOS 27 since 2026-09-16, and everything built since — Step 15's protocol v16 among it
+    — has run only there.
 
 ---
 

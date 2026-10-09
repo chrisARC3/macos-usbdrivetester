@@ -16,7 +16,7 @@ detector**.
 It is **non-destructive by design** — the only data ever written to a location is the data
 just read from it. No test patterns, no known-value overwrites, no scratch areas.
 
-> ### Status: in development — Steps 1–15 of 16 are complete; Step 16 is next and has not started
+> ### Status: in development — Steps 1–15 of 16 are complete; Step 16 is in progress, without notarization
 >
 > Steps 1–15 are complete and committed. **Step 11 (run control: start / pause /
 > resume / stop) closed on 2026-09-05** — all twelve increments landed and gated, its 16-chunk
@@ -116,7 +116,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > *(2026-10-09: Step 16 goes ahead **without notarization**. Notarization and a Developer ID
 > certificate both need a paid Apple Developer Program membership, which the author does not have,
 > and by the author's decision the step proceeds without them — `PROGRESS.md`, *Finding,
-> 2026-10-09*.)*
+> 2026-10-09*. Its re-cut gate was approved and written into `BUILD-PLAN.md` the same day, as its
+> chunk 0, so Step 16 is in progress; until then the heading above ended "Step 16 is next and has
+> not started".)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
