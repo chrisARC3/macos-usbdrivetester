@@ -611,6 +611,48 @@ ways then: commit a shared scheme with coverage off, which keeps `build.sh` and 
 flavour; or pass `CLANG_COVERAGE_MAPPING=NO` from `build.sh`, which makes the two compile
 differently into one DerivedData, so every switch between them rebuilds everything.
 
+### The team is a free Personal Team, and the notary service refuses it — measured 2026-10-08 and 2026-10-09
+
+**Every build here is signed under `5JC55GTLZA`, a free Personal Team, and Apple's notary service
+answers that team with HTTP 403.** Unlike most of this section, this was measured on **macOS 27.0.1
+(26A434) with Xcode 27.0 (27A266a)**. The full account is in `PROGRESS.md`, *Finding, 2026-10-09*,
+and commit `2c41dfc`.
+
+- **There is one signing identity.** On 2026-10-08, `security find-identity -v -p codesigning`
+  listed only *Apple Development: … (424WY3TDB4)*: O = Christopher Karr, OU = `5JC55GTLZA`, issued
+  by Apple's WWDR G3 CA, valid 2026-05-06 to 2027-05-06. `424WY3TDB4` identifies the person, not
+  the team; the team is the OU. There was no *Developer ID Application* identity and no
+  provisioning profile on disk, and Xcode's preferences listed no account or team.
+- **`notarytool` refuses the team before it stores anything.** On 2026-10-09 the user ran
+  `notarytool store-credentials … --team-id 5JC55GTLZA` (notarytool 1.1.3 (42)), and it failed its
+  validation step: *"HTTP status code: 403. Invalid or inaccessible developer team ID for the
+  provided Apple ID. Ensure the Team ID is correct and that you are a member of that team."* **The
+  wording points at the Team ID or the Apple ID, and the cause was neither:** there is no paid
+  Apple Developer Program membership, and the notary service accepts only the paid program's teams.
+  The keychain, read again afterwards, held no `com.apple.gke.notary.tool` item.
+- **A Developer ID certificate needs the paid program too.** That is Apple's program requirement,
+  not measured here; no attempt was made to create one.
+
+What it binds:
+
+- **No build from here can be notarized or carry a Developer ID signature** while there is no paid
+  membership. Step 16 goes ahead without both, by the user's decision of 2026-10-09, so NFR-SEC-4
+  and NFR-INST-2 are not met by this build.
+- **The helper's pin holds for every build this team can make.** `HelperIdentity.codeSigningRequirement`
+  is `anchor apple generic and certificate leaf[subject.OU] = "5JC55GTLZA"`, and an Apple
+  Development leaf satisfies it (verified 2026-07-25, in that type's doc). Predicted, not measured:
+  on another Mac a quarantined copy opens only after *Open Anyway* in System Settings → Privacy &
+  Security, and `spctl -a -vv` rejects it.
+- **A paid membership would very likely bring a new Team ID** (not verified). That would mean a new
+  pin, an edit to `Shared/TesterControl.swift` and therefore a helper-hash move that lapses every
+  hardware gate recorded against the old hash, as well as a new `DEVELOPMENT_TEAM` in the project.
+- **When `notarytool` calls a team "invalid or inaccessible", check the membership before the Team
+  ID.**
+
+**Invalidated by** a paid membership on this Apple ID, or a *Developer ID Application* identity in
+`security find-identity`. The 403's wording is notarytool 1.1.3's, and another version may word it
+differently.
+
 ### Quitting, and the run boundary
 
 - **`AppModel.mayIssueNewWork` is a precondition, not a hint.** It is false from the moment a quit is
