@@ -22,7 +22,8 @@
 > by content; the daemon is on that helper since the user's kickstart at 14:25:11, pid 91274 — *The
 > daemon*. Item 0.1's command cannot be run on it as written: a Release install has no
 > `.debug.dylib` (item 0's 2026-10-09 note). Nothing below is walked on it; whether any of it is
-> read again is the user's decision, asked when chunk 4's hardware gates close.
+> read again is the user's decision, asked when chunk 4's hardware gates close. *(They closed
+> 2026-10-10, all four passing on pid 91274, and it was asked the same day.)*
 >
 > ✅ **Decided 2026-10-05 for Step 15's chunk 5** — the assistant's recommendations, adopted under the
 > user's standing instruction that day. **The run ID's edit does not touch the assertion's path**:

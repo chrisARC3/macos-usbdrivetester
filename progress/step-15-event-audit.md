@@ -257,7 +257,7 @@ have lapsed until chunk 5. No install: the daemon still runs the v15 helper `ac4
 the user's kickstart — `PROGRESS.md`, *Chunk 5*.)* *(It came at 10:49:36: pid 33239, protocol v16. The four
 hardware gates re-ran on it 11:11–13:06 against `36c3a9e1…`, and all four passed.)* *(2026-10-09: lapsed at
 Step 16's chunk 4 install, a re-signed release helper `b5b807aa…`, the hash unmoved; re-run on it,
-pid 91274 — `PROGRESS.md`, *Step 16, chunk 4*.)*
+pid 91274, 2026-10-09 to 2026-10-10, and all four passed — `PROGRESS.md`, *Step 16, chunk 4*.)*
 
 **F4 — paid in source.** `acquireDevice(bsdName:runID:reply:)` carries the run's `UUID`, made by
 `RunController` once per authorisation; the helper holds it with the claim. Both processes write it

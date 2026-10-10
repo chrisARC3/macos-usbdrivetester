@@ -157,10 +157,12 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > not started". Chunk 1, the same day, built and measured a Release build without installing it;
 > chunk 2 made the project and source edits the same day — the build is no longer instrumented for
 > code coverage — and chunk 3 built the release artefact the same day, archived and re-signed
-> with a secure timestamp; chunk 4, installing it here and re-running the hardware gates, began the same day: the release
-> build was installed at 13:10:48 and the helper restarted on it at 14:25:11, and two of the four
-> hardware gates have passed on it, the other two running. Until then this said chunk 4 "is
-> next".)*
+> with a secure timestamp; chunk 4, installing it here and re-running the hardware gates, began the same day and closed
+> 2026-10-10: the release build was installed at 13:10:48, the helper restarted on it at 14:25:11,
+> and all four hardware gates passed on it with the counts of 2026-10-05, the last on 2026-10-10.
+> Chunk 5, the walk on a clean second Mac, is next. Until chunk 4's first commit this said chunk 4
+> "is next", and until its second, "two of the four hardware gates have passed on it, the other two
+> running".)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -202,8 +204,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > passed, the same counts as 2026-09-19. It said "the running daemon is still the v15 helper until
 > the kickstart" until 11:05, and "the four gates re-run next" until 13:45)*
 > *(⚠️ 2026-10-09: Step 16's chunk 4 installed the release build, a re-signed helper, which lapses
-> those four passes again; on it, metrics and XPC concurrency passed 14:27–14:28 with the same
-> counts, and retention and run control are being re-run)*,
+> those four passes again; on it, all four passed again with the same counts, 2026-10-09 14:27 to
+> 2026-10-10 11:46 — it said "retention and run control are being re-run" until then)*,
 > and the main window measured at **613 pt** against its committed 700 pt budget — **615 pt when
 > measured on the shipped window itself, 2026-09-22**, which is the first time the two have been
 > compared. *(2026-09-24: **614 pt**, re-measured on the report fix, and the suite green again at

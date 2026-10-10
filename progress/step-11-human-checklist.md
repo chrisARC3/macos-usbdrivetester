@@ -66,7 +66,8 @@
 > *(2026-10-09 13:10:48: Step 16's chunk 4 installed the release build, which lapses nothing more
 > here — chunk 16, 6.1 and 6.3 had lapsed at the edit, and chunk 9's 2, 3 and 6 and chunk 11's item
 > 6 were lapsed already. Which are re-walked on it is the user's decision, asked when chunk 4's
-> gates close — `PROGRESS.md`, *Step 16, chunk 4*.)*
+> gates close — `PROGRESS.md`, *Step 16, chunk 4*.)* *(They closed 2026-10-10, all four passing on
+> pid 91274, and the question was put the same day. Nothing here is walked on the release build.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
