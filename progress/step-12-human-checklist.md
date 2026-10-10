@@ -75,7 +75,8 @@
 > *another install* clause. The daemon is pid 91274 since the user's kickstart at 14:25:11.
 > Nothing here is walked on it; whether anything is, is the user's decision when chunk 4's gates
 > close. *(They closed 2026-10-10, all four passing on pid 91274, and the question was put the same
-> day.)* On a Release install the `Device-loss alert` proof reads `Contents/MacOS/USBDriveTester`:
+> day; answered the same day, by the user: **not re-walked** — "(a) only" re-walks Step 15's
+> traced full run alone, so chunks 3 and 4 stay lapsed.)* On a Release install the `Device-loss alert` proof reads `Contents/MacOS/USBDriveTester`:
 > **0** there, 2026-10-09 14:34 — the build carries no hook.
 >
 > ⚠️ **Found 2026-09-10: this block still said *"STATUS: UNWALKED … Nothing here has been run"***,

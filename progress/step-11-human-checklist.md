@@ -68,6 +68,8 @@
 > 6 were lapsed already. Which are re-walked on it is the user's decision, asked when chunk 4's
 > gates close — `PROGRESS.md`, *Step 16, chunk 4*.)* *(They closed 2026-10-10, all four passing on
 > pid 91274, and the question was put the same day. Nothing here is walked on the release build.)*
+> *(Answered the same day, by the user: **nothing here is re-walked** — "(a) only" re-walks
+> Step 15's traced full run alone. `PROGRESS.md`, *Step 16*.)*
 
 > ⚠️ **2026-09-24 — chunk 11's item 6 diagnosed and fixed headlessly; nothing re-walked yet.**
 > *(✅ 2026-09-25: re-walked — 11.6, 9.2, 9.3 and 9.6 passed on the build that carries the fix, and
