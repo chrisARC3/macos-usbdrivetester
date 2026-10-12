@@ -1,12 +1,15 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-10: WRITTEN, NOT WALKED.** Written at Step 16's chunk 5a, against the release
+> **STATUS, 2026-10-12: APPROVED FOR THE WALK, NOT YET WALKED.** Written at Step 16's chunk 5a, against the release
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
 > from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Nothing below has been walked.
-> Chunk 5b is the walk, on the clean second Mac, and it needs the user's approval before it
-> starts. *(2026-10-12: reviewed by the user, who answered its two questions — no re-register
-> is added, and gate item 4 is to name Full Disk Access at chunk 6. Still not walked; chunk 5b
-> has not been approved.)*
+> Chunk 5b is the walk, on the clean second Mac, **approved by the user 2026-10-12**.
+> *(2026-10-12: reviewed by the user, who answered its two questions — no re-register is added,
+> and gate item 4 is to name Full Disk Access at chunk 6.)* *(2026-10-12, later: **amended before
+> the walk**, by the user's approval, for `Quick_Start_Guide.md`, which chunk 6 writes from this
+> walk — screenshots at 4.1, 4.3 and 4.4, and an optional item 6.5 that removes the app. This
+> line said "WRITTEN, NOT WALKED", "it needs the user's approval before it starts" and "chunk
+> 5b has not been approved" until then.)*
 > *What would invalidate these instructions:*
 > - another artefact — item 0 names this one by its hashes;
 > - an edit to any string quoted below — each is quoted from the source at `6059eb2`;
@@ -69,6 +72,10 @@ repository. There are two Terminal windows and a screenshot habit.
   window. They land on the clean Mac's Desktop, and item 7 moves them into the folder.
   - The wording is recorded **exactly**, because the release notes quote it, and a screenshot is
     the record that cannot be paraphrased.
+  - *(Added 2026-10-12.)* The screenshots are also what `Quick_Start_Guide.md` is made from. So
+    three screens that are not dialogs are asked for too: the main window with the drive selected
+    (4.1), Full Disk Access switched on (4.3), and the run under way (4.4). Item 6.5 asks for its
+    own. Take them uncropped; chunk 6 crops out this Mac's user and computer names.
 
 **Why the commands use `/Users/Shared` and `$HOME`.** The clean Mac's user name is not known here.
 - `/Users/Shared` has the same path on every Mac, and every user can write to it, so the evidence
@@ -82,7 +89,7 @@ repository. There are two Terminal windows and a screenshot habit.
 |---|---|
 | Items 0–3 | about 20 minutes |
 | Item 4's run | about two hours, the estimate below |
-| Items 5–7 | about 15 minutes |
+| Items 5–7 | about 15 minutes, and about 10 more with the optional 6.5 |
 
 The two hours is arithmetic, not a measurement: no whole run on this drive has a recorded duration.
 - One whole-drive read pass of the retention gate took 44 min 20 s on this Mac, 2026-10-09.
@@ -464,6 +471,8 @@ the helper source hash; another artefact.
 
 *Pass:* the selected device pane shows serial **`12345686DAA9`**.
 
+Screenshot the main window, with the drive selected.
+
 **Record:**
 
 **4.2 — Start, and the warnings.** Press **Start**.
@@ -495,7 +504,7 @@ Then:
 1. Press **Open Full Disk Access Settings…**. *Pass:* System Settings opens at that pane.
 2. **Record whether USBDriveTester is already listed (switched off) or not listed at all.**
 3. Switch it on, or add `/Applications/USBDriveTester.app` with **+**.
-4. Authenticate when asked.
+4. Authenticate when asked. Then screenshot the pane, with USBDriveTester listed and switched on.
 5. If macOS offers to quit and reopen the app, **choose Later**. Record the offer's wording.
 6. Switch back to the app.
 7. Press **Start** again **without relaunching**, then **Proceed**.
@@ -510,7 +519,8 @@ Then:
 
 **Record:**
 
-**4.4 — while it runs, uninstalling is refused** *(Step 4's lifecycle)*. Open ⇧⌘D.
+**4.4 — while it runs, uninstalling is refused** *(Step 4's lifecycle)*. First, screenshot the main
+window while the run is under way, with its progress showing. Then open ⇧⌘D.
 
 *Pass:* it shows ***"A run is in progress, so uninstalling the helper will be refused."***
 
@@ -643,6 +653,54 @@ sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-clean-mac/btm-after
 ```bash
 /usr/bin/grep -n -i -E 'arc3solutions|USBDriveTester' /Users/Shared/USBDriveTester-clean-mac/btm-after.txt
 ```
+
+**Record:**
+
+**6.5 — the app itself is removed** *(optional; added 2026-10-12 for `Quick_Start_Guide.md`'s
+uninstall section — no gate item asks for it)*. To keep the app on this Mac, skip to item 7.
+- It comes after 6.1 because that is the order the guide will give: the helper first, then the app.
+  An app removed with its helper still registered is not walked.
+- It comes before item 7 so that its screenshots and readings go back with the rest. The evidence
+  is in `/Users/Shared` and on the Desktop, and nothing here touches either.
+
+1. Check the app is not running — 6.3 quit it.
+2. Open *System Settings › Privacy & Security › Full Disk Access* and *System Settings › General ›
+   Login Items & Extensions*. Record what each shows for USBDriveTester now — the second under
+   *Allow in the Background* — and screenshot each.
+3. In Finder, drag `USBDriveTester` from Applications to the Trash. **Do not empty the Trash.** This
+   is a deliberate drag, not a dialog's *Move to Trash* button, which the rule at the top of this
+   file is about.
+4. In *Full Disk Access*: if USBDriveTester is still listed, select it, press **−** and authenticate
+   when asked. Screenshot the pane.
+5. In *Login Items & Extensions*: record whether USBDriveTester still appears. Screenshot it.
+6. In window A, run each of these:
+
+```bash
+/bin/ls -ld /Applications/USBDriveTester.app
+```
+
+```bash
+/bin/ps -axo pid=,ppid=,uid=,comm= | /usr/bin/grep '[U]SBDriveTester'
+```
+
+```bash
+sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-clean-mac/btm-after-app-removed.txt
+```
+
+```bash
+/usr/bin/grep -n -i -E 'arc3solutions|USBDriveTester' /Users/Shared/USBDriveTester-clean-mac/btm-after-app-removed.txt
+```
+
+*Pass:*
+- `ls` reports *No such file or directory*.
+- `ps` prints nothing.
+- The Full Disk Access list no longer names USBDriveTester.
+
+**These are readings, not failures:**
+- what the two panes showed in step 2;
+- whether Full Disk Access still listed the app after the drag, before **−**;
+- whether *Allow in the Background* still names it;
+- what BTM holds.
 
 **Record:**
 

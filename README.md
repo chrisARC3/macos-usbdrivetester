@@ -161,10 +161,11 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > 2026-10-10: the release build was installed at 13:10:48, the helper restarted on it at 14:25:11,
 > and all four hardware gates passed on it with the counts of 2026-10-05, the last on 2026-10-10.
 > Chunk 5a wrote the checklist for the walk on a clean second Mac,
-> `progress/step-16-human-checklist.md`, the same day; chunk 5b, the walk itself, is next. Until
-> chunk 4's first commit this said chunk 4 "is next"; until its second, "two of the four hardware
-> gates have passed on it, the other two running"; and until chunk 5a, "Chunk 5, the walk on a
-> clean second Mac, is next".)*
+> `progress/step-16-human-checklist.md`, the same day; chunk 5b, the walk itself, was approved
+> 2026-10-12. Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
+> the four hardware gates have passed on it, the other two running"; until chunk 5a, "Chunk 5, the
+> walk on a clean second Mac, is next"; and until 2026-10-12, "chunk 5b, the walk itself, is
+> next".)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
