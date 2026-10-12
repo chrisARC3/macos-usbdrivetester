@@ -34,7 +34,10 @@ drift this consolidation exists to remove.
 > *Idle-sleep assertions*, and the record-and-resolve bullets dated 2026-09-18 under *Registering
 > and replacing the helper*.** Re-measure an entry before a design leans on it. *(2026-09-30: macOS
 > 27.0.1 (26A434) since that day — a point release, which re-opens none of this section; a major or
-> minor one would, §2.)*
+> minor one would, §2.)* *(2026-10-12, the user's decision: **all further testing is on macOS 27,
+> and macOS 26 compatibility is never assumed** — Step 16's clean Mac runs 27.0.1 too. So an entry
+> measured only on macOS 26 is not evidence about the build that ships until it is re-measured on
+> 27, and nothing measured on 27 is evidence about macOS 26.)*
 
 ### XPC: the connection blocks, not the daemon
 
@@ -362,6 +365,31 @@ Apple and both were found only because someone pressed the button.
   keeps the Background Task Management record — same `BTM uuid` either side — so the daemon comes
   back `enabled` without a fresh trip to Login Items. This is also why chunk 13's item 3 does not
   chain into item 4 on a Mac that has approved the app before.
+
+- **⚠️ `SMAppService.status` reads `.notFound` until the daemon has been registered once on that
+  Mac — measured 2026-10-12 on macOS 27.0.1 (26A434), Step 16's clean-Mac walk.** It is not proof
+  that the plist is missing. On a Mac mini that had never registered this helper, the release
+  build — artefact `ed695b8f…`, app CDHash `41355694…` — logged *"daemon
+  com.arc3solutions.USBDriveTester.Helper.plist status notFound"* at 12:23:38, before any
+  `register()` had been asked for. The plist was in the bundle: 1,168 bytes in the artefact's zip,
+  sealed by the app's signature, and `codesign --verify --deep --strict` passed on that Mac. The
+  same bytes register and run on this one. This Mac saw the same state on macOS 26 at its own first
+  registration, 2026-07-27, when the status went *"`notFound -> requiresApproval`"*
+  (`HelperRegistration.swift`'s doc). Every launch here since then was on a Mac that had registered
+  the daemon before, where a removed daemon reads `notRegistered` (the refused `register()`, above),
+  so nothing here could have seen it again.
+
+  **So `.notFound` alone cannot tell a first install from a broken bundle.** A plist that is
+  missing, or whose name or `Label` does not match, reads the same. Telling them apart needs a
+  second witness: whether the plist is in the bundle, or what `register()` then says. What it cost:
+  the gate's one Quit-only state was keyed on `.notFound` alone (the decision of 2026-08-26), so a
+  first install could not get past it — `PROGRESS.md`, *Finding, 2026-10-12*, which the user
+  decided the same day to fix.
+
+  **Not measured:** that `register()` from this state succeeds on macOS 27 — the walk left
+  **Register helper** unpressed, to keep the Mac's never-registered state for a fixed build.
+  *What would invalidate it:* a macOS major or minor release. Account:
+  `progress/step-16-human-checklist.md`, the 2026-10-12 walk record.
 
 - **⚠️ The BTM record is keyed by bundle IDENTIFIER, and several records can claim the same one —
   measured 2026-09-08.** `sfltool dumpbtm` after chunk 7f's install held **four** records for this

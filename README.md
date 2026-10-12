@@ -164,7 +164,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > `progress/step-16-human-checklist.md`, the same day; chunk 5b, the walk itself, was approved
 > and walked 2026-10-12, and stopped at its item 2.1: on a Mac that has never registered the
 > helper, the app's gate reads `notFound` and offers only Quit (`PROGRESS.md`, *Finding,
-> 2026-10-12*). Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
+> 2026-10-12*). The author decided the same day to fix it, and to test on macOS 27 only
+> (*Requirements*, below). Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
 > the four hardware gates have passed on it, the other two running"; until chunk 5a, "Chunk 5, the
 > walk on a clean second Mac, is next"; until 2026-10-12, "chunk 5b, the walk itself, is
 > next"; and until the walk's record, the same day, "was approved 2026-10-12".)*
@@ -312,9 +313,14 @@ with it — and the hardened runtime is on for both targets.
 
 ## Requirements
 
-- **macOS 26 (Tahoe)** or later
+- **macOS 27** — the only version this is tested on *(the author's decision, 2026-10-12)*. The
+  build's minimum is still macOS 26.0, so macOS 26 will open it, but every build since
+  2026-09-16 has run only on macOS 27, and **it is not claimed to work on macOS 26**. *(Until
+  2026-10-12 this said "macOS 26 (Tahoe) or later".)*
 - **Apple Silicon** — the project builds `arm64` only
-- **Xcode 26** or later to build
+- **Xcode 27** to build — every build since 2026-09-15 has been made with Xcode 27.0; whether
+  Xcode 26 still builds it is not known. *(Until 2026-10-12 this said "Xcode 26 or later to
+  build".)*
 - **Full Disk Access** for the app, so its helper can open a USB device's raw node. The app
   detects whether it has been granted and asks for it at the start of a run, with a button
   that opens the right System Settings pane.

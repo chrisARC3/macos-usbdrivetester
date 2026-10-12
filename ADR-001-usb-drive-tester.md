@@ -13,6 +13,8 @@ All external direct-attach storage is USB-connected (both NAND flash and rotatio
 
 The deliverables are Apple-Silicon-native executables for macOS Tahoe (macOS 26) and later, built in Xcode/Swift, with at least one GUI executable for control and monitoring.
 
+*(2026-10-12: built for macOS 26 and later, and tested on macOS 27 only, by the user's decision — compatibility with macOS 26 is never assumed. `nonfunctional-requirements-usb-drive-tester.md`, the amendment of that date.)*
+
 Forces at play:
 
 - macOS blocks direct block-device access without privilege escalation; Apple's guidance is to split privileged work into a separate helper.

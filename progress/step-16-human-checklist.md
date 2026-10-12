@@ -1,14 +1,17 @@
 # Step 16 — the human checklist
 
 > **STATUS, 2026-10-12: WALKED 2026-10-12 AND STOPPED AT ITEM 2.1, ON A FINDING — the helper gate
-> read `notFound` and offered only Quit; items 2.2–6.5 not walked; and the clean Mac ran macOS
-> 27.0.1, not 26.** Written at Step 16's chunk 5a, against the release
+> read `notFound` and offered only Quit; items 2.2–6.5 not walked; the clean Mac ran macOS 27.0.1,
+> which the user made the only tested version the same day. The user decided to fix the finding,
+> and a fixed build is another artefact, so this file is re-cut before any walk past 2.1.**
+> Written at Step 16's chunk 5a, against the release
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
 > from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Items 0.1–2.1 and 7 were walked
 > 2026-10-12 on a Mac mini running macOS 27.0.1 (26A434). Each item's **Record:** line holds its
 > result, and the *Walk record* at the end holds the evidence; the finding is `PROGRESS.md`'s
 > *Finding, 2026-10-12*. *(Until the walk's record this said "APPROVED FOR THE WALK, NOT YET
-> WALKED" and "Nothing below has been walked".)*
+> WALKED" and "Nothing below has been walked".)* *(Until the user's decisions, later on
+> 2026-10-12, the status ended "and the clean Mac ran macOS 27.0.1, not 26".)*
 > Chunk 5b is the walk, on the clean second Mac, **approved by the user 2026-10-12**.
 > *(2026-10-12: reviewed by the user, who answered its two questions — no re-register is added,
 > and gate item 4 is to name Full Disk Access at chunk 6.)* *(2026-10-12, later: **amended before
@@ -19,8 +22,11 @@
 > *What would invalidate these instructions:*
 > - another artefact — item 0 names this one by its hashes;
 > - an edit to any string quoted below — each is quoted from the source at `6059eb2`;
-> - a clean Mac that is not on macOS 26. *(2026-10-12: met by the walk itself — the clean Mac ran
->   macOS 27.0.1. Item 0.2's macOS row failed, and risk 4, macOS 26, is still unmeasured.)*
+> - a clean Mac that is not on macOS 27. *(2026-10-12, the user's decision after the walk: all
+>   further testing is on macOS 27, and macOS 26 compatibility is never assumed. Until then this
+>   clause said "not on macOS 26", and the walk met it — the clean Mac ran macOS 27.0.1, so item
+>   0.2's macOS row failed against what it asked then. Risk 4, macOS 26, is accepted, not
+>   measured.)*
 
 ---
 
@@ -39,7 +45,9 @@ those approvals. None of them exists on the Mac a user would install it on.
 3. **The provisioning profile.** Whether the helper runs on another Mac at all, since it carries
    `com.apple.application-identifier` with no provisioning profile.
 4. **macOS 26.** Whether this code runs on macOS 26. Everything built since 2026-09-16 has run only
-   on macOS 27.
+   on macOS 27. *(2026-10-12, the user's decision: not to be measured. All further testing is on
+   macOS 27, and macOS 26 compatibility is never assumed. So this risk is accepted, not answered,
+   and nothing this walk records says the app runs on macOS 26.)*
 
 No test reaches any of the four. This walk is the only instrument, and **a Mac is clean only the
 first time**, which is why the stop rules below are strict.
@@ -110,7 +118,9 @@ The clean Mac's port may be faster or slower.
 
 * **The clean Mac:**
   - **Apple silicon.** The artefact is `arm64` only (`MANIFEST.txt`: *"arm64, minos 26.0"*).
-  - **macOS 26.** Item 0.2 records the exact version.
+  - **macOS 27.** Item 0.2 records the exact version. *(2026-10-12, the user's decision after the
+    walk: all further testing is on macOS 27. It said "macOS 26", which the walk's Mac, on
+    27.0.1, did not meet.)*
   - It has **never run any build of this app**. Item 0.2 checks four ways.
   - An **administrator account**. *Open Anyway*, the background-item approval and Full Disk
     Access each ask for one.
@@ -204,7 +214,7 @@ Last, open System Settings › Privacy & Security › Full Disk Access and look 
 
 | Check | Pass |
 |---|---|
-| macOS | `ProductVersion` 26.x |
+| macOS | `ProductVersion` 27.x *(26.x until the user's decision of 2026-10-12)* |
 | architecture | `arm64` |
 | `ls` | *No such file or directory* |
 | `defaults` | *Error: Domain 'com.arc3solutions.USBDriveTester' not found.* The app keeps its settings there, so the app has never run as this user. *(Corrected 2026-10-12 from the walk's reading, and read the same on this Mac. It said* Domain com.arc3solutions.USBDriveTester does not exist*, which nobody had measured.)* |
@@ -218,7 +228,8 @@ Last, open System Settings › Privacy & Security › Full Disk Access and look 
 (`terminal.txt`).
 - **macOS — failed:** `ProductVersion 27.0.1`, `BuildVersion 26A434`. Not macOS 26, which is this
   file's own invalidation clause. The walk went on, because nothing had been run; what it costs is
-  that risk 4, macOS 26, is not measured by this walk.
+  that risk 4, macOS 26, is not measured by this walk. *(2026-10-12, later: the prerequisite now
+  names macOS 27, by the user's decision after the walk, and 27.0.1 meets it.)*
 - architecture: `arm64` — passed.
 - **`ls` — failed:** at 11:07:09 it read *No such file or directory*. `script` was then started a
   second time, at 11:08:43, and at 11:08:53 `ls` found `/Applications/USBDriveTester.app`. That was
@@ -870,7 +881,10 @@ never run on:
   helper's own admission line proves that the running helper agrees.
 * **Full Disk Access from nothing** (item 4.3). Step 11 walked the modal by revoking a grant that
   already existed. A Mac that has never seen the app may list it differently, or not at all.
-* **macOS 26 itself.** Every build since 2026-09-16 has run on macOS 27 only.
+* **macOS 26 itself.** Every build since 2026-09-16 has run on macOS 27 only. *(2026-10-12, the
+  user's decision: and it is not to be tested. All further testing is on macOS 27, and macOS 26
+  compatibility is never assumed — README.md's Requirements say so, and `Quick_Start_Guide.md`
+  is to.)*
 
 **Not covered by this walk, by its scope:**
 - what happens after the certificate expires on 2027-05-06, which cannot be measured before then;
