@@ -37,7 +37,11 @@ drift this consolidation exists to remove.
 > minor one would, §2.)* *(2026-10-12, the user's decision: **all further testing is on macOS 27,
 > and macOS 26 compatibility is never assumed** — Step 16's clean Mac runs 27.0.1 too. So an entry
 > measured only on macOS 26 is not evidence about the build that ships until it is re-measured on
-> 27, and nothing measured on 27 is evidence about macOS 26.)*
+> 27, and nothing measured on 27 is evidence about macOS 26.)* *(2026-10-12, later, the user's
+> rule: where a record does not settle which version a test ran on, it could have been either. So
+> "taken on macOS 26 unless its entry says otherwise" holds for an entry measured before
+> 2026-09-16; one whose entry gives neither its version nor a date that settles it could have been
+> measured on either.)*
 
 ### XPC: the connection blocks, not the daemon
 

@@ -91,7 +91,7 @@ This document specifies the **non-functional requirements** — the quality attr
 | ID | Requirement | Priority | Source |
 |----|-------------|----------|--------|
 | NFR-COMPAT-1 | The executables shall be Apple-Silicon-native (arm64). | M | PB Project Objective; ADR Context |
-| NFR-COMPAT-2 | The application shall target macOS Tahoe (macOS 26) and later as its minimum supported OS. *(Tested on macOS 27 only — the amendment of 2026-10-12.)* | M | PB Project Objective; ADR Context |
+| NFR-COMPAT-2 | The application shall target macOS Tahoe (macOS 26) and later as its minimum supported OS. *(Kept as the target by the user's decision of 2026-10-12; testing has run on both macOS 26 and macOS 27 — the amendment of that date.)* | M | PB Project Objective; ADR Context |
 | NFR-COMPAT-3 | The application shall be built with Xcode and Swift, with the GUI implemented in SwiftUI. | M | PB Project Objective; ADR Decision |
 | NFR-COMPAT-4 | The tool shall support USB mass-storage-class devices, covering both NAND-flash media and rotational HDDs (including SATA-to-USB bridged drives). | M | PB Goal; ADR Context |
 | NFR-COMPAT-5 | The tool shall use the device-reported logical block size and shall correctly support at least 512-byte and 4096-byte logical blocks. | M | PB Test Algorithm; FR-DEV-5; FR-TEST-5 |
@@ -618,24 +618,31 @@ their consumer moved.
 
 ---
 
-### 2026-10-12 — NFR-COMPAT-2: macOS 27 is the only version tested (no wording change)
+### 2026-10-12 — NFR-COMPAT-2: the target stays macOS 26.0, and further testing is on macOS 27 (no wording change)
 
-**User decision, 2026-10-12**, after Step 16's clean-Mac walk ran on macOS 27.0.1: *"We will
+**User decisions, 2026-10-12**, after Step 16's clean-Mac walk ran on macOS 27.0.1: *"We will
 perform all further testing on MacOS 27. Where relevant, this should be noted so MacOS 26
-compatibility is never assumed, especially for the Quick Start Guide."*
+compatibility is never assumed, especially for the Quick Start Guide."* Later the same day, on the
+plan for the walk's finding: *"Keep 26.0. The documentation should not claim testing exclusive to
+26.0 or 27.0. Unless we know for sure, we should acknowledge that the testing could have been on
+either OS."*
 
-NFR-COMPAT-2's wording is not changed here. The build still targets macOS 26.0 —
+NFR-COMPAT-2's wording is not changed. The build targets macOS 26.0 —
 `MACOSX_DEPLOYMENT_TARGET`, `LSMinimumSystemVersion` and the `LC_BUILD_VERSION` minos are all 26.0 —
-so macOS 26 will open it. Nothing verifies that target: this Mac has run macOS 27 since 2026-09-16,
-everything built since has run only there, and the clean Mac Step 16 walked runs 27.0.1. **So
-NFR-COMPAT-2 is met as a build setting and not as a tested fact, and nothing in this project claims
-the app works on macOS 26.** `README.md`'s *Requirements* names macOS 27, and
-`Quick_Start_Guide.md` is to name it when chunk 6 writes it (`BUILD-PLAN.md`, Step 16's detailed
-step 11).
-Whether the target, and this requirement, move to macOS 27 is the user's decision, put to them
-2026-10-12 with the fix for Step 16's *Finding, 2026-10-12* (`PROGRESS.md`).
+and the user kept it there. Testing has run on both versions: this Mac ran macOS 26 until
+2026-09-16 and macOS 27 since, and the clean Mac Step 16 walked runs 27.0.1. No run of a build made
+since 2026-09-16 is recorded on macOS 26, and none is planned, so **compatibility with macOS 26 is
+not assumed** for today's build; where a record does not settle which version a test ran on, it
+could have been either. `README.md`'s *Requirements* says so, and `Quick_Start_Guide.md` is to say
+so when chunk 6 writes it (`BUILD-PLAN.md`, Step 16's detailed step 11).
 
 *What would move it:* a test run on macOS 26, or a change to the deployment target.
+
+*(Corrected later on 2026-10-12, by the user's rule above. Until then this amendment's title said
+"macOS 27 is the only version tested"; its body, that NFR-COMPAT-2 "is met as a build setting and
+not as a tested fact, and nothing in this project claims the app works on macOS 26", that
+`README.md`'s *Requirements* "names macOS 27", and that whether the target moves was "put to them
+2026-10-12 with the fix".)*
 
 ---
 
@@ -664,4 +671,5 @@ Whether the target, and this requirement, move to macOS 27 is the user's decisio
    *(2026-09-30: still resolved. The one-to-three-day window under NFR-OBS-2 is a measured fact
    about macOS, not a retention rule this product sets.)*
 7. ~~**Minimum deployment target:**~~ **Resolved 2026-06-25** — minimum deployment target is macOS 26 (Tahoe); Xcode/Swift versions are not pinned in the spec (left to build config).
-   *(2026-10-12: still the target, and tested on macOS 27 only — the amendment of that date.)*
+   *(2026-10-12: still the target, kept by the user's decision that day — the amendment of that
+   date. Until the user's later rule the same day this note said "and tested on macOS 27 only".)*

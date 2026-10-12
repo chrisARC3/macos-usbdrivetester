@@ -13,7 +13,7 @@ All external direct-attach storage is USB-connected (both NAND flash and rotatio
 
 The deliverables are Apple-Silicon-native executables for macOS Tahoe (macOS 26) and later, built in Xcode/Swift, with at least one GUI executable for control and monitoring.
 
-*(2026-10-12: built for macOS 26 and later, and tested on macOS 27 only, by the user's decision — compatibility with macOS 26 is never assumed. `nonfunctional-requirements-usb-drive-tester.md`, the amendment of that date.)*
+*(2026-10-12: still built for macOS 26 and later, by the user's decision; testing has run on both macOS 26 and macOS 27, further testing is on macOS 27, and compatibility with macOS 26 is never assumed — `nonfunctional-requirements-usb-drive-tester.md`, the amendment of that date. Until the user's later rule the same day this note said "tested on macOS 27 only".)*
 
 Forces at play:
 

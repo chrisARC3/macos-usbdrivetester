@@ -2,8 +2,9 @@
 
 > **STATUS, 2026-10-12: WALKED 2026-10-12 AND STOPPED AT ITEM 2.1, ON A FINDING — the helper gate
 > read `notFound` and offered only Quit; items 2.2–6.5 not walked; the clean Mac ran macOS 27.0.1,
-> which the user made the only tested version the same day. The user decided to fix the finding,
-> and a fixed build is another artefact, so this file is re-cut before any walk past 2.1.**
+> and the user decided the same day that all further testing is on macOS 27. The user decided to
+> fix the finding, and a fixed build is another artefact, so this file is re-cut before any walk
+> past 2.1 — at chunk 5e, after the code (5c, approved 2026-10-12) and the artefact (5d).**
 > Written at Step 16's chunk 5a, against the release
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
 > from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Items 0.1–2.1 and 7 were walked
@@ -11,7 +12,9 @@
 > result, and the *Walk record* at the end holds the evidence; the finding is `PROGRESS.md`'s
 > *Finding, 2026-10-12*. *(Until the walk's record this said "APPROVED FOR THE WALK, NOT YET
 > WALKED" and "Nothing below has been walked".)* *(Until the user's decisions, later on
-> 2026-10-12, the status ended "and the clean Mac ran macOS 27.0.1, not 26".)*
+> 2026-10-12, the status ended "and the clean Mac ran macOS 27.0.1, not 26".)* *(Until chunk 5c's
+> approval, later still, it said "which the user made the only tested version the same day", and
+> named no chunk for the re-cut.)*
 > Chunk 5b is the walk, on the clean second Mac, **approved by the user 2026-10-12**.
 > *(2026-10-12: reviewed by the user, who answered its two questions — no re-register is added,
 > and gate item 4 is to name Full Disk Access at chunk 6.)* *(2026-10-12, later: **amended before
@@ -44,10 +47,12 @@ those approvals. None of them exists on the Mac a user would install it on.
 2. **launchd.** Whether launchd will start the helper inside such an app.
 3. **The provisioning profile.** Whether the helper runs on another Mac at all, since it carries
    `com.apple.application-identifier` with no provisioning profile.
-4. **macOS 26.** Whether this code runs on macOS 26. Everything built since 2026-09-16 has run only
-   on macOS 27. *(2026-10-12, the user's decision: not to be measured. All further testing is on
-   macOS 27, and macOS 26 compatibility is never assumed. So this risk is accepted, not answered,
-   and nothing this walk records says the app runs on macOS 26.)*
+4. **macOS 26.** Whether this code runs on macOS 26. No run of anything built since 2026-09-16 is
+   recorded on macOS 26. *(2026-10-12, the user's decision: not to be measured. All further testing
+   is on macOS 27, and macOS 26 compatibility is never assumed. So this risk is accepted, not
+   answered, and nothing this walk records says the app runs on macOS 26. Until the user's rule
+   later that day — no document claims testing on one version alone — the second sentence said
+   "Everything built since 2026-09-16 has run only on macOS 27".)*
 
 No test reaches any of the four. This walk is the only instrument, and **a Mac is clean only the
 first time**, which is why the stop rules below are strict.
@@ -390,8 +395,11 @@ Start **window B** first: Terminal › New Window. Leave it running until item 7
      source.*
    - Buttons: **Move to Trash**, the default, then **Open Anyway** and **Done**.
    The user pressed **Open Anyway**. The app's first log line came at 12:23:38.
-- ⚠️ **What authentication was asked for, and where, was not recorded.** The filtered log names
-  none, and its predicate would not catch one.
+- **The authentication, by the user's account later on 2026-10-12:** *"When I pressed Open Anyway
+  it asked for my password. I entered it successfully and the app launched."* Which of the two
+  **Open Anyway** buttons asked, and the prompt's wording, were not recorded; the filtered log
+  names no prompt, and its predicate would not catch one. *(Until the user's account this said
+  "⚠️ What authentication was asked for, and where, was not recorded.")*
 - In both dialogs the default is **Move to Trash**, so the release notes must name the button to
   press.
 
@@ -881,10 +889,12 @@ never run on:
   helper's own admission line proves that the running helper agrees.
 * **Full Disk Access from nothing** (item 4.3). Step 11 walked the modal by revoking a grant that
   already existed. A Mac that has never seen the app may list it differently, or not at all.
-* **macOS 26 itself.** Every build since 2026-09-16 has run on macOS 27 only. *(2026-10-12, the
-  user's decision: and it is not to be tested. All further testing is on macOS 27, and macOS 26
-  compatibility is never assumed — README.md's Requirements say so, and `Quick_Start_Guide.md`
-  is to.)*
+* **macOS 26 itself.** No run of a build made since 2026-09-16 is recorded on macOS 26.
+  *(2026-10-12, the user's decision: and it is not to be tested. All further testing is on macOS
+  27, and macOS 26 compatibility is never assumed; the build's minimum stays 26.0, and no document
+  claims testing on one version alone — README.md's Requirements say so, and
+  `Quick_Start_Guide.md` is to. Until the user's rule later that day the first sentence said
+  "Every build since 2026-09-16 has run on macOS 27 only".)*
 
 **Not covered by this walk, by its scope:**
 - what happens after the certificate expires on 2027-05-06, which cannot be measured before then;
@@ -968,7 +978,7 @@ is to be checked before any re-walk on this Mac.
 | 0.3 | ✅ on the AirDropped copy; the SMB copy had no quarantine |
 | 0.4 | ✅ every row; the helper quarantined too |
 | 1.1 | ✅ the refusal recorded |
-| 1.2 | ✅ *Open Anyway* opened it, both screens recorded; the authentication was not recorded |
+| 1.2 | ✅ *Open Anyway* opened it, both screens recorded; it asked for the user's password, by their account after the walk *(until then: "the authentication was not recorded")* |
 | 1.3 | ✅ from `/Applications`, on the log and ⇧⌘D; the quarantine after *Open Anyway* was not read |
 | 2.1 | ❌ `notFound`, Quit only — **the stop** |
 | 2.2–6.5 | not walked |
