@@ -4,7 +4,9 @@
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
 > from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Nothing below has been walked.
 > Chunk 5b is the walk, on the clean second Mac, and it needs the user's approval before it
-> starts.
+> starts. *(2026-10-12: reviewed by the user, who answered its two questions — no re-register
+> is added, and gate item 4 is to name Full Disk Access at chunk 6. Still not walked; chunk 5b
+> has not been approved.)*
 > *What would invalidate these instructions:*
 > - another artefact — item 0 names this one by its hashes;
 > - an edit to any string quoted below — each is quoted from the source at `6059eb2`;
@@ -708,7 +710,7 @@ never run on:
 - a re-register after the uninstall. Step 4's gate asks that *"a subsequent `register()` cleanly
   reinstalls"*; gate item 4 asks only that the helper *"uninstalls … cleanly"*. Detailed step 5's
   *"lifecycle end-to-end (Steps 3 & 4)"* could be read either way, and this file takes the gate's
-  words.
+  words. *(2026-10-12, the user's decision at review: not added.)*
 
 ---
 

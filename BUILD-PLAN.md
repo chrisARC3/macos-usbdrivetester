@@ -2576,7 +2576,7 @@ Ensure all significant events from both executables are emitted to the macOS uni
    > (F4), which moves the hash anyway. `progress/step-15-event-audit.md`, section 4.
 5. **No user-visible activity log required for v1** (resolved open question) — unified logging is sufficient.
 
-### Verification Gate (must pass before Step 16) — ✅ **ALL THREE PASSED, ticked 2026-10-08 at chunk 5, and the step CLOSED the same day** ([`progress/step-15.md`](progress/step-15.md)) *(⚠️ lapsed 2026-10-09 at Step 16's chunk 4 install, 13:10:48, by each item's *another install* clause — `PROGRESS.md`, *Step 16, chunk 4*)* *(2026-10-10, the user's decision at chunk 4's close: **item 1's traced full run is re-walked** on the release build, on the 125.8 MB thumb, with item 3 read off the same capture; **item 2's interrupted run is not**, so the gate as a whole stays lapsed — `PROGRESS.md`, *Step 16*)*
+### Verification Gate (must pass before Step 16) — ✅ **ALL THREE PASSED, ticked 2026-10-08 at chunk 5, and the step CLOSED the same day** ([`progress/step-15.md`](progress/step-15.md)) *(⚠️ lapsed 2026-10-09 at Step 16's chunk 4 install, 13:10:48, by each item's *another install* clause — `PROGRESS.md`, *Step 16, chunk 4*)* *(2026-10-10, the user's decision at chunk 4's close: **item 1's traced full run is re-walked** on the release build, on the 125.8 MB thumb, with item 3 read off the same capture; **item 2's interrupted run is not**, so the gate as a whole stays lapsed — `PROGRESS.md`, *Step 16*)* *(✅ **item 1 re-walked and passed 2026-10-12**, and item 3 re-read on the same capture — the notes under each; item 2 stays lapsed, and so does the gate)*
 - [x] `log show --predicate 'subsystem == "<bundle-id>"'` (and Console) shows a coherent trace across a full run lifecycle from both app and helper.
   > **Ticked 2026-10-08** at Step 15's chunk 5, on launch A's traced full run, 2026-10-05: the 125.8
   > MB thumb, run `24823240-7C5C-4E48-8EAC-D396302A25DD`, 30 of 30 chunks — the app's `run
@@ -2588,6 +2588,19 @@ Ensure all significant events from both executables are emitted to the macOS uni
   > source hash `36c3a9e1…`, daemon pid 33239. Judged on the live capture
   > `log-stream-launch-A-2026-10-05.txt` — the note under the next item. *Invalidated by* another
   > install, an edit to any `Logger` call on the run's path, or a move of the helper source hash.
+  > *(⚠️ Lapsed 2026-10-09 at Step 16's chunk 4 install, by that clause.)* ✅ **Re-walked and
+  > passed 2026-10-12**, by the user's decision of 2026-10-10, on the release build: the 125.8 MB
+  > thumb, serial `2211190533300386001515`, run `B5AF99D0-B032-4D85-ADBB-2D72C4FDC67F`, 30 of 30
+  > chunks — the app's `run authorised` at 10:14:39.534 to the helper's `release requested` at
+  > 10:15:19.289, the same 10 tagged lines as launch A, one ID, both processes (app pid 25010, 2;
+  > helper pid 91274, 8), with the `run control:` and `sleep prevention:` lines between. Against
+  > the release artefact installed 2026-10-09 13:10:48 from `a7eee6c` — app CDHash `41355694…`,
+  > helper CDHash `d9eeeecc…`, both read again after the run — protocol v16, source hash
+  > `36c3a9e1…`, daemon pid 91274, which `install-app.sh --check-daemon` confirmed is the installed
+  > helper's code. Judged on the live capture
+  > `USBDriveTester-evidence/step-16/log-stream-rewalk-a-2026-10-10.txt` (named for the day it
+  > started); the same-day export, `log-show-rewalk-a-2026-10-12.txt`, agrees with it message for
+  > message over the run's 49 lines. Same *Invalidated by*.
 - [x] An induced interrupted run (device loss / stop-on-error) is fully reconstructable from logs (device, offset, outcome).
   > **Ticked 2026-10-08**, on launch E1's running pull, 2026-10-06 at 15:36:10, run
   > `C3811BC6-C457-41C8-A615-F0D34548D1AA`: **the device** — `the drive under test left the machine
@@ -2632,6 +2645,10 @@ Ensure all significant events from both executables are emitted to the macOS uni
   > takes none — ends `(N B) taken` in all 1,892 of the gates' lines. The read, write-back and
   > verify paths were audited at chunk 1 (`progress/step-15-event-audit.md`), and F2 took the
   > SHA-256 off the digest line at chunk 4. Same build and *Invalidated by* as the first item.
+  > *(⚠️ Lapsed 2026-10-09 with item 1.)* ✅ **Re-read 2026-10-12** on item 1's re-walk: no run of
+  > 64 hex characters in its capture or in the same-day export — 0 in each (positive control, a
+  > 64-hex test string: 1). The same build and *Invalidated by* as item 1's re-walk. Only that run
+  > is re-read; the 2026-10-08 tick also read item 2's captures, which are not re-walked.
 
 **The Definition of Done, checked 2026-10-08 at the close** — each line of the global *Definition of
 Done*, and what answers it:
@@ -2697,7 +2714,7 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 2. **Enable the hardened runtime** (NFR-SEC-4) on both targets. Request **only the entitlements actually required** (NFR-SEC-7) — keep the set minimal. *(2026-10-09: the runtime is already on in both targets and both configurations — the installed binaries carry `flags=0x10000(runtime)` — so what is left is to verify it on the build that ships. The minimal set drops `get-task-allow` and the inert `com.apple.security.files.user-selected.read-only`, and justifies in writing anything it keeps.)*
 3. **Build the release artefact:** archive with coverage instrumentation off (`PROGRESS.md`, *Owed* (b)), take the app from the archive, verify it against the gate below, zip it with `ditto`, and record the zip's SHA-256 and both CDHashes. *(Done 2026-10-09 at chunk 3 by `scripts/release.sh`, which also re-signs the archived app with a secure timestamp, by the user's decision the same day; the artefact it made from `a7eee6c` is `PROGRESS.md`'s *Step 16, chunk 3* row.)* *(Re-cut 2026-10-09. It said "**Notarize:** archive, submit via `notarytool`, and **staple** the ticket to the app (NFR-INST-2)" — out of scope without a paid membership.)*
 4. **Verify the first launch on a clean Mac:** on a macOS 26 Mac that has **never** run a dev build of this app, open a copy that arrived **quarantined** (AirDrop or a browser download — a copy from a drive is not checked); record that macOS refuses the first open and that the app opens after *Open Anyway* in System Settings → Privacy & Security, with both dialogs' wording; confirm it registers the helper via `SMAppService` (Step 3), and that the helper accepts the properly-signed client (Step 3's Team-ID requirement is satisfied by the real signature). *(Re-cut 2026-10-09. It said "on a clean macOS 26 machine (or a fresh user), download/copy the app, confirm it launches without Gatekeeper warnings" — not possible without notarization; and a fresh user on this Mac shares its approvals, and runs macOS 27.)*
-5. **Confirm the install/uninstall lifecycle** end-to-end on the clean machine (Steps 3 & 4) with the signed build. *(2026-10-09: with a full run on the 1 TB scratch T5 and a report exported through the save panel — the app's only file panel, which the dropped entitlement no longer covers.)* *(2026-10-10: steps 4 and 5 are walked from `progress/step-16-human-checklist.md`, written at chunk 5a. It also walks what neither step names and a clean Mac will ask for: **Full Disk Access**, at the first Start — its item 4.3.)*
+5. **Confirm the install/uninstall lifecycle** end-to-end on the clean machine (Steps 3 & 4) with the signed build. *(2026-10-09: with a full run on the 1 TB scratch T5 and a report exported through the save panel — the app's only file panel, which the dropped entitlement no longer covers.)* *(2026-10-10: steps 4 and 5 are walked from `progress/step-16-human-checklist.md`, written at chunk 5a. It also walks what neither step names and a clean Mac will ask for: **Full Disk Access**, at the first Start — its item 4.3.)* *(2026-10-12, the user's answers at the checklist's review: gate item 4 is to name Full Disk Access, at chunk 6; and no re-register after the uninstall is added — gate item 4's words stand.)*
 6. **`os_log`** nothing new required; ensure release logging level is sane. *(2026-10-09: read against `progress/step-15-event-audit.md`, the inventory of every `Logger` call.)*
 7. **Release notes (added 2026-08-03, user observation during Step 8).** If Step 9's CPU
    measurement (detailed step 5a) shows the **host** becoming the throughput limit at a transport
@@ -2811,7 +2828,7 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 - [ ] `codesign --verify --deep --strict` passes on the shipped app, and the app and the embedded helper are both validly signed *Apple Development* under Team ID `5JC55GTLZA`. **`spctl -a -vv` is not met, by the user's decision of 2026-10-09** — there is no Developer ID identity — and its reading is recorded.
 - [ ] Hardened runtime is on in both binaries; the entitlement set is measured, minimal and justified — `get-task-allow` and `files.user-selected.read-only` gone, and anything kept justified in writing.
 - [ ] **Notarization is not met, by the user's decision of 2026-10-09** — there is no paid Apple Developer Program membership (`PROGRESS.md`, *Finding, 2026-10-09*).
-- [ ] On a clean macOS 26 Mac, from a copy that arrives quarantined: macOS refuses the first open and the app opens after *Open Anyway*, both dialogs recorded — ***"no Gatekeeper warning"* is not met, by the same decision**; it registers and (after approval) enables the helper, runs a full test on the 1 TB scratch T5, exports a report through the save panel, and uninstalls the helper cleanly.
+- [ ] On a clean macOS 26 Mac, from a copy that arrives quarantined: macOS refuses the first open and the app opens after *Open Anyway*, both dialogs recorded — ***"no Gatekeeper warning"* is not met, by the same decision**; it registers and (after approval) enables the helper, runs a full test on the 1 TB scratch T5, exports a report through the save panel, and uninstalls the helper cleanly. *(2026-10-12, the user's decision: this item is to name **Full Disk Access**, which a clean Mac asks for at the first Start — the checklist's item 4.3 — and is reworded at chunk 6.)*
 - [ ] The helper's Team-ID code-signing requirement (Step 3) matches the real signing identity end-to-end: the helper accepts the shipped app on the clean Mac, and the shipped app satisfies the requirement under `codesign -v -R` on this one.
 - [ ] Every Mach-O in the shipped app carries **0** `__llvm_prf_cnts` sections and **0** `___profc_` symbols (`PROGRESS.md`, *Owed* (b)), **and no `/Users/` or `/Volumes/` path** — counted by bytes or with `strings -`, never `strings -a` or `grep -c`, and with a positive control (`CONSTRAINTS.md` §1, *A string check on a Mach-O counts with `strings -` or by bytes*). *(Added 2026-10-09; the paths added the same day, by the user's decision at chunk 2's approval.)*
 
