@@ -1,8 +1,14 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-12: APPROVED FOR THE WALK, NOT YET WALKED.** Written at Step 16's chunk 5a, against the release
+> **STATUS, 2026-10-12: WALKED 2026-10-12 AND STOPPED AT ITEM 2.1, ON A FINDING — the helper gate
+> read `notFound` and offered only Quit; items 2.2–6.5 not walked; and the clean Mac ran macOS
+> 27.0.1, not 26.** Written at Step 16's chunk 5a, against the release
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
-> from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Nothing below has been walked.
+> from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Items 0.1–2.1 and 7 were walked
+> 2026-10-12 on a Mac mini running macOS 27.0.1 (26A434). Each item's **Record:** line holds its
+> result, and the *Walk record* at the end holds the evidence; the finding is `PROGRESS.md`'s
+> *Finding, 2026-10-12*. *(Until the walk's record this said "APPROVED FOR THE WALK, NOT YET
+> WALKED" and "Nothing below has been walked".)*
 > Chunk 5b is the walk, on the clean second Mac, **approved by the user 2026-10-12**.
 > *(2026-10-12: reviewed by the user, who answered its two questions — no re-register is added,
 > and gate item 4 is to name Full Disk Access at chunk 6.)* *(2026-10-12, later: **amended before
@@ -13,7 +19,8 @@
 > *What would invalidate these instructions:*
 > - another artefact — item 0 names this one by its hashes;
 > - an edit to any string quoted below — each is quoted from the source at `6059eb2`;
-> - a clean Mac that is not on macOS 26.
+> - a clean Mac that is not on macOS 26. *(2026-10-12: met by the walk itself — the clean Mac ran
+>   macOS 27.0.1. Item 0.2's macOS row failed, and risk 4, macOS 26, is still unmeasured.)*
 
 ---
 
@@ -142,7 +149,9 @@ drive is not checked.
 
 *What would invalidate it:* another `release.sh` run into `build/release/`, or any edit to the zip.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-12**, run headlessly on this Mac at chunk 5b's approval
+(`03e905d`): `ed695b8fa493032ca24f25fe7ac681be91cd43b28052f9b7ed1b860bdf97d8e4`. 0.3's hash, taken
+on the clean Mac, is the same. The first copy went over SMB, not by AirDrop — 0.3's record.
 
 **0.2 — the clean Mac is clean.** Open Terminal: this window is **window A**. Create the evidence
 folder, then start the recording.
@@ -178,8 +187,16 @@ sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-clean-mac/btm-befor
 ```
 
 ```bash
-/usr/bin/grep -c -i -E 'arc3solutions|USBDriveTester' /Users/Shared/USBDriveTester-clean-mac/btm-before.txt; /usr/bin/grep -c 'Records for UID' /Users/Shared/USBDriveTester-clean-mac/btm-before.txt
+/usr/bin/grep -c -i -E 'arc3solutions|USBDriveTester' /Users/Shared/USBDriveTester-clean-mac/btm-before.txt
 ```
+
+That prints how many lines name the app. Then the control, how many `Records for UID` lines there are:
+
+```bash
+/usr/bin/grep -c 'Records for UID' /Users/Shared/USBDriveTester-clean-mac/btm-before.txt
+```
+
+*(Split 2026-10-12. It was one command line that printed two unlabelled numbers.)*
 
 Last, open System Settings › Privacy & Security › Full Disk Access and look for USBDriveTester.
 
@@ -190,14 +207,31 @@ Last, open System Settings › Privacy & Security › Full Disk Access and look 
 | macOS | `ProductVersion` 26.x |
 | architecture | `arm64` |
 | `ls` | *No such file or directory* |
-| `defaults` | *Domain com.arc3solutions.USBDriveTester does not exist*. The app keeps its settings there, so the app has never run as this user |
+| `defaults` | *Error: Domain 'com.arc3solutions.USBDriveTester' not found.* The app keeps its settings there, so the app has never run as this user. *(Corrected 2026-10-12 from the walk's reading, and read the same on this Mac. It said* Domain com.arc3solutions.USBDriveTester does not exist*, which nobody had measured.)* |
 | `launchctl` | *Could not find service* |
 | BTM | **0** lines name it, against a control of **≥ 1** `Records for UID` line. A 0 with a 0 control means the dump failed, not that the Mac is clean |
 | Full Disk Access | does not list USBDriveTester |
 
 *What would invalidate it:* anything that runs this app on the clean Mac before item 1.
 
-**Record:**
+**Record:** ❌ **Two rows failed, 2026-10-12; the other five passed.** Window A, from 11:06:58
+(`terminal.txt`).
+- **macOS — failed:** `ProductVersion 27.0.1`, `BuildVersion 26A434`. Not macOS 26, which is this
+  file's own invalidation clause. The walk went on, because nothing had been run; what it costs is
+  that risk 4, macOS 26, is not measured by this walk.
+- architecture: `arm64` — passed.
+- **`ls` — failed:** at 11:07:09 it read *No such file or directory*. `script` was then started a
+  second time, at 11:08:43, and at 11:08:53 `ls` found `/Applications/USBDriveTester.app`. That was
+  a copy sent over SMB before the walk and never run; the user deleted it and started again by
+  AirDrop. The user's account, and the log that agrees with it, are in the *Walk record* below. No
+  copy of the app was launched before 12:18:36.
+- `defaults`: *Error: Domain 'com.arc3solutions.USBDriveTester' not found.* — passed. The row
+  above expected other words; corrected 2026-10-12.
+- `launchctl`: *Bad request.* / *Could not find service "com.arc3solutions.USBDriveTester.Helper" in
+  domain for system* — passed.
+- BTM: **0** lines name it, against **4** `Records for UID` — passed (`btm-before.txt`, 561 lines,
+  11:19).
+- Full Disk Access: does not list USBDriveTester — passed, the user's reading.
 
 **0.3 — the copy arrived intact and quarantined.**
 
@@ -216,7 +250,14 @@ Last, open System Settings › Privacy & Security › Full Disk Access and look 
 If it prints *No such xattr*, stop. A copy that is not quarantined does not test what gate item 4
 asks.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-12, on the second copy.** The first came over SMB: the hash was
+0.1's, but `xattr` printed *No such xattr: com.apple.quarantine*. The walk stopped here, as the
+item says. I then directed a copy by AirDrop, which is what 0.1 asks for. That was a second copy,
+which the stop rule does not allow. I judged it acceptable because nothing had run, and a copy
+with no quarantine tests nothing gate item 4 asks. The AirDropped zip: hash `ed695b8f…`, 0.1's;
+quarantine `0081;6acd26e7;sharingd;EE3B8540-93B9-475B-8214-8B2AEF065B5A` — `sharingd` is AirDrop.
+*A reading for the release notes:* a copy over SMB arrives with no quarantine. That copy was not
+opened, so what Gatekeeper does with it is not measured.
 
 **0.4 — unpack it and move it, without opening it.**
 1. Double-click the zip in Finder. Archive Utility unpacks it, and it carries the quarantine to what
@@ -278,7 +319,17 @@ Record its line; it is not a failure of this walk.
 The timestamps are in the clean Mac's time zone, and these are this Mac's Pacific readings. A
 different hour with the same minutes is the same timestamp.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-12, every row.** Archive Utility unpacked the AirDropped zip at
+11:30:10, the log shows; then the app was dragged to Applications.
+- quarantine: app `0181;6acd26e7;sharingd;EE3B8540-…`, helper `0081;6acd26e7;sharingd;EE3B8540-…`.
+  The zip's event ID is on both, so the copy walked is the AirDropped one. The helper carries a
+  quarantine, so 2.4 would have exercised the launchd risk.
+- `--verify`: *valid on disk*, *satisfies its Designated Requirement*, the helper *--validated*.
+- `Identifier`, `CDHash` (`41355694…`, `d9eeeecc…`), `Authority` (*Apple Development: …
+  (424WY3TDB4)*, then the WWDR CA and Apple Root CA), `Timestamp` (*Oct 9, 2026 at 1:00:02 PM* and
+  *1:00:01 PM*) and `TeamIdentifier` `5JC55GTLZA`: all as the table. `Runtime Version` 27.0.0.
+- sha256: `07c392f6…`, `b5b807aa…` — as the table.
+- `spctl`: *rejected*, *origin=Apple Development: … (424WY3TDB4)*. Not met, as decided 2026-10-09.
 
 ---
 
@@ -297,7 +348,13 @@ Start **window B** first: Terminal › New Window. Leave it running until item 7
 - Record its title, its body and its buttons, word for word.
 - Close it with the button that does not delete it.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-12.** First launch at 12:18:36.494, pid 27772. `syspolicyd` logged
+*Prompt shown* for team `5JC55GTLZA`. Screenshot `RefusalDialog.png`.
+- Title: *“USBDriveTester” Not Opened*
+- Body: *Apple could not verify “USBDriveTester” is free of malware that may harm your Mac or
+  compromise your privacy.*
+- Buttons: **Move to Trash**, the default, and **Done**. A **?** help button sits top right.
+- Closed with **Done**; Gatekeeper's denial breadcrumb is at 12:19:08.
 
 **1.2 — *Open Anyway*.**
 1. Open System Settings › Privacy & Security and scroll to *Security*.
@@ -310,7 +367,22 @@ Start **window B** first: Terminal › New Window. Leave it running until item 7
 - Record every dialog's wording, in order.
 - Record what authentication was asked for, and where.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-12: the app opened, pid 28016, launched 12:23:16.491.**
+1. *Privacy & Security › Security*, screenshot 12:22:51: *“USBDriveTester” was blocked to protect
+   your Mac.*, with **Open Anyway**. Beneath it: *Apple could not verify “USBDriveTester” is free of
+   malware that may harm your Mac or compromise your privacy.* *Allow applications from* reads
+   *App Store & Known Developers*.
+2. After **Open Anyway**, screenshot 12:23:22:
+   - Title: *Open “USBDriveTester”?*
+   - Body: *Apple is not able to verify that it is free from malware that could harm your Mac or
+     compromise your privacy. Don’t open this unless you are certain it is from a trustworthy
+     source.*
+   - Buttons: **Move to Trash**, the default, then **Open Anyway** and **Done**.
+   The user pressed **Open Anyway**. The app's first log line came at 12:23:38.
+- ⚠️ **What authentication was asked for, and where, was not recorded.** The filtered log names
+  none, and its predicate would not catch one.
+- In both dialogs the default is **Move to Trash**, so the release notes must name the button to
+  press.
 
 **1.3 — it runs from `/Applications`, not a translocated copy.** Run each of these in window A:
 
@@ -332,7 +404,17 @@ Start **window B** first: Terminal › New Window. Leave it running until item 7
 - another macOS release — the dialogs are macOS's, not this app's;
 - another artefact.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-12, on the log and ⇧⌘D rather than window A.** The two commands
+ran in a window `script` was not recording, and their output was not kept. What shows it instead:
+- `launchd`: *Successfully spawned USBDriveTester[28016]*, and `runningboardd`:
+  *exPath:/Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester*, both at 12:23:16.
+  Neither log file has a line containing `AppTranslocation`.
+- ⇧⌘D, screenshot 12:41:03: *Running from* `/Applications/USBDriveTester.app`.
+- The app's pid is **28016**.
+- **The quarantine value after *Open Anyway* was not read.** It is the one reading lost.
+- An extra read I asked for once the gate showed, `ls -l` of the bundle's `LaunchDaemons`: the
+  user saw *total 8*, and the file line was not recorded. That the plist is there rests on 0.4's
+  `--verify --strict`, which seals it.
 
 ---
 
@@ -356,7 +438,26 @@ the one state the gate offers only Quit for. It is a finding, and the walk stops
 3. Open Privileged Helper & Diagnostics (⇧⌘D) and screenshot its *Helper registration* section.
 4. Go to item 7.
 
-**Record:**
+**Record:** ❌ **FAILED 2026-10-12, and the walk stopped here.**
+- **The gate:** ***"The privileged helper is missing from this app."*** — `notFound` — with
+  **Quit** only (screenshot 12:23:57). Its body: *"macOS cannot find the privileged helper's
+  launchd property list inside this application, so the helper can be neither installed nor
+  started. Nothing in the app can repair this. Quit, reinstall USBDriveTester from a complete copy,
+  and open it again. The Privileged Helper & Diagnostics window (⇧⌘D) names the exact file it is
+  looking for."*
+- **The log, 12:23:38:** *registration manager initialised; daemon
+  com.arc3solutions.USBDriveTester.Helper.plist status notFound* (`log-stream.txt` .525,
+  `log-show.txt` .578). Then *helper gate: notFound …* at .816, and twice more at 12:40:40.
+- **The stop was followed.** The app was not quit, and nothing was pressed. ⇧⌘D was screenshotted
+  at 12:41:03: *Status* `notFound`; *"The system cannot find the daemon's plist in this app
+  bundle. …"*; *Running from* `/Applications/USBDriveTester.app`; *No action taken yet.* Then item 7.
+- **Classed functional:** `PROGRESS.md`, *Finding, 2026-10-12*.
+- The pass this item named, `status notRegistered`, had never been measured on a Mac that had not
+  registered the helper. The app's own note of 2026-07-27 (`HelperRegistration.swift`) says
+  `notFound`.
+- *(A reading.)* Behind the gate, the main window had selected disk6 by default: one of the clean
+  Mac's own two 14 TB Seagate Expansion drives, the one holding its Time Machine volume. That is
+  FR-DEV-3's first usable drive. Nothing ran.
 
 **2.2 — Register Helper.** Press it.
 
@@ -738,7 +839,18 @@ from it.
 
 *Pass:* both log files have lines, and `terminal.txt` holds every item's commands.
 
-**Record:**
+**Record:** ✅ **Done 2026-10-12, with gaps.**
+- **Log files:** both have lines. `log-stream.txt` has 3,912, from 12:18:33 to 12:47:01;
+  `log-show.txt` has 12,419, from 10:56:55 to 12:49:59. I counted them on this Mac, because `wc`
+  ran in a window `script` was not recording.
+- **`launchctl-end.txt`:** *Bad request.* / *Could not find service …*.
+- **BTM before `exit`, as I asked:** `btm-stopped.txt` has 0 lines that name the app, against 4
+  `Records for UID`.
+- ❌ **`terminal.txt` does not hold every item's commands.** It ends at window A's `log stream`,
+  stopped about 12:47. 1.3, the extra `ls` and item 7 ran in another window.
+- **The drive:** the 1 TB scratch T5 was never attached to the clean Mac.
+- **The folder:** it came back as `USBDriveTester-evidence/step-16/USBDriveTester-clean-mac/`; the
+  user put it there directly.
 
 ---
 
@@ -778,3 +890,123 @@ never run on:
 item's own **Record:** line above is the record of record; this section holds the evidence behind
 it. Name the clean Mac by its model and macOS version, and every pass by the artefact's zip hash,
 `ed695b8f…`.)*
+
+
+### 2026-10-12 — walked on a Mac mini on macOS 27.0.1, and stopped at item 2.1
+
+*The user walked it. Claude judged it the same day, on this Mac, from the evidence.*
+
+**The clean Mac:**
+- A Mac mini (from its host name; the model was not read), `arm64`.
+- macOS **27.0.1**, build **26A434** — not macOS 26, which the prerequisites and the invalidation
+  clause above ask for.
+- Two drives of its own were attached, both 14 TB Seagate Expansion:
+  - disk6, which holds its Time Machine volume and a volume named `10 TB`;
+  - disk8.
+- The 1 TB scratch T5 was never attached.
+
+**The artefact:** `USBDriveTester-1.0-1-a7eee6c.zip`, `ed695b8f…`, from `a7eee6c`: protocol v16,
+helper source hash `36c3a9e1…`.
+
+**Times.** Pacific, from the clean Mac's log, `terminal.txt` and the screenshots' names.
+
+| Time | What |
+|---|---|
+| 10:56:55 | before the walk: `smbd` writes `/Volumes/10 TB/USBDriveTester.app`; copies in Downloads and on the Desktop follow at 10:57 |
+| 11:06:58 | `script` started in window A; 0.2's first commands at 11:07:09 |
+| 11:07:55 | Archive Utility unpacks the SMB zip on the Desktop |
+| 11:08:43 | `script` started a second time, appending; 0.2 again at 11:08:53, and `ls` now finds the app |
+| 11:19 | `btm-before.txt` written |
+| — | 0.3: the SMB zip has no quarantine; stopped; the zip sent again by AirDrop |
+| 11:30:10 | Archive Utility unpacks the AirDropped zip (0.4) |
+| 12:18:33 | `log stream`'s first line — it ran in window A, not B |
+| 12:18:36.494 | first launch, pid 27772; `syspolicyd` *Prompt shown* (1.1) |
+| 12:19:08 | the refusal closed with **Done**; Gatekeeper's denial breadcrumb |
+| 12:22:51 | Privacy & Security screenshot (1.2) |
+| 12:23:16.491 | second launch, pid 28016, after *Open Anyway*; its dialog screenshotted at 12:23:22 |
+| 12:23:38 | the app's first lines: `status notFound`, then `helper gate: notFound` (2.1) |
+| 12:23:57 | the gate's screenshot |
+| 12:40:40 | the gate re-checked twice: `notFound` |
+| 12:41:03 | ⇧⌘D screenshot |
+| 12:47 | `log stream` stopped; its last line is 12:47:01 |
+| 12:48–12:50 | `btm-stopped.txt`, `launchctl-end.txt` and `log show` |
+
+**The copies before the walk.** The user's account, 2026-10-12: *"I originally zipped up the copy
+of the application that is in this Mac's application folder, copied it over SMB, unzipped it and
+copied it to the test Mac's application folder. But I did not run the app. Then I saw that you
+wanted it done through AirDrop, so I deleted everything and started over according to your
+directions."*
+
+The log agrees:
+- the first line naming the app is the SMB write at 10:56:55;
+- no copy was launched before 12:18:36;
+- the copy walked carries the AirDrop's quarantine event, `EE3B8540-…`.
+
+The deletions are not in the filtered log. That no copy remains, for instance on `/Volumes/10 TB`,
+is to be checked before any re-walk on this Mac.
+
+**Results.** Each item's **Record:** line holds the detail.
+
+| Item | Result |
+|---|---|
+| 0.1 | ✅ |
+| 0.2 | ❌ macOS 27.0.1; `ls` found the SMB copy at 11:08:53. The other five rows ✅ |
+| 0.3 | ✅ on the AirDropped copy; the SMB copy had no quarantine |
+| 0.4 | ✅ every row; the helper quarantined too |
+| 1.1 | ✅ the refusal recorded |
+| 1.2 | ✅ *Open Anyway* opened it, both screens recorded; the authentication was not recorded |
+| 1.3 | ✅ from `/Applications`, on the log and ⇧⌘D; the quarantine after *Open Anyway* was not read |
+| 2.1 | ❌ `notFound`, Quit only — **the stop** |
+| 2.2–6.5 | not walked |
+| 7 | ✅ with gaps: `terminal.txt` is incomplete |
+
+**Not measured, because the walk did not reach them:**
+- launchd starting a quarantined helper (2.4);
+- the helper running with no provisioning profile (2.4);
+- its admission of the shipped app (item 3);
+- Full Disk Access from nothing (4.3).
+
+macOS 26 was not on the Mac. The only one of the four risks at the top of this file that the walk
+measured is the first, Gatekeeper.
+
+**Where the walk departed from this file:**
+- `script` was started twice, so `terminal.txt` holds 0.2's first commands twice.
+- `log stream` ran in window A. Everything from 1.3 on ran in a window that was not recorded.
+- I directed the AirDrop copy at 0.3, after the stop.
+- I asked for two reads this file does not name: the `ls -l` at 1.3, and `btm-stopped.txt` at item 7.
+- The evidence was copied straight into `USBDriveTester-evidence/step-16/` rather than AirDropped to
+  Downloads first.
+
+**Corrected in this file, 2026-10-12.** Both defects are cosmetic, and both were found by walking:
+- 0.2's `defaults` row expected *Domain … does not exist*, wording nobody had measured. macOS 27.0.1
+  prints *Error: Domain '…' not found.*, as this Mac does.
+- 0.2's two BTM counts were one command line that printed two unlabelled numbers.
+
+**Left on the clean Mac:**
+- the app in `/Applications`, approved by Gatekeeper;
+- nothing registered: `launchctl` *Could not find service*, and BTM 0 lines against 4 at the end.
+
+The helper has never been registered there, so a re-walk on that Mac would still meet registration
+clean, but not Gatekeeper: that has approved this artefact. The user was asked to quit the app with
+the gate's **Quit** after item 7, and nothing records it.
+
+**Evidence**, in `USBDriveTester-evidence/step-16/USBDriveTester-clean-mac/`:
+
+| File | What |
+|---|---|
+| `RefusalDialog.png` | 1.1 |
+| `Screenshot 2026-10-12 at 12.22.51 PM.png` | 1.2, the Security pane |
+| `Screenshot 2026-10-12 at 12.23.22 PM.png` | 1.2, the dialog after *Open Anyway* |
+| `Screenshot 2026-10-12 at 12.23.57 PM.png` | 2.1, the gate |
+| `Screenshot 2026-10-12 at 12.41.03 PM.png` | 2.1, ⇧⌘D |
+| `terminal.txt` | 72 lines, from 11:06:58 to the `log stream`'s Ctrl-C |
+| `log-stream.txt` | 3,912 lines |
+| `log-show.txt` | 12,419 lines |
+| `btm-before.txt`, `btm-stopped.txt` | 561 lines each; 0 name the app, against 4 `Records for UID` |
+| `launchctl-end.txt` | *Could not find service* |
+
+**What it is true of:** the artefact `ed695b8f…`, on macOS 27.0.1 (26A434).
+
+**Invalidated by:**
+- another artefact;
+- for 1.1 and 1.2, another macOS release.
