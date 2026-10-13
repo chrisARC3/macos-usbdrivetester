@@ -1,8 +1,10 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-13: RE-CUT AT CHUNK 5e FOR THE RE-WALK, AND NOT YET RE-WALKED. The re-walk is
-> chunk 5f, on the Mac mini the first walk used, and it needs the user's approval before it
-> starts.** It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> **STATUS, 2026-10-13: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
+> USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET WALKED.** It is on the
+> Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
+> YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
+> user's approval before it starts.")* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line is empty for the
 > re-walk. The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
@@ -215,7 +217,10 @@ drive is not checked.
 
 *What would invalidate it:* another `release.sh` run into `build/release/`, or any edit to the zip.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-13 12:26:43 PDT**, run headlessly on this Mac at chunk 5f's
+approval (`ec71f4a`): `713935672b5c4811b9d8fa015bece801270126d36de64d1937e9918c09daf9c6`, 1,934,096
+bytes, the file unchanged since 11:44:01, when `release.sh` wrote it, and the hash its
+`MANIFEST.txt` names. Whether the copy that reaches the Mac mini is this one is 0.3's.
 
 **0.2 — the first walk's copies go, and the Mac is clean of registration.** Open Terminal: this
 window is **window A**. Create the evidence folder, then start the recording. *(Re-cut 2026-10-13,
