@@ -165,12 +165,14 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > and walked 2026-10-12, and stopped at its item 2.1: on a Mac that has never registered the
 > helper, the app's gate reads `notFound` and offers only Quit (`PROGRESS.md`, *Finding,
 > 2026-10-12*). The author decided the same day to fix it — of its chunks, 5c–5g,
-> chunk 5c, the gate fix in code, was approved the same day and is next — and that further testing
+> chunk 5c, the gate fix in code, was approved and done the same day, and chunk 5d, the release
+> artefact built from it, is next and needs approval — and that further testing
 > is on macOS 27 (*Requirements*, below). Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
 > the four hardware gates have passed on it, the other two running"; until chunk 5a, "Chunk 5, the
 > walk on a clean second Mac, is next"; until 2026-10-12, "chunk 5b, the walk itself, is
-> next"; until the walk's record, the same day, "was approved 2026-10-12"; and until chunk 5c's
-> approval, the same day, "to fix it, and to test on macOS 27 only".)*
+> next"; until the walk's record, the same day, "was approved 2026-10-12"; until chunk 5c's
+> approval, the same day, "to fix it, and to test on macOS 27 only"; and until its commit, the same
+> day, "chunk 5c, the gate fix in code, was approved the same day and is next".)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -202,8 +204,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state, on Xcode 27.0 since 2026-09-19: **1339 tests / 160 suites / 0 failures**
-> (floor 1339, green 2026-10-09 on Step 16's chunk 2 and 2026-10-01 on Step 15's chunk 4 — 1330 / 158 / 0 on chunk 3, 2026-09-30, and
+> Current verified state, on Xcode 27.0 since 2026-09-19: **1348 tests / 162 suites / 0 failures**
+> (floor 1348, green 2026-10-12 on Step 16's chunk 5c — 1339 / 160 / 0 on its chunk 2, 2026-10-09,
+> and on Step 15's chunk 4, 2026-10-01; 1330 / 158 / 0 on Step 15's chunk 3, 2026-09-30, and
 > 1323 / 157 / 0 before that), zero source warnings from three clean builds, **14/14** gate clients type-checking
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15
 > *(2026-10-01: the source is protocol **v16** since Step 15's chunk 4, which lapsed those four

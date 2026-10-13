@@ -45,6 +45,18 @@
 //  **not** Quit-only: this project's own wording, `ProtocolVersionCheck.mismatch.description`,
 //  already prescribes re-registering.
 //
+//  ## `SMAppService`'s `.notFound` is not, by itself, ``notFound`` (Step 16 chunk 5c, 2026-10-12)
+//
+//  Until 2026-10-12 the two were one thing, and the Quit-only decision above was keyed on the status
+//  alone. Step 16's clean-Mac walk found that wrong. On a Mac that has never registered this helper,
+//  `SMAppService.status` reads `.notFound` with the plist present in a verified bundle —
+//  CONSTRAINTS.md §1, measured 2026-10-12 on macOS 27.0.1, and seen on macOS 26 at this Mac's own
+//  first registration, 2026-07-27. So a first install met the Quit-only modal and could go no
+//  further (`PROGRESS.md`, *Finding, 2026-10-12*). The status cannot tell a first install from a
+//  broken bundle, so ``diagnose(status:version:plistIsEmbedded:)`` takes a second witness, whether
+//  the plist is in the bundle: with it, `.notFound` is ``notRegistered`` and offers Register Helper;
+//  without it, ``notFound`` and Quit, as before.
+//
 //  ## The gate is raised only at launch, and that is load-bearing
 //
 //  `AppModel.refreshHelperAvailability()` is called from the scene's `onAppear`, by the gate's own
@@ -176,16 +188,23 @@ nonisolated enum HelperGateAction: String, Equatable, Hashable, Identifiable, Ca
 ///
 /// Six cases and no seventh. There is deliberately no `checking` state: the value starts
 /// ``available`` and is written only once an answer exists, so nothing flashes on screen during the
-/// handshake — see ``diagnose(status:version:)``.
+/// handshake — see ``diagnose(status:version:plistIsEmbedded:)``.
 nonisolated enum HelperAvailability: Equatable {
 
     /// Registered, approved, and answering this app's protocol version. **No modal.**
     case available
 
     /// The daemon's plist is not in this app bundle. A broken installation; the one Quit-only state.
+    ///
+    /// **Not every `SMAppService` `.notFound`** — only one whose plist is missing too. With the
+    /// plist present, `.notFound` is what a Mac that has never registered the daemon reports, and
+    /// it is ``notRegistered``; see ``diagnose(status:version:plistIsEmbedded:)``.
     case notFound
 
     /// The daemon has never been installed on this Mac.
+    ///
+    /// Reached from `SMAppService`'s `.notRegistered`, and since Step 16 chunk 5c from its
+    /// `.notFound` when the plist is in the bundle.
     case notRegistered
 
     /// Installed, but macOS will not run it until the user allows it (NFR-INST-1).
@@ -217,6 +236,27 @@ nonisolated enum HelperAvailability: Equatable {
     ///   - status: `SMAppService.status`, a **local** query that needs no daemon.
     ///   - version: the NFR-MAINT-1 handshake's answer, or `nil` when there is not one — either
     ///     because the status made it pointless to ask, or because the check is still in flight.
+    ///   - plistIsEmbedded: whether the daemon's plist is in this app's bundle —
+    ///     `HelperRegistration.daemonPlistIsEmbedded`. Read **only for `.notFound`**, the one status
+    ///     that cannot tell a first install from a broken bundle by itself.
+    ///
+    /// ## Why `.notFound` needs a second witness (Step 16 chunk 5c, 2026-10-12)
+    ///
+    /// `SMAppService.status` reads `.notFound` until the daemon has been registered once on that
+    /// Mac (CONSTRAINTS.md §1), and a plist that is missing or misnamed reads the same. So the
+    /// status settles nothing here, and the plist's presence decides: present, it is a first
+    /// install and ``notRegistered``, whose Register Helper is the remedy; absent, it is
+    /// ``notFound``, the broken bundle, and Quit.
+    ///
+    /// **Required, with no default.** A defaulted `false` would compile at every old call site and
+    /// put the Quit-only modal back in front of every first install, which is the defect this
+    /// parameter exists to fix.
+    ///
+    /// **What it cannot see:** a plist that is present but unusable, such as a `Label` that does not
+    /// match its file name. That now reads ``notRegistered`` and offers Register Helper, which fails
+    /// and says why in the log and in the diagnostics window (⇧⌘D); the gate re-diagnoses to the
+    /// same state, and Quit is still offered. The bundle is sealed by its signature, so such a plist
+    /// would mean a build that was already wrong when it was signed.
     ///
     /// ## Why `.enabled` with no answer yet is ``available``
     ///
@@ -226,10 +266,12 @@ nonisolated enum HelperAvailability: Equatable {
     /// to be switched over — no modal is shown for it either way. So the optimistic answer is the
     /// honest one: nothing is known to be wrong yet.
     static func diagnose(status: SMAppService.Status,
-                         version: Result<ProtocolVersionCheck, Error>?) -> HelperAvailability {
+                         version: Result<ProtocolVersionCheck, Error>?,
+                         plistIsEmbedded: Bool) -> HelperAvailability {
         switch status {
         case .notFound:
-            return .notFound
+            // The second witness, and the only place it is read.
+            return plistIsEmbedded ? .notRegistered : .notFound
         case .notRegistered:
             return .notRegistered
         case .requiresApproval:
@@ -343,9 +385,10 @@ nonisolated enum HelperAvailability: Equatable {
             // The light render read "Sandbox restriction.. Choose Retry to ask again."; the suite
             // could not see it, since every assertion about this message is a `contains`.
             //
-            // Trimmed here rather than in `diagnose(status:version:)` so that a case constructed
-            // directly — by a test, or by a render fixture — is punctuated the same way as one the
-            // app produced. A normalisation that only the happy path applies is a second behaviour.
+            // Trimmed here rather than in `diagnose(status:version:plistIsEmbedded:)` so that a
+            // case constructed directly — by a test, or by a render fixture — is punctuated the
+            // same way as one the app produced. A normalisation that only the happy path applies
+            // is a second behaviour.
             let trimmed = detail.trimmingCharacters(in: .whitespacesAndNewlines)
             let fragment = trimmed.hasSuffix(".") ? String(trimmed.dropLast()) : trimmed
             return """

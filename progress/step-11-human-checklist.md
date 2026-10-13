@@ -2694,7 +2694,11 @@ including window class names.
 * **`HelperAvailability.notFound` and `.unreachable`, on hardware.** The two gate states this bench
   cannot stage — a plist missing from the bundle, and a daemon that is enabled and silent. Both
   diagnoses are unit-tested and both are rendered in each appearance; neither has been seen for
-  real. The other three gate states are walked by chunk 13.
+  real. The other three gate states are walked by chunk 13. *(2026-10-12: `notFound` was seen for
+  real on Step 16's clean-Mac walk — but on a Mac that had never registered the helper, with the
+  plist in the bundle, where `SMAppService` reads `.notFound` too (`CONSTRAINTS.md` §1; `PROGRESS.md`,
+  *Finding, 2026-10-12*). Since Step 16's chunk 5c, the same day, that reads `notRegistered`, and
+  `notFound` is again only the bundle without its plist, which no walk stages.)*
 
 **Twelve blind spots.** The count is measured against the list above, not carried forward — it
 read "three" until 2026-08-23, by which point the list had grown to ten and nothing had

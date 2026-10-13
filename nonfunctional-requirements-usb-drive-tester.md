@@ -530,7 +530,8 @@ then meet a failure — and the *readiness banner* that reported some of it did 
 call that conflates five conditions.
 
 **What is there now.** A modal raised at launch, from `HelperAvailability` — a pure enum plus a pure
-diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake. Six states, five of which
+diagnosis over `SMAppService.status` and NFR-MAINT-1's version handshake *(and, since Step 16's
+chunk 5c, 2026-10-12, whether the daemon's plist is in the app bundle)*. Six states, five of which
 raise it:
 
 | Condition | Offers |
@@ -551,7 +552,10 @@ is a broken installation and nothing in-app repairs it.
 
 **Why the diagnosis is app-wide rather than from a failed per-device call.** `SMAppService.status` is
 a local query needing no daemon, and the handshake is NFR-MAINT-1's. Together they separate all five
-conditions. The per-device readiness call separates none: its error handler catches *any* XPC
+conditions. *(2026-10-12: not on a Mac that has never registered the daemon. There `SMAppService.status`
+is `.notFound` with the plist present, as it is for a missing plist (`CONSTRAINTS.md` §1), so the gate
+offered only Quit to a first install — `PROGRESS.md`, *Finding, 2026-10-12*. Since Step 16's chunk 5c,
+the same day, the diagnosis also reads whether the plist is in the bundle, which separates them.)* The per-device readiness call separates none: its error handler catches *any* XPC
 transport error, including the transient blip while the daemon restarts on every helper reinstall — so
 a fatal modal fired on that would go off during routine maintenance.
 

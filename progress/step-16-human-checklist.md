@@ -4,7 +4,7 @@
 > read `notFound` and offered only Quit; items 2.2–6.5 not walked; the clean Mac ran macOS 27.0.1,
 > and the user decided the same day that all further testing is on macOS 27. The user decided to
 > fix the finding, and a fixed build is another artefact, so this file is re-cut before any walk
-> past 2.1 — at chunk 5e, after the code (5c, approved 2026-10-12) and the artefact (5d).**
+> past 2.1 — at chunk 5e, after the code (5c, done 2026-10-12) and the artefact (5d).**
 > Written at Step 16's chunk 5a, against the release
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
 > from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Items 0.1–2.1 and 7 were walked
@@ -14,7 +14,8 @@
 > WALKED" and "Nothing below has been walked".)* *(Until the user's decisions, later on
 > 2026-10-12, the status ended "and the clean Mac ran macOS 27.0.1, not 26".)* *(Until chunk 5c's
 > approval, later still, it said "which the user made the only tested version the same day", and
-> named no chunk for the re-cut.)*
+> named no chunk for the re-cut.)* *(Until chunk 5c's commit, the same day, it said "5c, approved
+> 2026-10-12".)*
 > Chunk 5b is the walk, on the clean second Mac, **approved by the user 2026-10-12**.
 > *(2026-10-12: reviewed by the user, who answered its two questions — no re-register is added,
 > and gate item 4 is to name Full Disk Access at chunk 6.)* *(2026-10-12, later: **amended before
@@ -895,6 +896,17 @@ never run on:
   claims testing on one version alone — README.md's Requirements say so, and
   `Quick_Start_Guide.md` is to. Until the user's rule later that day the first sentence said
   "Every build since 2026-09-16 has run on macOS 27 only".)*
+
+* **Which witness the running app passes to the gate** *(added 2026-10-12, Step 16's chunk 5c)*.
+  `AppModel.refreshHelperAvailability()` reads whether the daemon's plist is in the bundle and
+  hands it to `HelperAvailability.diagnose`. No test drives that method, so a constant there
+  passes the whole suite — mutants **M4** (`false`, the gate as it was before chunk 5c) and **M5**
+  (`true`) both passed all 1348 — and so does the init log line's *plist in bundle* always reading
+  *yes* (**M12**). **What a person checks instead**, at the re-cut item 2.1 (chunk 5f): on a Mac
+  that has never registered the helper, the gate reads *not registered* and offers **Register
+  helper**, and the registration manager's init line ends *"status notFound; plist in bundle
+  yes"*. That covers M4 and M12. M5's half — a bundle without its plist, which is still Quit-only —
+  is walked by nobody: no build ships one on purpose, and the suite covers `diagnose` itself.
 
 **Not covered by this walk, by its scope:**
 - what happens after the certificate expires on 2027-05-06, which cannot be measured before then;

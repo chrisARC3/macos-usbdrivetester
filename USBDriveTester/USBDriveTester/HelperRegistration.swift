@@ -28,9 +28,14 @@ private let log = Logger(subsystem: HelperIdentity.loggingSubsystem, category: "
 final class HelperRegistration {
 
     /// The daemon as `SMAppService` sees it. The plist name must match the file in
-    /// `Contents/Library/LaunchDaemons/` exactly; a mismatch is the single most
-    /// common cause of a permanent `.notFound`, which is why the name is derived
-    /// from ``HelperIdentity`` rather than written out here.
+    /// `Contents/Library/LaunchDaemons/` exactly, which is why the name is derived from
+    /// ``HelperIdentity`` rather than written out here: a mismatch reads `.notFound`.
+    ///
+    /// **So does a daemon that has never been registered on this Mac**, with its plist exactly
+    /// where it belongs — CONSTRAINTS.md §1, measured 2026-10-12 on Step 16's clean-Mac walk.
+    /// Until that day this comment called a mismatch *"the single most common cause of a
+    /// permanent `.notFound`"*; on a first install the commonest cause is not having registered
+    /// yet. Telling the two apart is ``daemonPlistIsEmbedded``'s job.
     private let service = SMAppService.daemon(plistName: HelperIdentity.daemonPlistName)
 
     /// Last status read from the system. Refreshed explicitly, never cached across
@@ -46,13 +51,18 @@ final class HelperRegistration {
     init() {
         let initialStatus = service.status
         status = initialStatus
-        // Bound to a local rather than read through `self`: the Logger interpolation
+        // Bound to locals rather than read through `self`: the Logger interpolation
         // is an autoclosure, so touching `self.service` here would capture self.
         let statusName = Self.name(for: initialStatus)
+        // The second witness, beside the status because `.notFound` means nothing without it
+        // (Step 16 chunk 5c): a person reading this one line can tell a first install from a
+        // broken bundle without opening the bundle.
+        let plistInBundle = daemonPlistIsEmbedded ? "yes" : "no"
         log.notice("""
                    registration manager initialised; daemon \
                    \(HelperIdentity.daemonPlistName, privacy: .public) status \
-                   \(statusName, privacy: .public)
+                   \(statusName, privacy: .public); plist in bundle \
+                   \(plistInBundle, privacy: .public)
                    """)
     }
 
@@ -357,9 +367,17 @@ final class HelperRegistration {
     var statusName: String { Self.name(for: status) }
 
     /// What the current status means and what to do about it. Status alone is not
-    /// actionable — `.notFound` in particular reads as a bug in the app when it is
-    /// almost always a build-configuration mismatch.
+    /// actionable, and `.notFound` alone is not even a diagnosis: a Mac that has never
+    /// registered the daemon reports it, and so does a bundle missing its plist.
+    /// ``daemonPlistIsEmbedded`` tells them apart (Step 16 chunk 5c). Until 2026-10-12 this
+    /// said `.notFound` was *"almost always a build-configuration mismatch"*.
     var statusExplanation: String {
+        Self.explanation(for: status, plistIsEmbedded: daemonPlistIsEmbedded)
+    }
+
+    /// ``statusExplanation`` with its two inputs passed in, so that both `.notFound` branches can
+    /// be tested without a Mac in either state.
+    static func explanation(for status: SMAppService.Status, plistIsEmbedded: Bool) -> String {
         switch status {
         case .notRegistered:
             return "The daemon is not installed. Choose Register helper to install it."
@@ -370,7 +388,16 @@ final class HelperRegistration {
                    The daemon is installed but is waiting for your approval. Open Login Items \
                    & Extensions and enable it under this app's name, then choose Refresh.
                    """
+        case .notFound where plistIsEmbedded:
+            return """
+                   The daemon has not been registered on this Mac yet. macOS reports notFound \
+                   until it has been registered once, and this app's bundle does contain its plist. \
+                   Choose Register helper to install it; if that fails, check that the plist's \
+                   Label matches its file name.
+                   """
         case .notFound:
+            // Unchanged from before chunk 5c, word for word: this is the branch the launch gate's
+            // Quit-only message sends the user here to read, and it names the file.
             return """
                    The system cannot find the daemon's plist in this app bundle. Check that \
                    Contents/Library/LaunchDaemons/\(HelperIdentity.daemonPlistName) is embedded \
@@ -383,13 +410,50 @@ final class HelperRegistration {
 
     /// Status conveyed by symbol as well as text — never colour alone (NFR-USE-8).
     var statusSymbolName: String {
+        Self.symbolName(for: status, plistIsEmbedded: daemonPlistIsEmbedded)
+    }
+
+    /// ``statusSymbolName`` with its inputs passed in. A `.notFound` with the plist present takes
+    /// `.notRegistered`'s symbol, because that is what it is.
+    static func symbolName(for status: SMAppService.Status, plistIsEmbedded: Bool) -> String {
         switch status {
         case .enabled:          return "checkmark.circle.fill"
         case .requiresApproval: return "exclamationmark.triangle.fill"
         case .notRegistered:    return "circle.dashed"
-        case .notFound:         return "xmark.octagon.fill"
+        case .notFound:         return plistIsEmbedded ? "circle.dashed" : "xmark.octagon.fill"
         @unknown default:       return "questionmark.circle"
         }
+    }
+
+    // MARK: - The plist, as a second witness (Step 16 chunk 5c)
+
+    /// Whether this app's bundle carries the daemon's plist, at the path `SMAppService` reads.
+    ///
+    /// **The second witness `.notFound` needs.** `SMAppService.status` reads `.notFound` until the
+    /// daemon has been registered once on that Mac (CONSTRAINTS.md §1, measured 2026-10-12), and
+    /// also when the plist is missing from the bundle, so the status alone cannot tell a first
+    /// install from a broken one. This can. `AppModel.refreshHelperAvailability()` reads it beside
+    /// the status for the launch gate, and ``statusExplanation`` and ``statusSymbolName`` read it
+    /// for the diagnostics window.
+    ///
+    /// Computed rather than stored: it is one file-system check, and the bundle it checks is
+    /// sealed by its signature.
+    var daemonPlistIsEmbedded: Bool {
+        Self.plistIsEmbedded(named: HelperIdentity.daemonPlistName,
+                             inBundleAt: Bundle.main.bundleURL)
+    }
+
+    /// The check itself, with the name and the bundle passed in so a test can point it at a
+    /// directory it built. `nonisolated` because it touches nothing but the file system, and so the
+    /// test target can reach it without a main-actor hop.
+    ///
+    /// **Existence only.** A plist that is present but wrong — a `Label` that does not match — is
+    /// not detected here; `register()` is what reports that, in its own error.
+    nonisolated static func plistIsEmbedded(named name: String, inBundleAt bundleURL: URL) -> Bool {
+        let plist = bundleURL
+            .appendingPathComponent("Contents/Library/LaunchDaemons", isDirectory: true)
+            .appendingPathComponent(name, isDirectory: false)
+        return FileManager.default.fileExists(atPath: plist.path)
     }
 
     /// Where this app is running from.

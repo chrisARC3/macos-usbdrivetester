@@ -58,9 +58,9 @@ before the one that costs a protocol version**, and both have.
 
 | Decision | Date |
 |---|---|
-| ~~Remedy-first, not Quit-only; `.notFound` alone is Quit-only~~ **built, increment 9** | 2026-08-26 |
+| ~~Remedy-first, not Quit-only; `.notFound` alone is Quit-only~~ **built, increment 9** *(2026-10-12: re-opened by the user's decision after Step 16's clean-Mac walk — `.notFound` is also a Mac that has never registered the daemon, `CONSTRAINTS.md` §1. Since Step 16's chunk 5c, the same day, `.notFound` is Quit-only only when the plist is missing from the bundle too.)* | 2026-08-26 |
 | ~~The gate fires at **launch/initialization**~~ **built, increment 9** | 2026-08-26 |
-| ~~Diagnosed from `SMAppService.status` + the version handshake~~ **built, increment 9** | 2026-08-26 |
+| ~~Diagnosed from `SMAppService.status` + the version handshake~~ **built, increment 9** *(2026-10-12, Step 16's chunk 5c: and whether the daemon's plist is in the app bundle, without which `.notFound` cannot tell a first install from a broken bundle.)* | 2026-08-26 |
 | ~~FDA stays a Start-time check (**option A**, inside preparation)~~ **built, increment 10** | 2026-08-26 |
 | ~~The FDA modal has **two** buttons~~ **built, increment 10** — a two-button `.alert`, so it has no render cover | 2026-08-26 |
 | ~~Increment 10 keeps the FDA move and the banner deletion **together**~~ **built** | 2026-08-26 |

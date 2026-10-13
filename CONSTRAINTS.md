@@ -388,7 +388,10 @@ Apple and both were found only because someone pressed the button.
   second witness: whether the plist is in the bundle, or what `register()` then says. What it cost:
   the gate's one Quit-only state was keyed on `.notFound` alone (the decision of 2026-08-26), so a
   first install could not get past it — `PROGRESS.md`, *Finding, 2026-10-12*, which the user
-  decided the same day to fix.
+  decided the same day to fix. *(Fixed in source the same day, Step 16's chunk 5c: the gate takes
+  the plist's presence as its second witness, so `.notFound` with the plist in the bundle reads as
+  not registered and offers Register. Not yet built into an artefact or walked on a
+  never-registered Mac — chunks 5d and 5f.)*
 
   **Not measured:** that `register()` from this state succeeds on macOS 27 — the walk left
   **Register helper** unpressed, to keep the Mac's never-registered state for a fixed build.

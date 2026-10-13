@@ -7,7 +7,16 @@
 //  of the table *as a whole*, not a claim about the rows somebody happened to click. Increment 1's
 //  mutation M9 blanked a disabled reason and passed all 827 tests because the check walked the
 //  rendered surface rather than the table; every walk here is over `everyCase` or over all four
-//  statuses.
+//  statuses — and, since Step 16 chunk 5c, over both answers of the plist witness.
+//
+//  ## `.notFound` is two rows, not one (Step 16 chunk 5c, 2026-10-12)
+//
+//  On a Mac that has never registered the daemon, `SMAppService` reads `.notFound` with the plist
+//  in the bundle (CONSTRAINTS.md §1). Keyed on the status alone, a first install met the Quit-only
+//  modal and could go no further — Step 16's clean-Mac walk, `PROGRESS.md`, *Finding, 2026-10-12*.
+//  So row 1 splits on whether the plist is present, and the witness that decides it has tests of
+//  its own at the bottom of this file, against a bundle built in a temporary directory and against
+//  the app hosting this suite.
 //
 //  ## What this suite provably cannot reach
 //
@@ -66,20 +75,37 @@ private enum Gate {
 
 struct HelperAvailabilityDiagnosisTests {
 
-    /// Row 1. The one genuinely unrepairable state: the daemon's plist is not in the bundle.
+    /// Row 1. The one genuinely unrepairable state: the daemon's plist is not in the bundle — the
+    /// status `.notFound` **and** the plist absent.
     @Test func aMissingPlistIsNotFound() {
-        #expect(HelperAvailability.diagnose(status: .notFound, version: nil) == .notFound)
+        #expect(HelperAvailability.diagnose(status: .notFound, version: nil, plistIsEmbedded: false)
+                    == .notFound)
+    }
+
+    /// **Row 1's other half — Step 16's finding, 2026-10-12.** On a Mac that has never registered
+    /// the daemon, `SMAppService` reads `.notFound` with the plist exactly where it belongs. Keyed
+    /// on the status alone that met the Quit-only modal, and a first install could go no further.
+    /// With the plist present it is a first install, and its remedy is the install.
+    @Test func aNotFoundDaemonWhosePlistIsPresentIsNotRegistered() {
+        let availability = HelperAvailability.diagnose(status: .notFound, version: nil,
+                                                       plistIsEmbedded: true)
+        #expect(availability == .notRegistered)
+        #expect(availability.actions.first == .registerHelper,
+                "a first install must be offered the install, not only Quit")
+        #expect(HelperRegistrationRemedy.forGate(availability) == .registerOnly,
+                "there is nothing installed to remove first")
     }
 
     /// Row 2.
     @Test func anUninstalledDaemonIsNotRegistered() {
-        #expect(HelperAvailability.diagnose(status: .notRegistered, version: nil) == .notRegistered)
+        #expect(HelperAvailability.diagnose(status: .notRegistered, version: nil,
+                                            plistIsEmbedded: true) == .notRegistered)
     }
 
     /// Row 3.
     @Test func anUnapprovedDaemonRequiresApproval() {
-        #expect(HelperAvailability.diagnose(status: .requiresApproval, version: nil)
-                    == .requiresApproval)
+        #expect(HelperAvailability.diagnose(status: .requiresApproval, version: nil,
+                                            plistIsEmbedded: true) == .requiresApproval)
     }
 
     /// Row 4. A transport error against an *enabled* daemon is the only thing that produces
@@ -87,7 +113,8 @@ struct HelperAvailabilityDiagnosisTests {
     /// error against a daemon that was never installed would be a wrong diagnosis.
     @Test func anEnabledDaemonThatDoesNotAnswerIsUnreachable() {
         let availability = HelperAvailability.diagnose(status: .enabled,
-                                                       version: Gate.transportFailure)
+                                                       version: Gate.transportFailure,
+                                                       plistIsEmbedded: true)
         guard case .unreachable(let detail) = availability else {
             Issue.record("expected unreachable, got \(availability)")
             return
@@ -97,21 +124,24 @@ struct HelperAvailabilityDiagnosisTests {
 
     /// Row 5. NFR-MAINT-1's handshake disagreeing.
     @Test func anEnabledDaemonOnAnotherVersionIsAMismatch() {
-        #expect(HelperAvailability.diagnose(status: .enabled, version: Gate.mismatching)
+        #expect(HelperAvailability.diagnose(status: .enabled, version: Gate.mismatching,
+                                            plistIsEmbedded: true)
                     == .versionMismatch(helper: TesterProtocol.version - 1,
                                         app: TesterProtocol.version))
     }
 
     /// Row 6. The only combination that raises nothing.
     @Test func anEnabledDaemonOnThisVersionIsAvailable() {
-        #expect(HelperAvailability.diagnose(status: .enabled, version: Gate.matching) == .available)
+        #expect(HelperAvailability.diagnose(status: .enabled, version: Gate.matching,
+                                            plistIsEmbedded: true) == .available)
     }
 
     /// **The interval the plan's table does not have a row for.** Between reading the status and the
     /// handshake returning, something has to be true — and reporting a problem there would put a
     /// modal on screen for a fraction of a second on every healthy launch.
     @Test func anEnabledDaemonWithNoAnswerYetIsAvailable() {
-        #expect(HelperAvailability.diagnose(status: .enabled, version: nil) == .available)
+        #expect(HelperAvailability.diagnose(status: .enabled, version: nil, plistIsEmbedded: true)
+                    == .available)
     }
 
     /// **The status is resolved before the version, and this is what pins the order.** Mutation M3
@@ -120,21 +150,64 @@ struct HelperAvailabilityDiagnosisTests {
     /// that was never registered.
     @Test func theStatusIsResolvedBeforeTheVersion() {
         for status in Gate.everyKnownStatus where status != .enabled {
-            let expected = HelperAvailability.diagnose(status: status, version: nil)
-            #expect(HelperAvailability.diagnose(status: status, version: Gate.mismatching) == expected,
-                    "status=\(status.rawValue)")
-            #expect(HelperAvailability.diagnose(status: status, version: Gate.matching) == expected,
-                    "status=\(status.rawValue)")
-            #expect(HelperAvailability.diagnose(status: status, version: Gate.transportFailure)
-                        == expected, "status=\(status.rawValue)")
+            for plist in [true, false] {
+                let expected = HelperAvailability.diagnose(status: status, version: nil,
+                                                           plistIsEmbedded: plist)
+                #expect(HelperAvailability.diagnose(status: status, version: Gate.mismatching,
+                                                    plistIsEmbedded: plist) == expected,
+                        "status=\(status.rawValue) plist=\(plist)")
+                #expect(HelperAvailability.diagnose(status: status, version: Gate.matching,
+                                                    plistIsEmbedded: plist) == expected,
+                        "status=\(status.rawValue) plist=\(plist)")
+                #expect(HelperAvailability.diagnose(status: status, version: Gate.transportFailure,
+                                                    plistIsEmbedded: plist) == expected,
+                        "status=\(status.rawValue) plist=\(plist)")
+            }
         }
     }
 
-    /// Every known status maps somewhere, and only `.enabled` can reach `available`.
+    /// Every known status maps somewhere, and only `.enabled` can reach `available` — whatever the
+    /// plist witness says.
     @Test func onlyAnEnabledDaemonCanBeAvailable() {
         for status in Gate.everyKnownStatus {
-            let availability = HelperAvailability.diagnose(status: status, version: Gate.matching)
-            #expect(availability.isAvailable == (status == .enabled), "status=\(status.rawValue)")
+            for plist in [true, false] {
+                let availability = HelperAvailability.diagnose(status: status, version: Gate.matching,
+                                                               plistIsEmbedded: plist)
+                #expect(availability.isAvailable == (status == .enabled),
+                        "status=\(status.rawValue) plist=\(plist)")
+            }
+        }
+    }
+
+    /// **The witness is read for `.notFound` and for nothing else.** Every other status settles the
+    /// diagnosis by itself, so the plist's answer must not move it — a missing plist must not, say,
+    /// turn an approved and answering daemon into a broken bundle.
+    @Test func theWitnessIsReadOnlyForNotFound() {
+        let versions: [Result<ProtocolVersionCheck, Error>?] =
+            [nil, Gate.matching, Gate.mismatching, Gate.transportFailure]
+        for status in Gate.everyKnownStatus where status != .notFound {
+            for version in versions {
+                #expect(HelperAvailability.diagnose(status: status, version: version,
+                                                    plistIsEmbedded: true)
+                            == HelperAvailability.diagnose(status: status, version: version,
+                                                           plistIsEmbedded: false),
+                        "status=\(status.rawValue)")
+            }
+        }
+    }
+
+    /// **Quit-only is reachable from exactly one input**: `.notFound` with the plist absent. This is
+    /// the finding's property stated end to end — from what the system reports to the buttons — where
+    /// `onlyAMissingPlistIsQuitOnly` below states it over the cases alone.
+    @Test func onlyABundleWithoutItsPlistIsQuitOnly() {
+        for status in Gate.everyKnownStatus {
+            for plist in [true, false] {
+                let availability = HelperAvailability.diagnose(status: status, version: Gate.matching,
+                                                               plistIsEmbedded: plist)
+                let isQuitOnly = availability.actions == [.quit]
+                #expect(isQuitOnly == (status == .notFound && !plist),
+                        "status=\(status.rawValue) plist=\(plist)")
+            }
         }
     }
 
@@ -152,7 +225,8 @@ struct HelperAvailabilityDiagnosisTests {
                          """)
             return
         }
-        let availability = HelperAvailability.diagnose(status: unknown, version: nil)
+        let availability = HelperAvailability.diagnose(status: unknown, version: nil,
+                                                       plistIsEmbedded: true)
 
         guard case .unreachable(let detail) = availability else {
             Issue.record("expected unreachable, got \(availability)")
@@ -498,5 +572,93 @@ struct HelperGateMessageTests {
             #expect(!line.contains("no modal raised"),
                     "previous=\(previous.routeName) line=\(line)")
         }
+    }
+}
+
+// MARK: - The plist witness (Step 16 chunk 5c, 2026-10-12)
+
+struct HelperPlistWitnessTests {
+
+    /// Not the real plist's name, so a pass here cannot be the real bundle answering by accident.
+    private static let plistName = "com.example.WitnessFixture.plist"
+
+    /// Builds `<tmp>/Fixture.app/Contents/Library/LaunchDaemons/`, with or without the plist in it,
+    /// and removes the lot afterwards.
+    private func withBundle(containingPlist: Bool, _ body: (URL) throws -> Void) throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("HelperPlistWitnessTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let bundle = root.appendingPathComponent("Fixture.app", isDirectory: true)
+        let daemons = bundle.appendingPathComponent("Contents/Library/LaunchDaemons",
+                                                    isDirectory: true)
+        try FileManager.default.createDirectory(at: daemons, withIntermediateDirectories: true)
+        if containingPlist {
+            try Data("<plist/>".utf8).write(to: daemons.appendingPathComponent(Self.plistName))
+        }
+        try body(bundle)
+    }
+
+    /// The plist where `SMAppService` reads it is found.
+    @Test func aPlistWhereSMAppServiceReadsItIsFound() throws {
+        try withBundle(containingPlist: true) { bundle in
+            #expect(HelperRegistration.plistIsEmbedded(named: Self.plistName, inBundleAt: bundle))
+        }
+    }
+
+    /// **The broken bundle**, with the directory present and the file not: the one input that must
+    /// still reach the Quit-only state.
+    @Test func aBundleWithoutThePlistIsReportedWithoutIt() throws {
+        try withBundle(containingPlist: false) { bundle in
+            #expect(!HelperRegistration.plistIsEmbedded(named: Self.plistName, inBundleAt: bundle))
+        }
+    }
+
+    /// A plist of another name is not this one. `SMAppService` looks the daemon up by file name, so
+    /// a renamed plist is as missing as a deleted one.
+    @Test func aPlistOfAnotherNameDoesNotCount() throws {
+        try withBundle(containingPlist: true) { bundle in
+            #expect(!HelperRegistration.plistIsEmbedded(named: "com.example.Other.plist",
+                                                        inBundleAt: bundle))
+        }
+    }
+
+    /// **The positive control, on the real thing.** This suite is hosted by the built app, so
+    /// `Bundle.main` is `USBDriveTester.app` with its embedded daemon plist. If this fails, the
+    /// witness is looking in the wrong place or under the wrong name, and every first install would
+    /// be diagnosed as a broken bundle again.
+    @MainActor
+    @Test func theAppHostingThisSuiteCarriesItsOwnPlist() {
+        #expect(Bundle.main.bundleURL.pathExtension == "app",
+                "not hosted by the app: \(Bundle.main.bundleURL.path)")
+        #expect(HelperRegistration.plistIsEmbedded(named: HelperIdentity.daemonPlistName,
+                                                   inBundleAt: Bundle.main.bundleURL))
+        #expect(HelperRegistration().daemonPlistIsEmbedded)
+    }
+}
+
+// MARK: - What the diagnostics window says about `.notFound` (Step 16 chunk 5c)
+
+@MainActor
+struct HelperRegistrationNotFoundWordingTests {
+
+    /// With the plist present, `.notFound` is a first install and is explained as one, with the
+    /// same remedy the gate offers.
+    @Test func aNotFoundWithThePlistPresentIsExplainedAsAFirstInstall() {
+        let text = HelperRegistration.explanation(for: .notFound, plistIsEmbedded: true)
+        #expect(text.contains("Register helper"), "\(text)")
+        #expect(!text.contains("cannot find"), "\(text)")
+        #expect(HelperRegistration.symbolName(for: .notFound, plistIsEmbedded: true)
+                    == HelperRegistration.symbolName(for: .notRegistered, plistIsEmbedded: true))
+    }
+
+    /// **Without it, the explanation still names the file.** The gate's Quit-only message promises
+    /// that ⇧⌘D *"names the exact file it is looking for"*; this is the sentence that keeps that
+    /// promise.
+    @Test func aNotFoundWithoutThePlistStillNamesTheMissingFile() {
+        let text = HelperRegistration.explanation(for: .notFound, plistIsEmbedded: false)
+        #expect(text.contains("Contents/Library/LaunchDaemons/\(HelperIdentity.daemonPlistName)"),
+                "\(text)")
+        #expect(HelperRegistration.symbolName(for: .notFound, plistIsEmbedded: false)
+                    == "xmark.octagon.fill")
     }
 }

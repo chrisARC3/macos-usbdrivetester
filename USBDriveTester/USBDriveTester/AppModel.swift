@@ -361,8 +361,8 @@ final class AppModel {
     ///
     /// **Starts ``HelperAvailability/available`` and is written only when an answer exists**, so a
     /// healthy launch never flashes a modal while the handshake is in flight. See
-    /// `HelperAvailability.diagnose(status:version:)` for why that is the honest default rather
-    /// than an optimistic one.
+    /// `HelperAvailability.diagnose(status:version:plistIsEmbedded:)` for why that is the honest
+    /// default rather than an optimistic one.
     private(set) var helperAvailability: HelperAvailability = .available
 
     /// Diagnose the helper and raise or clear the gate.
@@ -384,14 +384,19 @@ final class AppModel {
     func refreshHelperAvailability() {
         registration.refresh()
         let status = registration.status
+        // Read beside the status and captured with it, for the same reason: `.notFound` means
+        // nothing without it (Step 16 chunk 5c — see `HelperAvailability.diagnose`).
+        let plistIsEmbedded = registration.daemonPlistIsEmbedded
 
         guard status == .enabled else {
-            setHelperAvailability(.diagnose(status: status, version: nil))
+            setHelperAvailability(.diagnose(status: status, version: nil,
+                                            plistIsEmbedded: plistIsEmbedded))
             return
         }
 
         helper.checkProtocolVersion { [weak self] result in
-            self?.setHelperAvailability(.diagnose(status: status, version: result))
+            self?.setHelperAvailability(.diagnose(status: status, version: result,
+                                                  plistIsEmbedded: plistIsEmbedded))
         }
     }
 
