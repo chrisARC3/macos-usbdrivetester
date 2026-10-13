@@ -391,7 +391,8 @@ Apple and both were found only because someone pressed the button.
   decided the same day to fix. *(Fixed in source the same day, Step 16's chunk 5c: the gate takes
   the plist's presence as its second witness, so `.notFound` with the plist in the bundle reads as
   not registered and offers Register. Not yet built into an artefact or walked on a
-  never-registered Mac — chunks 5d and 5f.)*
+  never-registered Mac — chunks 5d and 5f.)* *(2026-10-13: built into one, chunk 5d — sha256
+  `71393567…` from `6642488`. Not yet walked.)*
 
   **Not measured:** that `register()` from this state succeeds on macOS 27 — the walk left
   **Register helper** unpressed, to keep the Mac's never-registered state for a fixed build.

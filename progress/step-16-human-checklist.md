@@ -1,10 +1,11 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-12: WALKED 2026-10-12 AND STOPPED AT ITEM 2.1, ON A FINDING — the helper gate
+> **STATUS, 2026-10-13: WALKED 2026-10-12 AND STOPPED AT ITEM 2.1, ON A FINDING — the helper gate
 > read `notFound` and offered only Quit; items 2.2–6.5 not walked; the clean Mac ran macOS 27.0.1,
 > and the user decided the same day that all further testing is on macOS 27. The user decided to
 > fix the finding, and a fixed build is another artefact, so this file is re-cut before any walk
-> past 2.1 — at chunk 5e, after the code (5c, done 2026-10-12) and the artefact (5d).**
+> past 2.1 — at chunk 5e, after the code (5c, done 2026-10-12) and the artefact (5d, built
+> 2026-10-13 from `6642488`, sha256 `71393567…`).**
 > Written at Step 16's chunk 5a, against the release
 > artefact `build/release/a7eee6c/USBDriveTester-1.0-1-a7eee6c.zip`, sha256 `ed695b8f…`, built
 > from `a7eee6c`: protocol v16, helper source hash `36c3a9e1…`. Items 0.1–2.1 and 7 were walked
@@ -15,7 +16,8 @@
 > 2026-10-12, the status ended "and the clean Mac ran macOS 27.0.1, not 26".)* *(Until chunk 5c's
 > approval, later still, it said "which the user made the only tested version the same day", and
 > named no chunk for the re-cut.)* *(Until chunk 5c's commit, the same day, it said "5c, approved
-> 2026-10-12".)*
+> 2026-10-12".)* *(Until chunk 5d, 2026-10-13, the status was dated 2026-10-12 and ended "and the
+> artefact (5d)".)*
 > Chunk 5b is the walk, on the clean second Mac, **approved by the user 2026-10-12**.
 > *(2026-10-12: reviewed by the user, who answered its two questions — no re-register is added,
 > and gate item 4 is to name Full Disk Access at chunk 6.)* *(2026-10-12, later: **amended before
