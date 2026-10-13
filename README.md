@@ -166,15 +166,18 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > helper, the app's gate reads `notFound` and offers only Quit (`PROGRESS.md`, *Finding,
 > 2026-10-12*). The author decided the same day to fix it — of its chunks, 5c–5g,
 > chunk 5c, the gate fix in code, was approved and done the same day; chunk 5d, the release
-> artefact built from it, was approved and done 2026-10-13; and chunk 5e, the clean-Mac checklist
-> re-cut for that artefact, is next and needs approval — and that further testing
+> artefact built from it, was approved and done 2026-10-13; chunk 5e, the clean-Mac checklist
+> re-cut for that artefact, was approved and done the same day; and chunk 5f, the re-walk on the
+> Mac mini, is next and needs approval — and that further testing
 > is on macOS 27 (*Requirements*, below). Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
 > the four hardware gates have passed on it, the other two running"; until chunk 5a, "Chunk 5, the
 > walk on a clean second Mac, is next"; until 2026-10-12, "chunk 5b, the walk itself, is
 > next"; until the walk's record, the same day, "was approved 2026-10-12"; until chunk 5c's
 > approval, the same day, "to fix it, and to test on macOS 27 only"; and until its commit, the same
 > day, "chunk 5c, the gate fix in code, was approved the same day and is next"; and until chunk
-> 5d, 2026-10-13, "chunk 5d, the release artefact built from it, is next and needs approval".)*
+> 5d, 2026-10-13, "chunk 5d, the release artefact built from it, is next and needs approval"; and
+> until chunk 5e, the same day, "and chunk 5e, the clean-Mac checklist re-cut for that artefact, is
+> next and needs approval".)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
