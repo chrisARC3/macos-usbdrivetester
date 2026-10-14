@@ -1,13 +1,18 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-13: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
-> USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET WALKED.** It is on the
+> **STATUS, 2026-10-14: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
+> USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–1.3 WALKED 2026-10-13 AND 14, WHERE 0.2'S
+> `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND 1.3 PASSED, AND 1.1
+> IS A REFUSAL; THE REST IS NOT YET WALKED.** It is on the
 > Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
-> user's approval before it starts.")* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
+> "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
+> WALKED.")* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
-> `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line is empty for the
-> re-walk. The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
+> `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
+> re-walk at chunk 5e, and 0.1–1.3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
+> line is empty for the re-walk.")* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
 > the *Walk record*.
 >
 > **The first walk**, as this block described it until chunk 5e, 2026-10-13: *"WALKED 2026-10-12
@@ -318,7 +323,37 @@ Last, open System Settings › Privacy & Security › Full Disk Access and look 
 registers its helper, or grants it Full Disk Access. *(Until chunk 5e, 2026-10-13: "anything that
 runs this app on the clean Mac before item 1".)*
 
-**Record:**
+**Record:** ❌ **One row failed, 2026-10-13: `ls` found a copy in `/Applications`. Found
+2026-10-14, on this Mac, in `terminal.txt`; the walk went on by the user's decision the same day.**
+Window A, `script` started once, at 12:38:52 PDT; host `Chris-Mac-mini`, the first walk's Mac mini.
+- `ps`: printed nothing — the app was not running, so there was nothing to quit.
+- `mdfind`: printed nothing, and the Terminal control printed
+  `/System/Applications/Utilities/Terminal.app`. That is the row's pass, but a copy *was* in
+  `/Applications` — the `ls` below. **An instrument finding, recorded and not repaired here:** the
+  control lives on the system volume and the copy on the data volume, so the control cannot show
+  that the index covering `/Applications` answered. On this Mac the same query, run 2026-10-14,
+  prints `/Applications/USBDriveTester.app` and six other copies, so the query is sound and the
+  Mac mini's index did not hold the copy. A blank `mdfind` with Terminal's control printing does
+  not show that a Mac holds no copy.
+- macOS: `ProductVersion 27.0.1`, `BuildVersion 26A434`; `arm64`; *Tue Oct 13 12:40:59 PDT 2026* —
+  passed.
+- **`ls` — failed:** it printed `/Applications/USBDriveTester.app`, not *No such file or
+  directory*. Whether that was the first walk's copy, not yet in the Trash, or this artefact moved
+  in early, the evidence cannot tell. The user's account is owed: when the first walk's app went to
+  the Trash, whether Finder offered to replace a copy at 0.4, and the Trash's *Date Added*. What
+  holds either way: the copy walked is this artefact (0.4's hashes and CDHashes), Gatekeeper had
+  not approved it (1.1's refusal), and the registration rows below passed.
+- `defaults`: **not run** — `terminal.txt` has no `defaults` command. The reading is lost: the app
+  has run as this user since, so it cannot be taken again.
+- `launchctl`: *Bad request.* / *Could not find service "com.arc3solutions.USBDriveTester.Helper" in
+  domain for system* — passed.
+- BTM: **0** lines name it, against **4** `Records for UID` — passed (`btm-before.txt`, 561 lines,
+  written 12:43).
+- Full Disk Access: does not list USBDriveTester — passed, the user's reading.
+- **The stop rule:** the failed row was not seen at the keyboard — the user reported item 0 as
+  expected — so items 0.3–1.3 were walked before it was found. It was reported 2026-10-14 with what
+  holds either way, and the user decided the same day: *"Yes, let's move on to Item 2 and note the
+  Item 1 discrepancies."*
 
 **0.3 — the copy arrived intact and quarantined.**
 
@@ -339,7 +374,9 @@ asks.
 
 *(The zip's name re-cut 2026-10-13, chunk 5e, from `USBDriveTester-1.0-1-a7eee6c.zip`.)*
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-13.** The hash is
+`713935672b5c4811b9d8fa015bece801270126d36de64d1937e9918c09daf9c6`, 0.1's. The quarantine is
+`0081;6ace86a8;sharingd;F8CB3308-11DB-44EA-9F6E-B13BC41750AF` — `sharingd` is AirDrop.
 
 **0.4 — unpack it and move it, without opening it.**
 1. Double-click the zip in Finder. Archive Utility unpacks it, and it carries the quarantine to what
@@ -407,7 +444,18 @@ Record its line; it is not a failure of this walk.
 The timestamps are in the clean Mac's time zone, and these are this Mac's Pacific readings. A
 different hour with the same minutes is the same timestamp.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-13, every row of the table.** Whether Finder offered to replace a
+copy at step 2 is the user's reading: item 0 was reported as expected, and it is asked again
+because of 0.2's `ls`.
+- quarantine: app `0181;6ace86a8;sharingd;F8CB3308-…`, helper `0081;6ace86a8;sharingd;F8CB3308-…`.
+  The zip's event ID is on both, so the copy walked is the AirDropped one. The helper carries a
+  quarantine, so 2.4 exercises the launchd risk.
+- `--verify`: *valid on disk*, *satisfies its Designated Requirement*, the helper *--validated*.
+- `Identifier`, `CDHash` (`32b91b55…`, `d9eeeecc…`), `Authority` (*Apple Development: …
+  (424WY3TDB4)*, then the WWDR CA and Apple Root CA), `Timestamp` (*Oct 13, 2026 at 11:44:00 AM*,
+  both) and `TeamIdentifier` `5JC55GTLZA`: all as the table. `Runtime Version` 27.0.0.
+- sha256: `09e35498…`, `7c6827fd…` — as the table.
+- `spctl`: *rejected*, *origin=Apple Development: … (424WY3TDB4)*. Not met, as decided 2026-10-09.
 
 ---
 
@@ -433,7 +481,15 @@ it. *(Re-cut 2026-10-13, chunk 5e. Until then it read "Pass: macOS refuses to op
   otherwise close it with the button that does not delete it, and go to 1.2.
 - **If the app opens with no dialog:** record that, skip 1.2, and go to 1.3.
 
-**Record:**
+**Record:** *A reading, 2026-10-14:* **macOS refused it**, on a Mac that had approved
+`ed695b8f…`'s app on 2026-10-12. First launch at 15:13:47.963, pid 7532; `syspolicyd` logged
+*Prompt shown* at 15:13:48.493, team `5JC55GTLZA`. Screenshot `Screenshot 2026-10-14 at 3.13.54 PM.png`:
+- Title: *“USBDriveTester” Not Opened*
+- Body: *Apple could not verify “USBDriveTester” is free of malware that may harm your Mac or
+  compromise your privacy.*
+- Buttons: **Move to Trash**, the default, and **Done**. A **?** help button sits top right.
+- Word for word the first walk's. Closed with **Done**; Gatekeeper's denial breadcrumb is at
+  15:14:36.871.
 
 **1.2 — *Open Anyway*.** Only if 1.1 did not open the app.
 1. Open System Settings › Privacy & Security and scroll to *Security*.
@@ -448,7 +504,23 @@ it. *(Re-cut 2026-10-13, chunk 5e. Until then it read "Pass: macOS refuses to op
   asked for it, and the prompt's words. The first walk did not record which *(added 2026-10-13,
   chunk 5e)*.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-14: the app opened, pid 7567.**
+1. *Privacy & Security › Security*, screenshot 15:16:08: *“USBDriveTester” was blocked to protect
+   your Mac.*, with **Open Anyway**. Beneath it: *Apple could not verify “USBDriveTester” is free of
+   malware that may harm your Mac or compromise your privacy.* *Allow applications from* reads
+   *App Store & Known Developers*.
+2. The app was launched again at 15:16:25.757, pid 7567, *(quarantined)* — between the pane's
+   screenshot and the dialog's, as in the first walk. The dialog, screenshot 15:16:38:
+   - Title: *Open “USBDriveTester”?*
+   - Body: *Apple is not able to verify that it is free from malware that could harm your Mac or
+     compromise your privacy. Don’t open this unless you are certain it is from a trustworthy
+     source.*
+   - Buttons: **Move to Trash**, the default, then **Open Anyway** and **Done**.
+   Both screens are word for word the first walk's. **Open Anyway** was pressed; the app's first
+   line came at 15:16:56.223.
+- ⚠️ **The authentication is not in the evidence:** which **Open Anyway** asked for a password, and
+  the prompt's words. No screenshot shows a prompt, the filtered log names none, and the timing
+  cannot tell — each press was followed by a gap of 17–18 s. Asked of the user 2026-10-14.
 
 **1.3 — it runs from `/Applications`, not a translocated copy.** Run each of these in window A:
 
@@ -473,7 +545,14 @@ it. *(Re-cut 2026-10-13, chunk 5e. Until then it read "Pass: macOS refuses to op
 - a Mac that has approved another build of this app — the re-walk's has, so what item 1 records
   is true of that Mac, not of a first install *(added 2026-10-13, chunk 5e)*.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-14, in window A.**
+- `ps`: `7567 1 501 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester` — the launch
+  of 15:16:25. No path contains `AppTranslocation`, and neither does any line of `log-stream.txt`
+  (0 of 1,300).
+- The app's pid is **7567**.
+- *A reading:* the quarantine after *Open Anyway* is `01c1;6ace86a8;sharingd;F8CB3308-…`, against
+  0.4's `0181;…` — the same event, the flags differing by one bit, `0x0040`. The first walk lost
+  this reading.
 
 ---
 
@@ -963,6 +1042,59 @@ it. Name the clean Mac by its model and macOS version, and every pass by the art
 `71393567…` for the re-walk; the first walk's was `ed695b8f…`.)* *(Re-cut 2026-10-13, chunk 5e;
 until then it named `ed695b8f…` alone.)*
 
+
+### 2026-10-13 to 2026-10-14 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(in progress)*
+
+*The user is walking it. Claude judged items 0.2–1.3 on 2026-10-14, on this Mac, from the evidence
+copied mid-walk. The rest of this section is written when item 7 brings the whole.*
+
+**The clean Mac:** host `Chris-Mac-mini`, the first walk's; `arm64`; macOS **27.0.1**, build
+**26A434**. The app lists one USB drive, disk6, *Samsung Portable SSD T5 · 1.00 TB · S/N
+12345686DAA9 · Test_Drive* — the 1 TB scratch T5 — so the Mac mini's own Seagate drives are
+detached, as the user said 2026-10-12.
+
+**The artefact:** `USBDriveTester-1.0-1-6642488.zip`, `71393567…`, from `6642488`: protocol v16,
+helper source hash `36c3a9e1…`.
+
+**Times so far.** Pacific, from `terminal.txt`, `log-stream.txt` and the screenshots' names.
+
+| Time | What |
+|---|---|
+| 2026-10-13 12:26:43 | 0.1, on this Mac |
+| 12:38:52 | `script` started in window A, once |
+| 12:40:59 | `sw_vers`'s date; the `ls` just after it finds `/Applications/USBDriveTester.app` (0.2) |
+| 12:43 | `btm-before.txt` written |
+| — | 0.3 and 0.4, the same day; `terminal.txt` carries no times for them |
+| 2026-10-14 15:13:47.923 | `log stream`'s first line, in window B |
+| 15:13:47.963 | first launch, pid 7532; `syspolicyd` *Prompt shown* at 15:13:48.493 (1.1) |
+| 15:14:36.871 | the refusal closed with **Done**; Gatekeeper's denial breadcrumb |
+| 15:16:08 | the Security pane's screenshot (1.2) |
+| 15:16:25.757 | second launch, pid 7567 |
+| 15:16:38 | the dialog's screenshot |
+| 15:16:56.223 | the app's first line, `status notFound; plist in bundle yes`; `helper gate: notRegistered` at .410 (2.1) |
+| 15:17:01 | the gate's screenshot |
+| 15:19:44 | the last line of the copy of `log-stream.txt` |
+
+**Where the walk departed from this file, so far:**
+- 0.2's `ls` failed, and the walk went on past it before it was seen — the item's record.
+- 0.2's `defaults` was not run.
+- The evidence was copied to this Mac mid-walk, which item 7 does not name.
+
+**Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
+`/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
+
+| File | What |
+|---|---|
+| `Screenshot 2026-10-14 at 3.13.54 PM.png` | 1.1, the refusal |
+| `Screenshot 2026-10-14 at 3.16.08 PM.png` | 1.2, the Security pane |
+| `Screenshot 2026-10-14 at 3.16.38 PM.png` | 1.2, the dialog after *Open Anyway* |
+| `Screenshot 2026-10-14 at 3.17.01 PM.png` | 2.1, the gate |
+| `terminal.txt` | from 12:38:52, through 1.3 |
+| `log-stream.txt` | 1,300 lines, 15:13:47 to 15:19:44 |
+| `btm-before.txt` | 561 lines; 0 name the app, against 4 `Records for UID` |
+
+**What it is true of:** the artefact `71393567…`, on macOS 27.0.1 (26A434), on a Mac mini that
+approved `ed695b8f…`'s app on 2026-10-12.
 
 ### 2026-10-12 — walked on a Mac mini on macOS 27.0.1, and stopped at item 2.1
 
