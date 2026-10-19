@@ -339,8 +339,11 @@ Window A, `script` started once, at 12:38:52 PDT; host `Chris-Mac-mini`, the fir
   passed.
 - **`ls` — failed:** it printed `/Applications/USBDriveTester.app`, not *No such file or
   directory*. Whether that was the first walk's copy, not yet in the Trash, or this artefact moved
-  in early, the evidence cannot tell. The user's account is owed: when the first walk's app went to
-  the Trash, whether Finder offered to replace a copy at 0.4, and the Trash's *Date Added*. What
+  in early, the evidence cannot tell. The user's account, 2026-10-19: *"I emptied the trash before
+  I copied in the new version."* So the Trash's *Date Added* cannot be read, and which copy `ls`
+  found stays open. *(Until 2026-10-19: "The user's account is owed: when the first walk's app
+  went to the Trash, whether Finder offered to replace a copy at 0.4, and the Trash's *Date
+  Added*.")* What
   holds either way: the copy walked is this artefact (0.4's hashes and CDHashes), Gatekeeper had
   not approved it (1.1's refusal), and the registration rows below passed.
 - `defaults`: **not run** — `terminal.txt` has no `defaults` command. The reading is lost: the app
@@ -444,9 +447,11 @@ Record its line; it is not a failure of this walk.
 The timestamps are in the clean Mac's time zone, and these are this Mac's Pacific readings. A
 different hour with the same minutes is the same timestamp.
 
-**Record:** ✅ **Passed 2026-10-13, every row of the table.** Whether Finder offered to replace a
-copy at step 2 is the user's reading: item 0 was reported as expected, and it is asked again
-because of 0.2's `ls`.
+**Record:** ✅ **Passed 2026-10-13, every row of the table.** At step 2 there was no first-walk
+copy for Finder to replace: by the user's account of 2026-10-19, *"I emptied the trash before I
+copied in the new version."* *(Until 2026-10-19: "Whether Finder offered to replace a copy at
+step 2 is the user's reading: item 0 was reported as expected, and it is asked again because of
+0.2's `ls`.")*
 - quarantine: app `0181;6ace86a8;sharingd;F8CB3308-…`, helper `0081;6ace86a8;sharingd;F8CB3308-…`.
   The zip's event ID is on both, so the copy walked is the AirDropped one. The helper carries a
   quarantine, so 2.4 exercises the launchd risk.
@@ -520,7 +525,8 @@ it. *(Re-cut 2026-10-13, chunk 5e. Until then it read "Pass: macOS refuses to op
    line came at 15:16:56.223.
 - ⚠️ **The authentication is not in the evidence:** which **Open Anyway** asked for a password, and
   the prompt's words. No screenshot shows a prompt, the filtered log names none, and the timing
-  cannot tell — each press was followed by a gap of 17–18 s. Asked of the user 2026-10-14.
+  cannot tell — each press was followed by a gap of 17–18 s. Asked of the user 2026-10-14; their
+  answer, 2026-10-19: *"I will need to repeat the exercise to get the exact wording."* Still owed.
 
 **1.3 — it runs from `/Applications`, not a translocated copy.** Run each of these in window A:
 
