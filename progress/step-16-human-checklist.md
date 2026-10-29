@@ -3,15 +3,15 @@
 > **STATUS, 2026-10-29: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
 > USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
-> 1.3, 2.1–2.4 AND 3 PASSED — 2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT
-> HOLD; ITEMS 4–7 ARE NOT YET WALKED.** It is on the
+> 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH THE LOG
+> STREAM DOES NOT HOLD; ITEMS 4–7 ARE NOT YET WALKED.** It is on the
 > Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
 > re-walk at chunk 5e, and 0.1–3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
@@ -509,10 +509,11 @@ it. *(Re-cut 2026-10-13, chunk 5e. Until then it read "Pass: macOS refuses to op
 5. Screenshot **each** dialog that follows, and confirm the open.
 
 *Pass:* the app opens.
-- Record every dialog's wording, in order.
-- Record what authentication was asked for, and where: which of the two **Open Anyway** buttons
-  asked for it, and the prompt's words. The first walk did not record which *(added 2026-10-13,
-  chunk 5e)*.
+- *(Retired 2026-10-29 by the user's decision: macOS's wording is not recorded — Apple controls
+  it, and it may change. Until then this asked: "Record every dialog's wording, in order." and
+  "Record what authentication was asked for, and where: which of the two **Open Anyway** buttons
+  asked for it, and the prompt's words. The first walk did not record which (added 2026-10-13,
+  chunk 5e).")* The screenshots stay.
 
 **Record:** ✅ **Passed 2026-10-14: the app opened, pid 7567.**
 1. *Privacy & Security › Security*, screenshot 15:16:08: *“USBDriveTester” was blocked to protect
@@ -531,7 +532,10 @@ it. *(Re-cut 2026-10-13, chunk 5e. Until then it read "Pass: macOS refuses to op
 - ⚠️ **The authentication is not in the evidence:** which **Open Anyway** asked for a password, and
   the prompt's words. No screenshot shows a prompt, the filtered log names none, and the timing
   cannot tell — each press was followed by a gap of 17–18 s. Asked of the user 2026-10-14; their
-  answer, 2026-10-19: *"I will need to repeat the exercise to get the exact wording."* Still owed.
+  answer, 2026-10-19: *"I will need to repeat the exercise to get the exact wording."* **No longer
+  owed**, by the user's decision of 2026-10-29: *"We should not be documenting MacOS wording since
+  we don't control it and it might change in future releases."* The repeat exercise is dropped.
+  *(Until then: "Still owed.")*
 
 **1.3 — it runs from `/Applications`, not a translocated copy.** Run each of these in window A:
 
@@ -606,8 +610,9 @@ plist, and only with Quit. It is a finding, and the walk stops:
 *(Until chunk 5e this warning said "that is `notFound`, the one state the gate offers only Quit
 for", and had no step 4.)*
 
-**Record:** ✅ **Passed 2026-10-14, on the gate and window B's lines. The ⇧⌘D part is not in the
-evidence.**
+**Record:** ✅ **Passed 2026-10-14, on the gate and window B's lines, and the ⇧⌘D part on the
+user's account.** *(Until the user's answer, 2026-10-29: "The ⇧⌘D part is not in the
+evidence.")*
 - The gate, screenshot `Screenshot 2026-10-14 at 3.17.01 PM.png`: *"The privileged helper is not
   installed yet."* beside a dashed circle; the body *"USBDriveTester needs its privileged helper in
   order to read and write a drive's raw device, and the helper has not been installed on this Mac.
@@ -620,7 +625,9 @@ evidence.**
 - ⚠️ **Privileged Helper & Diagnostics (⇧⌘D) is not in the evidence.** No screenshot of its *Helper
   registration* section was copied, though the user reported item 2 *"completed successfully with
   all steps as predicted"* (2026-10-29). It cannot be shown again: the helper is registered now.
-  Asked of the user 2026-10-29.
+  Asked of the user 2026-10-29. Their answer, the same day: no screenshot was taken, and *"I
+  manually confirmed that all the language was correct and as expected."* The section's text is
+  the app's own, so its part rests on that account; the screenshot is lost.
 
 **2.2 — Register Helper.** Press it.
 
@@ -631,8 +638,9 @@ evidence.**
 - Window B holds `register() requested for com.arc3solutions.USBDriveTester.Helper.plist` and
   `register() submitted; awaiting user approval`.
 
-Screenshot the gate, and **any notification macOS posts about a background item**. Record that
-notification's wording.
+Screenshot the gate, and **any notification macOS posts about a background item**. *(Until
+2026-10-29 this also said "Record that notification's wording."; retired by the user's
+decision that macOS's wording is not recorded — item 1.2.)*
 
 **Record:** ✅ **Passed 2026-10-29.** **Register Helper** was pressed at 10:07:14.792 — `helper gate
 action: registerHelper from notRegistered` — 14.8 days after 2.1's gate: the walk paused between
@@ -652,7 +660,9 @@ them, and the gate still read `notRegistered` at 10:05:40 (the *Walk record*).
   *Item approval posting alert request*, its body *"“USBDriveTester” can run in the background for
   all users. Do…"* — the log line cuts it there.
 - ⚠️ **So macOS posted a notification, and its wording is not in the evidence**: no screenshot of it
-  was copied. Asked of the user 2026-10-29.
+  was copied. Asked of the user 2026-10-29. Their answer, the same day: no screenshot and no full
+  wording. Not owed: macOS's wording is not recorded, by the user's decision the same day — item
+  1.2.
 
 **2.3 — the approval.** Press **Open Login Items…**.
 
@@ -668,18 +678,35 @@ them, and the gate still read `notRegistered` at 10:05:40 (the *Walk record*).
 - The device list shows.
 - Window B holds `daemon status changed requiresApproval -> enabled`.
 
-**Record:** ✅ **Passed 2026-10-29, but for its first step: Open Login Items… was not pressed.**
-- ⚠️ **The log holds no press.** Every gate button logs `helper gate action: … from …`
+**Record:** ✅ **Passed 2026-10-29. Its first step, the gate's Open Login Items… press, rests on the
+user's account: window B's stream holds none of its lines.** *(Until the user's answer, the same
+day: "but for its first step: Open Login Items… was not pressed.")*
+- ⚠️ **The log stream holds no press.** Every gate button logs `helper gate action: … from …`
   (`AppModel.performHelperGateAction`), and **Register Helper**'s is there at 10:07:14.792. After it
   there is none, and no `opening System Settings > Login Items & Extensions for approval`, which
   `openLoginItemsSettings()` logs at the same level. Instead Notification Center took the keyboard
   at 10:07:31.144, System Settings came to the front at .443, and its Login Items extension started
   at .776. So System Settings was most likely opened from 2.2's notification. Asked of the user
-  2026-10-29. Either way, the gate's **Open Login Items…** is not walked on the clean Mac.
+  2026-10-29. *(Until the user's answer, the same day, this went on: "Either way, the gate's
+  **Open Login Items…** is not walked on the clean Mac.")*
+- **The user's answer, 2026-10-29: *"I clicked the Open Login Items button."*** The account and
+  the stream disagree, and the instrument is the suspect: window B's stream dropped messages —
+  three `Messages dropped during live streaming` markers between 10:07:32.423 and .911 — so its
+  silence is not proof. A press writes four lines at the default level, which the persisted
+  store keeps: `helper gate action: openLoginItems from requiresApproval`, `gate busy:
+  openLoginItems`, `opening System Settings > Login Items & Extensions for approval` and `gate
+  idle: openLoginItems …`. **Owed before item 4, while the store still holds them:** on the Mac
+  mini, in window A, `/usr/bin/log show --style compact --start '2026-10-29 10:07:00' --end
+  '2026-10-29 10:09:00' --predicate 'subsystem == "com.arc3solutions.USBDriveTester"'`. If it
+  holds them, the button is walked on the clean Mac and the stream lost them; if not, the press
+  stays on the user's account.
 - System Settings, screenshot `Screenshot 2026-10-29 at 10.08.15 AM.png`: *General* selected, the
   pane titled *Login Items* — *a reading*: this file words it *Login Items & Extensions*. The
   USBDriveTester entry reads *Not running in background*, its switch off, with Zoom's below it; the
-  section's heading is scrolled out of view.
+  section's heading is scrolled out of view. Under the user's decision of 2026-10-29 (item 1.2)
+  this is the case in point, and not only in this file: the product names macOS's places too —
+  the gate's body *Allow in the Background*, and `openLoginItemsSettings()`'s log line *Login
+  Items & Extensions*. Reported, not fixed.
 - The authentication, screenshot `Screenshot 2026-10-29 at 10.08.31 AM.png`: a password prompt, not
   Touch ID. *"Login Items is trying to modify your system settings."* *"Enter your password to
   continue with Login Items."* The user's name filled in, a *Password* field, and **Modify
@@ -844,7 +871,9 @@ Then:
 2. **Record whether USBDriveTester is already listed (switched off) or not listed at all.**
 3. Switch it on, or add `/Applications/USBDriveTester.app` with **+**.
 4. Authenticate when asked. Then screenshot the pane, with USBDriveTester listed and switched on.
-5. If macOS offers to quit and reopen the app, **choose Later**. Record the offer's wording.
+5. If macOS offers to quit and reopen the app, **choose Later**, and record that it offered.
+   *(Until 2026-10-29: "Record the offer's wording."; retired by the user's decision — item
+   1.2.)*
 6. Switch back to the app.
 7. Press **Start** again **without relaunching**, then **Proceed**.
 
@@ -1183,6 +1212,7 @@ helper source hash `36c3a9e1…`.
 | 10:07:14.891 | macOS's background-item alert requested |
 | 10:07:28 | the gate's screenshot |
 | 10:07:31.443 | System Settings to the front, 0.3 s after Notification Center took the keyboard (2.3) |
+| 10:07:32.423–.911 | Three `Messages dropped during live streaming` markers in window B's stream (2.3) |
 | 10:08:15 | the Login Items screenshot |
 | 10:08:31 | the password prompt's screenshot |
 | 10:08:55.167 | the helper started, pid 50578; it admitted pid 7567 at .199 (3) |
@@ -1207,7 +1237,10 @@ helper source hash `36c3a9e1…`.
   second, and the app's own rate limit does not cover those; over the pause it held back 2,555,087
   failure lines of its own.
 - 2.1's ⇧⌘D screenshot and 2.2's notification are not in the evidence, and 2.3's **Open Login
-  Items…** was not pressed — the items' records.
+  Items…** press is on the user's account, which window B's stream does not hold — the items'
+  records. *(Until the user's answers, 2026-10-29: "and 2.3's **Open Login Items…** was not
+  pressed".)* By the user's decision the same day, macOS's wording is not recorded, so 1.2's
+  authentication and 2.2's notification are no longer owed — item 1.2.
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
