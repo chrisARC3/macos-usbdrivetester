@@ -1,18 +1,21 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-14: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
-> USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–1.3 WALKED 2026-10-13 AND 14, WHERE 0.2'S
-> `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND 1.3 PASSED, AND 1.1
-> IS A REFUSAL; THE REST IS NOT YET WALKED.** It is on the
+> **STATUS, 2026-10-29: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
+> USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
+> `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
+> 1.3, 2.1–2.4 AND 3 PASSED — 2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT
+> HOLD; ITEMS 4–7 ARE NOT YET WALKED.** It is on the
 > Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
-> WALKED.")* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
+> AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
-> re-walk at chunk 5e, and 0.1–1.3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
-> line is empty for the re-walk.")* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
+> re-walk at chunk 5e, and 0.1–3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
+> line is empty for the re-walk."; until 2026-10-29, "0.1–1.3's".)* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
 > the *Walk record*.
 >
 > **The first walk**, as this block described it until chunk 5e, 2026-10-13: *"WALKED 2026-10-12
@@ -72,7 +75,8 @@ those approvals. None of them exists on the Mac a user would install it on.
    words.
 2. **launchd.** Whether launchd will start the helper inside such an app.
 3. **The provisioning profile.** Whether the helper runs on another Mac at all, since it carries
-   `com.apple.application-identifier` with no provisioning profile.
+   `com.apple.application-identifier` with no provisioning profile. *(2026-10-29: risks 2 and 3 were
+   measured at the re-walk's item 2.4 — launchd started the helper, and it ran as root.)*
 4. **macOS 26.** Whether this code runs on macOS 26. No run of anything built since 2026-09-16 is
    recorded on macOS 26. *(2026-10-12, the user's decision: not to be measured. All further testing
    is on macOS 27, and macOS 26 compatibility is never assumed. So this risk is accepted, not
@@ -88,6 +92,7 @@ the first walk, which ran artefact `ed695b8f…` on 2026-10-12 as far as the hel
 Gatekeeper approved that app there through *Open Anyway*. It has never registered the helper and
 never granted the app Full Disk Access (the first walk's items 0.2, 2.1 and 7). So:
 - risks 2 and 3, and Full Disk Access from nothing (4.3), are still measured for the first time;
+  *(2026-10-29: risks 2 and 3 were, at item 2.4.)*
 - risk 1 was measured on 2026-10-12, against `ed695b8f…`. This artefact's app has another CDHash,
   `32b91b55…`, so whether macOS refuses it again on a Mac that approved the first is item 1's
   reading, not its pass.
@@ -601,7 +606,21 @@ plist, and only with Quit. It is a finding, and the walk stops:
 *(Until chunk 5e this warning said "that is `notFound`, the one state the gate offers only Quit
 for", and had no step 4.)*
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-14, on the gate and window B's lines. The ⇧⌘D part is not in the
+evidence.**
+- The gate, screenshot `Screenshot 2026-10-14 at 3.17.01 PM.png`: *"The privileged helper is not
+  installed yet."* beside a dashed circle; the body *"USBDriveTester needs its privileged helper in
+  order to read and write a drive's raw device, and the helper has not been installed on this Mac.
+  Choose Register Helper to install it."*; **Register Helper**, the default, and **Quit**. Behind
+  it the device list shows disk6, the 1 TB scratch T5.
+- Window B: `registration manager initialised; daemon com.arc3solutions.USBDriveTester.Helper.plist
+  status notFound; plist in bundle yes` at 15:16:56.223, and `helper gate: notRegistered — …` at
+  .410. With the gate, that is the walked cover for chunk 5c's mutants M4 and M12 — *What has no
+  automated cover*, below.
+- ⚠️ **Privileged Helper & Diagnostics (⇧⌘D) is not in the evidence.** No screenshot of its *Helper
+  registration* section was copied, though the user reported item 2 *"completed successfully with
+  all steps as predicted"* (2026-10-29). It cannot be shown again: the helper is registered now.
+  Asked of the user 2026-10-29.
 
 **2.2 — Register Helper.** Press it.
 
@@ -615,7 +634,25 @@ for", and had no step 4.)*
 Screenshot the gate, and **any notification macOS posts about a background item**. Record that
 notification's wording.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29.** **Register Helper** was pressed at 10:07:14.792 — `helper gate
+action: registerHelper from notRegistered` — 14.8 days after 2.1's gate: the walk paused between
+them, and the gate still read `notRegistered` at 10:05:40 (the *Walk record*).
+- Window B: `register() requested for com.arc3solutions.USBDriveTester.Helper.plist` at
+  10:07:14.794; `daemon status changed notFound -> requiresApproval` and `register() submitted;
+  awaiting user approval` at .900; `gate idle: registerHelper finished after 116 ms` and `helper
+  gate: requiresApproval — …` at .909. *"Installing the helper…"* is the user's reading: 116 ms
+  is too brief to screenshot.
+- The gate, screenshot `Screenshot 2026-10-29 at 10.07.28 AM.png`: *"The privileged helper is
+  waiting for your approval."* beside a warning triangle; the body *"The helper is installed, but
+  macOS will not run it until you allow it. Choose Open Login Items and enable USBDriveTester under
+  "Allow in the Background". This window checks again by itself as soon as you come back."*;
+  **Open Login Items…**, the default, and **Quit**.
+- *A reading:* `backgroundtaskmanagementd` registered the daemon at 10:07:14.888 with
+  `disposition=[enabled, disallowed, not notified]`. At .891 `BackgroundTaskManagementAgent` logged
+  *Item approval posting alert request*, its body *"“USBDriveTester” can run in the background for
+  all users. Do…"* — the log line cuts it there.
+- ⚠️ **So macOS posted a notification, and its wording is not in the evidence**: no screenshot of it
+  was copied. Asked of the user 2026-10-29.
 
 **2.3 — the approval.** Press **Open Login Items…**.
 
@@ -631,7 +668,26 @@ notification's wording.
 - The device list shows.
 - Window B holds `daemon status changed requiresApproval -> enabled`.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29, but for its first step: Open Login Items… was not pressed.**
+- ⚠️ **The log holds no press.** Every gate button logs `helper gate action: … from …`
+  (`AppModel.performHelperGateAction`), and **Register Helper**'s is there at 10:07:14.792. After it
+  there is none, and no `opening System Settings > Login Items & Extensions for approval`, which
+  `openLoginItemsSettings()` logs at the same level. Instead Notification Center took the keyboard
+  at 10:07:31.144, System Settings came to the front at .443, and its Login Items extension started
+  at .776. So System Settings was most likely opened from 2.2's notification. Asked of the user
+  2026-10-29. Either way, the gate's **Open Login Items…** is not walked on the clean Mac.
+- System Settings, screenshot `Screenshot 2026-10-29 at 10.08.15 AM.png`: *General* selected, the
+  pane titled *Login Items* — *a reading*: this file words it *Login Items & Extensions*. The
+  USBDriveTester entry reads *Not running in background*, its switch off, with Zoom's below it; the
+  section's heading is scrolled out of view.
+- The authentication, screenshot `Screenshot 2026-10-29 at 10.08.31 AM.png`: a password prompt, not
+  Touch ID. *"Login Items is trying to modify your system settings."* *"Enter your password to
+  continue with Login Items."* The user's name filled in, a *Password* field, and **Modify
+  Settings**, the default, and **Cancel**. The user typed the password.
+- launchd started the helper at 10:08:55.167 (item 3). The app logged `daemon status changed
+  requiresApproval -> enabled` at 10:08:56.818 and `helper gate: available — modal dismissed, was
+  requiresApproval` at .844 — on activation, without a relaunch: it is pid 7567 throughout, 1.3's.
+  The device list showing is the user's reading.
 
 **2.4 — the helper is running, as root, from `/Applications`.** Run each of these in window A:
 
@@ -663,7 +719,23 @@ If you see any of them:
 2. Screenshot the result.
 3. Go to item 7, which keeps `launchctl` and every system line naming the app.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29, in window A, by 10:09. Both unmeasured risks are measured: launchd
+started the quarantined helper, and the kernel ran it.** None of the ⚠️'s signs showed, and
+**Retry** was not pressed.
+- `launchctl`: `state = running`, `pid = 50578`, `runs = 1`, `last exit code = (never exited)`, and
+  `program identifier = Contents/MacOS/com.arc3solutions.USBDriveTester.Helper (mode: 2)`.
+  *Readings,* cosmetic: the ` (mode: 2)` this file does not quote, and *(never exited)* where the ⚠️
+  asks only whether the exit code is 0.
+- `ps`: `7567 1 501 /Applications/USBDriveTester.app/Contents/MacOS/USBDriveTester` and `50578 1 0
+  Contents/MacOS/com.arc3solutions.USBDriveTester.Helper` — uid 0, ppid 1.
+- ⚠️ **The pass row's helper path was never measured — an instrument finding, cosmetic.** `comm`
+  reads the helper's path relative to its bundle, and this Mac reads the same for its own installed
+  helper (pid 91274, 2026-10-29). That the helper is the `/Applications` copy's is shown instead by
+  `backgroundtaskmanagementd`'s `appURL=file:///Applications/USBDriveTester.app/` at 10:07:14.888.
+- *A reading,* taken after item 3 and given in the user's message of 2026-10-29: the helper's
+  quarantine is `00c1;6ace86a8;sharingd;F8CB3308-…`, against 0.4's `0081;…`. That is the same event,
+  and the same bit, `0x0040`, that the app's gained at *Open Anyway* (1.3). So the helper launchd
+  started carries the AirDrop quarantine. When its bit changed is not measured.
 
 *What would invalidate item 2:* another macOS release, another artefact, or anything that registers
 this app on the clean Mac before 2.1.
@@ -706,7 +778,27 @@ Screenshot the window.
 *What would invalidate it:* an edit to the helper's admission or handshake log lines, which moves
 the helper source hash; another artefact.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29.** In order, in the 2026-10-29 copy of `log-stream.txt`:
+- 10:08:55.167, pid 50578: `helper started as uid 0; listening on
+  com.arc3solutions.USBDriveTester.Helper; protocol v16; requiring [anchor apple generic and
+  certificate leaf[subject.OU] = "5JC55GTLZA"]` — word for word this Mac's.
+- 10:08:55.199: `admitted connection from pid 7567 (identifier com.arc3solutions.USBDriveTester,
+  team 5JC55GTLZA) with the Team-ID requirement armed; exporting TesterControl v16. …`, and again
+  at 10:08:56.824.
+- 10:08:56.829: `protocol-version handshake with pid 7567 (identifier
+  com.arc3solutions.USBDriveTester, team 5JC55GTLZA); helper implements v16`.
+
+`N` is 7567, 1.3's pid. Neither copy of `log-stream.txt` holds a `FAILED the Team-ID` line (0 of
+1,300 and 0 of 1,522), so there was no refusal. The first admission came 1.6 s before the app saw
+`enabled`. The app's progress poll, failing since 2.1, connected as soon as launchd started the
+helper: `helper progress answered again after 1277518.4s of failures; 2555087 repeated failure
+line(s) held back`, at 10:08:55.214.
+
+Privileged Helper & Diagnostics (⇧⌘D), screenshot `Screenshot 2026-10-29 at 11.46.22 AM.png`, its
+*Live XPC round-trip* section: *Helper replied: "pong"*, and *Protocol v16 — app and helper agree.*
+The screenshot holds that section only. So *Running from* reading `/Applications/USBDriveTester.app`,
+and no *temporary build location* warning, rest on the user's account: *"Confirmed v16 and running
+from."* The ping's and the check's log lines come back with item 7's copy.
 
 ---
 
@@ -1003,10 +1095,12 @@ never run on:
   2026-10-09. These dialogs are what a user sees instead, and the release notes quote them.
 * **launchd starting a quarantined helper that is not notarized, and the kernel accepting one that
   has no provisioning profile** (item 2.4). On this Mac both have run since Step 3, under approvals
-  that were never quarantined.
+  that were never quarantined. *(2026-10-29: walked at the re-walk's item 2.4 — launchd started the
+  quarantined helper, and it ran as root.)*
 * **The helper's Team-ID check against a signature it has never seen admitted on another Mac**
   (item 3). `codesign -v -R` on this Mac proves the requirement and the signature match. Only the
-  helper's own admission line proves that the running helper agrees.
+  helper's own admission line proves that the running helper agrees. *(2026-10-29: it did, at the
+  re-walk's item 3.)*
 * **Full Disk Access from nothing** (item 4.3). Step 11 walked the modal by revoking a grant that
   already existed. A Mac that has never seen the app may list it differently, or not at all.
 * **macOS 26 itself.** No run of a build made since 2026-09-16 is recorded on macOS 26.
@@ -1026,7 +1120,8 @@ never run on:
   helper**, and the registration manager's init line ends *"status notFound; plist in bundle
   yes"*. That covers M4 and M12. M5's half — a bundle without its plist, which is still Quit-only —
   is walked by nobody: no build ships one on purpose, and the suite covers `diagnose` itself.
-  *(2026-10-13: item 2.1 asks exactly this since chunk 5e's re-cut.)*
+  *(2026-10-13: item 2.1 asks exactly this since chunk 5e's re-cut.)* *(2026-10-29: met at the
+  re-walk's item 2.1, 2026-10-14 — its record.)*
 
 **Not covered by this walk, by its scope:**
 - what happens after the certificate expires on 2027-05-06, which cannot be measured before then;
@@ -1049,10 +1144,12 @@ it. Name the clean Mac by its model and macOS version, and every pass by the art
 until then it named `ed695b8f…` alone.)*
 
 
-### 2026-10-13 to 2026-10-14 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(in progress)*
+### 2026-10-13 to 2026-10-29 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(in progress)*
 
-*The user is walking it. Claude judged items 0.2–1.3 on 2026-10-14, on this Mac, from the evidence
-copied mid-walk. The rest of this section is written when item 7 brings the whole.*
+*The user is walking it. Claude judged items 0.2–1.3 on 2026-10-14, and items 2 and 3 on
+2026-10-29, on this Mac, from the evidence copied mid-walk. The rest of this section is written
+when item 7 brings the whole.* *(Until 2026-10-29 this section was headed "2026-10-13 to
+2026-10-14", and Claude had judged items 0.2–1.3 alone.)*
 
 **The clean Mac:** host `Chris-Mac-mini`, the first walk's; `arm64`; macOS **27.0.1**, build
 **26A434**. The app lists one USB drive, disk6, *Samsung Portable SSD T5 · 1.00 TB · S/N
@@ -1079,12 +1176,38 @@ helper source hash `36c3a9e1…`.
 | 15:16:38 | the dialog's screenshot |
 | 15:16:56.223 | the app's first line, `status notFound; plist in bundle yes`; `helper gate: notRegistered` at .410 (2.1) |
 | 15:17:01 | the gate's screenshot |
-| 15:19:44 | the last line of the copy of `log-stream.txt` |
+| 15:19:44 | the last line of the 2026-10-14 copy of `log-stream.txt`; the lines after it, to 2026-10-29 10:05:11, are in neither copy |
+| 2026-10-29 10:05:11.483 | the restarted `log stream`'s first line, in window B |
+| 10:05:40.710 | `helper gate: notRegistered` — the gate as 2.1 left it |
+| 10:07:14.792 | **Register Helper** pressed (2.2); `requiresApproval` and *submitted* at .900 |
+| 10:07:14.891 | macOS's background-item alert requested |
+| 10:07:28 | the gate's screenshot |
+| 10:07:31.443 | System Settings to the front, 0.3 s after Notification Center took the keyboard (2.3) |
+| 10:08:15 | the Login Items screenshot |
+| 10:08:31 | the password prompt's screenshot |
+| 10:08:55.167 | the helper started, pid 50578; it admitted pid 7567 at .199 (3) |
+| 10:08:56.818 | `requiresApproval -> enabled`; the handshake at .829; the gate cleared at .844 |
+| by 10:09 | 2.4's `launchctl` and `ps`, the last commands in `terminal.txt` |
+| 10:11:30.794 | the last line of the 2026-10-29 copy of `log-stream.txt` |
+| 11:46:22 | item 3's ⇧⌘D screenshot; the helper's quarantine was read after it |
 
 **Where the walk departed from this file, so far:**
 - 0.2's `ls` failed, and the walk went on past it before it was seen — the item's record.
 - 0.2's `defaults` was not run.
-- The evidence was copied to this Mac mid-walk, which item 7 does not name.
+- The evidence was copied to this Mac mid-walk, on 2026-10-14 and again on 2026-10-29, which item
+  7 does not name. *(Until 2026-10-29: "copied to this Mac mid-walk".)*
+- The walk paused for 14.8 days between 2.1 and 2.2 — 2026-10-14 15:17 to 2026-10-29 10:07 — with
+  the app at the gate throughout. Over the pause window B's `log-stream.txt` grew so large that the
+  user deleted it and restarted the stream, by 2026-10-29 10:05:11: *"I had to delete and recreate
+  the log-stream.txt file because it had become very large during the time gap."* The lines from
+  2026-10-14 15:19:44 to then are in neither copy, and the 2026-10-14 copy here is the only one
+  left of the lines before. Nothing in item 2 rests on the lost lines: the new file starts before
+  **Register Helper**, and its 10:05:40 gate line still reads `notRegistered`. What filled the file
+  is not measured. The app's connection attempts, *Owed* (p), log a system line each, about one a
+  second, and the app's own rate limit does not cover those; over the pause it held back 2,555,087
+  failure lines of its own.
+- 2.1's ⇧⌘D screenshot and 2.2's notification are not in the evidence, and 2.3's **Open Login
+  Items…** was not pressed — the items' records.
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
@@ -1098,6 +1221,23 @@ helper source hash `36c3a9e1…`.
 | `terminal.txt` | from 12:38:52, through 1.3 |
 | `log-stream.txt` | 1,300 lines, 15:13:47 to 15:19:44 |
 | `btm-before.txt` | 561 lines; 0 name the app, against 4 `Records for UID` |
+
+*(That table is the 2026-10-14 copy as it stood. Its `log-stream.txt` is now the only copy of the
+lines it covers.)*
+
+**Evidence copied 2026-10-29**, in two goes — the second, by 11:47, bringing the screenshots the
+first had missed — to `USBDriveTester-rewalk/` at this repository's root. It is untracked, and is
+not committed; where the evidence is kept is settled at item 7.
+
+| File | What |
+|---|---|
+| the four 2026-10-14 screenshots and `btm-before.txt` | the same files as above, by sha256 |
+| `Screenshot 2026-10-29 at 10.07.28 AM.png` | 2.2, the gate waiting for approval |
+| `Screenshot 2026-10-29 at 10.08.15 AM.png` | 2.3, Login Items, USBDriveTester's switch off |
+| `Screenshot 2026-10-29 at 10.08.31 AM.png` | 2.3, the password prompt |
+| `Screenshot 2026-10-29 at 11.46.22 AM.png` | 3, ⇧⌘D's *Live XPC round-trip* |
+| `terminal.txt` | 26,994 bytes: the 2026-10-14 copy's 24,280, byte for byte, then 2.4's two commands |
+| `log-stream.txt` | 1,522 lines, 2026-10-29 10:05:11 to 10:11:30 — the restarted stream |
 
 **What it is true of:** the artefact `71393567…`, on macOS 27.0.1 (26A434), on a Mac mini that
 approved `ed695b8f…`'s app on 2026-10-12.
