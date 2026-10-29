@@ -3,15 +3,15 @@
 > **STATUS, 2026-10-29: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
 > USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
-> 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH THE LOG
-> STREAM DOES NOT HOLD; ITEMS 4–7 ARE NOT YET WALKED.** It is on the
+> 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
+> LOG STREAM NOR THE PERSISTED LOG HOLDS; ITEMS 4–7 ARE NOT YET WALKED.** It is on the
 > Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
 > re-walk at chunk 5e, and 0.1–3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
@@ -679,8 +679,9 @@ them, and the gate still read `notRegistered` at 10:05:40 (the *Walk record*).
 - Window B holds `daemon status changed requiresApproval -> enabled`.
 
 **Record:** ✅ **Passed 2026-10-29. Its first step, the gate's Open Login Items… press, rests on the
-user's account: window B's stream holds none of its lines.** *(Until the user's answer, the same
-day: "but for its first step: Open Login Items… was not pressed.")*
+user's account: neither window B's stream nor the persisted log holds any of its lines.** *(Until
+the user's answer, the same day: "but for its first step: Open Login Items… was not pressed.";
+until the persisted log was read, the same day, "window B's stream holds none of its lines.")*
 - ⚠️ **The log stream holds no press.** Every gate button logs `helper gate action: … from …`
   (`AppModel.performHelperGateAction`), and **Register Helper**'s is there at 10:07:14.792. After it
   there is none, and no `opening System Settings > Login Items & Extensions for approval`, which
@@ -695,11 +696,30 @@ day: "but for its first step: Open Login Items… was not pressed.")*
   silence is not proof. A press writes four lines at the default level, which the persisted
   store keeps: `helper gate action: openLoginItems from requiresApproval`, `gate busy:
   openLoginItems`, `opening System Settings > Login Items & Extensions for approval` and `gate
-  idle: openLoginItems …`. **Owed before item 4, while the store still holds them:** on the Mac
-  mini, in window A, `/usr/bin/log show --style compact --start '2026-10-29 10:07:00' --end
+  idle: openLoginItems …`. **Read 2026-10-29, before item 4 — the next bullet** *(until then "Owed
+  before item 4, while the store still holds them")*: on the Mac mini, in window A, `/usr/bin/log show --style compact --start '2026-10-29 10:07:00' --end
   '2026-10-29 10:09:00' --predicate 'subsystem == "com.arc3solutions.USBDriveTester"'`. If it
   holds them, the button is walked on the clean Mac and the stream lost them; if not, the press
   stays on the user's account.
+- **The persisted log, read 2026-10-29 after item 3** into `log-show-2.3.txt` in the Mac mini's
+  evidence folder, and filtered there for `helper gate action|opening System Settings|gate
+  busy|gate idle`: Register's three lines and nothing else — `helper gate action: registerHelper
+  from notRegistered` at 10:07:14.866, `gate busy: registerHelper` at .867 and `gate idle:
+  registerHelper finished after 116 ms` at .983.
+  - **The control holds:** the store reaches back past the press, and the query finds the app's
+    lines.
+  - **There is no `openLoginItems` line and no `opening System Settings …` line** from Register
+    to the approval — and ⇧⌘D's **Open Login Items…** logs the second too. Both are their
+    paths' first statements; Register's ran 17 s earlier.
+  - So the two logs agree, with a working control, and the press stays on the user's account
+    against both. A click on 2.2's notification would fit all of it, Notification Center's focus
+    at 10:07:31.144 included; that is a reading, not the user's account.
+  - **The gate's Open Login Items… is not walked on the clean Mac.** Step 11 walked it on this
+    Mac, and passes do not transfer.
+  - *A reading:* the store's timestamps run 73–74 ms after the stream's for the same three lines
+    (.792, .794 and .909 there) — the same pid and thread, and the same 116 ms. The *Times*
+    table keeps the stream's clock.
+  - `wc -l` of the file printed nothing the user saw, so its line count is not recorded.
 - System Settings, screenshot `Screenshot 2026-10-29 at 10.08.15 AM.png`: *General* selected, the
   pane titled *Login Items* — *a reading*: this file words it *Login Items & Extensions*. The
   USBDriveTester entry reads *Not running in background*, its switch off, with Zoom's below it; the
@@ -1237,10 +1257,13 @@ helper source hash `36c3a9e1…`.
   second, and the app's own rate limit does not cover those; over the pause it held back 2,555,087
   failure lines of its own.
 - 2.1's ⇧⌘D screenshot and 2.2's notification are not in the evidence, and 2.3's **Open Login
-  Items…** press is on the user's account, which window B's stream does not hold — the items'
-  records. *(Until the user's answers, 2026-10-29: "and 2.3's **Open Login Items…** was not
-  pressed".)* By the user's decision the same day, macOS's wording is not recorded, so 1.2's
+  Items…** press is on the user's account, which neither window B's stream nor the persisted log
+  holds — the items' records. *(Until the user's answers, 2026-10-29: "and 2.3's **Open Login
+  Items…** was not pressed"; until the persisted log was read, the same day, "which window B's
+  stream does not hold".)* By the user's decision the same day, macOS's wording is not recorded, so 1.2's
   authentication and 2.2's notification are no longer owed — item 1.2.
+- After item 3, 2026-10-29, `log show` ran in window A for 2.3 and wrote `log-show-2.3.txt` into
+  the evidence folder — not a step of this file.
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:

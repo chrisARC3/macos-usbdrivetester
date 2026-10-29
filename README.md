@@ -170,8 +170,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > re-cut for that artefact, was approved and done the same day; and chunk 5f, the re-walk on the
 > Mac mini, was approved the same day, its item 0.1 passing on this Mac and its items 0.2–3
 > walked there 2026-10-13, 14 and 29 (item 0.2's `ls` row failed, and the walk went on by the
-> user's decision; item 2.3's *Open Login Items…* press rests on the user's account, which the log stream does not
-> hold), and the rest the user's walk there — and that further testing
+> user's decision; item 2.3's *Open Login Items…* press rests on the user's account, which neither the log stream
+> nor the persisted log holds), and the rest the user's walk there — and that further testing
 > is on macOS 27 (*Requirements*, below). Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
 > the four hardware gates have passed on it, the other two running"; until chunk 5a, "Chunk 5, the
 > walk on a clean second Mac, is next"; until 2026-10-12, "chunk 5b, the walk itself, is
@@ -183,8 +183,9 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > next and needs approval"; until chunk 5f's approval, the same day, "and chunk 5f, the
 > re-walk on the Mac mini, is next and needs approval"; until 2026-10-14, "its item 0.1
 > passing on this Mac and the rest the user's walk there"; until 2026-10-29, "its items 0.2–1.3
-> walked there 2026-10-13 and 14"; and until the user's answers, the same day, "item 2.3's *Open
-> Login Items…* press is not in the log".)*
+> walked there 2026-10-13 and 14"; until the user's answers, the same day, "item 2.3's *Open
+> Login Items…* press is not in the log"; and until the persisted log was read, the same day, "which the log
+> stream does not hold".)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
