@@ -4,14 +4,15 @@
 > USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
 > 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
-> LOG STREAM NOR THE PERSISTED LOG HOLDS; ITEMS 4–7 ARE NOT YET WALKED.** It is on the
+> LOG STREAM NOR THE PERSISTED LOG HOLDS, AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3;
+> ITEMS 4–7 ARE NOT YET WALKED.** It is on the
 > Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
 > re-walk at chunk 5e, and 0.1–3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
@@ -682,6 +683,7 @@ them, and the gate still read `notRegistered` at 10:05:40 (the *Walk record*).
 user's account: neither window B's stream nor the persisted log holds any of its lines.** *(Until
 the user's answer, the same day: "but for its first step: Open Login Items… was not pressed.";
 until the persisted log was read, the same day, "window B's stream holds none of its lines.")*
+**The button itself passed when walked again after item 3, the same day — the last bullet.**
 - ⚠️ **The log stream holds no press.** Every gate button logs `helper gate action: … from …`
   (`AppModel.performHelperGateAction`), and **Register Helper**'s is there at 10:07:14.792. After it
   there is none, and no `opening System Settings > Login Items & Extensions for approval`, which
@@ -715,11 +717,42 @@ until the persisted log was read, the same day, "window B's stream holds none of
     against both. A click on 2.2's notification would fit all of it, Notification Center's focus
     at 10:07:31.144 included; that is a reading, not the user's account.
   - **The gate's Open Login Items… is not walked on the clean Mac.** Step 11 walked it on this
-    Mac, and passes do not transfer.
+    Mac, and passes do not transfer. *(So until the button's walk, the same day — the last
+    bullet of this record.)*
   - *A reading:* the store's timestamps run 73–74 ms after the stream's for the same three lines
     (.792, .794 and .909 there) — the same pid and thread, and the same 116 ms. The *Times*
     table keeps the stream's clock.
   - `wc -l` of the file printed nothing the user saw, so its line count is not recorded.
+- ✅ **The gate's Open Login Items…, walked after item 3, 2026-10-29 — passed.** Added by the
+  user's decision the same day, after the persisted log; not a step of this file.
+  - Step 11's recipe: USBDriveTester switched off in System Settings, the app quit and opened
+    again, the gate's button pressed — any macOS notification left alone, as asked — the switch
+    turned on again, and back to the app.
+  - *"Everything exactly as predicted"*, the user reported. Two screenshots, copied to this Mac
+    by 13:53 and checked here the same day:
+    - 13:49:45, the gate waiting for approval, with **Open Login Items…** and **Quit**, over the
+      window listing disk6, the 1 TB scratch T5.
+    - 13:50:46, System Settings open where USBDriveTester's switch is, the switch still off —
+      44 s after the press and 27 s before it went on.
+  - `log show --last 1h` wrote `log-show-button.txt` there. Filtered, it gave, all from pid
+    51042:
+    - `registration manager initialised; … status requiresApproval; plist in bundle yes` at
+      13:49:25.563, and `helper gate: requiresApproval — …` at .755: the relaunch at the gate.
+    - **The press:** `helper gate action: openLoginItems from requiresApproval` at
+      13:50:02.061, `gate busy: openLoginItems` and `opening System Settings > Login Items &
+      Extensions for approval` at .062, and `gate idle: openLoginItems finished after 89 ms`
+      at .151.
+    - `daemon status changed requiresApproval -> enabled` at 13:51:13.119 and `helper gate:
+      available — modal dismissed, was requiresApproval` at .140. That is on activation,
+      without a relaunch: pid 51042 throughout.
+  - *Readings:*
+    - The gate logged `requiresApproval` again at 13:50:02.151: the press's re-diagnosis
+      answering, as Register's did at 10:07:14.909.
+    - Nothing came from pid 7567 for the switch-off. The activation re-check runs only while
+      the gate is up (`USBDriveTesterApp.swift`), so the old app did not see it before it quit.
+    - The times are the store's clock.
+  - **Item 4's `N` is 51042 now**, not 7567: this walk relaunched the app.
+  - *What would invalidate it:* another artefact; another macOS release.
 - System Settings, screenshot `Screenshot 2026-10-29 at 10.08.15 AM.png`: *General* selected, the
   pane titled *Login Items* — *a reading*: this file words it *Login Items & Extensions*. The
   USBDriveTester entry reads *Not running in background*, its switch off, with Zoom's below it; the
@@ -940,7 +973,8 @@ display may sleep, and the Mac should not.
 
   It shows `run authorised`, `acquire GRANTED for pid N (identifier com.arc3solutions.USBDriveTester,
   team 5JC55GTLZA)`, `run ended: completed` and `release requested`. All four carry **the same
-  `[run <ID>]`**.
+  `[run <ID>]`**. *(2026-10-29: `N` is 51042 here, not 1.3's 7567 — the walk of 2.3's button
+  after item 3 relaunched the app.)*
 - `Test_Drive` mounts again afterwards.
 
 Record:
@@ -1208,7 +1242,8 @@ detached, as the user said 2026-10-12.
 **The artefact:** `USBDriveTester-1.0-1-6642488.zip`, `71393567…`, from `6642488`: protocol v16,
 helper source hash `36c3a9e1…`.
 
-**Times so far.** Pacific, from `terminal.txt`, `log-stream.txt` and the screenshots' names.
+**Times so far.** Pacific, from `terminal.txt`, `log-stream.txt` and the screenshots' names; the
+button's walk's from `log-show-button.txt`, on the store's clock.
 
 | Time | What |
 |---|---|
@@ -1240,6 +1275,11 @@ helper source hash `36c3a9e1…`.
 | by 10:09 | 2.4's `launchctl` and `ps`, the last commands in `terminal.txt` |
 | 10:11:30.794 | the last line of the 2026-10-29 copy of `log-stream.txt` |
 | 11:46:22 | item 3's ⇧⌘D screenshot; the helper's quarantine was read after it |
+| 13:49:25.563 | the app opened again, pid 51042, at `requiresApproval` — 2.3's button walked again |
+| 13:49:45 | the gate's screenshot |
+| 13:50:02.061 | the gate's **Open Login Items…** pressed; `gate idle` at .151 |
+| 13:50:46 | System Settings' screenshot, the switch still off |
+| 13:51:13.119 | `requiresApproval -> enabled`; the gate cleared at .140 |
 
 **Where the walk departed from this file, so far:**
 - 0.2's `ls` failed, and the walk went on past it before it was seen — the item's record.
@@ -1258,12 +1298,15 @@ helper source hash `36c3a9e1…`.
   failure lines of its own.
 - 2.1's ⇧⌘D screenshot and 2.2's notification are not in the evidence, and 2.3's **Open Login
   Items…** press is on the user's account, which neither window B's stream nor the persisted log
-  holds — the items' records. *(Until the user's answers, 2026-10-29: "and 2.3's **Open Login
+  holds, and the button passed when walked again after item 3 — the items' records. *(Until the user's answers, 2026-10-29: "and 2.3's **Open Login
   Items…** was not pressed"; until the persisted log was read, the same day, "which window B's
-  stream does not hold".)* By the user's decision the same day, macOS's wording is not recorded, so 1.2's
+  stream does not hold"; until the button's walk, the same day, without ", and the button passed when walked again after item 3".)* By the user's decision the same day, macOS's wording is not recorded, so 1.2's
   authentication and 2.2's notification are no longer owed — item 1.2.
 - After item 3, 2026-10-29, `log show` ran in window A for 2.3 and wrote `log-show-2.3.txt` into
   the evidence folder — not a step of this file.
+- Then, 13:49–13:51, the gate's **Open Login Items…** was walked again by the user's decision —
+  2.3's record. It relaunched the app, so item 4's `N` is 51042, and it put `log-show-button.txt`
+  and two screenshots into the evidence folder.
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
@@ -1281,9 +1324,11 @@ helper source hash `36c3a9e1…`.
 *(That table is the 2026-10-14 copy as it stood. Its `log-stream.txt` is now the only copy of the
 lines it covers.)*
 
-**Evidence copied 2026-10-29**, in two goes — the second, by 11:47, bringing the screenshots the
-first had missed — to `USBDriveTester-rewalk/` at this repository's root. It is untracked, and is
-not committed; where the evidence is kept is settled at item 7.
+**Evidence copied 2026-10-29**, in three goes — the second, by 11:47, bringing the screenshots the
+first had missed, and the third, by 13:53, the button's two — to `USBDriveTester-rewalk/` at this
+repository's root. *(Until the third, "in two goes".)* It is untracked, and is
+not committed; where the evidence is kept is settled at item 7. `log-show-2.3.txt` and
+`log-show-button.txt` stay on the Mac mini until then.
 
 | File | What |
 |---|---|
@@ -1292,6 +1337,8 @@ not committed; where the evidence is kept is settled at item 7.
 | `Screenshot 2026-10-29 at 10.08.15 AM.png` | 2.3, Login Items, USBDriveTester's switch off |
 | `Screenshot 2026-10-29 at 10.08.31 AM.png` | 2.3, the password prompt |
 | `Screenshot 2026-10-29 at 11.46.22 AM.png` | 3, ⇧⌘D's *Live XPC round-trip* |
+| `Screenshot 2026-10-29 at 1.49.45 PM.png` | the button's walk: the gate waiting for approval |
+| `Screenshot 2026-10-29 at 1.50.46 PM.png` | the button's walk: System Settings, USBDriveTester's switch off |
 | `terminal.txt` | 26,994 bytes: the 2026-10-14 copy's 24,280, byte for byte, then 2.4's two commands |
 | `log-stream.txt` | 1,522 lines, 2026-10-29 10:05:11 to 10:11:30 — the restarted stream |
 
