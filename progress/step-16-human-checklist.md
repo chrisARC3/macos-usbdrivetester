@@ -1,11 +1,11 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-30: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
+> **STATUS, 2026-10-31: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
 > USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
 > 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
 > LOG STREAM NOR THE PERSISTED LOG HOLDS, AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3;
-> ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 ARE NOT YET WALKED.** It is on the
+> ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 PASSED 2026-10-31, ITEM 7 WITH DEPARTURES AND ITS LAST STEP, THE 1 TB SCRATCH T5'S RETURN, STILL OPEN.** It is on the
 > Mac mini the first walk used. **`main` is ahead of the artefact below since 2026-10-30: `PROGRESS.md`'s *Owed* (r)
 > and (s) are fixed in source, so this walk describes `71393567…`, not `main`.** *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
@@ -13,11 +13,11 @@
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* *(Until the record of items 6 and 7, 2026-10-31, it was dated 2026-10-30 and said "ITEMS 6 AND 7 ARE NOT YET WALKED".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
-> re-walk at chunk 5e, and 0.1–5's are filled in. *(Until 2026-10-14: "Every item's **Record:**
-> line is empty for the re-walk."; until 2026-10-29, "0.1–1.3's"; until 2026-10-30, "0.1–3's".)* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
+> re-walk at chunk 5e, and 0.1–7's are filled in. *(Until 2026-10-14: "Every item's **Record:**
+> line is empty for the re-walk."; until 2026-10-29, "0.1–1.3's"; until 2026-10-30, "0.1–3's"; until 2026-10-31, "0.1–5's".)* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
 > the *Walk record*.
 >
 > **The first walk**, as this block described it until chunk 5e, 2026-10-13: *"WALKED 2026-10-12
@@ -1123,7 +1123,10 @@ where the panel saved it is not established".)*
     reading.
 - **Two more panels.** One was cancelled at 16:59:59.111. The screenshot's was open at 17:00:05, and
   the stream copy here, to 2026-10-30 11:13:52, holds no line closing it. The user reports closing it
-  on 2026-10-30.
+  on 2026-10-30. *(2026-10-31, from the whole stream: `run report export cancelled` at 2026-10-30
+  17:08:47.802 closed it, and the line came again at 17:23:09.183, for **a fourth panel, which nobody had
+  reported**. **Export report…** is the only way to the panel (`RunReportView.swift`), so the sheet was
+  still up at 17:23:09. Nothing logs **Done**: the Walk record's departures.)*
 - *A reading:* tccd logged its hardened-runtime line for a missing entitlement, once for
   `kTCCServiceCalendar` and twice for `kTCCServiceAppleEvents`, at 16:48, as the first panel came up.
   Which code asks is not measured. The save went through.
@@ -1148,7 +1151,19 @@ where the panel saved it is not established".)*
 
 Screenshot it.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-31, against `71393567…`, from app pid 51163 and helper pid 51076.**
+- *Status* reads `notRegistered`, and the panel reads *"The helper was removed. Status is now
+  notRegistered."* Screenshot 12:20:27.
+- Window B holds the four lines, in order, at 12:20:14.226, .235, .256 and .271, so the whole takes
+  45 ms. `log-show.txt` holds them too, at .230, .239, .260 and .275.
+- Among them: the helper's `prepareForShutdown ACCEPTED for pid 51163` at .227, and `daemon status
+  changed enabled -> notRegistered` at .271. launchd logged `removing service` at .255, on the store's
+  clock.
+- **Done** was to come first, and there was nothing to press: the report sheet was already gone when
+  the user looked, on their account. No screenshot shows it — the Walk record's departures.
+- *A reading:* the uninstall raises no gate. The app's quit line 38 minutes later reads `gate=false`,
+  and the gate came at the next launch, 6.3. A Start in that state is not walked.
+- *What would invalidate it:* another artefact; another macOS release; an edit to any line quoted here.
 
 **6.2 —** Run each of these in window A:
 
@@ -1164,7 +1179,11 @@ Screenshot it.
 - `launchctl` reports *Could not find service*.
 - The app's row is the only one; there is no helper row.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-31, against `71393567…`.** `launchctl` reported *Could not find service*,
+and did again at item 7, `launchctl-end.txt`. `ps`'s only row is the app, pid 51163. Helper pid 51076 is
+gone, and launchd logged `service inactive` for it at 12:20:14.255, on the store's clock. `terminal.txt`
+holds the row twice, so `ps` ran twice. *What would invalidate it:* another artefact; another macOS
+release.
 
 **6.3 —** Quit the app with ⌘Q, then open it again from Applications.
 
@@ -1176,7 +1195,27 @@ Screenshot it.
 
 Quit it again.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-31, against `71393567…`.**
+- **The quit.** `quit command: prompt=false report=false gate=false confirming=false failure=false; 2
+  window(s), 0 sheet(s)` at 12:58:50.547, and `terminate requested: runIsActive=false
+  disposition=quitImmediately` at .551.
+- **The gate.** Pid 56849, which launchd spawned at 12:59:02.730 on the store's clock, and `helper gate:
+  notRegistered` at 12:59:02.986. Screenshot 12:59:12: ***"The privileged helper is not installed yet."***,
+  with **Register Helper** and **Quit**.
+- **The line.** `registration manager initialised; … status notRegistered; plist in bundle yes` at
+  12:59:02.807. *The status, a reading:* `notRegistered`, where this Mac's first launch read `notFound`
+  (2.1), which fits `CONSTRAINTS.md` §1: it reads `.notFound` until the daemon has been registered once.
+- **No macOS dialog on this open, a reading from the logs.**
+  - `syspolicyd` has 0 lines in `log-stream.txt` and 0 in `log-show.txt`, where 1.1's prompt logged one
+    under the same predicate.
+  - On the store's clock the app's first line came 140 ms after the spawn, against 30.5 s at 1.2's
+    second launch, which had a dialog up.
+  - The user's *"Dialog shown"* came with the 12:59:12 screenshot, which is the app's own gate. Asked
+    whether anything of macOS's came before it, they did not say, so this rests on the logs.
+- **The second quit.** The gate's **Quit**: `helper gate action: quit from notRegistered` at
+  13:07:20.781, and `terminate requested` at 13:07:21.070. `ending sheets: … 1 still flagged afterwards`
+  at .056 is this path's expected line (`progress/step-11-human-checklist.md`). `ps` then printed no row.
+- *What would invalidate it:* another artefact; another macOS release; an edit to any line quoted here.
 
 **6.4 — BTM afterwards (a reading, no pass criterion).**
 
@@ -1188,7 +1227,20 @@ sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-rewalk/btm-after.tx
 /usr/bin/grep -n -i -E 'arc3solutions|USBDriveTester' /Users/Shared/USBDriveTester-rewalk/btm-after.txt
 ```
 
-**Record:**
+**Record:** 📖 **Read 2026-10-31 13:08, against `71393567…`.** `btm-after.txt` has 618 lines, 4 `Records
+for UID`, and 19 lines naming the app or the helper, against `btm-before.txt`'s 561, 4 and 0. **The
+uninstall left BTM's records in place**, which fits `CONSTRAINTS.md` §1, *A removal survives its own
+approval*.
+
+| Under UID | Record | `Disposition` | `Generation` |
+|---|---|---|---|
+| −2 | #9, the app, the helper its embedded item | `[disabled, allowed, not notified]` (0x2) | 0 |
+| −2 | #10, the helper, `Last Use` 12:20:14 | `[disabled, allowed, not notified]` (0x2) | 25 |
+| 0 | #5, the app | `[disabled, allowed, notified]` (0xa) | 1 |
+| 501 | #22, the app | `[disabled, allowed, not notified] (pending authorization)` (0x12) | 4 |
+
+`Last Use` is the uninstall's second, and a dump's `Last Use` says when BTM looked (`CONSTRAINTS.md` §1).
+*Not walked:* registering again here. *What it is true of:* this dump.
 
 **6.5 — the app itself is removed** *(optional; added 2026-10-12 for `Quick_Start_Guide.md`'s
 uninstall section — no gate item asks for it)*. To keep the app on this Mac, skip to item 7.
@@ -1236,7 +1288,31 @@ sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-rewalk/btm-after-ap
 - whether *Allow in the Background* still names it;
 - what BTM holds.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-31, against `71393567…`, on all three checks. Walked by the user's
+choice.**
+
+| Step | When | What |
+|---|---|---|
+| 1 | after 13:07:21 | `ps` printed no row, after 6.3's second quit |
+| 2 | 13:16:29 | Full Disk Access: listed, switch on |
+| 2 | 13:18:35 | Login Items: listed, switch on |
+| 3 | 13:20:45.916 | the drag: `sysextd` logged Finder moving it. No authentication, on the user's account. The Trash is not emptied |
+| 4 | 13:21:57 | Full Disk Access, before **−**: still listed, switch on |
+| 4 | 13:25:59.616 | **−**: tccd published `type=Delete, service=kTCCServiceSystemPolicyAllFiles` for `com.arc3solutions.USBDriveTester` |
+| 4 | 13:26:29 | Full Disk Access: not listed; `us.zoom.ZoomDaemon` is followed by `XProtect` |
+| 5 | 13:29:54 | Login Items: still listed, switch on |
+| 6 | by 13:32 | `ls`: *No such file or directory*; `ps`: no row |
+| 6 | 13:32 | `btm-after-app-removed.txt`: byte-identical to `btm-after.txt`, sha256 `c9008156…`, so BTM still names `/Applications/USBDriveTester.app` |
+
+- *Readings, for `Quick_Start_Guide.md`:* moving the app to the Trash leaves its Full Disk Access entry
+  until **−**, and leaves its Login Items row and its BTM records even after **−**. The guide cannot
+  promise that removing the app clears them.
+- *Not recorded:* whether **−** asked for authentication. *Not walked:* emptying the Trash, and whether
+  the row or the records go after that or after a restart.
+- *A reading:* at **−**, tccd logged at error level that it could not make a bundle for the app's path,
+  gone by then: `_CFBundleCreateUnique failed for file:///Applications/USBDriveTester.app/`. It published
+  the delete two lines later, and the 13:26:29 screenshot shows the delete took.
+- *What would invalidate it:* another artefact; another macOS release.
 
 ---
 
@@ -1275,11 +1351,36 @@ from 2.2 on. The store rotates, so what it holds is a reading, and sooner is bet
 5. Eject `Test_Drive`, and bring the 1 TB scratch T5 back.
 
 On this Mac, the folder is copied into `USBDriveTester-evidence/step-16/`, and the walk is judged
-from it.
+from it. *(2026-10-31: this walk's stays in `USBDriveTester-rewalk/`, untracked, by the user's word —
+the Walk record.)*
 
 *Pass:* both log files have lines, and `terminal.txt` holds every item's commands.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-31, against `71393567…`, on both its checks, with three commands explained
+and the departures in the Walk record. Step 5, the 1 TB scratch T5's return, is open, at Claude's request:
+the user's decision on the artefact settles whether the drive comes back for 5g or stays for a re-walk.**
+- **Window B.** Ctrl-C by 13:34:05, the file's last write: `log-stream.txt`, 52,350 lines, 12,589,671
+  bytes. `ps` then found 50500 gone and 7525 in state `T`, and once the window closed, 7525 gone.
+- **Window A.** `launchctl-end.txt` at 13:35, *Could not find service*. `log-show.txt` by 13:37:
+  1,541,364 lines, 183,374,669 bytes, 2026-10-29 10:00:00.655 to 2026-10-31 13:25:59.629. `Script done`
+  at 13:42:51. `terminal.txt`, 115,155 bytes.
+- **Both log files have lines.** `wc -l`'s 30 to 1 is not a difference in what they hold. Counted by
+  timestamped entry they are 31,664 and 34,067, because `log show` prints multi-line entries in full,
+  runningboardd's among them. Neither contains the other: the stream has more entries on 2026-10-29, and
+  the store more on 2026-10-30 and 31. Why is not measured; the stream drops messages, and the store
+  rotates. The two agree on the lines checked: 14 naming `Register` or `register() submitted`, 3 `run
+  authorised`, 1 `acquire GRANTED` and 1 `run ended`. The same line's time differs by 4 to 70 ms, the
+  stream's the earlier. The stream's one new dropped-message marker, its 55th, follows 2026-10-31
+  11:32:04, before the uninstall.
+- **`terminal.txt` holds every item's commands but three**, checked by script against each fenced
+  command in this file: 0.2's `defaults`, not run (its record); item 3's `grep`, judged here on the copy
+  instead (its record); and 5's `wc -m`, added 2026-10-30, after the item was walked. 0.1 runs on this
+  Mac, 0.2's `mkdir` comes before the recording, and item 1's `log stream` is window B's.
+- **The evidence is here, by hash** — the Walk record's last table. Five files match the sha256 printed
+  on the Mac mini into `terminal.txt`, and `terminal.txt` matches the one printed after `exit`. The
+  previous `log-stream.txt`, 9,788,100 bytes, and `terminal.txt`, 62,023 bytes, are exact byte prefixes of
+  these.
+- *What it is true of:* these files, by those hashes.
 
 ---
 
@@ -1349,12 +1450,28 @@ it. Name the clean Mac by its model and macOS version, and every pass by the art
 until then it named `ed695b8f…` alone.)*
 
 
-### 2026-10-13 to 2026-10-30 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(in progress)*
+### 2026-10-13 to 2026-10-31 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(item 7's last step open)*
 
-*The user is walking it. Claude judged items 0.2–1.3 on 2026-10-14, items 2 and 3 on
-2026-10-29, and items 4 and 5 on 2026-10-30, on this Mac, from the evidence copied mid-walk. The rest of this section is written
-when item 7 brings the whole.* *(Until 2026-10-29 this section was headed "2026-10-13 to
-2026-10-14", and Claude had judged items 0.2–1.3 alone; until 2026-10-30, "2026-10-13 to 2026-10-29".)*
+*The user walked it. Claude judged items 0.2–1.3 on 2026-10-14, items 2 and 3 on 2026-10-29, items 4
+and 5 on 2026-10-30, and items 6 and 7 on 2026-10-31, on this Mac, from the evidence copied mid-walk and
+then from the whole of it.* *(Until 2026-10-29 this section was headed "2026-10-13 to
+2026-10-14", and Claude had judged items 0.2–1.3 alone; until 2026-10-30, "2026-10-13 to 2026-10-29"; until
+the record of items 6 and 7, 2026-10-31, "2026-10-13 to 2026-10-30 … *(in progress)*", and this line said
+"The user is walking it" and "The rest of this section is written when item 7 brings the whole.")*
+
+**Where the walk stands — a snapshot, 2026-10-31 about 14:00, as items 6 and 7 were recorded.** Items
+0–7 are walked. **Two things are open:** the user's decision on another artefact, put to them at this
+record's close, and item 7's step 5, which waits for it. 5g and chunk 6 follow.
+- **On the Mac mini**, unless it has restarted since:
+  - No USBDriveTester process. Window A is at an ordinary prompt, no longer recording. Window B is
+    closed, and pids 50500 and 7525 are gone.
+  - The app is in the Trash, not emptied. Its Full Disk Access entry is removed. Its Login Items row
+    and BTM records remain.
+  - disk6, the 1 TB scratch T5, is attached, with `Test_Drive` mounted, as the app last listed it at
+    12:59:03.
+  - `/Users/Shared/USBDriveTester-rewalk/` holds its files. The Drop Box holds copies, and still the
+    misnamed `log-stream-2026-10-14.txt`.
+- **On this Mac,** `USBDriveTester-rewalk/` at the repository's root holds the whole evidence, untracked.
 
 **Where the walk stands — a snapshot, 2026-10-30 about 17:10, as the session that recorded items 4
 and 5 ended.** Next is **item 6**, against `71393567…`: the user said that day to continue with it,
@@ -1378,6 +1495,9 @@ this one, **has not been put to them**.
 - **Before a new copy lands here,** keep the old one, then check it is an exact prefix of the new one.
   This Mac holds `log-stream.txt` to 2026-10-30 11:13:52, 9,788,100 bytes, and `terminal.txt`, 62,023
   bytes.
+
+*(2026-10-31: that snapshot is overtaken by the one above it. Items 6 and 7 are walked, the report sheet
+was already gone, and this Mac holds the whole evidence.)*
 
 **The clean Mac:** host `Chris-Mac-mini`, the first walk's; `arm64`; macOS **27.0.1**, build
 **26A434**. The app lists one USB drive, disk6, *Samsung Portable SSD T5 · 1.00 TB · S/N
@@ -1451,6 +1571,20 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 | by about 17:13 | `log-stream.txt` back from the Drop Box; 4.5's `grep`, `ls` and `mount` in window A |
 | 2026-10-30 about 11:00 | the suspended stream, pid 7525, found by `lsof` |
 | 11:12 | window B's file under the wrong name, `log-stream-2026-10-14.txt`; back by 17:08 |
+| 17:08:47.802 | `run report export cancelled`: the third panel (5) |
+| 17:23:09.183 | `run report export cancelled`: a fourth panel (5) |
+| 2026-10-31 11:32:09 | the check before 6.1: all five processes alive, none restarted |
+| 12:20:14.226–.271 | the uninstall (6.1); its screenshot at 12:20:27 |
+| by 12:58 | 6.2's `launchctl` and `ps` |
+| 12:58:50.547 | ⌘Q; the quit line's `report=false` and `0 sheet(s)` (6.3) |
+| 12:59:02.807 | the app again, pid 56849; the gate's screenshot at 12:59:12 |
+| 13:07:20.781 | the gate's **Quit** |
+| 13:08 | `btm-after.txt` (6.4) |
+| 13:16:29–13:32 | item 6.5, its own record's table |
+| 13:34:05 | window B's Ctrl-C, by the file's last write (7) |
+| 13:35 | `launchctl-end.txt` |
+| 13:37 | `log-show.txt` finished |
+| 13:42:51 | `Script done`, window A |
 
 **Where the walk departed from this file, so far:**
 - 0.2's `ls` failed, and the walk went on past it before it was seen — the item's record.
@@ -1498,6 +1632,25 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 - On 2026-10-30 window A ran commands this file does not name: `lsof`, `ps`, `mv`, `ls` on `/.vol`,
   `mdfind`, and `kill -INT 7525`, Claude's instruction. A suspended process does not act on that
   signal, so it stays queued.
+- **Item 5's Done, and the sheet.** Asked for before 6.1, 2026-10-31, and the sheet was already gone, on
+  the user's account. They were asked for a screenshot of the window, and none is in the evidence. Two
+  `run report export cancelled` lines on 2026-10-30, at 17:08:47.802 and 17:23:09.183, mean the sheet
+  was up until at least then, and the user had reported closing one panel, not two. **Done** logs
+  nothing. The first record of the sheet down is the quit line of 2026-10-31 12:58:50.547: `report=false`,
+  `0 sheet(s)`. `reportIsPresented` is what `report=` reads (`AppModel.swift`), so that much is the
+  model's word and not the user's. Who closed the sheet, and when, is not established. Nothing in item
+  6 rests on it.
+- On 2026-10-31 window A ran commands this file does not name, all Claude's instruction: `date`, `ps`
+  and `ls` before 6.1; `grep` over `log-stream.txt` for 6.1 and 6.3; `ps` after each quit; `wc -l` and
+  `grep -c 'Records for UID'` as controls beside 6.4's and 6.5's `grep`; and, before `exit`, `ls` and
+  `shasum`.
+- Item 7's steps 3 and 4 went another way. The screenshots had already gone over one by one, by the
+  Drop Box, so the Desktop held none, and nothing was moved into the evidence folder. There was no
+  AirDrop: the rest came by `/bin/cp -p` into the Drop Box, then a copy from the mounted Drop Box, by the
+  user's rule. **The evidence stays in `USBDriveTester-rewalk/`, untracked**, by the user's word on
+  2026-10-31, and not in `USBDriveTester-evidence/step-16/`.
+- Step 5 of item 7 is held back: the walk says bring the drive home, and the artefact decision comes
+  first.
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
@@ -1519,7 +1672,8 @@ lines it covers.)*
 first had missed, and the third, by 13:53, the button's two — to `USBDriveTester-rewalk/` at this
 repository's root. *(Until the third, "in two goes".)* It is untracked, and is
 not committed; where the evidence is kept is settled at item 7. `log-show-2.3.txt` and
-`log-show-button.txt` stay on the Mac mini until then.
+`log-show-button.txt` stay on the Mac mini until then. *(2026-10-31: settled, and both came over — the
+last table in this section.)*
 
 | File | What |
 |---|---|
@@ -1553,6 +1707,31 @@ replaced by the copies below.)*
 | `usb-drive-test-12345686DAA9-2026-10-29-1408.md` | 5, the report: 3,700 bytes, 3,688 characters |
 | `terminal.txt` | 62,023 bytes, to about 11:13 on 2026-10-30: the 26,994-byte copy, byte for byte, then the rest |
 | `log-stream.txt` | 36,889 lines, 9,788,100 bytes, 2026-10-29 10:05:11 to 2026-10-30 11:13:52: the 15:53 copy's 2,927,696 bytes, byte for byte, then the rest; 54 dropped-message markers, 2 inside the run |
+
+**Evidence copied 2026-10-31,** to the same folder, by the Drop Box. Hashes are sha256, whole for those
+the Mac mini printed. `log-show-2.3.txt` and `log-show-button.txt` were written 2026-10-29, and no hash
+from the Mac mini covers them.
+
+| File | What |
+|---|---|
+| `Screenshot 2026-10-31 at 12.20.27 PM.png` | 6.1, ⇧⌘D at `notRegistered` |
+| `Screenshot 2026-10-31 at 12.59.12 PM.png` | 6.3, the gate |
+| `Screenshot 2026-10-31 at 1.16.29 PM.png` | 6.5 step 2, Full Disk Access |
+| `Screenshot 2026-10-31 at 1.18.35 PM.png` | 6.5 step 2, Login Items |
+| `Screenshot 2026-10-31 at 1.21.57 PM.png` | 6.5 step 4, Full Disk Access before **−** |
+| `Screenshot 2026-10-31 at 1.26.29 PM.png` | 6.5 step 4, Full Disk Access after **−** |
+| `Screenshot 2026-10-31 at 1.29.54 PM.png` | 6.5 step 5, Login Items |
+| `log-stream.txt` | `7624e8b0f3ace4ff31dfa5f5c1a898bb7941091b29ec48fb25aa964c472ddcd1`; 52,350 lines, 12,589,671 bytes, 55 dropped-message markers; the 9,788,100-byte copy, byte for byte, then the rest |
+| `log-show.txt` | `4c022eff40d80e15cb7576a7d73ed770c58d57cc5ef65b2d33355d6f7b8b2e25`; 1,541,364 lines, 183,374,669 bytes |
+| `launchctl-end.txt` | `6a277f433534ca9a0e3ecdc25a9aa5ba033d54e9f8e0cd24a67412effac948c1`; 99 bytes |
+| `btm-after.txt` | `c9008156070cbc1e08fd04d65ec263f2245519e7cd6751a2918ff3b93a8a7f28`; 618 lines |
+| `btm-after-app-removed.txt` | the same hash |
+| `terminal.txt` | `617fb1e56c5551b483410cb04eff1fa2b1742d243ef5ab931e66fa1457debfcd`; 115,155 bytes, to `Script done` at 13:42:51; the 62,023-byte copy, byte for byte, then the rest |
+| `log-show-2.3.txt` | `a13a20f553d5c6dee48845043ab8f72f24aa5751510c97d409fa7e27da732fe2`; 13 lines |
+| `log-show-button.txt` | `53411410af9c50643d88170976c936ad595bdbf05fa78466f38398996b20a530`; 24 lines |
+
+The two Login Items screenshots show the user's name and account picture in the sidebar. Chunk 6 crops
+them if it uses them.
 
 **What it is true of:** the artefact `71393567…`, on macOS 27.0.1 (26A434), on a Mac mini that
 approved `ed695b8f…`'s app on 2026-10-12. Not of `main` since 2026-10-30, which carries the two
