@@ -1,22 +1,22 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-29: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
+> **STATUS, 2026-10-30: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
 > USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
 > 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
 > LOG STREAM NOR THE PERSISTED LOG HOLDS, AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3;
-> ITEMS 4–7 ARE NOT YET WALKED.** It is on the
+> ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 ARE NOT YET WALKED.** It is on the
 > Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
-> re-walk at chunk 5e, and 0.1–3's are filled in. *(Until 2026-10-14: "Every item's **Record:**
-> line is empty for the re-walk."; until 2026-10-29, "0.1–1.3's".)* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
+> re-walk at chunk 5e, and 0.1–5's are filled in. *(Until 2026-10-14: "Every item's **Record:**
+> line is empty for the re-walk."; until 2026-10-29, "0.1–1.3's"; until 2026-10-30, "0.1–3's".)* The first walk's records, of `ed695b8f…`, stand verbatim at the end of its section of
 > the *Walk record*.
 >
 > **The first walk**, as this block described it until chunk 5e, 2026-10-13: *"WALKED 2026-10-12
@@ -751,7 +751,8 @@ until the persisted log was read, the same day, "window B's stream holds none of
     - Nothing came from pid 7567 for the switch-off. The activation re-check runs only while
       the gate is up (`USBDriveTesterApp.swift`), so the old app did not see it before it quit.
     - The times are the store's clock.
-  - **Item 4's `N` is 51042 now**, not 7567: this walk relaunched the app.
+  - **Item 4's `N` is 51042 now**, not 7567: this walk relaunched the app. *(Until 4.3's relaunch,
+    14:05:58 the same day, which made it **51163** — item 4.5's record.)*
   - *What would invalidate it:* another artefact; another macOS release.
 - System Settings, screenshot `Screenshot 2026-10-29 at 10.08.15 AM.png`: *General* selected, the
   pane titled *Login Items* — *a reading*: this file words it *Login Items & Extensions*. The
@@ -892,7 +893,8 @@ the prerequisites.)*
 
 Screenshot the main window, with the drive selected.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29.** Screenshot 14:03:15, pid 51042: disk6, the 1 TB scratch T5,
+selected, its pane showing serial `12345686DAA9`.
 
 **4.2 — Start, and the warnings.** Press **Start**.
 
@@ -903,7 +905,9 @@ this Mac.
 - Screenshot it.
 - Press **Proceed**.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29.** Screenshot 14:03:36: the **"Before you start"** sheet with the
+full warnings, its question naming serial `12345686DAA9`, and ***"Don't show this warning again"***
+unchecked. **Proceed** was pressed.
 
 **4.3 — Full Disk Access, the first time.** On a Mac that has never granted it, this is the expected
 path. Step 11's chunk 14 item 4 walked it on this Mac on 2026-09-02, by revoking the grant.
@@ -938,7 +942,32 @@ Then:
   record both.
 - If no modal appears at all and the run starts straight away: record it.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29, with a departure: at the first grant the user took macOS's offer
+to quit and reopen, not **Later**, so step 7, Start without relaunching, was walked on a second
+grant, in the reopened app. By the user's decision the same day it is not walked again** — *"Yes,
+let's drop the re-walk"*. On the log, not on recollection: the user did not remember the Start while
+Full Disk Access was off, and tccd's records and the app's lines hold it.
+- **The modal, passed.** Run `054FAE85…`, pid 51042: `run authorised` at 14:03:44.167, then
+  `run aborted before any write: This app needs Full Disk Access …` at .468. Screenshot 14:03:51: the
+  heading, the helper's words, the two buttons, and `Test_Drive` still mounted.
+- **Steps 1–2.** System Settings opened at that pane, screenshot 14:05:18, with **USBDriveTester
+  already listed and switched off**. tccd says why: the refusal itself created the entry, a
+  `TCCDEvent` of type `Create` at 14:03:44.210.
+- **Steps 3–5.** Switched on, with authentication, screenshot 14:05:40; tccd's `Update Access Record`
+  to `Allowed` at 14:05:46.504. macOS then offered to quit and reopen, screenshot 14:05:52, **and the
+  user took it**: pid 51163, `registration manager initialised; … status enabled` at 14:05:58.617.
+- **The off and on again, to reach step 7.** `Denied` at 14:06:36.967. **Start** at 14:07:19.774, run
+  `D76E0562…`, refused at 14:07:20.073 by the same line, before any write. `Allowed` at 14:07:55.425,
+  this time with **Later**: the user's account, and the log agrees, showing no new launch.
+- **Step 7, passed.** `[run D2B61446-5EB1-4AC3-A7CA-18E147168020] run authorised: drive serial
+  12345686DAA9; I/O size 4194304 bytes; mode logAndContinue` at 14:08:05.301, **the run that counts**,
+  in the same app, pid 51163, and the same helper, pid 51076, started 13:51:09.
+- *Readings:*
+  - The grant reached the running app and helper within 9.9 s. The revocation had reached them by
+    the next check, 43 s after it.
+  - Both are upper bounds, and both on a second change. **A first grant followed by Start without a
+    relaunch was not walked on this Mac.**
+- *What would invalidate it:* item 4's clause, below.
 
 **4.4 — while it runs, uninstalling is refused** *(Step 4's lifecycle)*. First, screenshot the main
 window while the run is under way, with its progress showing. Then open ⇧⌘D.
@@ -958,7 +987,17 @@ This is safe to press. The refusal is the app's own first step, and it sends the
 
 Screenshot it, then close the window.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29,** run `D2B61446…`, pid 51163.
+- Screenshot 14:08:34: the run under way, 0%, 2 h 31 min remaining, with Read 332, Write 372 and
+  R-W-R-C 115 MB/s as readings.
+- Window B: `uninstall requested (runIsActive=true)` and `uninstall refused: a run is active`, both
+  at 14:08:43.557. Screenshot 14:08:48: ⇧⌘D with both messages. The run went on, item 4.5.
+- *Finding, cosmetic; reported, not fixed — `PROGRESS.md`, *Owed* (s).* The 14:08:34 screenshot's
+  frozen-list note reads *"Devices have connected or disconnected since it started"*, and nothing was
+  plugged in or unplugged, on the user's account. The log shows the run's own claim doing it: the
+  run unmounted `disk6s2` at 14:08:05.805, slices `disk6s1` and `disk6s2` disappeared at .815, and
+  `device change ignored while a run is active` followed at 14:08:06.017, which sets the note's flag
+  (`DeviceDiscovery.swift`).
 
 **4.5 — it completes.** Leave it to finish. The app holds an idle-sleep assertion (Step 13), so the
 display may sleep, and the Mac should not.
@@ -974,7 +1013,8 @@ display may sleep, and the Mac should not.
   It shows `run authorised`, `acquire GRANTED for pid N (identifier com.arc3solutions.USBDriveTester,
   team 5JC55GTLZA)`, `run ended: completed` and `release requested`. All four carry **the same
   `[run <ID>]`**. *(2026-10-29: `N` is 51042 here, not 1.3's 7567 — the walk of 2.3's button
-  after item 3 relaunched the app.)*
+  after item 3 relaunched the app.)* *(Corrected 2026-10-30: `N` was **51163** — 4.3's relaunch
+  moved it again. Its record, below.)*
 - `Test_Drive` mounts again afterwards.
 
 Record:
@@ -987,7 +1027,27 @@ Screenshot the report sheet.
 *What would invalidate item 4:* another artefact; another macOS release; an edit to any line quoted
 here.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29: run `D2B61446…` completed, 14:08:05 to 16:42:28, 2 h 34 min 24 s,
+on artefact `71393567…`, on macOS 27.0.1 (26A434).** The headline is *"Completed — no
+currently-unreadable blocks were found"*.
+- The report sheet, screenshot 16:48:04, shows **"No block ranges failed."**
+- The `grep`, in window A by about 17:13, printed six lines. The four that pass, all `[run D2B61446…]`:
+  `run authorised` at 14:08:05.301; `acquire GRANTED for pid 51163 (identifier
+  com.arc3solutions.USBDriveTester, team 5JC55GTLZA)` at .820; `run ended: completed` at
+  16:42:28.837; and `release requested by pid 51163` at .855. The other two are the `run authorised`
+  lines of 4.3's two refused runs, which have no `acquire GRANTED`.
+- **`N` is 51163.**
+- `Test_Drive` is mounted again: `/dev/disk6s2 on /Volumes/Test_Drive (exfat, …)` in window A by about
+  17:13, and again 2026-10-30. When it remounted is not measured; `discovery found 1 USB whole disk(s):
+  disk6` came at 16:42:29.275.
+- *Readings:*
+  - 238,468 chunks.
+  - Read 319, Write 374 and R-W-R-C 112 MB/s.
+  - The link at 5 Gb/s (USB 3.0).
+  - Read latency 5.819 ms minimum, 99.259 ms maximum, p99 ≤ 13.500 ms.
+  - Two of the stream's dropped-message markers fall inside the run, and none of the lines above is
+    missing.
+- *What would invalidate it:* item 4's clause, above.
 
 ---
 
@@ -1011,16 +1071,51 @@ Screenshot it. Then:
 
 *Pass:*
 - No error alert.
-- Window B holds `run report exported: outcome …; drive serial 12345686DAA9; <N> bytes`.
-- The file is there, at that size:
+- Window B holds `run report exported: outcome …; drive serial 12345686DAA9; <N> bytes`. **`<N>`
+  counts characters, whatever the line calls it** — `RunReportView.swift`'s `markdown.count`,
+  `PROGRESS.md`'s *Owed* (r).
+- The file is there, with `<N>` characters. Its size in bytes is larger, since `—`, `–` and `≤`
+  take three bytes each.
 
 ```bash
 /bin/ls -l /Users/Shared/USBDriveTester-rewalk/
 ```
 
+```bash
+LC_ALL=en_US.UTF-8 /usr/bin/wc -m /Users/Shared/USBDriveTester-rewalk/usb-drive-test-12345686DAA9-*.md
+```
+
+*(Until 2026-10-30: "The file is there, at that size:", with the `ls` alone. No report can pass
+that, because every one holds an em dash. Reworded by the user's decision the same day, which left
+the code alone.)*
+
 Then press **Done**.
 
-**Record:**
+**Record:** ✅ **Passed 2026-10-29, on the panel, the log line and the file, with a departure: the
+report is not in the evidence folder, and where the panel saved it is not established.** It saved
+under the hardened runtime without the dropped entitlement, which is what this item is for.
+- **The panel.** Screenshot 17:00:05: the title and the message. It is the third panel, not the one
+  that saved, and its field cuts the name at `usb-drive-test-12345686DAA9-202…`. The saved file's
+  whole name, `usb-drive-test-12345686DAA9-2026-10-29-1408.md`, fits the pattern.
+- **The log.** `run report exported: outcome Completed — no currently-unreadable blocks were found;
+  drive serial 12345686DAA9; 3688 bytes` at 16:48:55.906. No error alert, on the user's account; and
+  `export FAILED` has 0 lines, against 2 for `run report export`.
+- **The file,** as copied to this Mac: 3,700 bytes, 3,688 characters, modified 16:48:55. Its six `—`,
+  `–` and `≤` account for the 12 bytes: `<N>` counts characters. **Item 5's check is reworded for
+  that, and the code left alone, by the user's decision 2026-10-30** — `PROGRESS.md`, *Owed* (r).
+- **The departure.**
+  - `ls` in window A by about 17:13, and again 2026-10-30, lists no `usb-drive-test-…`.
+  - `mdfind -name usb-drive-test-12345686DAA9`, 2026-10-30 17:08:14, printed no path. No control was
+    run, so that is no reading of absence.
+  - The third panel opened at Documents, and the code sets no directory (`RunReportView.swift`).
+- **Two more panels.** One was cancelled at 16:59:59.111. The screenshot's was open at 17:00:05, and
+  the stream copy here, to 2026-10-30 11:13:52, holds no line closing it. The user reports closing it
+  on 2026-10-30.
+- *A reading:* tccd logged its hardened-runtime line for a missing entitlement, once for
+  `kTCCServiceCalendar` and twice for `kTCCServiceAppleEvents`, at 16:48, as the first panel came up.
+  Which code asks is not measured. The save went through.
+- *What would invalidate it:* another artefact; another macOS release; an edit to any line quoted
+  here.
 
 ---
 
@@ -1227,12 +1322,12 @@ it. Name the clean Mac by its model and macOS version, and every pass by the art
 until then it named `ed695b8f…` alone.)*
 
 
-### 2026-10-13 to 2026-10-29 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(in progress)*
+### 2026-10-13 to 2026-10-30 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(in progress)*
 
-*The user is walking it. Claude judged items 0.2–1.3 on 2026-10-14, and items 2 and 3 on
-2026-10-29, on this Mac, from the evidence copied mid-walk. The rest of this section is written
+*The user is walking it. Claude judged items 0.2–1.3 on 2026-10-14, items 2 and 3 on
+2026-10-29, and items 4 and 5 on 2026-10-30, on this Mac, from the evidence copied mid-walk. The rest of this section is written
 when item 7 brings the whole.* *(Until 2026-10-29 this section was headed "2026-10-13 to
-2026-10-14", and Claude had judged items 0.2–1.3 alone.)*
+2026-10-14", and Claude had judged items 0.2–1.3 alone; until 2026-10-30, "2026-10-13 to 2026-10-29".)*
 
 **The clean Mac:** host `Chris-Mac-mini`, the first walk's; `arm64`; macOS **27.0.1**, build
 **26A434**. The app lists one USB drive, disk6, *Samsung Portable SSD T5 · 1.00 TB · S/N
@@ -1252,6 +1347,7 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 | 12:40:59 | `sw_vers`'s date; the `ls` just after it finds `/Applications/USBDriveTester.app` (0.2) |
 | 12:43 | `btm-before.txt` written |
 | — | 0.3 and 0.4, the same day; `terminal.txt` carries no times for them |
+| 2026-10-14 15:12:56 | `log stream` started in window B, pid 7525, ttys002 — from `ps`, 2026-10-30 |
 | 2026-10-14 15:13:47.923 | `log stream`'s first line, in window B |
 | 15:13:47.963 | first launch, pid 7532; `syspolicyd` *Prompt shown* at 15:13:48.493 (1.1) |
 | 15:14:36.871 | the refusal closed with **Done**; Gatekeeper's denial breadcrumb |
@@ -1261,6 +1357,7 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 | 15:16:56.223 | the app's first line, `status notFound; plist in bundle yes`; `helper gate: notRegistered` at .410 (2.1) |
 | 15:17:01 | the gate's screenshot |
 | 15:19:44 | the last line of the 2026-10-14 copy of `log-stream.txt`; the lines after it, to 2026-10-29 10:05:11, are in neither copy |
+| 2026-10-29 10:05:10 | the restarted `log stream`, pid 50500, ttys002 — from `ps`, 2026-10-30 |
 | 2026-10-29 10:05:11.483 | the restarted `log stream`'s first line, in window B |
 | 10:05:40.710 | `helper gate: notRegistered` — the gate as 2.1 left it |
 | 10:07:14.792 | **Register Helper** pressed (2.2); `requiresApproval` and *submitted* at .900 |
@@ -1280,6 +1377,30 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 | 13:50:02.061 | the gate's **Open Login Items…** pressed; `gate idle` at .151 |
 | 13:50:46 | System Settings' screenshot, the switch still off |
 | 13:51:13.119 | `requiresApproval -> enabled`; the gate cleared at .140 |
+| 14:03:15 | 4.1's screenshot |
+| 14:03:36 | 4.2's screenshot |
+| 14:03:44.167 | `run authorised`, run `054FAE85…`, pid 51042; `run aborted before any write` at .468 (4.3) |
+| 14:03:51 | the modal's screenshot |
+| 14:05:18 | the Full Disk Access pane's screenshot, USBDriveTester listed and off |
+| 14:05:40 | the password prompt's screenshot |
+| 14:05:46.504 | Full Disk Access on, by tccd's record |
+| 14:05:52 | the screenshot of macOS's offer to quit and reopen |
+| 14:05:58.617 | the app again, pid 51163, at `status enabled` |
+| 14:06:36.967 | Full Disk Access off |
+| 14:07:19.774 | `run authorised`, run `D76E0562…`; aborted at 14:07:20.073 |
+| 14:07:55.425 | Full Disk Access on |
+| 14:08:05.301 | `run authorised`, run `D2B61446…`, pid 51163 — the run that counts; `acquire GRANTED` at .820 |
+| 14:08:34 | the running window's screenshot (4.4) |
+| 14:08:43.557 | uninstall requested and refused |
+| 14:08:48 | ⇧⌘D's screenshot |
+| 16:42:28.837 | `run ended: completed`; `release requested` at .855 (4.5) |
+| 16:48:04 | the report sheet's screenshot |
+| 16:48:55.906 | `run report exported` (5) |
+| 16:59:59.111 | `run report export cancelled`, a second panel |
+| 17:00:05 | a third panel's screenshot |
+| by about 17:13 | `log-stream.txt` back from the Drop Box; 4.5's `grep`, `ls` and `mount` in window A |
+| 2026-10-30 about 11:00 | the suspended stream, pid 7525, found by `lsof` |
+| 11:12 | window B's file under the wrong name, `log-stream-2026-10-14.txt`; back by 17:08 |
 
 **Where the walk departed from this file, so far:**
 - 0.2's `ls` failed, and the walk went on past it before it was seen — the item's record.
@@ -1295,7 +1416,13 @@ button's walk's from `log-show-button.txt`, on the store's clock.
   **Register Helper**, and its 10:05:40 gate line still reads `notRegistered`. What filled the file
   is not measured. The app's connection attempts, *Owed* (p), log a system line each, about one a
   second, and the app's own rate limit does not cover those; over the pause it held back 2,555,087
-  failure lines of its own.
+  failure lines of its own. *(2026-10-30: **the old stream was suspended, not ended.** `ps` finds pid 7525, started 2026-10-14
+  15:12:56, in state `T` on window B's terminal, ttys002, the same as the restarted stream, pid
+  50500. `lsof` shows it holding the deleted file: **262,646,959 bytes**, link count 0, under the
+  last path it had, in `~/.Trash`. So the file's size is measured, and its lines are no less lost:
+  the Trash does not show it, and `/.vol/16777231/182011413` reads *No such file or directory*. Its
+  last line could not be read, but a stream suspended by 10:05:10, when the new one took its
+  terminal, holds nothing of 2.2 onward. It goes when window B closes.)*
 - 2.1's ⇧⌘D screenshot and 2.2's notification are not in the evidence, and 2.3's **Open Login
   Items…** press is on the user's account, which neither window B's stream nor the persisted log
   holds, and the button passed when walked again after item 3 — the items' records. *(Until the user's answers, 2026-10-29: "and 2.3's **Open Login
@@ -1306,7 +1433,20 @@ button's walk's from `log-show-button.txt`, on the store's clock.
   the evidence folder — not a step of this file.
 - Then, 13:49–13:51, the gate's **Open Login Items…** was walked again by the user's decision —
   2.3's record. It relaunched the app, so item 4's `N` is 51042, and it put `log-show-button.txt`
-  and two screenshots into the evidence folder.
+  and two screenshots into the evidence folder. *(`N` until 4.3's relaunch — 51163.)*
+- In 4.3 the user took macOS's offer to quit and reopen at the first grant, and step 7 was walked
+  on a second grant. The re-walk planned for after item 5 was dropped by the user's decision the
+  same day — the item's record. That relaunch made `N` 51163.
+- Item 5's report is not in the evidence folder, and two more panels opened after the save, the
+  third staying open until 2026-10-30 — the item's record.
+- Window B's `log-stream.txt` was moved twice while the stream wrote to it, and put back each time.
+  On 2026-10-29 it went to `~/Public/Drop Box`, a slip the user reported, and was back by about 17:13.
+  On 2026-10-30, following Claude's instruction, which assumed the old deleted file was still in the
+  Trash, it became `log-stream-2026-10-14.txt`, and was back by 17:08. `lsof` shows inode 182876538
+  every time, and the 15:53 copy is an exact prefix of the 11:13 one, so no line was lost to either.
+- On 2026-10-30 window A ran commands this file does not name: `lsof`, `ps`, `mv`, `ls` on `/.vol`,
+  `mdfind`, and `kill -INT 7525`, Claude's instruction. A suspended process does not act on that
+  signal, so it stays queued.
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
@@ -1341,6 +1481,27 @@ not committed; where the evidence is kept is settled at item 7. `log-show-2.3.tx
 | `Screenshot 2026-10-29 at 1.50.46 PM.png` | the button's walk: System Settings, USBDriveTester's switch off |
 | `terminal.txt` | 26,994 bytes: the 2026-10-14 copy's 24,280, byte for byte, then 2.4's two commands |
 | `log-stream.txt` | 1,522 lines, 2026-10-29 10:05:11 to 10:11:30 — the restarted stream |
+
+*(That table is the folder as it stood on 2026-10-29. Its `terminal.txt` and `log-stream.txt` were
+replaced by the copies below.)*
+
+**Evidence copied since,** on 2026-10-29 by 17:00 and on 2026-10-30 by 11:14, to the same folder:
+
+| File | What |
+|---|---|
+| `Screenshot 2026-10-29 at 2.03.15 PM.png` | 4.1, the drive selected |
+| `Screenshot 2026-10-29 at 2.03.36 PM.png` | 4.2, the *Before you start* sheet |
+| `Screenshot 2026-10-29 at 2.03.51 PM.png` | 4.3, the modal |
+| `Screenshot 2026-10-29 at 2.05.18 PM.png` | 4.3, the Full Disk Access pane, USBDriveTester listed and off |
+| `Screenshot 2026-10-29 at 2.05.40 PM.png` | 4.3, the password prompt |
+| `Screenshot 2026-10-29 at 2.05.52 PM.png` | 4.3, macOS's offer to quit and reopen |
+| `Screenshot 2026-10-29 at 2.08.34 PM.png` | 4.4, the run under way |
+| `Screenshot 2026-10-29 at 2.08.48 PM.png` | 4.4, ⇧⌘D |
+| `Screenshot 2026-10-29 at 4.48.04 PM.png` | 4.5, the report sheet |
+| `Screenshot 2026-10-29 at 5.00.05 PM.png` | 5, the third panel |
+| `usb-drive-test-12345686DAA9-2026-10-29-1408.md` | 5, the report: 3,700 bytes, 3,688 characters |
+| `terminal.txt` | 62,023 bytes, to about 11:13 on 2026-10-30: the 26,994-byte copy, byte for byte, then the rest |
+| `log-stream.txt` | 36,889 lines, 9,788,100 bytes, 2026-10-29 10:05:11 to 2026-10-30 11:13:52: the 15:53 copy's 2,927,696 bytes, byte for byte, then the rest; 54 dropped-message markers, 2 inside the run |
 
 **What it is true of:** the artefact `71393567…`, on macOS 27.0.1 (26A434), on a Mac mini that
 approved `ed695b8f…`'s app on 2026-10-12.
