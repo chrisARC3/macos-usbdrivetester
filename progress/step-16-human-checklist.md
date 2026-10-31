@@ -74,7 +74,7 @@ those approvals. None of them exists on the Mac a user would install it on.
 
 1. **Gatekeeper.** Whether macOS lets a quarantined app that is not notarized and is signed
    *Apple Development* open at all, and in what words. Detailed step 9's release notes quote those
-   words.
+   words. *(The words retired 2026-10-29, by the user's decision that macOS's wording is not recorded — item 1.2.)*
 2. **launchd.** Whether launchd will start the helper inside such an app.
 3. **The provisioning profile.** Whether the helper runs on another Mac at all, since it carries
    `com.apple.application-identifier` with no provisioning profile. *(2026-10-29: risks 2 and 3 were
@@ -133,7 +133,9 @@ repository. There are two Terminal windows and a screenshot habit.
 - **A screenshot of every dialog, sheet and notification** — ⇧⌘4, then Space, then click the
   window. They land on the clean Mac's Desktop, and item 7 moves them into the folder.
   - The wording is recorded **exactly**, because the release notes quote it, and a screenshot is
-    the record that cannot be paraphrased.
+    the record that cannot be paraphrased. *(Retired 2026-10-29 for macOS's wording, by the user's
+    decision — item 1.2: record what happens, not what macOS says. The app's own wording is still
+    recorded exactly.)*
   - *(Added 2026-10-12.)* The screenshots are also what `Quick_Start_Guide.md` is made from. So
     three screens that are not dialogs are asked for too: the main window with the drive selected
     (4.1), Full Disk Access switched on (4.3), and the run under way (4.4). Item 6.5 asks for its
@@ -1240,7 +1242,9 @@ sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-rewalk/btm-after-ap
 
 ## Item 7 — the evidence comes back *(also where a stopped walk goes)*
 
-1. In **window B**, press Ctrl-C.
+1. In **window B**, press Ctrl-C. *(2026-10-30: that ends pid 50500 only. Pid 7525, the suspended first
+   stream, stays until window B closes, so do not type `fg` there, and close window B once step 2 is
+   done. Nothing is lost by it — the Walk record's pause.)*
 2. In **window A**, run each of these:
 
 ```bash
@@ -1248,7 +1252,7 @@ sudo /usr/bin/sfltool dumpbtm > /Users/Shared/USBDriveTester-rewalk/btm-after-ap
 ```
 
 ```bash
-/usr/bin/log show --last 12h --info --style compact --predicate 'subsystem == "com.arc3solutions.USBDriveTester" OR eventMessage CONTAINS[c] "USBDriveTester"' > /Users/Shared/USBDriveTester-rewalk/log-show.txt
+/usr/bin/log show --start '2026-10-29 10:00:00' --info --style compact --predicate 'subsystem == "com.arc3solutions.USBDriveTester" OR eventMessage CONTAINS[c] "USBDriveTester"' > /Users/Shared/USBDriveTester-rewalk/log-show.txt
 ```
 
 ```bash
@@ -1260,6 +1264,11 @@ exit
 ```
 
 The `exit` ends `script`'s recording.
+
+*(`log show` changed 2026-10-30. Until then it read `--last 12h`, right for a walk done in a day. This
+one has run since 2026-10-13, and 12 h would miss items 2–5. It now starts just before window B's
+restarted stream and **Register Helper**, so it is a second copy of whatever the store still holds
+from 2.2 on. The store rotates, so what it holds is a reading, and sooner is better.)*
 
 3. In Finder, move the screenshots from the Desktop into `/Users/Shared/USBDriveTester-rewalk`.
 4. **AirDrop the folder to this Mac.**
@@ -1281,7 +1290,8 @@ never run on:
 
 * **Gatekeeper's verdict, and its dialogs' wording** (items 1.1 and 1.2). They are macOS's, and they
   change with macOS releases. NFR-INST-2's *"no Gatekeeper warning"* is not met by the decision of
-  2026-10-09. These dialogs are what a user sees instead, and the release notes quote them.
+  2026-10-09. These dialogs are what a user sees instead, and the release notes quote them. *(Quoting
+  retired 2026-10-29, by the user's decision — item 1.2.)*
 * **launchd starting a quarantined helper that is not notarized, and the kernel accepting one that
   has no provisioning profile** (item 2.4). On this Mac both have run since Step 3, under approvals
   that were never quarantined. *(2026-10-29: walked at the re-walk's item 2.4 — launchd started the
@@ -1345,6 +1355,29 @@ until then it named `ed695b8f…` alone.)*
 2026-10-29, and items 4 and 5 on 2026-10-30, on this Mac, from the evidence copied mid-walk. The rest of this section is written
 when item 7 brings the whole.* *(Until 2026-10-29 this section was headed "2026-10-13 to
 2026-10-14", and Claude had judged items 0.2–1.3 alone; until 2026-10-30, "2026-10-13 to 2026-10-29".)*
+
+**Where the walk stands — a snapshot, 2026-10-30 about 17:10, as the session that recorded items 4
+and 5 ended.** Next is **item 6**, against `71393567…`: the user said that day to continue with it,
+and nothing newer is built. Whether another artefact and a re-walk follow, now `main` is ahead of
+this one, **has not been put to them**.
+- **On the Mac mini**, unless it has restarted since:
+  - Window A records, `script` pid 4134, into `terminal.txt`. Window B's `log stream`, pid 50500,
+    writes `log-stream.txt`. Both are in `/Users/Shared/USBDriveTester-rewalk/`.
+  - The app is pid 51163 and the helper pid 51076, with Full Disk Access on. disk6, the 1 TB scratch
+    T5, is attached, with `Test_Drive` mounted.
+  - The third save panel is closed, on the user's account. **Done** on the report sheet is not
+    recorded as pressed, and comes before 6.1.
+  - Pid 7525, the suspended first stream, is on window B's terminal with a `kill -INT` queued: item 7.
+  - The report's original is in Documents. The Drop Box holds old copies, among them
+    `log-stream-2026-10-14.txt`, which is **window B's stream to 11:13 under a wrong name**, not the
+    first stream.
+  - `log-show-2.3.txt` and `log-show-button.txt` are still only there.
+- **How evidence comes here:** `/bin/cp -p` into `/Users/christopherkarr/Public/Drop Box/`, then the
+  user copies it from the mounted Drop Box into `USBDriveTester-rewalk/`. **Copy, never move:** moving
+  takes window B's live file with it, twice so far.
+- **Before a new copy lands here,** keep the old one, then check it is an exact prefix of the new one.
+  This Mac holds `log-stream.txt` to 2026-10-30 11:13:52, 9,788,100 bytes, and `terminal.txt`, 62,023
+  bytes.
 
 **The clean Mac:** host `Chris-Mac-mini`, the first walk's; `arm64`; macOS **27.0.1**, build
 **26A434**. The app lists one USB drive, disk6, *Samsung Portable SSD T5 · 1.00 TB · S/N

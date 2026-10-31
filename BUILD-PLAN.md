@@ -2811,7 +2811,7 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
 9. **Release notes — opening an app that is not notarized (added 2026-10-09, user decision).** The
    notes say that the app is signed but not notarized, that macOS refuses its first open, and how to
    open it with *Open Anyway* — in the words of the dialogs the clean-Mac walk records (detailed
-   step 4). *(Recorded 2026-10-12 on macOS 27.0.1: the checklist's items 1.1 and 1.2. In both dialogs the default button is **Move to Trash**, so the notes must name the button to press. A copy sent over SMB arrived with no quarantine — item 0.3's first copy, which was not opened.)*
+   step 4). *(2026-10-29, the user's decision: macOS's wording is not recorded, so the notes describe what happens and do not quote the dialogs. How that squares with naming the button to press, below, is chunk 6's to settle with the user.)* *(Recorded 2026-10-12 on macOS 27.0.1: the checklist's items 1.1 and 1.2. In both dialogs the default button is **Move to Trash**, so the notes must name the button to press. A copy sent over SMB arrived with no quarantine — item 0.3's first copy, which was not opened.)*
 
    **And what the log names (added 2026-10-09, user decision).** The app and the helper write
    drives' serial numbers, model names and volume names to the unified log **unredacted**
@@ -2826,7 +2826,7 @@ Code-sign both the app and the helper, enable the hardened runtime, and notarize
     without the anchor can be met by a home-made certificate. The requirement's text is corrected
     to the code; the code is not touched, so the helper source hash does not move.
 11. **A Quick Start Guide (added 2026-10-12, user decision).** `Quick_Start_Guide.md`, in
-    Markdown at the repository's root, written at chunk 6 from what the clean-Mac walk records.
+    Markdown at the repository's root, written at chunk 6 from what the clean-Mac walk records. *(2026-10-29, the user's decision: never macOS's wording.)*
     - It covers the requirements (an Apple-silicon Mac on macOS 26 or later — the build's minimum
       — and an administrator account); the first open and *Open Anyway*; registering and approving
       the helper; granting Full Disk Access; a run and its report; the export; and the uninstall,
