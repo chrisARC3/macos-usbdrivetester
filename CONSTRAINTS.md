@@ -1325,7 +1325,10 @@ checklist's record of it. The counts are in this paragraph's commit.)*
   drive arriving took it from 588 to 600 in 78 ms, top edge kept, the way Start takes it to 614. A
   floor that **fell** did not shrink it: with a drive gone it stayed at 600 until dragged. The running
   floor read **615** — 1 pt above `starting`'s and 15 above `running`'s, the relation 2026-09-22's
-  557 had — and the probe still does not explain it.)*
+  557 had — and the probe still does not explain it.)* *(2026-10-30, a candidate and not a measurement: the
+  frozen-list note. It took two lines on the running window in Step 16's re-walk, every run on a
+  mounted drive would show it, and `ui-probe` never renders it. Step 16's cosmetic fix makes it one
+  line, so the next build's running floor would test this; nothing has measured it yet.)*
 - **`.defaultSize` sizes the window's *frame* on macOS 27, not its content** (measured 2026-09-22,
   Step 11's chunk 9, Xcode 27.0 27A266a / macOS 27.0 26A428). `.defaultSize(width: 720, height: 700)`
   opens a **720 × 700 frame** — 668 pt of content, short by exactly the 32 pt title bar. Same family

@@ -6,7 +6,8 @@
 > 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
 > LOG STREAM NOR THE PERSISTED LOG HOLDS, AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3;
 > ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 ARE NOT YET WALKED.** It is on the
-> Mac mini the first walk used. *(Until chunk 5f's approval, the same day, the status said "AND NOT
+> Mac mini the first walk used. **`main` is ahead of the artefact below since 2026-10-30: `PROGRESS.md`'s *Owed* (r)
+> and (s) are fixed in source, so this walk describes `71393567…`, not `main`.** *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
@@ -992,7 +993,8 @@ Screenshot it, then close the window.
   R-W-R-C 115 MB/s as readings.
 - Window B: `uninstall requested (runIsActive=true)` and `uninstall refused: a run is active`, both
   at 14:08:43.557. Screenshot 14:08:48: ⇧⌘D with both messages. The run went on, item 4.5.
-- *Finding, cosmetic; reported, not fixed — `PROGRESS.md`, *Owed* (s).* The 14:08:34 screenshot's
+- *Finding, cosmetic; reported, not fixed — `PROGRESS.md`, *Owed* (s). (Fixed in source 2026-10-30, by the
+  user's decision, after this artefact, which still shows it.)* The 14:08:34 screenshot's
   frozen-list note reads *"Devices have connected or disconnected since it started"*, and nothing was
   plugged in or unplugged, on the user's account. The log shows the run's own claim doing it: the
   run unmounted `disk6s2` at 14:08:05.805, slices `disk6s1` and `disk6s2` disappeared at .815, and
@@ -1087,13 +1089,17 @@ LC_ALL=en_US.UTF-8 /usr/bin/wc -m /Users/Shared/USBDriveTester-rewalk/usb-drive-
 
 *(Until 2026-10-30: "The file is there, at that size:", with the `ls` alone. No report can pass
 that, because every one holds an em dash. Reworded by the user's decision the same day, which left
-the code alone.)*
+the code alone.)* *(Later the same day the user had the line fixed as well, `PROGRESS.md`'s *Owed*
+(r). So this wording is true of `71393567…` and of no build after that date: there `<N>` is the file's
+size in bytes, and the `ls` alone checks it.)*
 
 Then press **Done**.
 
 **Record:** ✅ **Passed 2026-10-29, on the panel, the log line and the file, with a departure: the
-report is not in the evidence folder, and where the panel saved it is not established.** It saved
-under the hardened runtime without the dropped entitlement, which is what this item is for.
+report was saved to the Mac mini's Documents folder, on the user's account, and not to the evidence
+folder.** It saved under the hardened runtime without the dropped entitlement, which is what this
+item is for. *(Until the user's answer, 2026-10-30: "the report is not in the evidence folder, and
+where the panel saved it is not established".)*
 - **The panel.** Screenshot 17:00:05: the title and the message. It is the third panel, not the one
   that saved, and its field cuts the name at `usb-drive-test-12345686DAA9-202…`. The saved file's
   whole name, `usb-drive-test-12345686DAA9-2026-10-29-1408.md`, fits the pattern.
@@ -1102,12 +1108,17 @@ under the hardened runtime without the dropped entitlement, which is what this i
   `export FAILED` has 0 lines, against 2 for `run report export`.
 - **The file,** as copied to this Mac: 3,700 bytes, 3,688 characters, modified 16:48:55. Its six `—`,
   `–` and `≤` account for the 12 bytes: `<N>` counts characters. **Item 5's check is reworded for
-  that, and the code left alone, by the user's decision 2026-10-30** — `PROGRESS.md`, *Owed* (r).
+  that, and the code left alone, by the user's decision 2026-10-30** — `PROGRESS.md`, *Owed* (r). *(Later
+  the same day the user had the code fixed as well, after this artefact.)*
 - **The departure.**
+  - The user's answer, 2026-10-30: saved to the local Documents folder, copied to their Drop Box, and
+    copied from there to this Mac's evidence folder, over the mounted Drop Box.
+  - It fits: the third panel opened at Documents, and the code sets no directory
+    (`RunReportView.swift`).
   - `ls` in window A by about 17:13, and again 2026-10-30, lists no `usb-drive-test-…`.
-  - `mdfind -name usb-drive-test-12345686DAA9`, 2026-10-30 17:08:14, printed no path. No control was
-    run, so that is no reading of absence.
-  - The third panel opened at Documents, and the code sets no directory (`RunReportView.swift`).
+  - `mdfind -name usb-drive-test-12345686DAA9`, 2026-10-30 17:08:14, printed no path, although the
+    file is there on that account. No control was run, so the blank is a blank instrument, not a
+    reading.
 - **Two more panels.** One was cancelled at 16:59:59.111. The screenshot's was open at 17:00:05, and
   the stream copy here, to 2026-10-30 11:13:52, holds no line closing it. The user reports closing it
   on 2026-10-30.
@@ -1288,6 +1299,12 @@ never run on:
   `Quick_Start_Guide.md` is to. Until the user's rule later that day the first sentence said
   "Every build since 2026-09-16 has run on macOS 27 only".)*
 
+* **That `run report exported` prints the count `write` returns** *(added 2026-10-30, the two
+  cosmetic fixes)*. The test holds `RunReportExport.write`'s returned count against the file's size,
+  and nothing in the suite reads the log, so mutant **M3**, the line alone printing `markdown.count`,
+  passed all 1350, as predicted. **What a person checks instead**, on any build after that date: the
+  line's `<N>` against the `ls` size in item 5.
+
 * **Which witness the running app passes to the gate** *(added 2026-10-12, Step 16's chunk 5c)*.
   `AppModel.refreshHelperAvailability()` reads whether the daemon's plist is in the bundle and
   hands it to `HelperAvailability.diagnose`. No test drives that method, so a constant there
@@ -1437,8 +1454,9 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 - In 4.3 the user took macOS's offer to quit and reopen at the first grant, and step 7 was walked
   on a second grant. The re-walk planned for after item 5 was dropped by the user's decision the
   same day — the item's record. That relaunch made `N` 51163.
-- Item 5's report is not in the evidence folder, and two more panels opened after the save, the
-  third staying open until 2026-10-30 — the item's record.
+- Item 5's report was saved to Documents, not the evidence folder, and two more panels opened after
+  the save, the third staying open until 2026-10-30 — the item's record. *(Until the user's answer,
+  2026-10-30: "is not in the evidence folder".)*
 - Window B's `log-stream.txt` was moved twice while the stream wrote to it, and put back each time.
   On 2026-10-29 it went to `~/Public/Drop Box`, a slip the user reported, and was back by about 17:13.
   On 2026-10-30, following Claude's instruction, which assumed the old deleted file was still in the
@@ -1504,7 +1522,8 @@ replaced by the copies below.)*
 | `log-stream.txt` | 36,889 lines, 9,788,100 bytes, 2026-10-29 10:05:11 to 2026-10-30 11:13:52: the 15:53 copy's 2,927,696 bytes, byte for byte, then the rest; 54 dropped-message markers, 2 inside the run |
 
 **What it is true of:** the artefact `71393567…`, on macOS 27.0.1 (26A434), on a Mac mini that
-approved `ed695b8f…`'s app on 2026-10-12.
+approved `ed695b8f…`'s app on 2026-10-12. Not of `main` since 2026-10-30, which carries the two
+cosmetic fixes.
 
 ### 2026-10-12 — walked on a Mac mini on macOS 27.0.1, and stopped at item 2.1
 

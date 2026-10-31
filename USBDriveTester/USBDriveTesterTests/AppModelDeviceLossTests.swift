@@ -74,8 +74,8 @@ struct AppModelDeviceLossTests {
     }
 
     /// A frozen-and-deferred change is a different mechanism from this one, and the rebuild must
-    /// not leave discovery believing an update is still owed — the list header would go on saying
-    /// devices had connected or disconnected since the run started, about a change it has applied.
+    /// not leave discovery believing an update is still owed — the run's end would rebuild the list
+    /// again, for a change it has applied.
     @Test func theRebuildClearsTheDeferredChangeItJustApplied() {
         let (model, source) = bench([DeviceFixtures.testDrive, DeviceFixtures.largeDrive])
         model.discovery.setRunActive(true)
@@ -85,7 +85,6 @@ struct AppModelDeviceLossTests {
         model.deviceUnderTestWasLost()
 
         #expect(!model.discovery.hasPendingChange)
-        #expect(model.discovery.freezeExplanation?.contains("Devices have connected") != true)
     }
 
     /// The selection is re-derived rather than left naming a drive that is no longer there.

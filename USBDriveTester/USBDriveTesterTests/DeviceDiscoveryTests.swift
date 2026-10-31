@@ -320,6 +320,21 @@ struct DeviceDiscoveryTests {
         #expect(store.freezeExplanation?.contains("run is in progress") == true)
     }
 
+    /// **The note claims nothing about what arrived.** The event that sets `hasPendingChange` may be
+    /// the run's own claim, unmounting the drive under test with the device set unchanged, so a note
+    /// that reads the flag says drives came and went when none did (Step 16's re-walk, 2026-10-29).
+    @Test func aFrozenListSaysTheSameThingWhenAnEventArrives() {
+        let (store, source) = makeStore([DeviceFixtures.testDrive])
+        store.start()
+        store.setRunActive(true)
+        let before = store.freezeExplanation
+
+        source.simulateChange(to: [DeviceFixtures.testDrive])
+
+        #expect(store.hasPendingChange, "the event did not reach the store, so this proves nothing")
+        #expect(store.freezeExplanation == before)
+    }
+
     /// Discarding the event rather than deferring it leaves the list wrong for the
     /// rest of the session. It must catch up the moment it is allowed to.
     @Test func changesDeferredDuringARunAreAppliedWhenItEnds() {

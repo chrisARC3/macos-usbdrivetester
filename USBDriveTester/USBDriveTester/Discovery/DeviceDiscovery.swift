@@ -50,7 +50,10 @@ final class DeviceDiscovery {
     /// Whether discovery is currently frozen because a run is in progress.
     private(set) var isRunActive = false
 
-    /// Set when a hot-plug event arrives while frozen, so it can be applied on unfreeze.
+    /// Set when any device event arrives while frozen, so it can be applied on unfreeze.
+    ///
+    /// **It means the list needs rebuilding, not that a drive came or went.** A run's own claim sets
+    /// it, by unmounting the drive under test and taking its slices.
     private(set) var hasPendingChange = false
 
     // A `selectionSyncToken` lived here on 2026-08-05: a counter bumped on every declined
@@ -275,12 +278,13 @@ final class DeviceDiscovery {
     // MARK: - Presentation
 
     /// Why the list is not currently updating itself, or `nil` when it is.
+    ///
+    /// **One sentence, whatever has arrived.** Until 2026-10-30 ``hasPendingChange`` swapped in
+    /// *"Devices have connected or disconnected since it started"*, which that flag cannot support:
+    /// a run's own claim sets it, so the sentence showed on a run with nothing plugged in or
+    /// unplugged (Step 16's re-walk, 2026-10-29; `PROGRESS.md`, *Owed* (s)).
     var freezeExplanation: String? {
-        guard isRunActive else { return nil }
-        return hasPendingChange
-            ? "A run is in progress, so the list is frozen. Devices have connected or "
-            + "disconnected since it started; the list updates when the run ends."
-            : "A run is in progress, so the list will not update until it ends."
+        isRunActive ? "A run is in progress, so the list will not update until it ends." : nil
     }
 
     /// Summary line for the list header.

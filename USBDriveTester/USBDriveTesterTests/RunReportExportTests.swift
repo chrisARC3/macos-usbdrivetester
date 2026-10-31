@@ -95,6 +95,21 @@ struct RunReportExportTests {
         #expect(written == RunReportMarkdown.render(report))
     }
 
+    /// **The count the export logs is the file's size in bytes.** It logged characters until
+    /// 2026-10-30, and read 12 low on a 3,700-byte report (Step 16's re-walk, item 5). The last line
+    /// is the control: a report with no multi-byte character could not tell the two apart.
+    @Test func theCountAnExportLogsIsTheFileSizeInBytes() throws {
+        let url = Self.temporaryURL()
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let report = Self.report()
+        let logged = try RunReportExport.write(report, to: url)
+
+        let onDisk = try FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int
+        #expect(logged == onDisk)
+        #expect(logged > RunReportMarkdown.render(report).count)
+    }
+
     /// The claims that must survive the trip to disk. A report is read again months later with no
     /// memory of the session, so the qualification and the identity have to be *in the file*.
     @Test func theWrittenFileCarriesTheQualificationAndTheIdentity() throws {

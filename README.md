@@ -187,6 +187,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Login Items…* press is not in the log"; until the persisted log was read, the same day, "which the log
 > stream does not hold"; until the button's walk, the same day, without ", and the button
 > passed when walked again after item 3"; and until the record of items 4 and 5, 2026-10-30, without "its items 4 and 5 passed 2026-10-29, both with departures".)*
+> **`main` is ahead of that artefact since 2026-10-30: *Owed* (r) and (s) are fixed in source, by the user's decision, and neither fix is in `71393567…`.**
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the
@@ -218,8 +219,8 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > **Nothing is distributed until the whole plan is complete** (Step 16). There is no preview
 > build and no notarized release; every build so far runs on the author's machine.
 >
-> Current verified state, on Xcode 27.0 since 2026-09-19: **1348 tests / 162 suites / 0 failures**
-> (floor 1348, green 2026-10-12 on Step 16's chunk 5c — 1339 / 160 / 0 on its chunk 2, 2026-10-09,
+> Current verified state, on Xcode 27.0 since 2026-09-19: **1350 tests / 162 suites / 0 failures**
+> (floor 1350, green 2026-10-30 on Step 16's two cosmetic fixes — 1348 / 162 / 0 on its chunk 5c, 2026-10-12; 1339 / 160 / 0 on its chunk 2, 2026-10-09,
 > and on Step 15's chunk 4, 2026-10-01; 1330 / 158 / 0 on Step 15's chunk 3, 2026-09-30, and
 > 1323 / 157 / 0 before that), zero source warnings from three clean builds, **14/14** gate clients type-checking
 > and warning-free, all four hardware gates passing against the Xcode 27 helper, XPC protocol v15

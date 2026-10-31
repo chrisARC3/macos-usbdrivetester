@@ -591,17 +591,26 @@ enum RunReportExport {
     /// and also puts a window on screen cannot be exercised anywhere a window would be wrong,
     /// and the failure path is precisely the one worth exercising. The panel above owns the UI;
     /// this owns the file.
-    static func write(_ report: RunReport, to url: URL) throws {
+    ///
+    /// - Returns: the bytes written, the figure the log line prints. Returned so a test can hold that
+    ///   figure against the file's size, because nothing in the suite can read the log.
+    @discardableResult
+    static func write(_ report: RunReport, to url: URL) throws -> Int {
         let markdown = RunReportMarkdown.render(report)
         do {
             try markdown.write(to: url, atomically: true, encoding: .utf8)
+            // **`utf8.count`, not `count`.** `count` is characters, and every report holds an em dash:
+            // artefact `71393567…` logged 3688 "bytes" for a 3,700-byte file (Step 16's re-walk, item
+            // 5; `PROGRESS.md`, *Owed* (r)).
+            let byteCount = markdown.utf8.count
             // Addressing and outcome only — never device contents, and never the file's
             // contents (NFR-SEC-6). The path is the user's own choice and is theirs to see.
             reportLog.notice("""
                              run report exported: outcome \(report.outcome.headline, privacy: .public); \
                              drive serial \(report.device.usbSerialNumber ?? "none", privacy: .public); \
-                             \(markdown.count, privacy: .public) bytes
+                             \(byteCount, privacy: .public) bytes
                              """)
+            return byteCount
         } catch {
             reportLog.error("""
                             run report export FAILED: \(error.localizedDescription, privacy: .public)
