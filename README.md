@@ -187,7 +187,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Login Items…* press is not in the log"; until the persisted log was read, the same day, "which the log
 > stream does not hold"; until the button's walk, the same day, without ", and the button
 > passed when walked again after item 3"; until the record of items 4 and 5, 2026-10-30, without "its items 4 and 5 passed 2026-10-29, both with departures"; and until the record of items 6 and 7, 2026-10-31, "and the rest the user's walk there".)*
-> **`main` is ahead of that artefact since 2026-10-30: *Owed* (r) and (s) are fixed in source, by the user's decision, and neither fix is in `71393567…`.**
+> **`main` is ahead of that artefact since 2026-10-30: *Owed* (r) and (s) are fixed in source, by the user's decision, and neither fix is in `71393567…`.** **The user decided 2026-11-01 to finish on that artefact, so no other is built, nothing is re-walked, and the release ships without both fixes.** *(Until that decision, without that sentence.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
 > and the instrument was rewritten — and chunk 2 was part-walked. Those passes were facts about the

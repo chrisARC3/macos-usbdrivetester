@@ -1,19 +1,19 @@
 # Step 16 — the human checklist
 
-> **STATUS, 2026-10-31: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
+> **STATUS, 2026-11-01: RE-CUT AT CHUNK 5e FOR THE RE-WALK; THE RE-WALK, CHUNK 5f, APPROVED BY THE
 > USER 2026-10-13 — ITEM 0.1 PASSED ON THIS MAC; ITEMS 0.2–3 WALKED 2026-10-13, 14 AND 29, WHERE 0.2'S
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
 > 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
 > LOG STREAM NOR THE PERSISTED LOG HOLDS, AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3;
 > ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 PASSED 2026-10-31, ITEM 7 WITH DEPARTURES AND ITS LAST STEP, THE 1 TB SCRATCH T5'S RETURN, STILL OPEN.** It is on the
 > Mac mini the first walk used. **`main` is ahead of the artefact below since 2026-10-30: `PROGRESS.md`'s *Owed* (r)
-> and (s) are fixed in source, so this walk describes `71393567…`, not `main`.** *(Until chunk 5f's approval, the same day, the status said "AND NOT
+> and (s) are fixed in source, so this walk describes `71393567…`, not `main`.** **The user decided 2026-11-01 to finish on that artefact, so no other is built, nothing is re-walked, and the release ships without both fixes.** *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
 > user's approval before it starts.")* *(Until 2026-10-14 it was dated 2026-10-13 and said
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* *(Until the record of items 6 and 7, 2026-10-31, it was dated 2026-10-30 and said "ITEMS 6 AND 7 ARE NOT YET WALKED".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* *(Until the record of items 6 and 7, 2026-10-31, it was dated 2026-10-30 and said "ITEMS 6 AND 7 ARE NOT YET WALKED".)* *(Until the user's decision on the artefact, 2026-11-01, it was dated 2026-10-31, without the sentence saying so.)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
 > re-walk at chunk 5e, and 0.1–7's are filled in. *(Until 2026-10-14: "Every item's **Record:**
@@ -1359,6 +1359,8 @@ the Walk record.)*
 **Record:** ✅ **Passed 2026-10-31, against `71393567…`, on both its checks, with three commands explained
 and the departures in the Walk record. Step 5, the 1 TB scratch T5's return, is open, at Claude's request:
 the user's decision on the artefact settles whether the drive comes back for 5g or stays for a re-walk.**
+*(2026-11-01: the user decided to finish on this artefact, so the drive comes back for 5g. Step 5 stays open
+until it is back.)*
 - **Window B.** Ctrl-C by 13:34:05, the file's last write: `log-stream.txt`, 52,350 lines, 12,589,671
   bytes. `ps` then found 50500 gone and 7525 in state `T`, and once the window closed, 7525 gone.
 - **Window A.** `launchctl-end.txt` at 13:35, *Could not find service*. `log-show.txt` by 13:37:
@@ -1472,6 +1474,10 @@ record's close, and item 7's step 5, which waits for it. 5g and chunk 6 follow.
   - `/Users/Shared/USBDriveTester-rewalk/` holds its files. The Drop Box holds copies, and still the
     misnamed `log-stream-2026-10-14.txt`.
 - **On this Mac,** `USBDriveTester-rewalk/` at the repository's root holds the whole evidence, untracked.
+
+*(2026-11-01: the first of that snapshot's two open things is closed. The user decided, *"Finish on
+71393567…"*, so no other artefact is built and nothing is re-walked. Item 7's step 5 is what is open; then
+5g and chunk 6. The Mac mini was not read again for this note.)*
 
 **Where the walk stands — a snapshot, 2026-10-30 about 17:10, as the session that recorded items 4
 and 5 ended.** Next is **item 6**, against `71393567…`: the user said that day to continue with it,
@@ -1650,7 +1656,7 @@ button's walk's from `log-show-button.txt`, on the store's clock.
   user's rule. **The evidence stays in `USBDriveTester-rewalk/`, untracked**, by the user's word on
   2026-10-31, and not in `USBDriveTester-evidence/step-16/`.
 - Step 5 of item 7 is held back: the walk says bring the drive home, and the artefact decision comes
-  first.
+  first. *(2026-11-01: it came, finish on this artefact, so the drive comes home.)*
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:
