@@ -5,7 +5,7 @@
 > `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 1.1 IS A REFUSAL, AND 0.3, 0.4, 1.2,
 > 1.3, 2.1–2.4 AND 3 PASSED — 2.3'S OPEN LOGIN ITEMS… PRESS ON THE USER'S ACCOUNT, WHICH NEITHER THE
 > LOG STREAM NOR THE PERSISTED LOG HOLDS, AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3;
-> ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 PASSED 2026-10-31, ITEM 7 WITH DEPARTURES AND ITS LAST STEP, THE 1 TB SCRATCH T5'S RETURN, STILL OPEN.** It is on the
+> ITEMS 4 AND 5 PASSED 2026-10-29, BOTH WITH DEPARTURES; ITEMS 6 AND 7 PASSED 2026-10-31, ITEM 7 WITH DEPARTURES, AND ITS LAST STEP, THE 1 TB SCRATCH T5'S RETURN, DONE 2026-11-01.** It is on the
 > Mac mini the first walk used. **`main` is ahead of the artefact below since 2026-10-30: `PROGRESS.md`'s *Owed* (r)
 > and (s) are fixed in source, so this walk describes `71393567…`, not `main`.** **The user decided 2026-11-01 to finish on that artefact, so no other is built, nothing is re-walked, and the release ships without both fixes.** *(Until chunk 5f's approval, the same day, the status said "AND NOT
 > YET RE-WALKED. The re-walk is chunk 5f, on the Mac mini the first walk used, and it needs the
@@ -13,7 +13,7 @@
 > "APPROVED BY THE USER THE SAME DAY — ITEM 0.1 PASSED ON THIS MAC, AND THE REST IS NOT YET
 > WALKED.")* *(Until 2026-10-29 it was dated 2026-10-14 and said "ITEMS 0.2–1.3 WALKED 2026-10-13
 > AND 14, WHERE 0.2'S `ls` ROW FAILED AND THE WALK WENT ON BY THE USER'S DECISION, 0.3, 0.4, 1.2 AND
-> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* *(Until the record of items 6 and 7, 2026-10-31, it was dated 2026-10-30 and said "ITEMS 6 AND 7 ARE NOT YET WALKED".)* *(Until the user's decision on the artefact, 2026-11-01, it was dated 2026-10-31, without the sentence saying so.)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
+> 1.3 PASSED, AND 1.1 IS A REFUSAL; THE REST IS NOT YET WALKED.")* *(Until the user's answers, the same day: "2.3 WITHOUT THE GATE'S OPEN LOGIN ITEMS… PRESS, WHICH THE LOG DOES NOT HOLD".)* *(Until the persisted log was read, the same day: "WHICH THE LOG STREAM DOES NOT HOLD".)* *(Until the button's walk, the same day, without ", AND THE BUTTON PASSED WHEN WALKED AGAIN AFTER ITEM 3".)* *(Until the record of items 4 and 5, 2026-10-30, it was dated 2026-10-29 and said "ITEMS 4–7 ARE NOT YET WALKED".)* *(Until the record of items 6 and 7, 2026-10-31, it was dated 2026-10-30 and said "ITEMS 6 AND 7 ARE NOT YET WALKED".)* *(Until the user's decision on the artefact, 2026-11-01, it was dated 2026-10-31, without the sentence saying so.)* *(Until the drive's return, the same day: "AND ITS LAST STEP, THE 1 TB SCRATCH T5'S RETURN, STILL OPEN".)* It walks the release artefact `build/release/6642488/USBDriveTester-1.0-1-6642488.zip`,
 > sha256 `71393567…`, built at chunk 5d from `6642488`: protocol v16, helper source hash
 > `36c3a9e1…`, with chunk 5c's gate fix in it. Every item's **Record:** line was emptied for the
 > re-walk at chunk 5e, and 0.1–7's are filled in. *(Until 2026-10-14: "Every item's **Record:**
@@ -1360,7 +1360,7 @@ the Walk record.)*
 and the departures in the Walk record. Step 5, the 1 TB scratch T5's return, is open, at Claude's request:
 the user's decision on the artefact settles whether the drive comes back for 5g or stays for a re-walk.**
 *(2026-11-01: the user decided to finish on this artefact, so the drive comes back for 5g. Step 5 stays open
-until it is back.)*
+until it is back.)* *(Later on 2026-11-01: it is back, the last bullet below.)*
 - **Window B.** Ctrl-C by 13:34:05, the file's last write: `log-stream.txt`, 52,350 lines, 12,589,671
   bytes. `ps` then found 50500 gone and 7525 in state `T`, and once the window closed, 7525 gone.
 - **Window A.** `launchctl-end.txt` at 13:35, *Could not find service*. `log-show.txt` by 13:37:
@@ -1383,6 +1383,13 @@ until it is back.)*
   previous `log-stream.txt`, 9,788,100 bytes, and `terminal.txt`, 62,023 bytes, are exact byte prefixes of
   these.
 - *What it is true of:* these files, by those hashes.
+- **Step 5, done 2026-11-01.** The user's `diskutil list external physical` on this Mac, pasted, reads
+  `/dev/disk9`, *1.0 TB, with `Test_Drive`, 1000.0 GB, on disk9s2. `/Volumes/Test_Drive` was there at
+  11:20:50, and `/Volumes` had last changed at 11:19. **Not read yet: the USB serial.** The drive is the
+  1 TB scratch T5 by its size and volume name until 5g's first gate resolves it by serial. **Not
+  recorded: the eject on the Mac mini.** Its output did not come back, and the record is the user's
+  *"T5 is back"*. *What it is true of:* that listing, that day; a BSD name moves at a replug, so nothing
+  relies on disk9. Disk6 in the 2026-10-31 snapshot is the Mac mini's numbering, not this Mac's.
 
 ---
 
@@ -1452,14 +1459,22 @@ it. Name the clean Mac by its model and macOS version, and every pass by the art
 until then it named `ed695b8f…` alone.)*
 
 
-### 2026-10-13 to 2026-10-31 — the re-walk, on the same Mac mini, on macOS 27.0.1 *(item 7's last step open)*
+### 2026-10-13 to 2026-11-01 — the re-walk, on the same Mac mini, on macOS 27.0.1
 
 *The user walked it. Claude judged items 0.2–1.3 on 2026-10-14, items 2 and 3 on 2026-10-29, items 4
 and 5 on 2026-10-30, and items 6 and 7 on 2026-10-31, on this Mac, from the evidence copied mid-walk and
 then from the whole of it.* *(Until 2026-10-29 this section was headed "2026-10-13 to
 2026-10-14", and Claude had judged items 0.2–1.3 alone; until 2026-10-30, "2026-10-13 to 2026-10-29"; until
 the record of items 6 and 7, 2026-10-31, "2026-10-13 to 2026-10-30 … *(in progress)*", and this line said
-"The user is walking it" and "The rest of this section is written when item 7 brings the whole.")*
+"The user is walking it" and "The rest of this section is written when item 7 brings the whole."; until
+the drive's return, 2026-11-01, "2026-10-13 to 2026-10-31 … *(item 7's last step open)*".)*
+
+**Where the walk stands — a snapshot, 2026-11-01 about 11:30, as the 1 TB scratch T5 came back.** The walk
+is closed, on `71393567…`, the artefact the user decided to finish on. Nothing of it is open. **Next is 5g,
+the install here and the four hardware gates, which needs the user's approval;** then chunk 6.
+- **On the Mac mini:** as the 2026-10-31 snapshot below says, less the drive. It was not read again.
+- **On this Mac:** the 1 TB scratch T5 at disk9, with `Test_Drive` mounted, and the whole evidence in
+  `USBDriveTester-rewalk/`, untracked. Installed here is still `ed695b8f…`, until 5g.
 
 **Where the walk stands — a snapshot, 2026-10-31 about 14:00, as items 6 and 7 were recorded.** Items
 0–7 are walked. **Two things are open:** the user's decision on another artefact, put to them at this
@@ -1591,6 +1606,7 @@ button's walk's from `log-show-button.txt`, on the store's clock.
 | 13:35 | `launchctl-end.txt` |
 | 13:37 | `log-show.txt` finished |
 | 13:42:51 | `Script done`, window A |
+| 2026-11-01 11:19 | `/Volumes` last changed on this Mac, by `ls`; `Test_Drive` is there at 11:20:50 — item 7's step 5 |
 
 **Where the walk departed from this file, so far:**
 - 0.2's `ls` failed, and the walk went on past it before it was seen — the item's record.
@@ -1656,7 +1672,7 @@ button's walk's from `log-show-button.txt`, on the store's clock.
   user's rule. **The evidence stays in `USBDriveTester-rewalk/`, untracked**, by the user's word on
   2026-10-31, and not in `USBDriveTester-evidence/step-16/`.
 - Step 5 of item 7 is held back: the walk says bring the drive home, and the artefact decision comes
-  first. *(2026-11-01: it came, finish on this artefact, so the drive comes home.)*
+  first. *(2026-11-01: it came, finish on this artefact, so the drive comes home. It did, the same day.)*
 
 **Evidence so far**, copied to this Mac 2026-10-14 at about 15:20, to
 `/Volumes/1TB_UGreen/AI_Stuff/claude-code-folder/USBDriveTester-rewalk/`:

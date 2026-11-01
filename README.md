@@ -171,7 +171,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > Mac mini, was approved the same day, its item 0.1 passing on this Mac and its items 0.2–3
 > walked there 2026-10-13, 14 and 29 (item 0.2's `ls` row failed, and the walk went on by the
 > user's decision; item 2.3's *Open Login Items…* press rests on the user's account, which neither the log stream
-> nor the persisted log holds, and the button passed when walked again after item 3), its items 4 and 5 passed 2026-10-29, both with departures, and its items 6 and 7 passed 2026-10-31, item 7's last step, the 1 TB scratch T5's return, still open — and that further testing
+> nor the persisted log holds, and the button passed when walked again after item 3), its items 4 and 5 passed 2026-10-29, both with departures, and its items 6 and 7 passed 2026-10-31, the 1 TB scratch T5 coming back 2026-11-01, and chunk 5g, the install and the hardware gates here, is next and needs approval — and that further testing
 > is on macOS 27 (*Requirements*, below). Until chunk 4's first commit this said chunk 4 "is next"; until its second, "two of
 > the four hardware gates have passed on it, the other two running"; until chunk 5a, "Chunk 5, the
 > walk on a clean second Mac, is next"; until 2026-10-12, "chunk 5b, the walk itself, is
@@ -186,7 +186,7 @@ just read from it. No test patterns, no known-value overwrites, no scratch areas
 > walked there 2026-10-13 and 14"; until the user's answers, the same day, "item 2.3's *Open
 > Login Items…* press is not in the log"; until the persisted log was read, the same day, "which the log
 > stream does not hold"; until the button's walk, the same day, without ", and the button
-> passed when walked again after item 3"; until the record of items 4 and 5, 2026-10-30, without "its items 4 and 5 passed 2026-10-29, both with departures"; and until the record of items 6 and 7, 2026-10-31, "and the rest the user's walk there".)*
+> passed when walked again after item 3"; until the record of items 4 and 5, 2026-10-30, without "its items 4 and 5 passed 2026-10-29, both with departures"; until the record of items 6 and 7, 2026-10-31, "and the rest the user's walk there"; and until the drive's return, 2026-11-01, "item 7's last step, the 1 TB scratch T5's return, still open", without chunk 5g.)*
 > **`main` is ahead of that artefact since 2026-10-30: *Owed* (r) and (s) are fixed in source, by the user's decision, and neither fix is in `71393567…`.** **The user decided 2026-11-01 to finish on that artefact, so no other is built, nothing is re-walked, and the release ships without both fixes.** *(Until that decision, without that sentence.)*
 > Before the pause, item 0 passed on 2026-09-13 and
 > chunk 1 on 2026-09-18, on its third walk — the first could not show the reading it was asked for,
